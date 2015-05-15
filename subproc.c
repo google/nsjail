@@ -23,6 +23,7 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <sched.h>
 #include <signal.h>
@@ -44,12 +45,12 @@
 #include "net.h"
 #include "sandbox.h"
 
-static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_err)
+static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_err, int pipefd)
 {
 	if (containPrepareEnv(nsjconf) == false) {
 		exit(1);
 	}
-	if (containSetupFD(nsjconf, fd_in, fd_out, fd_err) == false) {
+	if (containSetupFD(nsjconf, fd_in, fd_out, fd_err, pipefd) == false) {
 		exit(1);
 	}
 	if (containMountFS(nsjconf) == false) {
@@ -81,8 +82,10 @@ static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int 
 		LOG_D(" Arg[%d]: '%s'", i, nsjconf->argv[i]);
 	}
 	execve(nsjconf->argv[0], &nsjconf->argv[0], env);
-	PLOG_F("execve('%s')", nsjconf->argv[0]);
-	exit(1);
+
+	PLOG_E("execve('%s') failed", nsjconf->argv[0]);
+
+	_exit(1);
 }
 
 static void subprocAdd(struct nsjconf_t *nsjconf, pid_t pid, int sock)
@@ -135,7 +138,9 @@ void subprocDisplay(struct nsjconf_t *nsjconf)
 	struct pids_t *p;
 	LIST_FOREACH(p, &nsjconf->pids, pointers) {
 		time_t diff = now - p->start;
-		LOG_I("PID: %d, Remote host: %s, Run time: %ld sec.", p->pid, p->remote_txt, (long)diff);
+		time_t left = nsjconf->tlimit ? nsjconf->tlimit - diff : 0;
+		LOG_I("PID: %d, Remote host: %s, Run time: %ld sec. (time left: %ld sec.)", p->pid, p->remote_txt,
+		      (long)diff, (long)left);
 	}
 }
 
@@ -201,9 +206,15 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 
 	LOG_D("Creating new process with clone flags: %#x", flags);
 
+	int pipefd[2];
+	if (pipe2(pipefd, O_CLOEXEC) == -1) {
+		PLOG_E("pipe2(pipefd, O_CLOEXEC) failed");
+		return;
+	}
+
 	pid_t pid = syscall(__NR_clone, flags, NULL, NULL, NULL, 0);
 	if (pid == 0) {
-		subprocNewProc(nsjconf, fd_in, fd_out, fd_err);
+		subprocNewProc(nsjconf, fd_in, fd_out, fd_err, pipefd[1]);
 	}
 	if (pid == -1) {
 		PLOG_E("clone(flags=%#x) failed. You probably need root privileges if your system "
@@ -211,6 +222,16 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 		       "kernel with support for namespaces", flags);
 		return;
 	}
+
+	char log_buf[4096];
+
+	ssize_t sz;
+	while ((sz = read(pipefd[0], log_buf, sizeof(log_buf) - 1)) > 0) {
+		log_buf[sz] = '\0';
+		logDirectly(log_buf);
+	}
+	close(pipefd[0]);
+	close(pipefd[1]);
 
 	subprocAdd(nsjconf, pid, fd_in);
 

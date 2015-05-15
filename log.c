@@ -30,6 +30,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/syscall.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -101,7 +102,7 @@ void logLog(enum llevel_t ll, const char *fn, int ln, bool perr, const char *fmt
 		dprintf(log_fd, "%s", logLevels[ll].prefix);
 	}
 	if (logLevels[ll].print_funcline) {
-		dprintf(log_fd, "[%s][%s][%d] %s():%d ", timestr, logLevels[ll].descr, getpid(), fn, ln);
+		dprintf(log_fd, "[%s][%s][%ld] %s():%d ", timestr, logLevels[ll].descr, syscall(__NR_getpid), fn, ln);
 	}
 
 	va_list args;
@@ -125,4 +126,14 @@ void logLog(enum llevel_t ll, const char *fn, int ln, bool perr, const char *fmt
 void logStop(int sig)
 {
 	LOG_I("Server stops due to fatal signal (%d) caught. Exiting", sig);
+}
+
+void logNewLogFD(int fd)
+{
+	log_fd = fd;
+}
+
+void logDirectly(const char *msg)
+{
+	dprintf(log_fd, "%s", msg);
 }

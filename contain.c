@@ -347,8 +347,11 @@ bool containMakeFdsCOE(void)
 	return true;
 }
 
-bool containSetupFD(struct nsjconf_t * nsjconf, int fd_in, int fd_out, int fd_err)
+bool containSetupFD(struct nsjconf_t * nsjconf, int fd_in, int fd_out, int fd_err, int fd_log)
 {
+	/* Make sure all logs go to the parent process from now on */
+	logNewLogFD(fd_log);
+
 	if (nsjconf->mode != MODE_LISTEN_TCP) {
 		if (nsjconf->is_silent == false) {
 			return true;

@@ -31,6 +31,6 @@ bool containPrepareEnv(struct nsjconf_t *nsjconf);
 bool containMountFS(struct nsjconf_t *nsjconf);
 bool containSetLimits(struct nsjconf_t *nsjconf);
 bool containMakeFdsCOE(void);
-bool containSetupFD(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_err);
+bool containSetupFD(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_err, int fd_log);
 
 #endif				/* _CONTAIN_H */
