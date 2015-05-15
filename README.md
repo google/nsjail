@@ -9,7 +9,7 @@ This is NOT an official Google product.
 3. Seccomp-bpf syscall filters
 
 ### WHAT USE-CASES DOES IT COVER?
-1. Isolating networking daemons (inetd-style)
+#### Isolating networking daemons (inetd-style)
 
 
 + Server:
@@ -27,7 +27,7 @@ This is NOT an official Google product.
 	    RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
 ```
 
-2. Isolating local processes (run it once, and exit)
+#### Isolating local processes (run it once, and exit)
 ```
  $ ./nsjail -Mo --chroot /chroot/ --user 99999 --group 99999 -- /bin/sh -i
   / $ ifconfig -a
@@ -42,7 +42,7 @@ This is NOT an official Google product.
  $
 ```
 
-3. Isolating local processes (and re-running them)
+#### Isolating local processes (and re-running them)
 ```
  $ ./nsjail -Mr --chroot /chroot/ --user 99999 --group 99999 -- /bin/sh -i
  BusyBox v1.21.1 (Ubuntu 1:1.21.0-1ubuntu1) built-in shell (ash)
