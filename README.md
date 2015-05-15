@@ -5,8 +5,9 @@ This is NOT an official Google product.
 
 ### WHAT KIND OF ISOLATION DOES IT PROVIDE?
 1. Linux namespaces: UTS, MOUNT, PID, IPC, NET, USER (optional)
-2. FS chroot-ing (chroot()/pivot_root())
-3. Seccomp-bpf syscall filters
+2. FS chroot-ing: chroot(), pivot_root()
+3. Resource limits (CPU time, etc.)
+4. Seccomp-bpf syscall filters
 
 ### WHAT USE-CASES DOES IT COVER?
 #### Isolating networking daemons (inetd-style)
@@ -56,4 +57,8 @@ This is NOT an official Google product.
 ```
 
 ### MORE INFO?
-Type: './nsjail --help' - cmd-line switches are well-documented
+Type:
+```
+./nsjail --help'
+```
+the commandline options are reasonably well-documented
