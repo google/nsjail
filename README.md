@@ -2,6 +2,8 @@
 NsJail is a Linux isolation tool making use of the namespacing and seccomp-bpf
 subsystems of the Linux kernel.
 
+This is NOT an official Google product.
+
 ### WHAT KIND OF ISOLATION DOES IT PROVIDE?
 1. Linux namespaces: UTS, MOUNT, PID, IPC, NET, USER (optional)
 2. FS chroot-ing (chroot()/pivot_root())
