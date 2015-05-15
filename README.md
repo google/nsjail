@@ -1,17 +1,16 @@
 ### WHAT IS IT?
-NsJail is a Linux process isolation tool making use of the namespacing features, and seccomp-bpf filters of the Linux kernel
+NsJail is a Linux process isolation tool, making use of the the namespacing, resource control, and seccomp-bpf syscall filter subsystems of the Linux kernel
 
 This is NOT an official Google product.
 
 ### WHAT KIND OF ISOLATION DOES IT PROVIDE?
-1. Linux namespaces: UTS, MOUNT, PID, IPC, NET, USER (optional)
-2. FS chroot-ing: chroot(), pivot_root()
-3. Resource limits (CPU time, etc.)
+1. Linux namespaces: UTS, MOUNT, PID, IPC, NET, USER
+2. FS constraints: chroot(), pivot_root(), RO-remounting
+3. Resource limits (Wall-time/CPU time limits, VM space limits, etc.)
 4. Seccomp-bpf syscall filters
 
-### WHAT USE-CASES DOES IT COVER?
-#### Isolating networking daemons (inetd-style)
-
+### WHICH USE-CASES ARE COVERED?
+#### Isolation of network servers (inetd-style)
 
 + Server:
 ```
@@ -30,7 +29,7 @@ This is NOT an official Google product.
 	    RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
 ```
 
-#### Isolating local processes (run it once, and exit)
+#### Isolation of local processes
 ```
  $ ./nsjail -Mo --chroot /chroot/ --user 99999 --group 99999 -- /bin/sh -i
   / $ ifconfig -a
@@ -45,7 +44,7 @@ This is NOT an official Google product.
  $
 ```
 
-#### Isolating local processes (and re-running them)
+#### Isolation of local processes (and re-running them)
 ```
  $ ./nsjail -Mr --chroot /chroot/ --user 99999 --group 99999 -- /bin/sh -i
  BusyBox v1.21.1 (Ubuntu 1:1.21.0-1ubuntu1) built-in shell (ash)
@@ -61,4 +60,85 @@ Type:
 ```
 ./nsjail --help'
 ```
-the commandline options are reasonably well-documented
+The commandline options are reasonably well-documented
+```
+Usage: ./nsjail [options] -- path_to_command [args]
+Options:
+ --help|-h 
+	Help plz..
+ --mode|-M [val]
+	Execution mode (default: l [MODE_LISTEN_TCP]):
+	l: Listen to connections on a TCP port (specified with --port) [MODE_LISTEN_TCP]
+	o: Immediately launch a single process on a console [MODE_STANDALONE_ONCE]
+	r: Immediately launch a single process on a console, keep doing it forever [MODE_STANDALONE_RERUN]
+ --chroot|-c [val]
+	Directory containing / of the jail (default: '/chroot')
+ --user|-u [val]
+	Username/uid of processess inside the jail (default: 'nobody')
+ --group|-g [val]
+	Groupname/gid of processess inside the jail (default: 'nogroup')
+ --hostname|-H [val]
+	UTS name (hostname) of the jail (default: 'NSJAIL')
+ --port|-p [val]
+	TCP port to bind to (only in [MODE_LISTEN_TCP]) (default: 31337)
+ --max_conns_per_ip|-i [val]
+	Maximum number of connections per one IP (default: 0 (unlimited))
+ --log|-l [val]
+	Log file (default: stderr)
+ --time_limit|-t [val]
+	Maximum time that a jail can exist, in seconds (default: 600)
+ --daemon|-d 
+	Daemonize after start? (default: false)
+ --verbose|-v 
+	Verbose output (default: false)
+ --keep_env|-e 
+	Should all environment variables be passed to the child? (default: false)
+ --keep_caps 
+	Don't drop capabilities (DANGEROUS) (default: false)
+ --rlimit_as [val]
+	RLIMIT_AS in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 512)
+ --rlimit_core [val]
+	RLIMIT_CORE in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 0)
+ --rlimit_cpu [val]
+	RLIMIT_CPU, 'max' for RLIM_INFINITY, 'def' for the current value (default: 600)
+ --rlimit_fsize [val]
+	RLIMIT_FSIZE in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 1)
+ --rlimit_nofile [val]
+	RLIMIT_NOFILE, 'max' for RLIM_INFINITY, 'def' for the current value (default: 32)
+ --rlimit_nproc [val]
+	RLIMIT_NPROC, 'max' for RLIM_INFINITY, 'def' for the current value (default: 'def')
+ --rlimit_stack [val]
+	RLIMIT_STACK in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 'def')
+ --persona_addr_compat_layout 
+	personality(ADDR_COMPAT_LAYOUT) (default: false)
+ --persona_mmap_page_zero 
+	personality(MMAP_PAGE_ZERO) (default: false)
+ --persona_read_implies_exec 
+	personality(READ_IMPLIES_EXEC) (default: false)
+ --persona_addr_limit_3gb 
+	personality(ADDR_LIMIT_3GB) (default: false)
+ --persona_addr_no_randomize 
+	personality(ADDR_NO_RANDOMIZE) (default: false)
+ --disable_clone_newnet|-N 
+	Enable networking inside the jail (default: false)
+ --disable_clone_newuser 
+	Don't use CLONE_NEWUSER (default: false)
+ --disable_clone_newns 
+	Don't use CLONE_NEWNS (default: false)
+ --disable_clone_newpid 
+	Don't use CLONE_NEWPID (default: false)
+ --disable_clone_newipc 
+	Don't use CLONE_NEWIPC (default: false)
+ --disable_clone_newuts 
+	Don't use CLONE_NEWUTS (default: false)
+ --disable_sandbox 
+	Don't enable the seccomp-bpf sandboxing (default: false)
+ --rw 
+	Mount / as RW (default: RO)
+ --silent 
+	Redirect child's fd:0/1/2 to /dev/null (default: false)
+ --bindmount|-B [val]
+	List of mountpoints to be mounted --bind inside the container. Can be specified multiple times (default: none)
+ --tmpfsmount|-T [val]
+	List of mountpoints to be mounted as tmpfs inside the container. Can be specified multiple times (default: none)
+```
