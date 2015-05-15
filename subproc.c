@@ -228,7 +228,7 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 	ssize_t sz;
 	while ((sz = read(pipefd[0], log_buf, sizeof(log_buf) - 1)) > 0) {
 		log_buf[sz] = '\0';
-		logDirectly(log_buf);
+		logDirectlyToFD(log_buf);
 	}
 	close(pipefd[0]);
 	close(pipefd[1]);
