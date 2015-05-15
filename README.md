@@ -13,7 +13,9 @@ This is NOT an official Google product.
 
 
 + Server:
+```
  $ ./nsjail -Ml --port 9000 --chroot /chroot/ --user 99999 --group 99999 -- /bin/sh -i
+```
 
 + Client:
 ```
