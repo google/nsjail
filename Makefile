@@ -45,7 +45,7 @@ depend:
 	makedepend -Y. -- $(CFLAGS) -- $(SRCS)
 
 indent:
-	indent -linux -l120 -lc120 -sob -c33 -cp33 *.c *.h; rm -f *~
+	indent -linux -l120 -lc120 -sob -c33 -cp33 *.c *.h seccomp/*.c seccomp/*.h; rm -f *~ seccomp/*~
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 

@@ -15,8 +15,7 @@
 
 #include "bpf-helper.h"
 
-int bpf_resolve_jumps(struct bpf_labels *labels,
-		      struct sock_filter *filter, size_t count)
+int bpf_resolve_jumps(struct bpf_labels *labels, struct sock_filter *filter, size_t count)
 {
 	struct sock_filter *begin = filter;
 	__u8 insn = count - 1;
@@ -24,33 +23,30 @@ int bpf_resolve_jumps(struct bpf_labels *labels,
 	if (count < 1)
 		return -1;
 	/*
-	* Walk it once, backwards, to build the label table and do fixups.
-	* Since backward jumps are disallowed by BPF, this is easy.
-	*/
+	 * Walk it once, backwards, to build the label table and do fixups.
+	 * Since backward jumps are disallowed by BPF, this is easy.
+	 */
 	filter += insn;
 	for (; filter >= begin; --insn, --filter) {
-		if (filter->code != (BPF_JMP+BPF_JA))
+		if (filter->code != (BPF_JMP + BPF_JA))
 			continue;
-		switch ((filter->jt<<8)|filter->jf) {
-		case (JUMP_JT<<8)|JUMP_JF:
+		switch ((filter->jt << 8) | filter->jf) {
+		case (JUMP_JT << 8) | JUMP_JF:
 			if (labels->labels[filter->k].location == 0xffffffff) {
-				fprintf(stderr, "Unresolved label: '%s'\n",
-					labels->labels[filter->k].label);
+				fprintf(stderr, "Unresolved label: '%s'\n", labels->labels[filter->k].label);
 				return 1;
 			}
-			filter->k = labels->labels[filter->k].location -
-				    (insn + 1);
+			filter->k = labels->labels[filter->k].location - (insn + 1);
 			filter->jt = 0;
 			filter->jf = 0;
 			continue;
-		case (LABEL_JT<<8)|LABEL_JF:
+		case (LABEL_JT << 8) | LABEL_JF:
 			if (labels->labels[filter->k].location != 0xffffffff) {
-				fprintf(stderr, "Duplicate label use: '%s'\n",
-					labels->labels[filter->k].label);
+				fprintf(stderr, "Duplicate label use: '%s'\n", labels->labels[filter->k].label);
 				return 1;
 			}
 			labels->labels[filter->k].location = insn;
-			filter->k = 0; /* fall through */
+			filter->k = 0;	/* fall through */
 			filter->jt = 0;
 			filter->jf = 0;
 			continue;
@@ -60,7 +56,7 @@ int bpf_resolve_jumps(struct bpf_labels *labels,
 }
 
 /* Simple lookup table for labels. */
-__u32 seccomp_bpf_label(struct bpf_labels *labels, const char *label)
+__u32 seccomp_bpf_label(struct bpf_labels * labels, const char *label)
 {
 	struct __bpf_label *begin = labels->labels, *end;
 	int id;
@@ -89,7 +85,6 @@ __u32 seccomp_bpf_label(struct bpf_labels *labels, const char *label)
 void seccomp_bpf_print(struct sock_filter *filter, size_t count)
 {
 	struct sock_filter *end = filter + count;
-	for ( ; filter < end; ++filter)
-		printf("{ code=%u,jt=%u,jf=%u,k=%u },\n",
-			filter->code, filter->jt, filter->jf, filter->k);
+	for (; filter < end; ++filter)
+		printf("{ code=%u,jt=%u,jf=%u,k=%u },\n", filter->code, filter->jt, filter->jf, filter->k);
 }

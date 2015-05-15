@@ -42,7 +42,6 @@ static bool sandboxPrepareAndCommit(void)
 {
 	struct bpf_labels l = {.count = 0 };
 	struct sock_filter filter[] = {
-#if 0
 		LOAD_ARCH,
 		JEQ32(AUDIT_ARCH_I386, JUMP(&l, label_i386)),
 		JEQ32(AUDIT_ARCH_X86_64, JUMP(&l, label_x86_64)),
@@ -63,7 +62,6 @@ static bool sandboxPrepareAndCommit(void)
 #define __NR_uselib_64 134
 		JEQ32(__NR_syslog_64, ERRNO(ENOENT)),
 		JEQ32(__NR_uselib_64, ERRNO(ENOENT)),
-#endif /* 0 */
 		ALLOW,
 	};
 
