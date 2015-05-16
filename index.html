@@ -7,7 +7,6 @@
 
     <link rel="stylesheet" href="stylesheets/styles.css">
     <link rel="stylesheet" href="stylesheets/github-light.css">
-    <script src="javascripts/scale.fix.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
     <!--[if lt IE 9]>
     <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
@@ -16,24 +15,31 @@
   <body>
     <div class="wrapper">
       <header>
-        <h1 class="header">NsJail</h1>
-        <p class="header">A light-weight process isolation tool, making use of Linux namespaces and seccomp-bpf</p>
+        <h1>NsJail</h1>
+        <p>A light-weight process isolation tool, making use of Linux namespaces and seccomp-bpf</p>
+
+        <p class="view"><a href="https://github.com/google/nsjail">View the Project on GitHub <small>google/nsjail</small></a></p>
+
 
         <ul>
-          <li class="download"><a class="buttons" href="https://github.com/google/nsjail/zipball/master">Download ZIP</a></li>
-          <li class="download"><a class="buttons" href="https://github.com/google/nsjail/tarball/master">Download TAR</a></li>
-          <li><a class="buttons github" href="https://github.com/google/nsjail">View On GitHub</a></li>
+          <li><a href="https://github.com/google/nsjail/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/google/nsjail/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/google/nsjail">View On <strong>GitHub</strong></a></li>
         </ul>
-
-        <p class="header">This project is maintained by <a class="header name" href="https://github.com/google">google</a></p>
-
-
       </header>
       <section>
         <h3>
 <a id="what-is-it" class="anchor" href="#what-is-it" aria-hidden="true"><span class="octicon octicon-link"></span></a>WHAT IS IT?</h3>
 
-<p>NsJail is a Linux process isolation tool, making use of the the namespacing, resource control, and seccomp-bpf syscall filter subsystems of the Linux kernel</p>
+<p>NsJail is a process isolation tool for Linux. It makes use of the the namespacing, resource control, and seccomp-bpf syscall filter subsystems of the Linux kernel.</p>
+
+<p>It can be used, among others to:</p>
+
+<ul>
+<li>Secure networking service (e.g. web, time, DNS), by isolating them from the rest of the OS</li>
+<li>Hosting computer security challenges (so-called CTFs)</li>
+<li>Containing invasive syscall-level OS fuzzers</li>
+</ul>
 
 <p>This is NOT an official Google product.</p>
 
@@ -41,10 +47,10 @@
 <a id="what-kind-of-isolation-does-it-provide" class="anchor" href="#what-kind-of-isolation-does-it-provide" aria-hidden="true"><span class="octicon octicon-link"></span></a>WHAT KIND OF ISOLATION DOES IT PROVIDE?</h3>
 
 <ol>
-<li>Linux namespaces: UTS, MOUNT, PID, IPC, NET, USER</li>
+<li>Linux namespaces: UTS (hostname), MOUNT (chroot), PID (separate PID tree), IPC, NET (separate networking context), USER</li>
 <li>FS constraints: chroot(), pivot_root(), RO-remounting</li>
-<li>Resource limits (Wall-time/CPU time limits, VM space limits, etc.)</li>
-<li>Seccomp-bpf syscall filters</li>
+<li>Resource limits (wall-time/CPU time limits, VM/mem address space limits, etc.)</li>
+<li>Programmable seccomp-bpf syscall filters</li>
 </ol>
 
 <h3>
@@ -75,7 +81,7 @@
  / $ ps wuax
  PID   USER     COMMAND
  1 99999    /bin/sh -i
- 2 99999    {busybox} ps wuax
+ 3 99999    {busybox} ps wuax
  / $ 
 
 </code></pre>
@@ -95,7 +101,7 @@
  / $ ps wuax
  PID   USER     COMMAND
  1 99999    /bin/sh -i
- 2 99999    {busybox} ps wuax
+ 4 99999    {busybox} ps wuax
  / $exit
  $
 </code></pre>
@@ -212,10 +218,11 @@ Options:
 </code></pre>
       </section>
       <footer>
-        <p><small>Hosted on <a href="https://pages.github.com">GitHub Pages</a> using the Dinky theme</small></p>
+        <p>This project is maintained by <a href="https://github.com/google">google</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
       </footer>
     </div>
-    <!--[if !IE]><script>fixScale(document);</script><![endif]-->
-		
+    <script src="javascripts/scale.fix.js"></script>
+    
   </body>
 </html>
