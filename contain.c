@@ -236,6 +236,8 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 		PLOG_E("chdir('/')");
 		return false;
 	}
+	/* It only makes sense with "--chroot /", so don't worry about erorrs */
+	umount2(destdir, MNT_DETACH);
 
 	for (size_t i = 0; i < nsjconf->tmpfsmountpts->fs_count; i++) {
 		if (mkdir(nsjconf->tmpfsmountpts->mountpt[i], 0700) == -1 && errno != EEXIST) {

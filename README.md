@@ -19,27 +19,37 @@ This is NOT an official Google product.
 
 + Client:
 ```
-  $ nc 127.0.0.1 9000
-  / $ ifconfig
-  / $ ifconfig -a
-  lo    Link encap:Local Loopback
-        LOOPBACK  MTU:65536  Metric:1
-	    RX packets:0 errors:0 dropped:0 overruns:0 frame:0
-	    TX packets:0 errors:0 dropped:0 overruns:0 carrier:0 collisions:0 txqueuelen:0
-	    RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+ $ nc 127.0.0.1 9000
+ / $ ifconfig
+ / $ ifconfig -a
+ lo    Link encap:Local Loopback
+       LOOPBACK  MTU:65536  Metric:1
+       RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+       TX packets:0 errors:0 dropped:0 overruns:0 carrier:0 collisions:0 txqueuelen:0
+       RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+ / $ ps wuax
+ PID   USER     COMMAND
+ 1 99999    /bin/sh -i
+ 2 99999    {busybox} ps wuax
+ / $ 
+
 ```
 
 #### Isolation of local processes
 ```
  $ ./nsjail -Mo --chroot /chroot/ --user 99999 --group 99999 -- /bin/sh -i
-  / $ ifconfig -a
-  lo    Link encap:Local Loopback
-        LOOPBACK  MTU:65536  Metric:1
-	    RX packets:0 errors:0 dropped:0 overruns:0 frame:0
-	    TX packets:0 errors:0 dropped:0 overruns:0 carrier:0 collisions:0 txqueuelen:0
-	    RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+ / $ ifconfig -a
+ lo    Link encap:Local Loopback
+       LOOPBACK  MTU:65536  Metric:1
+       RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+       TX packets:0 errors:0 dropped:0 overruns:0 carrier:0 collisions:0 txqueuelen:0
+       RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
  / $ id
  uid=99999 gid=99999
+ / $ ps wuax
+ PID   USER     COMMAND
+ 1 99999    /bin/sh -i
+ 2 99999    {busybox} ps wuax
  / $exit
  $
 ```
@@ -49,9 +59,17 @@ This is NOT an official Google product.
  $ ./nsjail -Mr --chroot /chroot/ --user 99999 --group 99999 -- /bin/sh -i
  BusyBox v1.21.1 (Ubuntu 1:1.21.0-1ubuntu1) built-in shell (ash)
  Enter 'help' for a list of built-in commands.
+ / $ ps wuax
+ PID   USER     COMMAND
+ 1 99999    /bin/sh -i
+ 2 99999    {busybox} ps wuax
  / $ exit
  BusyBox v1.21.1 (Ubuntu 1:1.21.0-1ubuntu1) built-in shell (ash)
  Enter 'help' for a list of built-in commands.
+ / $ ps wuax
+ PID   USER     COMMAND
+ 1 99999    /bin/sh -i
+ 2 99999    {busybox} ps wuax
  / $
 ```
 
