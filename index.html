@@ -8,14 +8,14 @@
     <link rel="stylesheet" type="text/css" href="stylesheets/github-dark.css" media="screen">
     <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print">
 
-    <title>Nsjail by google</title>
+    <title>NsJail by google</title>
   </head>
 
   <body>
 
     <header>
       <div class="container">
-        <h1>Nsjail</h1>
+        <h1>NsJail</h1>
         <h2>A light-weight process isolation tool, making use of Linux namespaces and seccomp-bpf</h2>
 
         <section id="downloads">
@@ -62,28 +62,38 @@
 <li>Client:</li>
 </ul>
 
-<pre><code>  $ nc 127.0.0.1 9000
-  / $ ifconfig
-  / $ ifconfig -a
-  lo    Link encap:Local Loopback
-        LOOPBACK  MTU:65536  Metric:1
-        RX packets:0 errors:0 dropped:0 overruns:0 frame:0
-        TX packets:0 errors:0 dropped:0 overruns:0 carrier:0 collisions:0 txqueuelen:0
-        RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+<pre><code> $ nc 127.0.0.1 9000
+ / $ ifconfig
+ / $ ifconfig -a
+ lo    Link encap:Local Loopback
+       LOOPBACK  MTU:65536  Metric:1
+       RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+       TX packets:0 errors:0 dropped:0 overruns:0 carrier:0 collisions:0 txqueuelen:0
+       RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+ / $ ps wuax
+ PID   USER     COMMAND
+ 1 99999    /bin/sh -i
+ 2 99999    {busybox} ps wuax
+ / $ 
+
 </code></pre>
 
 <h4>
 <a id="isolation-of-local-processes" class="anchor" href="#isolation-of-local-processes" aria-hidden="true"><span class="octicon octicon-link"></span></a>Isolation of local processes</h4>
 
 <pre><code> $ ./nsjail -Mo --chroot /chroot/ --user 99999 --group 99999 -- /bin/sh -i
-  / $ ifconfig -a
-  lo    Link encap:Local Loopback
-        LOOPBACK  MTU:65536  Metric:1
-        RX packets:0 errors:0 dropped:0 overruns:0 frame:0
-        TX packets:0 errors:0 dropped:0 overruns:0 carrier:0 collisions:0 txqueuelen:0
-        RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+ / $ ifconfig -a
+ lo    Link encap:Local Loopback
+       LOOPBACK  MTU:65536  Metric:1
+       RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+       TX packets:0 errors:0 dropped:0 overruns:0 carrier:0 collisions:0 txqueuelen:0
+       RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
  / $ id
  uid=99999 gid=99999
+ / $ ps wuax
+ PID   USER     COMMAND
+ 1 99999    /bin/sh -i
+ 2 99999    {busybox} ps wuax
  / $exit
  $
 </code></pre>
@@ -94,9 +104,17 @@
 <pre><code> $ ./nsjail -Mr --chroot /chroot/ --user 99999 --group 99999 -- /bin/sh -i
  BusyBox v1.21.1 (Ubuntu 1:1.21.0-1ubuntu1) built-in shell (ash)
  Enter 'help' for a list of built-in commands.
+ / $ ps wuax
+ PID   USER     COMMAND
+ 1 99999    /bin/sh -i
+ 2 99999    {busybox} ps wuax
  / $ exit
  BusyBox v1.21.1 (Ubuntu 1:1.21.0-1ubuntu1) built-in shell (ash)
  Enter 'help' for a list of built-in commands.
+ / $ ps wuax
+ PID   USER     COMMAND
+ 1 99999    /bin/sh -i
+ 2 99999    {busybox} ps wuax
  / $
 </code></pre>
 
