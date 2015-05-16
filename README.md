@@ -1,13 +1,18 @@
 ### WHAT IS IT?
-NsJail is a Linux process isolation tool, making use of the the namespacing, resource control, and seccomp-bpf syscall filter subsystems of the Linux kernel
+NsJail is a process isolation tool for Linux. It makes use of the the namespacing, resource control, and seccomp-bpf syscall filter subsystems of the Linux kernel.
+
+It can be used, among others to:
+  * Secure networking service (e.g. web, time, DNS), by isolating them from the rest of the OS
+  * Hosting computer security challenges (so-called CTFs)
+  * Containing invasive syscall-level OS fuzzers
 
 This is NOT an official Google product.
 
 ### WHAT KIND OF ISOLATION DOES IT PROVIDE?
-1. Linux namespaces: UTS, MOUNT, PID, IPC, NET, USER
+1. Linux namespaces: UTS (hostname), MOUNT (chroot), PID (separate PID tree), IPC, NET (separate networking context), USER
 2. FS constraints: chroot(), pivot_root(), RO-remounting
-3. Resource limits (Wall-time/CPU time limits, VM space limits, etc.)
-4. Seccomp-bpf syscall filters
+3. Resource limits (wall-time/CPU time limits, VM/mem address space limits, etc.)
+4. Programmable seccomp-bpf syscall filters
 
 ### WHICH USE-CASES ARE COVERED?
 #### Isolation of network servers (inetd-style)
@@ -30,7 +35,7 @@ This is NOT an official Google product.
  / $ ps wuax
  PID   USER     COMMAND
  1 99999    /bin/sh -i
- 2 99999    {busybox} ps wuax
+ 3 99999    {busybox} ps wuax
  / $ 
 
 ```
@@ -49,7 +54,7 @@ This is NOT an official Google product.
  / $ ps wuax
  PID   USER     COMMAND
  1 99999    /bin/sh -i
- 2 99999    {busybox} ps wuax
+ 4 99999    {busybox} ps wuax
  / $exit
  $
 ```
