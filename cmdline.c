@@ -197,7 +197,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"rw", no_argument, NULL, 0x0503}, "Mount / as RW (default: RO)"},
 		{{"silent", no_argument, NULL, 0x0504}, "Redirect child's fd:0/1/2 to /dev/null (default: false)"},
 		{{"bindmount", required_argument, NULL, 'B'}, "List of mountpoints to be mounted --bind inside the container. Can be specified multiple times (default: none)"},
-		{{"tmpfsmount", required_argument, NULL, 'T'}, "List of mountpoints to be mounted as tmpfs inside the container. Can be specified multiple times (default: none)"},
+		{{"tmpfsmount", required_argument, NULL, 'T'}, "List of mountpoints to be mounted as RW/tmpfs inside the container. Can be specified multiple times (default: none)"},
 		{{0, 0, 0, 0}, NULL},
 	};
         /*  *INDENT-ON* */
