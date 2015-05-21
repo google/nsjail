@@ -241,7 +241,8 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 
 	for (size_t i = 0; i < nsjconf->tmpfsmountpts->fs_count; i++) {
 		if (mkdir(nsjconf->tmpfsmountpts->mountpt[i], 0700) == -1 && errno != EEXIST) {
-			PLOG_E("mkdir('%s')", nsjconf->tmpfsmountpts->mountpt[i]);
+			PLOG_E("mkdir('%s'); You probably need to create it in your --chroot ('%s') directory",
+			       nsjconf->tmpfsmountpts->mountpt[i], nsjconf->chroot);
 			return false;
 		}
 		LOG_D("Mounting (tmpfs) '%s'", nsjconf->tmpfsmountpts->mountpt[i]);
