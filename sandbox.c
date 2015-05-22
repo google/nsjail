@@ -73,7 +73,9 @@ static bool sandboxPrepareAndCommit(void)
 		LOG_W("bpf_resolve_jumps() failed");
 		return false;
 	}
-
+#ifndef PR_SET_NO_NEW_PRIVS
+#define PR_SET_NO_NEW_PRIVS 38
+#endif				/* PR_SET_NO_NEW_PRIVS */
 	if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)) {
 		PLOG_W("prctl(PR_SET_NO_NEW_PRIVS, 1) failed");
 		return false;
