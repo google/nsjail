@@ -198,6 +198,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"silent", no_argument, NULL, 0x0504}, "Redirect child's fd:0/1/2 to /dev/null (default: false)"},
 		{{"bindmount", required_argument, NULL, 'B'}, "List of mountpoints to be mounted --bind inside the container. Can be specified multiple times (default: none)"},
 		{{"tmpfsmount", required_argument, NULL, 'T'}, "List of mountpoints to be mounted as RW/tmpfs inside the container. Can be specified multiple times (default: none)"},
+		{{"iface", required_argument, NULL, 'I'}, "Interface which will be cloned (MACVTAP) and put inside the subprocess' namespace"},
 		{{0, 0, 0, 0}, NULL},
 	};
         /*  *INDENT-ON* */
@@ -209,7 +210,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 
 	int opt_index = 0;
 	for (;;) {
-		int c = getopt_long(argc, argv, "H:c:p:i:u:g:l:t:M:Ndveh?B:T:", opts, &opt_index);
+		int c = getopt_long(argc, argv, "H:c:p:i:u:g:l:t:M:Ndveh?B:T:I:", opts, &opt_index);
 		if (c == -1) {
 			break;
 		}
@@ -355,6 +356,9 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				return false;
 				break;
 			}
+			break;
+		case 'I':
+			nsjconf->iface = optarg;
 			break;
 		default:
 			cmdlineUsage(argv[0], custom_opts);

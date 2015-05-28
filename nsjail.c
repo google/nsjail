@@ -187,6 +187,7 @@ int main(int argc, char *argv[])
 		.is_silent = false,
 		.bindmountpts = NULL,
 		.tmpfsmountpts = NULL,
+		.iface = NULL,
 		.initial_uid = getuid(),
 		.initial_gid = getgid(),
 		.max_conns_per_ip = 0,

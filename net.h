@@ -26,6 +26,7 @@
 
 #include "common.h"
 
+bool netCloneMacVtapAndNS(struct nsjconf_t *nsjconf, int pid);
 bool netLimitConns(struct nsjconf_t *nsjconf, int connsock);
 int netGetRecvSocket(int port);
 int netAcceptConn(int listenfd);

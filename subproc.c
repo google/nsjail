@@ -223,6 +223,10 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 		return;
 	}
 
+	if (netCloneMacVtapAndNS(nsjconf, pid) == false) {
+		LOG_E("Couldn't create and put MACVTAP interface into NS of PID '%d'", pid);
+	}
+
 	char log_buf[4096];
 
 	close(pipefd[1]);

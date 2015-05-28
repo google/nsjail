@@ -30,11 +30,74 @@
 #include <strings.h>
 #include <netinet/ip6.h>
 #include <netinet/tcp.h>
+#include <sys/resource.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "log.h"
+
+static bool netSystem(const char *bin, char *const *argv)
+{
+	int pid = fork();
+	if (pid == -1) {
+		PLOG_E("fork()");
+		return false;
+	}
+	if (pid == 0) {
+		execv(bin, argv);
+		PLOG_E("execve('%s')", bin);
+		_exit(1);
+	}
+
+	for (;;) {
+		int status;
+		while (wait4(pid, &status, __WALL, NULL) != pid) ;
+		if (WIFEXITED(status)) {
+			if (WEXITSTATUS(status) == 0) {
+				return true;
+			}
+			LOG_W("'%s' returned with exit status: %d", bin, WEXITSTATUS(status));
+			return false;
+		}
+		if (WIFSIGNALED(status)) {
+			LOG_W("'%s' killed with signal: %d", bin, WTERMSIG(status));
+			return false;
+		}
+		LOG_E("Unknown exit status for '%s' (pid=%d): %d", bin, pid, status);
+		kill(pid, SIGKILL);
+	}
+}
+
+bool netCloneMacVtapAndNS(struct nsjconf_t * nsjconf, int pid)
+{
+	if (nsjconf->iface == NULL) {
+		return true;
+	}
+
+	char iface[512];
+	snprintf(iface, sizeof(iface), "%s.ns.%d", nsjconf->iface, pid);
+
+#define SBIN_IP_PATH "/sbin/ip"
+	char *const argv_add[] =
+	    { SBIN_IP_PATH, "link", "add", "link", nsjconf->iface, iface, "type", "macvtap", NULL };
+	if (netSystem(SBIN_IP_PATH, argv_add) == false) {
+		LOG_E("Couldn't create MACVTAP interface for '%s'", nsjconf->iface);
+		return false;
+	}
+
+	char pid_str[512];
+	snprintf(pid_str, sizeof(pid_str), "%d", pid);
+	char *const argv_netns[] = { SBIN_IP_PATH, "link", "set", "dev", iface, "netns", pid_str, NULL };
+	if (netSystem(SBIN_IP_PATH, argv_netns) == false) {
+		LOG_E("Couldn't put interface '%s' into NS of PID '%d'", iface, pid);
+		return false;
+	}
+
+	return true;
+}
 
 static bool netIsSocket(int fd)
 {
