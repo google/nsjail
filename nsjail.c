@@ -156,43 +156,7 @@ static void nsjailStandaloneMode(struct nsjconf_t *nsjconf)
 
 int main(int argc, char *argv[])
 {
-	struct nsjconf_t nsjconf = {
-		.hostname = "NSJAIL",
-		.chroot = "/chroot",
-		.argv = NULL,
-		.port = 31337,
-		.uid = -1,
-		.gid = -1,
-		.daemonize = false,
-		.tlimit = 0,
-		.apply_sandbox = true,
-		.verbose = false,
-		.keep_caps = false,
-		.rl_as = 512 * (1024 * 1024),
-		.rl_core = 0,
-		.rl_cpu = 600,
-		.rl_fsize = 1 * (1024 * 1024),
-		.rl_nofile = 32,
-		.rl_nproc = cmdlineParseRLimit(RLIMIT_NPROC, "def", 1),
-		.rl_stack = cmdlineParseRLimit(RLIMIT_STACK, "def", 1),
-		.personality = 0,
-		.clone_newnet = true,
-		.clone_newuser = true,
-		.clone_newns = true,
-		.clone_newpid = true,
-		.clone_newipc = true,
-		.clone_newuts = true,
-		.mode = MODE_LISTEN_TCP,
-		.is_root_rw = false,
-		.is_silent = false,
-		.bindmountpts = NULL,
-		.tmpfsmountpts = NULL,
-		.iface = NULL,
-		.initial_uid = getuid(),
-		.initial_gid = getgid(),
-		.max_conns_per_ip = 0,
-	};
-
+	struct nsjconf_t nsjconf;
 	if (!cmdlineParse(argc, argv, &nsjconf)) {
 		exit(1);
 	}
