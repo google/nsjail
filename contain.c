@@ -201,8 +201,7 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 			return false;
 		}
 		LOG_D("Mounting (bind) '%s' on '%s'", p->value, mount_pt);
-		if (mount(p->value, mount_pt, NULL, MS_BIND | MS_REC, NULL)
-		    == -1) {
+		if (mount(p->value, mount_pt, NULL, MS_BIND | MS_REC, NULL) == -1) {
 			PLOG_E("mount('%s', '%s', MS_BIND|MS_REC", p->value, mount_pt);
 			return false;
 		}
@@ -247,8 +246,7 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 			return false;
 		}
 		LOG_D("Mounting (tmpfs) '%s'", p->value);
-		if (mount(NULL, p->value, "tmpfs", 0, "size=4194304")
-		    == -1) {
+		if (mount(NULL, p->value, "tmpfs", 0, "size=4194304") == -1) {
 			PLOG_E("mount('%s', 'tmpfs')", p->value);
 			return false;
 		}
