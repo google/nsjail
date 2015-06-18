@@ -93,11 +93,13 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	     logYesNo(nsjconf->clone_newuser), logYesNo(nsjconf->clone_newns),
 	     logYesNo(nsjconf->clone_newpid), logYesNo(nsjconf->clone_newipc),
 	     logYesNo(nsjconf->clone_newuts), logYesNo(nsjconf->apply_sandbox), logYesNo(nsjconf->keep_caps));
-	for (size_t i = 0; i < nsjconf->bindmountpts->fs_count; i++) {
-		LOG_I("Additional bind mount point: '%s'", nsjconf->bindmountpts->mountpt[i]);
+
+	struct constchar_t *p;
+	LIST_FOREACH(p, &nsjconf->bindmountpts, pointers) {
+		LOG_I("Additional bind mount point: '%s'", p->value);
 	}
-	for (size_t i = 0; i < nsjconf->tmpfsmountpts->fs_count; i++) {
-		LOG_I("Additional tmpfs mount point: '%s'", nsjconf->tmpfsmountpts->mountpt[i]);
+	LIST_FOREACH(p, &nsjconf->tmpfsmountpts, pointers) {
+		LOG_I("Additional tmpfs mount point: '%s'", p->value);
 	}
 }
 
@@ -171,8 +173,6 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		.mode = MODE_LISTEN_TCP,
 		.is_root_rw = false,
 		.is_silent = false,
-		.bindmountpts = NULL,
-		.tmpfsmountpts = NULL,
 		.iface = NULL,
 		.initial_uid = getuid(),
 		.initial_gid = getgid(),
@@ -181,19 +181,12 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	/*  *INDENT-OFF* */
 
 	LIST_INIT(&nsjconf->pids);
+	LIST_INIT(&nsjconf->bindmountpts);
+	LIST_INIT(&nsjconf->tmpfsmountpts);
+
 	const char *user = "nobody";
 	const char *group = "nobody";
 	const char *logfile = NULL;
-	nsjconf->bindmountpts = malloc(sizeof(*(nsjconf->bindmountpts)));
-	if (nsjconf->bindmountpts == NULL) {
-		LOG_F("malloc");
-	}
-	nsjconf->bindmountpts->fs_count = 0;
-	nsjconf->tmpfsmountpts = malloc(sizeof(*(nsjconf->bindmountpts)));
-	if (nsjconf->tmpfsmountpts == NULL) {
-		LOG_F("malloc");
-	}
-	nsjconf->tmpfsmountpts->fs_count = 0;
 
         /*  *INDENT-OFF* */
 	struct custom_option custom_opts[] = {
@@ -358,23 +351,24 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			nsjconf->is_silent = true;
 			break;
 		case 'B':
-			nsjconf->bindmountpts->fs_count++;
-			size_t sz =
-			    sizeof(*(nsjconf->bindmountpts)) +
-			    (sizeof(nsjconf->bindmountpts->mountpt[0]) * nsjconf->bindmountpts->fs_count);
-			if (realloc(nsjconf->bindmountpts, sz) == NULL) {
-				LOG_F("realloc(%zu)", sz);
+			{
+				struct constchar_t *p = malloc(sizeof(struct constchar_t));
+				if (p == NULL) {
+					PLOG_F("malloc(%zu)", sizeof(struct constchar_t));
+				}
+				p->value = optarg;
+				LIST_INSERT_HEAD(&nsjconf->bindmountpts, p, pointers);
 			}
-			nsjconf->bindmountpts->mountpt[nsjconf->bindmountpts->fs_count - 1] = optarg;
 			break;
 		case 'T':
-			nsjconf->tmpfsmountpts->fs_count++;
-			sz = sizeof(*(nsjconf->tmpfsmountpts)) +
-			    (sizeof(nsjconf->tmpfsmountpts->mountpt[0]) * nsjconf->tmpfsmountpts->fs_count);
-			if (realloc(nsjconf->tmpfsmountpts, sz) == NULL) {
-				LOG_F("realloc(%zu)", sz);
+			{
+				struct constchar_t *p = malloc(sizeof(struct constchar_t));
+				if (p == NULL) {
+					PLOG_F("malloc(%zu)", sizeof(struct constchar_t));
+				}
+				p->value = optarg;
+				LIST_INSERT_HEAD(&nsjconf->tmpfsmountpts, p, pointers);
 			}
-			nsjconf->tmpfsmountpts->mountpt[nsjconf->tmpfsmountpts->fs_count - 1] = optarg;
 			break;
 		case 'M':
 			switch (optarg[0]) {

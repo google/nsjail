@@ -38,6 +38,11 @@ struct pids_t {
 	 LIST_ENTRY(pids_t) pointers;
 };
 
+struct constchar_t {
+	const char *value;
+	 LIST_ENTRY(pids_t) pointers;
+};
+
 enum mode_t {
 	MODE_LISTEN_TCP = 0,
 	MODE_STANDALONE_ONCE,
@@ -79,13 +84,13 @@ struct nsjconf_t {
 	enum mode_t mode;
 	bool is_root_rw;
 	bool is_silent;
-	struct mountfs_t *bindmountpts;
-	struct mountfs_t *tmpfsmountpts;
 	char *iface;
 	uid_t initial_uid;
 	gid_t initial_gid;
 	unsigned int max_conns_per_ip;
 	 LIST_HEAD(pidslist, pids_t) pids;
+	 LIST_HEAD(bindmountptslist, constchar_t) bindmountpts;
+	 LIST_HEAD(tmpfsmountptslist, constchar_t) tmpfsmountpts;
 };
 
 #endif				/* _COMMON_H */

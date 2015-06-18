@@ -192,17 +192,18 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 		return false;
 	}
 
+	struct constchar_t *p;
 	char mount_pt[PATH_MAX];
-	for (size_t i = 0; i < nsjconf->bindmountpts->fs_count; i++) {
-		snprintf(mount_pt, sizeof(mount_pt), "%s/%s", newrootdir, nsjconf->bindmountpts->mountpt[i]);
+	LIST_FOREACH(p, &nsjconf->bindmountpts, pointers) {
+		snprintf(mount_pt, sizeof(mount_pt), "%s/%s", newrootdir, p->value);
 		if (mkdir(mount_pt, 0700) == -1 && errno != EEXIST) {
 			PLOG_E("mkdir('%s')", mount_pt);
 			return false;
 		}
-		LOG_D("Mounting (bind) '%s' on '%s'", nsjconf->bindmountpts->mountpt[i], mount_pt);
-		if (mount(nsjconf->bindmountpts->mountpt[i], mount_pt, NULL, MS_BIND | MS_REC, NULL)
+		LOG_D("Mounting (bind) '%s' on '%s'", p->value, mount_pt);
+		if (mount(p->value, mount_pt, NULL, MS_BIND | MS_REC, NULL)
 		    == -1) {
-			PLOG_E("mount('%s', '%s', MS_BIND|MS_REC", nsjconf->bindmountpts->mountpt[i], mount_pt);
+			PLOG_E("mount('%s', '%s', MS_BIND|MS_REC", p->value, mount_pt);
 			return false;
 		}
 	}
@@ -239,16 +240,16 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 	/* It only makes sense with "--chroot /", so don't worry about erorrs */
 	umount2(destdir, MNT_DETACH);
 
-	for (size_t i = 0; i < nsjconf->tmpfsmountpts->fs_count; i++) {
-		if (mkdir(nsjconf->tmpfsmountpts->mountpt[i], 0700) == -1 && errno != EEXIST) {
+	LIST_FOREACH(p, &nsjconf->tmpfsmountpts, pointers) {
+		if (mkdir(p->value, 0700) == -1 && errno != EEXIST) {
 			PLOG_E("mkdir('%s'); You probably need to create it in your --chroot ('%s') directory",
-			       nsjconf->tmpfsmountpts->mountpt[i], nsjconf->chroot);
+			       p->value, nsjconf->chroot);
 			return false;
 		}
-		LOG_D("Mounting (tmpfs) '%s'", nsjconf->tmpfsmountpts->mountpt[i]);
-		if (mount(NULL, nsjconf->tmpfsmountpts->mountpt[i], "tmpfs", 0, "size=4194304")
+		LOG_D("Mounting (tmpfs) '%s'", p->value);
+		if (mount(NULL, p->value, "tmpfs", 0, "size=4194304")
 		    == -1) {
-			PLOG_E("mount('%s', 'tmpfs')", nsjconf->tmpfsmountpts->mountpt[i]);
+			PLOG_E("mount('%s', 'tmpfs')", p->value);
 			return false;
 		}
 	}
