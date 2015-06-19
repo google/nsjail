@@ -49,11 +49,6 @@ enum mode_t {
 	MODE_STANDALONE_RERUN
 };
 
-struct mountfs_t {
-	size_t fs_count;
-	char *mountpt[];
-};
-
 struct nsjconf_t {
 	const char *hostname;
 	const char *chroot;
