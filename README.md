@@ -36,7 +36,7 @@ This is NOT an official Google product.
  PID   USER     COMMAND
  1 99999    /bin/sh -i
  3 99999    {busybox} ps wuax
- / $ 
+ / $
 
 ```
 
@@ -87,7 +87,7 @@ The commandline options are reasonably well-documented
 ```
 Usage: ./nsjail [options] -- path_to_command [args]
 Options:
- --help|-h 
+ --help|-h
 	Help plz..
  --mode|-M [val]
 	Execution mode (default: l [MODE_LISTEN_TCP]):
@@ -109,14 +109,13 @@ Options:
  --log|-l [val]
 	Log file (default: stderr)
  --time_limit|-t [val]
-	Maximum time that a jail can exist, in seconds (default: 600)
- --daemon|-d 
+ --daemon|-d
 	Daemonize after start? (default: false)
- --verbose|-v 
+ --verbose|-v
 	Verbose output (default: false)
- --keep_env|-e 
+ --keep_env|-e
 	Should all environment variables be passed to the child? (default: false)
- --keep_caps 
+ --keep_caps
 	Don't drop capabilities (DANGEROUS) (default: false)
  --rlimit_as [val]
 	RLIMIT_AS in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 512)
@@ -132,36 +131,40 @@ Options:
 	RLIMIT_NPROC, 'max' for RLIM_INFINITY, 'def' for the current value (default: 'def')
  --rlimit_stack [val]
 	RLIMIT_STACK in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 'def')
- --persona_addr_compat_layout 
+ --persona_addr_compat_layout
 	personality(ADDR_COMPAT_LAYOUT) (default: false)
- --persona_mmap_page_zero 
+ --persona_mmap_page_zero
 	personality(MMAP_PAGE_ZERO) (default: false)
- --persona_read_implies_exec 
+ --persona_read_implies_exec
 	personality(READ_IMPLIES_EXEC) (default: false)
- --persona_addr_limit_3gb 
+ --persona_addr_limit_3gb
 	personality(ADDR_LIMIT_3GB) (default: false)
- --persona_addr_no_randomize 
+ --persona_addr_no_randomize
 	personality(ADDR_NO_RANDOMIZE) (default: false)
- --disable_clone_newnet|-N 
+ --disable_clone_newnet|-N
 	Enable networking inside the jail (default: false)
- --disable_clone_newuser 
+ --disable_clone_newuser
 	Don't use CLONE_NEWUSER (default: false)
- --disable_clone_newns 
+ --disable_clone_newns
 	Don't use CLONE_NEWNS (default: false)
- --disable_clone_newpid 
+ --disable_clone_newpid
 	Don't use CLONE_NEWPID (default: false)
- --disable_clone_newipc 
+ --disable_clone_newipc
 	Don't use CLONE_NEWIPC (default: false)
- --disable_clone_newuts 
+ --disable_clone_newuts
 	Don't use CLONE_NEWUTS (default: false)
- --disable_sandbox 
+ --disable_sandbox
 	Don't enable the seccomp-bpf sandboxing (default: false)
- --rw 
+ --rw
 	Mount / as RW (default: RO)
- --silent 
+ --silent
 	Redirect child's fd:0/1/2 to /dev/null (default: false)
+ --bindmount_ro [val]
+	List of mountpoints to be mounted --bind (ro) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'. (default: none)
  --bindmount|-B [val]
-	List of mountpoints to be mounted --bind inside the container. Can be specified multiple times (default: none)
+	List of mountpoints to be mounted --bind (rw) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'. (default: none)
  --tmpfsmount|-T [val]
-	List of mountpoints to be mounted as tmpfs inside the container. Can be specified multiple times (default: none)
+	List of mountpoints to be mounted as RW/tmpfs inside the container. Can be specified multiple times. Supports 'dest' syntax. (default: none)
+ --iface|-I [val]
+	Interface which will be cloned (MACVTAP) and put inside the subprocess' namespace
 ```
