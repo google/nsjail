@@ -95,8 +95,11 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	     logYesNo(nsjconf->clone_newuts), logYesNo(nsjconf->apply_sandbox), logYesNo(nsjconf->keep_caps));
 
 	struct constchar_t *p;
-	LIST_FOREACH(p, &nsjconf->bindmountpts, pointers) {
-		LOG_I("Additional bind mount point: '%s'", p->value);
+	LIST_FOREACH(p, &nsjconf->robindmountpts, pointers) {
+		LOG_I("Additional (ro) bind mount point: '%s'", p->value);
+	}
+	LIST_FOREACH(p, &nsjconf->rwbindmountpts, pointers) {
+		LOG_I("Additional (rw) bind mount point: '%s'", p->value);
 	}
 	LIST_FOREACH(p, &nsjconf->tmpfsmountpts, pointers) {
 		LOG_I("Additional tmpfs mount point: '%s'", p->value);
@@ -181,7 +184,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	/*  *INDENT-OFF* */
 
 	LIST_INIT(&nsjconf->pids);
-	LIST_INIT(&nsjconf->bindmountpts);
+	LIST_INIT(&nsjconf->robindmountpts);
+	LIST_INIT(&nsjconf->rwbindmountpts);
 	LIST_INIT(&nsjconf->tmpfsmountpts);
 
 	const char *user = "nobody";
@@ -228,8 +232,9 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"disable_sandbox", no_argument, NULL, 0x0501}, "Don't enable the seccomp-bpf sandboxing (default: false)"},
 		{{"rw", no_argument, NULL, 0x0503}, "Mount / as RW (default: RO)"},
 		{{"silent", no_argument, NULL, 0x0504}, "Redirect child's fd:0/1/2 to /dev/null (default: false)"},
-		{{"bindmount", required_argument, NULL, 'B'}, "List of mountpoints to be mounted --bind inside the container. Can be specified multiple times (default: none)"},
-		{{"tmpfsmount", required_argument, NULL, 'T'}, "List of mountpoints to be mounted as RW/tmpfs inside the container. Can be specified multiple times (default: none)"},
+		{{"bindmount_ro", required_argument, NULL, 0x0505}, "List of mountpoints to be mounted --bind (ro) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'. (default: none)"},
+		{{"bindmount", required_argument, NULL, 'B'}, "List of mountpoints to be mounted --bind (rw) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'. (default: none)"},
+		{{"tmpfsmount", required_argument, NULL, 'T'}, "List of mountpoints to be mounted as RW/tmpfs inside the container. Can be specified multiple times. Supports 'dest' syntax. (default: none)"},
 		{{"iface", required_argument, NULL, 'I'}, "Interface which will be cloned (MACVTAP) and put inside the subprocess' namespace"},
 		{{0, 0, 0, 0}, NULL},
 	};
@@ -350,6 +355,16 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		case 0x0504:
 			nsjconf->is_silent = true;
 			break;
+		case 0x0505:
+			{
+				struct constchar_t *p = malloc(sizeof(struct constchar_t));
+				if (p == NULL) {
+					PLOG_F("malloc(%zu)", sizeof(struct constchar_t));
+				}
+				p->value = optarg;
+				LIST_INSERT_HEAD(&nsjconf->robindmountpts, p, pointers);
+			}
+			break;
 		case 'B':
 			{
 				struct constchar_t *p = malloc(sizeof(struct constchar_t));
@@ -357,7 +372,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 					PLOG_F("malloc(%zu)", sizeof(struct constchar_t));
 				}
 				p->value = optarg;
-				LIST_INSERT_HEAD(&nsjconf->bindmountpts, p, pointers);
+				LIST_INSERT_HEAD(&nsjconf->rwbindmountpts, p, pointers);
 			}
 			break;
 		case 'T':
