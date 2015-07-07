@@ -177,7 +177,8 @@ bool containPrepareEnv(struct nsjconf_t * nsjconf)
 /* findSpecDestination mutates spec (source:dest) to have a null byte instead
  * of ':' in between source and dest, then returns a pointer to the dest
  * string. */
-static char *findSpecDestination(char *spec) {
+static char *findSpecDestination(char *spec)
+{
 	char *dest = spec;
 	while (*dest != ':' && *dest != '\0') {
 		dest++;
@@ -195,7 +196,8 @@ static char *findSpecDestination(char *spec) {
 	}
 }
 
-static bool bindMount(const char *newrootdir, const char *spec) {
+static bool bindMount(const char *newrootdir, const char *spec)
+{
 	char mount_pt[PATH_MAX];
 	bool success = false;
 	char *source = strdup(spec);
@@ -213,12 +215,13 @@ static bool bindMount(const char *newrootdir, const char *spec) {
 	}
 	success = true;
 
-cleanup:
+ cleanup:
 	free(source);
 	return success;
 }
 
-static bool remountBindMount(const char *spec, unsigned long flags) {
+static bool remountBindMount(const char *spec, unsigned long flags)
+{
 	bool success = false;
 	char *source = strdup(spec);
 	char *dest = findSpecDestination(source);
@@ -230,7 +233,7 @@ static bool remountBindMount(const char *spec, unsigned long flags) {
 	}
 	success = true;
 
-cleanup:
+ cleanup:
 	free(source);
 	return success;
 }
@@ -297,8 +300,8 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 	/* It only makes sense with "--chroot /", so don't worry about errors */
 	umount2(destdir, MNT_DETACH);
 
-	char tmpfs_size[11+5];
-	snprintf(tmpfs_size, sizeof(tmpfs_size), "size=%u", nsjconf->tmpfs_size);
+	char tmpfs_size[128];
+	snprintf(tmpfs_size, sizeof(tmpfs_size), "size=%zu", nsjconf->tmpfs_size);
 	LIST_FOREACH(p, &nsjconf->tmpfsmountpts, pointers) {
 		if (strchr(p->value, ':') != NULL) {
 			PLOG_E("invalid tmpfs mount spec. source:dest format unsupported.");
@@ -317,9 +320,7 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 	}
 
 	if (nsjconf->is_root_rw == false) {
-		if (mount
-		    ("/", "/", NULL, MS_BIND | MS_RDONLY | MS_NOSUID | MS_REMOUNT | MS_PRIVATE,
-		     NULL) == -1) {
+		if (mount("/", "/", NULL, MS_BIND | MS_RDONLY | MS_NOSUID | MS_REMOUNT | MS_PRIVATE, NULL) == -1) {
 			PLOG_E("mount('/', '/', MS_BIND|MS_RDONLY|MS_NOSUID|MS_REMOUNT|MS_PRIVATE)");
 			return false;
 		}
@@ -335,7 +336,6 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 			return false;
 		}
 	}
-
 
 	return true;
 }

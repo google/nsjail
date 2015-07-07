@@ -87,7 +87,7 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	     "max_conns_per_ip:%u, uid:%u, gid:%u, time_limit:%ld, personality:%#lx, daemonize:%s, "
 	     "clone_newnet:%s, clone_newuser:%s, clone_newns:%s, clone_newpid:%s, "
 	     "clone_newipc:%s, clonew_newuts:%s, apply_sandbox:%s, keep_caps:%s, "
-	     "tmpfs_size:%u",
+	     "tmpfs_size:%zu",
 	     nsjconf->hostname, nsjconf->chroot, nsjconf->argv[0], nsjconf->port,
 	     nsjconf->max_conns_per_ip, nsjconf->uid, nsjconf->gid, nsjconf->tlimit,
 	     nsjconf->personality, logYesNo(nsjconf->daemonize), logYesNo(nsjconf->clone_newnet),
@@ -182,7 +182,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		.initial_uid = getuid(),
 		.initial_gid = getgid(),
 		.max_conns_per_ip = 0,
-		.tmpfs_size = 4*1024*1024,
+		.tmpfs_size = 4 * (1024 * 1024),
 	};
 	/*  *INDENT-OFF* */
 
@@ -269,7 +269,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			nsjconf->max_conns_per_ip = strtoul(optarg, NULL, 0);
 			break;
 		case 0x0506:
-			nsjconf->tmpfs_size = strtoul(optarg, NULL, 0);
+			nsjconf->tmpfs_size = strtoull(optarg, NULL, 0);
 			break;
 		case 'u':
 			user = optarg;
