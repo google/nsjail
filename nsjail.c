@@ -130,13 +130,14 @@ static void nsjailListenMode(struct nsjconf_t *nsjconf)
 	}
 }
 
-static void nsjailStandaloneMode(struct nsjconf_t *nsjconf)
+static int nsjailStandaloneMode(struct nsjconf_t *nsjconf)
 {
+	int child_status = 0;
 	subprocRunChild(nsjconf, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
 	for (;;) {
 		if (subprocCount(nsjconf) == 0) {
 			if (nsjconf->mode == MODE_STANDALONE_ONCE) {
-				return;
+				return child_status;
 			}
 			subprocRunChild(nsjconf, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
 		}
@@ -147,11 +148,13 @@ static void nsjailStandaloneMode(struct nsjconf_t *nsjconf)
 		if (nsjailSigFatal > 0) {
 			subprocKillAll(nsjconf);
 			logStop(nsjailSigFatal);
-			return;
+			return -1;
 		}
 		pause();
-		subprocReap(nsjconf);
+		child_status = subprocReap(nsjconf);
 	}
+	// not reached
+	return child_status;
 }
 
 int main(int argc, char *argv[])
@@ -177,7 +180,7 @@ int main(int argc, char *argv[])
 	if (nsjconf.mode == MODE_LISTEN_TCP) {
 		nsjailListenMode(&nsjconf);
 	} else {
-		nsjailStandaloneMode(&nsjconf);
+		return nsjailStandaloneMode(&nsjconf);
 	}
 	return 0;
 }
