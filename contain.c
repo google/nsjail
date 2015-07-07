@@ -174,6 +174,67 @@ bool containPrepareEnv(struct nsjconf_t * nsjconf)
 	return true;
 }
 
+/* findSpecDestination mutates spec (source:dest) to have a null byte instead
+ * of ':' in between source and dest, then returns a pointer to the dest
+ * string. */
+static char *findSpecDestination(char *spec) {
+	char *dest = spec;
+	while (*dest != ':' && *dest != '\0') {
+		dest++;
+	}
+
+	switch (*dest) {
+	case ':':
+		*dest = '\0';
+		return dest + 1;
+	case '\0':
+		return spec;
+	default:
+		// not reached
+		return spec;
+	}
+}
+
+static bool bindMount(const char *newrootdir, const char *spec) {
+	char mount_pt[PATH_MAX];
+	bool success = false;
+	char *source = strdup(spec);
+	char *dest = findSpecDestination(source);
+
+	snprintf(mount_pt, sizeof(mount_pt), "%s/%s", newrootdir, dest);
+	if (mkdir(mount_pt, 0700) == -1 && errno != EEXIST) {
+		PLOG_E("mkdir('%s')", mount_pt);
+		goto cleanup;
+	}
+	LOG_D("Mounting (bind) '%s' on '%s'", source, mount_pt);
+	if (mount(source, mount_pt, NULL, MS_BIND | MS_REC, NULL) == -1) {
+		PLOG_E("mount('%s', '%s', MS_BIND|MS_REC)", source, mount_pt);
+		goto cleanup;
+	}
+	success = true;
+
+cleanup:
+	free(source);
+	return success;
+}
+
+static bool remountBindMount(const char *spec, unsigned long flags) {
+	bool success = false;
+	char *source = strdup(spec);
+	char *dest = findSpecDestination(source);
+
+	LOG_D("Remounting (bind|%lu) '%s' on '%s'", flags, dest, dest);
+	if (mount(dest, dest, NULL, MS_BIND | MS_NOSUID | MS_REMOUNT | MS_PRIVATE | flags, NULL) == -1) {
+		PLOG_E("mount('%s', '%s', MS_BIND|MS_NOSUID|MS_REMOUNT|MS_PRIVATE|%lu)", dest, dest, flags);
+		goto cleanup;
+	}
+	success = true;
+
+cleanup:
+	free(source);
+	return success;
+}
+
 bool containMountFS(struct nsjconf_t * nsjconf)
 {
 	const char *destdir = "/tmp";
@@ -184,7 +245,7 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 	char newrootdir[PATH_MAX];
 	snprintf(newrootdir, sizeof(newrootdir), "%s/%s", destdir, "new_root");
 	if (mkdir(newrootdir, 0755) == -1) {
-		PLOG_E("mkdir(/tmp/new_root");
+		PLOG_E("mkdir(/tmp/new_root)");
 		return false;
 	}
 	if (mount(nsjconf->chroot, newrootdir, NULL, MS_BIND | MS_REC, NULL) == -1) {
@@ -193,16 +254,13 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 	}
 
 	struct constchar_t *p;
-	char mount_pt[PATH_MAX];
-	LIST_FOREACH(p, &nsjconf->bindmountpts, pointers) {
-		snprintf(mount_pt, sizeof(mount_pt), "%s/%s", newrootdir, p->value);
-		if (mkdir(mount_pt, 0700) == -1 && errno != EEXIST) {
-			PLOG_E("mkdir('%s')", mount_pt);
+	LIST_FOREACH(p, &nsjconf->robindmountpts, pointers) {
+		if (!bindMount(newrootdir, p->value)) {
 			return false;
 		}
-		LOG_D("Mounting (bind) '%s' on '%s'", p->value, mount_pt);
-		if (mount(p->value, mount_pt, NULL, MS_BIND | MS_REC, NULL) == -1) {
-			PLOG_E("mount('%s', '%s', MS_BIND|MS_REC", p->value, mount_pt);
+	}
+	LIST_FOREACH(p, &nsjconf->rwbindmountpts, pointers) {
+		if (!bindMount(newrootdir, p->value)) {
 			return false;
 		}
 	}
@@ -236,17 +294,23 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 		PLOG_E("chdir('/')");
 		return false;
 	}
-	/* It only makes sense with "--chroot /", so don't worry about erorrs */
+	/* It only makes sense with "--chroot /", so don't worry about errors */
 	umount2(destdir, MNT_DETACH);
 
+	char tmpfs_size[11+5];
+	snprintf(tmpfs_size, sizeof(tmpfs_size), "size=%u", nsjconf->tmpfs_size);
 	LIST_FOREACH(p, &nsjconf->tmpfsmountpts, pointers) {
+		if (strchr(p->value, ':') != NULL) {
+			PLOG_E("invalid tmpfs mount spec. source:dest format unsupported.");
+			return false;
+		}
 		if (mkdir(p->value, 0700) == -1 && errno != EEXIST) {
 			PLOG_E("mkdir('%s'); You probably need to create it in your --chroot ('%s') directory",
 			       p->value, nsjconf->chroot);
 			return false;
 		}
 		LOG_D("Mounting (tmpfs) '%s'", p->value);
-		if (mount(NULL, p->value, "tmpfs", 0, "size=4194304") == -1) {
+		if (mount(NULL, p->value, "tmpfs", 0, tmpfs_size) == -1) {
 			PLOG_E("mount('%s', 'tmpfs')", p->value);
 			return false;
 		}
@@ -254,12 +318,24 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 
 	if (nsjconf->is_root_rw == false) {
 		if (mount
-		    ("/", "/", NULL, MS_BIND | MS_RDONLY | MS_NOSUID | MS_NODEV | MS_REMOUNT | MS_PRIVATE,
+		    ("/", "/", NULL, MS_BIND | MS_RDONLY | MS_NOSUID | MS_REMOUNT | MS_PRIVATE,
 		     NULL) == -1) {
-			PLOG_E("mount('/', '/', MS_BIND|MS_RDONLY|MS_NOSUID|MS_NODEV|MS_REMOUNT|MS_PRIVATE)");
+			PLOG_E("mount('/', '/', MS_BIND|MS_RDONLY|MS_NOSUID|MS_REMOUNT|MS_PRIVATE)");
 			return false;
 		}
 	}
+
+	LIST_FOREACH(p, &nsjconf->robindmountpts, pointers) {
+		if (!remountBindMount(p->value, MS_RDONLY)) {
+			return false;
+		}
+	}
+	LIST_FOREACH(p, &nsjconf->rwbindmountpts, pointers) {
+		if (!remountBindMount(p->value, 0)) {
+			return false;
+		}
+	}
+
 
 	return true;
 }

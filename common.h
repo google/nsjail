@@ -83,8 +83,10 @@ struct nsjconf_t {
 	uid_t initial_uid;
 	gid_t initial_gid;
 	unsigned int max_conns_per_ip;
+	unsigned int tmpfs_size;
 	 LIST_HEAD(pidslist, pids_t) pids;
-	 LIST_HEAD(bindmountptslist, constchar_t) bindmountpts;
+	 LIST_HEAD(rwbindmountptslist, constchar_t) rwbindmountpts;
+	 LIST_HEAD(robindmountptslist, constchar_t) robindmountpts;
 	 LIST_HEAD(tmpfsmountptslist, constchar_t) tmpfsmountpts;
 };
 

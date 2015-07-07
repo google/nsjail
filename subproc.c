@@ -144,15 +144,19 @@ void subprocDisplay(struct nsjconf_t *nsjconf)
 	}
 }
 
-void subprocReap(struct nsjconf_t *nsjconf)
+int subprocReap(struct nsjconf_t *nsjconf)
 {
 	int status;
+	int rv = 0;
 	pid_t pid;
 	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
 		if (WIFEXITED(status)) {
 			subprocRemove(nsjconf, pid);
 			LOG_I("PID: %d exited with status: %d, (PIDs left: %d)", pid,
 			      WEXITSTATUS(status), subprocCount(nsjconf));
+			if (rv == 0) {
+				rv = WEXITSTATUS(status);
+			}
 		}
 		if (WIFSIGNALED(status)) {
 			subprocRemove(nsjconf, pid);
@@ -178,8 +182,12 @@ void subprocReap(struct nsjconf_t *nsjconf)
 			PLOG_D("Sent SIGCONT to PID: %d", pid);
 			kill(pid, SIGKILL);
 			PLOG_D("Sent SIGKILL to PID: %d", pid);
+			if (rv == 0) {
+				rv = -1;
+			}
 		}
 	}
+	return rv;
 }
 
 void subprocKillAll(struct nsjconf_t *nsjconf)
