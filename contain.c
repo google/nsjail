@@ -297,6 +297,8 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 	/* It only makes sense with "--chroot /", so don't worry about errors */
 	umount2(destdir, MNT_DETACH);
 
+	char tmpfs_size[11+5];
+	snprintf(tmpfs_size, sizeof(tmpfs_size), "size=%u", nsjconf->tmpfs_size);
 	LIST_FOREACH(p, &nsjconf->tmpfsmountpts, pointers) {
 		if (strchr(p->value, ':') != NULL) {
 			PLOG_E("invalid tmpfs mount spec. source:dest format unsupported.");
@@ -308,7 +310,7 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 			return false;
 		}
 		LOG_D("Mounting (tmpfs) '%s'", p->value);
-		if (mount(NULL, p->value, "tmpfs", 0, "size=4194304") == -1) {
+		if (mount(NULL, p->value, "tmpfs", 0, tmpfs_size) == -1) {
 			PLOG_E("mount('%s', 'tmpfs')", p->value);
 			return false;
 		}

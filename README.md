@@ -109,8 +109,8 @@ Options:
  --log|-l [val]
 	Log file (default: stderr)
  --time_limit|-t [val]
+	Maximum time that a jail can exist, in seconds (default: 600)
  --daemon|-d
-	Daemonize after start? (default: false)
  --verbose|-v
 	Verbose output (default: false)
  --keep_env|-e
@@ -167,4 +167,6 @@ Options:
 	List of mountpoints to be mounted as RW/tmpfs inside the container. Can be specified multiple times. Supports 'dest' syntax. (default: none)
  --iface|-I [val]
 	Interface which will be cloned (MACVTAP) and put inside the subprocess' namespace
+ --tmpfs_size [val]
+	Number of bytes to allocate for tmpfsmounts in bytes (default: 4194304)
 ```

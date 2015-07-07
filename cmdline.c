@@ -86,13 +86,15 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	    ("Jail parameters: hostname:'%s', chroot:'%s', process:'%s', port:%d, "
 	     "max_conns_per_ip:%u, uid:%u, gid:%u, time_limit:%ld, personality:%#lx, daemonize:%s, "
 	     "clone_newnet:%s, clone_newuser:%s, clone_newns:%s, clone_newpid:%s, "
-	     "clone_newipc:%s, clonew_newuts:%s, apply_sandbox:%s, keep_caps:%s",
+	     "clone_newipc:%s, clonew_newuts:%s, apply_sandbox:%s, keep_caps:%s, "
+	     "tmpfs_size:%u",
 	     nsjconf->hostname, nsjconf->chroot, nsjconf->argv[0], nsjconf->port,
 	     nsjconf->max_conns_per_ip, nsjconf->uid, nsjconf->gid, nsjconf->tlimit,
 	     nsjconf->personality, logYesNo(nsjconf->daemonize), logYesNo(nsjconf->clone_newnet),
 	     logYesNo(nsjconf->clone_newuser), logYesNo(nsjconf->clone_newns),
 	     logYesNo(nsjconf->clone_newpid), logYesNo(nsjconf->clone_newipc),
-	     logYesNo(nsjconf->clone_newuts), logYesNo(nsjconf->apply_sandbox), logYesNo(nsjconf->keep_caps));
+	     logYesNo(nsjconf->clone_newuts), logYesNo(nsjconf->apply_sandbox),
+	     logYesNo(nsjconf->keep_caps), nsjconf->tmpfs_size);
 
 	struct constchar_t *p;
 	LIST_FOREACH(p, &nsjconf->robindmountpts, pointers) {
@@ -180,6 +182,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		.initial_uid = getuid(),
 		.initial_gid = getgid(),
 		.max_conns_per_ip = 0,
+		.tmpfs_size = 4*1024*1024,
 	};
 	/*  *INDENT-OFF* */
 
@@ -236,6 +239,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"bindmount", required_argument, NULL, 'B'}, "List of mountpoints to be mounted --bind (rw) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'. (default: none)"},
 		{{"tmpfsmount", required_argument, NULL, 'T'}, "List of mountpoints to be mounted as RW/tmpfs inside the container. Can be specified multiple times. Supports 'dest' syntax. (default: none)"},
 		{{"iface", required_argument, NULL, 'I'}, "Interface which will be cloned (MACVTAP) and put inside the subprocess' namespace"},
+		{{"tmpfs_size", required_argument, NULL, 0x0506}, "Number of bytes to allocate for tmpfsmounts in bytes (default: 4194304)"},
 		{{0, 0, 0, 0}, NULL},
 	};
         /*  *INDENT-ON* */
@@ -263,6 +267,9 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			break;
 		case 'i':
 			nsjconf->max_conns_per_ip = strtoul(optarg, NULL, 0);
+			break;
+		case 0x0506:
+			nsjconf->tmpfs_size = strtoul(optarg, NULL, 0);
 			break;
 		case 'u':
 			user = optarg;
