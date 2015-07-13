@@ -40,7 +40,7 @@ struct pids_t {
 
 struct constchar_t {
 	const char *value;
-	 LIST_ENTRY(pids_t) pointers;
+	 LIST_ENTRY(constchar_t) pointers;
 };
 
 enum mode_t {
