@@ -201,6 +201,10 @@ static bool bindMount(const char *newrootdir, const char *spec)
 	char mount_pt[PATH_MAX];
 	bool success = false;
 	char *source = strdup(spec);
+	if (source == NULL) {
+		PLOG_E("strdup('%s')", spec);
+		return false;
+	}
 	char *dest = findSpecDestination(source);
 
 	snprintf(mount_pt, sizeof(mount_pt), "%s/%s", newrootdir, dest);
@@ -224,9 +228,13 @@ static bool remountBindMount(const char *spec, unsigned long flags)
 {
 	bool success = false;
 	char *source = strdup(spec);
+	if (source == NULL) {
+		PLOG_E("strdup('%s')", spec);
+		return false;
+	}
 	char *dest = findSpecDestination(source);
 
-	LOG_D("Remounting (bind|%lu) '%s' on '%s'", flags, dest, dest);
+	LOG_D("Remounting (bind(0x%lx)) '%s' on '%s'", flags, dest, dest);
 	if (mount(dest, dest, NULL, MS_BIND | MS_NOSUID | MS_REMOUNT | MS_PRIVATE | flags, NULL) == -1) {
 		PLOG_E("mount('%s', '%s', MS_BIND|MS_NOSUID|MS_REMOUNT|MS_PRIVATE|%lu)", dest, dest, flags);
 		goto cleanup;
@@ -320,8 +328,7 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 	}
 
 	if (nsjconf->is_root_rw == false) {
-		if (mount("/", "/", NULL, MS_BIND | MS_RDONLY | MS_NOSUID | MS_REMOUNT | MS_PRIVATE, NULL) == -1) {
-			PLOG_E("mount('/', '/', MS_BIND|MS_RDONLY|MS_NOSUID|MS_REMOUNT|MS_PRIVATE)");
+		if (!remountBindMount("/", MS_RDONLY)) {
 			return false;
 		}
 	}
