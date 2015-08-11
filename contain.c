@@ -196,7 +196,7 @@ static char *findSpecDestination(char *spec)
 	}
 }
 
-static bool bindMount(const char *newrootdir, const char *spec)
+static bool bindMountRW(const char *newrootdir, const char *spec)
 {
 	char mount_pt[PATH_MAX];
 	bool success = false;
@@ -286,14 +286,41 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 		return false;
 	}
 
+	char procrootdir[PATH_MAX];
+	snprintf(procrootdir, sizeof(procrootdir), "%s/proc", newrootdir);
+	if (mount(NULL, procrootdir, "proc", MS_NOSUID | MS_NOEXEC | MS_NODEV, NULL) == -1) {
+		PLOG_E("mount('%s', 'proc')", procrootdir);
+		return false;
+	}
+
 	struct constchar_t *p;
+	char tmpfs_size[128];
+	snprintf(tmpfs_size, sizeof(tmpfs_size), "size=%zu", nsjconf->tmpfs_size);
+	LIST_FOREACH(p, &nsjconf->tmpfsmountpts, pointers) {
+		if (strchr(p->value, ':') != NULL) {
+			PLOG_E("invalid tmpfs mount spec. source:dest format unsupported.");
+			return false;
+		}
+		char tmpfsdir[PATH_MAX];
+		snprintf(tmpfsdir, sizeof(tmpfsdir), "%s/%s", newrootdir, p->value);
+		if (mkdir(tmpfsdir, 0700) == -1 && errno != EEXIST) {
+			PLOG_E("mkdir('%s') (for tmpfs:'%s'); You probably need to create it inside your "
+			       "--chroot ('%s') directory", tmpfsdir, p->value, nsjconf->chroot);
+			return false;
+		}
+		LOG_D("Mounting (tmpfs) '%s' at '%s'", p->value, tmpfsdir);
+		if (mount(NULL, tmpfsdir, "tmpfs", 0, tmpfs_size) == -1) {
+			PLOG_E("mount('%s', 'tmpfs') for '%s'", tmpfsdir, p->value);
+			return false;
+		}
+	}
 	LIST_FOREACH(p, &nsjconf->robindmountpts, pointers) {
-		if (!bindMount(newrootdir, p->value)) {
+		if (!bindMountRW(newrootdir, p->value)) {
 			return false;
 		}
 	}
 	LIST_FOREACH(p, &nsjconf->rwbindmountpts, pointers) {
-		if (!bindMount(newrootdir, p->value)) {
+		if (!bindMountRW(newrootdir, p->value)) {
 			return false;
 		}
 	}
@@ -309,11 +336,6 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 		return false;
 	}
 
-	char procrootdir[PATH_MAX] = "/new_root/proc";
-	if (mount(NULL, procrootdir, "proc", MS_NOSUID | MS_NOEXEC | MS_NODEV, NULL) == -1) {
-		PLOG_E("mount('%s', 'proc')", procrootdir);
-		return false;
-	}
 	if (umount2("/pivot_root", MNT_DETACH) == -1) {
 		PLOG_E("umount2('/pivot_root', MNT_DETACH)");
 		return false;
@@ -327,27 +349,6 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 		PLOG_E("chdir('/')");
 		return false;
 	}
-	/* It only makes sense with "--chroot /", so don't worry about errors */
-	umount2(destdir, MNT_DETACH);
-
-	char tmpfs_size[128];
-	snprintf(tmpfs_size, sizeof(tmpfs_size), "size=%zu", nsjconf->tmpfs_size);
-	LIST_FOREACH(p, &nsjconf->tmpfsmountpts, pointers) {
-		if (strchr(p->value, ':') != NULL) {
-			PLOG_E("invalid tmpfs mount spec. source:dest format unsupported.");
-			return false;
-		}
-		if (mkdir(p->value, 0700) == -1 && errno != EEXIST) {
-			PLOG_E("mkdir('%s'); You probably need to create it in your --chroot ('%s') directory",
-			       p->value, nsjconf->chroot);
-			return false;
-		}
-		LOG_D("Mounting (tmpfs) '%s'", p->value);
-		if (mount(NULL, p->value, "tmpfs", 0, tmpfs_size) == -1) {
-			PLOG_E("mount('%s', 'tmpfs')", p->value);
-			return false;
-		}
-	}
 
 	if (nsjconf->is_root_rw == false) {
 		if (!remountBindMount("/", MS_RDONLY)) {
@@ -357,11 +358,6 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 
 	LIST_FOREACH(p, &nsjconf->robindmountpts, pointers) {
 		if (!remountBindMount(p->value, MS_RDONLY)) {
-			return false;
-		}
-	}
-	LIST_FOREACH(p, &nsjconf->rwbindmountpts, pointers) {
-		if (!remountBindMount(p->value, 0)) {
 			return false;
 		}
 	}
