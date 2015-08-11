@@ -196,7 +196,7 @@ static char *findSpecDestination(char *spec)
 	}
 }
 
-static bool bindMountRW(const char *newrootdir, const char *spec)
+static bool bindMountRW(struct nsjconf_t *nsjconf, const char *newrootdir, const char *spec)
 {
 	char mount_pt[PATH_MAX];
 	bool success = false;
@@ -214,17 +214,19 @@ static bool bindMountRW(const char *newrootdir, const char *spec)
 		PLOG_W("stat('%s')", source);
 		goto cleanup;
 	}
-	// Create mount_pt dir, only if the source bind mount point is also a directory
 	if (S_ISDIR(st.st_mode)) {
+		// Create mount_pt dir, only if the source bind mount point is also a directory
 		if (mkdir(mount_pt, 0700) == -1 && errno != EEXIST) {
-			PLOG_E("mkdir('%s')", mount_pt);
+			PLOG_E("mkdir('%s') failed. Try creating the '%s/%s' directory manually", mount_pt,
+			       nsjconf->chroot, dest);
 			goto cleanup;
 		}
-		// For everything else (files, sockets, pipes, devices), create a regular file
 	} else {
+		// For everything else (files, sockets, pipes, devices), create a regular file
 		int fd = open(mount_pt, O_CREAT | O_RDONLY, 0700);
 		if (fd == -1) {
-			PLOG_E("creat('%s')", mount_pt);
+			PLOG_E("creat('%s') failed. Try creating the '%s/%s' file manually", mount_pt, nsjconf->chroot,
+			       dest);
 			goto cleanup;
 		}
 		close(fd);
@@ -315,12 +317,12 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 		}
 	}
 	LIST_FOREACH(p, &nsjconf->robindmountpts, pointers) {
-		if (!bindMountRW(newrootdir, p->value)) {
+		if (!bindMountRW(nsjconf, newrootdir, p->value)) {
 			return false;
 		}
 	}
 	LIST_FOREACH(p, &nsjconf->rwbindmountpts, pointers) {
-		if (!bindMountRW(newrootdir, p->value)) {
+		if (!bindMountRW(nsjconf, newrootdir, p->value)) {
 			return false;
 		}
 	}
