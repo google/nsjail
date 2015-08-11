@@ -208,10 +208,28 @@ static bool bindMount(const char *newrootdir, const char *spec)
 	char *dest = findSpecDestination(source);
 
 	snprintf(mount_pt, sizeof(mount_pt), "%s/%s", newrootdir, dest);
-	if (mkdir(mount_pt, 0700) == -1 && errno != EEXIST) {
-		PLOG_E("mkdir('%s')", mount_pt);
+
+	struct stat st;
+	if (stat(source, &st) == -1) {
+		PLOG_W("stat('%s')", source);
 		goto cleanup;
 	}
+	// Create mount_pt dir, only if the source bind mount point is also a directory
+	if (S_ISDIR(st.st_mode)) {
+		if (mkdir(mount_pt, 0700) == -1 && errno != EEXIST) {
+			PLOG_E("mkdir('%s')", mount_pt);
+			goto cleanup;
+		}
+		// For everything else (files, sockets, pipes, devices), create a regular file
+	} else {
+		int fd = open(mount_pt, O_CREAT | O_RDONLY, 0700);
+		if (fd == -1) {
+			PLOG_E("creat('%s')", mount_pt);
+			goto cleanup;
+		}
+		close(fd);
+	}
+
 	LOG_D("Mounting (bind) '%s' on '%s'", source, mount_pt);
 	if (mount(source, mount_pt, NULL, MS_BIND | MS_REC, NULL) == -1) {
 		PLOG_E("mount('%s', '%s', MS_BIND|MS_REC)", source, mount_pt);
@@ -226,6 +244,10 @@ static bool bindMount(const char *newrootdir, const char *spec)
 
 static bool remountBindMount(const char *spec, unsigned long flags)
 {
+	if (flags == 0ULL) {
+		return true;
+	}
+
 	bool success = false;
 	char *source = strdup(spec);
 	if (source == NULL) {
