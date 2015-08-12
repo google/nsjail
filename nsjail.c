@@ -164,7 +164,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 	if (nsjconf.clone_newuser == false && geteuid() != 0) {
-		LOG_E("--disable_clone_newuser requires root() privs");
+		LOG_W("--disable_clone_newuser requires root() privs");
 	}
 	if (nsjconf.daemonize && (daemon(0, 0) == -1)) {
 		PLOG_F("daemon");

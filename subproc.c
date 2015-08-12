@@ -227,7 +227,8 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 	if (pid == -1) {
 		PLOG_E("clone(flags=%#x) failed. You probably need root privileges if your system "
 		       "doesn't support CLONE_NEWUSER. Alternatively, you might want to recompile your "
-		       "kernel with support for namespaces", flags);
+		       "kernel with support for namespaces or check the setting of the "
+		       "kernel.unprivileged_userns_clone sysctl", flags);
 		return;
 	}
 
