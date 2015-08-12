@@ -235,7 +235,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"disable_sandbox", no_argument, NULL, 0x0501}, "Don't enable the seccomp-bpf sandboxing (default: false)"},
 		{{"rw", no_argument, NULL, 0x0503}, "Mount / as RW (default: RO)"},
 		{{"silent", no_argument, NULL, 0x0504}, "Redirect child's fd:0/1/2 to /dev/null (default: false)"},
-		{{"bindmount_ro", required_argument, NULL, 0x0505}, "List of mountpoints to be mounted --bind (ro) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'. (default: none)"},
+		{{"bindmount_ro", required_argument, NULL, 'R'}, "List of mountpoints to be mounted --bind (ro) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'. (default: none)"},
 		{{"bindmount", required_argument, NULL, 'B'}, "List of mountpoints to be mounted --bind (rw) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'. (default: none)"},
 		{{"tmpfsmount", required_argument, NULL, 'T'}, "List of mountpoints to be mounted as RW/tmpfs inside the container. Can be specified multiple times. Supports 'dest' syntax. (default: none)"},
 		{{"iface", required_argument, NULL, 'I'}, "Interface which will be cloned (MACVTAP) and put inside the subprocess' namespace"},
@@ -251,7 +251,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 
 	int opt_index = 0;
 	for (;;) {
-		int c = getopt_long(argc, argv, "H:c:p:i:u:g:l:t:M:Ndveh?B:T:I:", opts, &opt_index);
+		int c = getopt_long(argc, argv, "H:c:p:i:u:g:l:t:M:Ndveh?R:B:T:I:", opts, &opt_index);
 		if (c == -1) {
 			break;
 		}
@@ -362,7 +362,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		case 0x0504:
 			nsjconf->is_silent = true;
 			break;
-		case 0x0505:
+		case 'R':
 			{
 				struct constchar_t *p = malloc(sizeof(struct constchar_t));
 				if (p == NULL) {
