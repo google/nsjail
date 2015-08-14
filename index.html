@@ -1,36 +1,34 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
   <head>
-    <meta charset="utf-8">
+    <meta charset='utf-8'>
     <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <title>NsJail by google</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+    <link href='https://fonts.googleapis.com/css?family=Architects+Daughter' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print">
 
-    <link rel="stylesheet" href="stylesheets/styles.css">
-    <link rel="stylesheet" href="stylesheets/github-light.css">
-    <script src="javascripts/scale.fix.js"></script>
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
     <!--[if lt IE 9]>
     <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
+
+    <title>NsJail by google</title>
   </head>
+
   <body>
-    <div class="wrapper">
-      <header>
-        <h1 class="header">NsJail</h1>
-        <p class="header">A light-weight process isolation tool, making use of Linux namespaces and seccomp-bpf</p>
+    <header>
+      <div class="inner">
+        <h1>NsJail</h1>
+        <h2>A light-weight process isolation tool, making use of Linux namespaces and seccomp-bpf</h2>
+        <a href="https://github.com/google/nsjail" class="button"><small>View project on</small> GitHub</a>
+      </div>
+    </header>
 
-        <ul>
-          <li class="download"><a class="buttons" href="https://github.com/google/nsjail/zipball/master">Download ZIP</a></li>
-          <li class="download"><a class="buttons" href="https://github.com/google/nsjail/tarball/master">Download TAR</a></li>
-          <li><a class="buttons github" href="https://github.com/google/nsjail">View On GitHub</a></li>
-        </ul>
-
-        <p class="header">This project is maintained by <a class="header name" href="https://github.com/google">google</a></p>
-
-
-      </header>
-      <section>
-        <h3>
+    <div id="content-wrapper">
+      <div class="inner clearfix">
+        <section id="main-content">
+          <h3>
 <a id="what-is-it" class="anchor" href="#what-is-it" aria-hidden="true"><span class="octicon octicon-link"></span></a>WHAT IS IT?</h3>
 
 <p>NsJail is a process isolation tool for Linux. It makes use of the the namespacing, resource control, and seccomp-bpf syscall filter subsystems of the Linux kernel.</p>
@@ -84,7 +82,7 @@
  PID   USER     COMMAND
  1 99999    /bin/sh -i
  3 99999    {busybox} ps wuax
- / $ 
+ / $
 
 </code></pre>
 
@@ -140,7 +138,7 @@
 
 <pre><code>Usage: ./nsjail [options] -- path_to_command [args]
 Options:
- --help|-h 
+ --help|-h
     Help plz..
  --mode|-M [val]
     Execution mode (default: l [MODE_LISTEN_TCP]):
@@ -163,13 +161,12 @@ Options:
     Log file (default: stderr)
  --time_limit|-t [val]
     Maximum time that a jail can exist, in seconds (default: 600)
- --daemon|-d 
-    Daemonize after start? (default: false)
- --verbose|-v 
+ --daemon|-d
+ --verbose|-v
     Verbose output (default: false)
- --keep_env|-e 
+ --keep_env|-e
     Should all environment variables be passed to the child? (default: false)
- --keep_caps 
+ --keep_caps
     Don't drop capabilities (DANGEROUS) (default: false)
  --rlimit_as [val]
     RLIMIT_AS in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 512)
@@ -185,45 +182,64 @@ Options:
     RLIMIT_NPROC, 'max' for RLIM_INFINITY, 'def' for the current value (default: 'def')
  --rlimit_stack [val]
     RLIMIT_STACK in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 'def')
- --persona_addr_compat_layout 
+ --persona_addr_compat_layout
     personality(ADDR_COMPAT_LAYOUT) (default: false)
- --persona_mmap_page_zero 
+ --persona_mmap_page_zero
     personality(MMAP_PAGE_ZERO) (default: false)
- --persona_read_implies_exec 
+ --persona_read_implies_exec
     personality(READ_IMPLIES_EXEC) (default: false)
- --persona_addr_limit_3gb 
+ --persona_addr_limit_3gb
     personality(ADDR_LIMIT_3GB) (default: false)
- --persona_addr_no_randomize 
+ --persona_addr_no_randomize
     personality(ADDR_NO_RANDOMIZE) (default: false)
- --disable_clone_newnet|-N 
+ --disable_clone_newnet|-N
     Enable networking inside the jail (default: false)
- --disable_clone_newuser 
+ --disable_clone_newuser
     Don't use CLONE_NEWUSER (default: false)
- --disable_clone_newns 
+ --disable_clone_newns
     Don't use CLONE_NEWNS (default: false)
- --disable_clone_newpid 
+ --disable_clone_newpid
     Don't use CLONE_NEWPID (default: false)
- --disable_clone_newipc 
+ --disable_clone_newipc
     Don't use CLONE_NEWIPC (default: false)
- --disable_clone_newuts 
+ --disable_clone_newuts
     Don't use CLONE_NEWUTS (default: false)
- --disable_sandbox 
+ --disable_sandbox
     Don't enable the seccomp-bpf sandboxing (default: false)
- --rw 
+ --rw
     Mount / as RW (default: RO)
- --silent 
+ --silent
     Redirect child's fd:0/1/2 to /dev/null (default: false)
+ --bindmount_ro [val]
+    List of mountpoints to be mounted --bind (ro) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'. (default: none)
  --bindmount|-B [val]
-    List of mountpoints to be mounted --bind inside the container. Can be specified multiple times (default: none)
+    List of mountpoints to be mounted --bind (rw) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'. (default: none)
  --tmpfsmount|-T [val]
-    List of mountpoints to be mounted as tmpfs inside the container. Can be specified multiple times (default: none)
+    List of mountpoints to be mounted as RW/tmpfs inside the container. Can be specified multiple times. Supports 'dest' syntax. (default: none)
+ --iface|-I [val]
+    Interface which will be cloned (MACVTAP) and put inside the subprocess' namespace
+ --tmpfs_size [val]
+    Number of bytes to allocate for tmpfsmounts in bytes (default: 4194304)
 </code></pre>
-      </section>
-      <footer>
-        <p><small>Hosted on <a href="https://pages.github.com">GitHub Pages</a> using the Dinky theme</small></p>
-      </footer>
+        </section>
+
+        <aside id="sidebar">
+          <a href="https://github.com/google/nsjail/zipball/master" class="button">
+            <small>Download</small>
+            .zip file
+          </a>
+          <a href="https://github.com/google/nsjail/tarball/master" class="button">
+            <small>Download</small>
+            .tar.gz file
+          </a>
+
+          <p class="repo-owner"><a href="https://github.com/google/nsjail"></a> is maintained by <a href="https://github.com/google">google</a>.</p>
+
+          <p>This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the Architect theme by <a href="https://twitter.com/jasonlong">Jason Long</a>.</p>
+        </aside>
+      </div>
     </div>
-    <!--[if !IE]><script>fixScale(document);</script><![endif]-->
-		
+
+  
   </body>
 </html>
