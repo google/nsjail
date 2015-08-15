@@ -92,8 +92,12 @@ static bool nsjailSetSigHandlers(void)
 	return true;
 }
 
-static bool nsjailSetTimer(void)
+static bool nsjailSetTimer(struct nsjconf_t *nsjconf)
 {
+	if (nsjconf->mode == MODE_STANDALONE_EXECVE) {
+		return true;
+	}
+
 	struct itimerval it = {
 		.it_value = {.tv_sec = 1,.tv_usec = 0},
 		.it_interval = {.tv_sec = 1,.tv_usec = 0},
@@ -173,7 +177,7 @@ int main(int argc, char *argv[])
 	if (nsjailSetSigHandlers() == false) {
 		exit(1);
 	}
-	if (nsjailSetTimer() == false) {
+	if (nsjailSetTimer(&nsjconf) == false) {
 		exit(1);
 	}
 

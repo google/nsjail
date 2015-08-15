@@ -270,6 +270,30 @@ static bool remountBindMount(const char *spec, unsigned long flags)
 	return success;
 }
 
+static bool containMountProc(struct nsjconf_t *nsjconf, const char *newrootdir)
+{
+	char procrootdir[PATH_MAX];
+	snprintf(procrootdir, sizeof(procrootdir), "%s/proc", newrootdir);
+
+	if (nsjconf->mount_proc == false) {
+		return true;
+	}
+
+	if (nsjconf->mode == MODE_STANDALONE_EXECVE) {
+		if (mount("/proc", procrootdir, NULL, MS_REC | MS_BIND, NULL) == -1) {
+			PLOG_E("mount('/proc', '%s', MS_REC|MS_BIND)", procrootdir);
+			return false;
+		}
+		return true;
+	}
+	if (mount(NULL, procrootdir, "proc", MS_NOSUID | MS_NOEXEC | MS_NODEV, NULL) == -1) {
+		PLOG_E("mount('%s', 'proc')", procrootdir);
+		return false;
+	}
+
+	return true;
+}
+
 bool containMountFS(struct nsjconf_t * nsjconf)
 {
 	const char *destdir = "/tmp";
@@ -287,11 +311,7 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 		PLOG_E("mount('%s', '%s', MS_BIND | MS_REC)", nsjconf->chroot, newrootdir);
 		return false;
 	}
-
-	char procrootdir[PATH_MAX];
-	snprintf(procrootdir, sizeof(procrootdir), "%s/proc", newrootdir);
-	if (mount(NULL, procrootdir, "proc", MS_NOSUID | MS_NOEXEC | MS_NODEV, NULL) == -1) {
-		PLOG_E("mount('%s', 'proc')", procrootdir);
+	if (containMountProc(nsjconf, newrootdir) == false) {
 		return false;
 	}
 
@@ -455,7 +475,9 @@ bool containMakeFdsCOE(void)
 bool containSetupFD(struct nsjconf_t * nsjconf, int fd_in, int fd_out, int fd_err, int fd_log)
 {
 	/* Make sure all logs go to the parent process from now on */
-	logRedirectLogFD(fd_log);
+	if (fd_log != -1) {
+		logRedirectLogFD(fd_log);
+	}
 
 	if (nsjconf->mode != MODE_LISTEN_TCP) {
 		if (nsjconf->is_silent == false) {

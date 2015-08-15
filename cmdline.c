@@ -74,6 +74,9 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	case MODE_STANDALONE_ONCE:
 		LOG_I("Mode: STANDALONE_ONCE");
 		break;
+	case MODE_STANDALONE_EXECVE:
+		LOG_I("Mode: STANDALONE_EXECVE");
+		break;
 	case MODE_STANDALONE_RERUN:
 		LOG_I("Mode: STANDALONE_RERUN");
 		break;
@@ -183,6 +186,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		.initial_gid = getgid(),
 		.max_conns_per_ip = 0,
 		.tmpfs_size = 4 * (1024 * 1024),
+		.mount_proc = true,
 	};
 	/*  *INDENT-OFF* */
 
@@ -200,7 +204,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"help", no_argument, NULL, 'h'}, "Help plz.."},
 		{{"mode", required_argument, NULL, 'M'}, "Execution mode (default: l [MODE_LISTEN_TCP]):\n"
 			"\tl: Listen to connections on a TCP port (specified with --port) [MODE_LISTEN_TCP]\n"
-			"\to: Immediately launch a single process on a console [MODE_STANDALONE_ONCE]\n"
+			"\to: Immediately launch a single process on a console using clone/execve [MODE_STANDALONE_ONCE]\n"
+			"\te: Immediately launch a single process on a console using execve [MODE_STANDALONE_EXECVE]\n"
 			"\tr: Immediately launch a single process on a console, keep doing it forever [MODE_STANDALONE_RERUN]"},
 		{{"chroot", required_argument, NULL, 'c'}, "Directory containing / of the jail (default: '/chroot')"},
 		{{"user", required_argument, NULL, 'u'}, "Username/uid of processess inside the jail (default: 'nobody')"},
@@ -213,7 +218,9 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"daemon", no_argument, NULL, 'd'}, "Daemonize after start? (default: false)"},
 		{{"verbose", no_argument, NULL, 'v'}, "Verbose output (default: false)"},
 		{{"keep_env", no_argument, NULL, 'e'}, "Should all environment variables be passed to the child? (default: false)"},
-		{{"keep_caps", no_argument, NULL, 0x0502}, "Don't drop capabilities (DANGEROUS) (default: false)"},
+		{{"keep_caps", no_argument, NULL, 0x0501}, "Don't drop capabilities (DANGEROUS) (default: false)"},
+		{{"silent", no_argument, NULL, 0x0502}, "Redirect child's fd:0/1/2 to /dev/null (default: false)"},
+		{{"disable_sandbox", no_argument, NULL, 0x0503}, "Don't enable the seccomp-bpf sandboxing (default: false)"},
 		{{"rlimit_as", required_argument, NULL, 0x0201}, "RLIMIT_AS in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 512)"},
 		{{"rlimit_core", required_argument, NULL, 0x0202}, "RLIMIT_CORE in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 0)"},
 		{{"rlimit_cpu", required_argument, NULL, 0x0203}, "RLIMIT_CPU, 'max' for RLIM_INFINITY, 'def' for the current value (default: 600)"},
@@ -232,14 +239,13 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"disable_clone_newpid", no_argument, NULL, 0x0404}, "Don't use CLONE_NEWPID (default: false)"},
 		{{"disable_clone_newipc", no_argument, NULL, 0x0405}, "Don't use CLONE_NEWIPC (default: false)"},
 		{{"disable_clone_newuts", no_argument, NULL, 0x0406}, "Don't use CLONE_NEWUTS (default: false)"},
-		{{"disable_sandbox", no_argument, NULL, 0x0501}, "Don't enable the seccomp-bpf sandboxing (default: false)"},
-		{{"rw", no_argument, NULL, 0x0503}, "Mount / as RW (default: RO)"},
-		{{"silent", no_argument, NULL, 0x0504}, "Redirect child's fd:0/1/2 to /dev/null (default: false)"},
+		{{"rw", no_argument, NULL, 0x0601}, "Mount / as RW (default: RO)"},
 		{{"bindmount_ro", required_argument, NULL, 'R'}, "List of mountpoints to be mounted --bind (ro) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'. (default: none)"},
 		{{"bindmount", required_argument, NULL, 'B'}, "List of mountpoints to be mounted --bind (rw) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'. (default: none)"},
 		{{"tmpfsmount", required_argument, NULL, 'T'}, "List of mountpoints to be mounted as RW/tmpfs inside the container. Can be specified multiple times. Supports 'dest' syntax. (default: none)"},
 		{{"iface", required_argument, NULL, 'I'}, "Interface which will be cloned (MACVTAP) and put inside the subprocess' namespace"},
-		{{"tmpfs_size", required_argument, NULL, 0x0506}, "Number of bytes to allocate for tmpfsmounts in bytes (default: 4194304)"},
+		{{"tmpfs_size", required_argument, NULL, 0x0602}, "Number of bytes to allocate for tmpfsmounts (default: 4194304)"},
+		{{"disable_proc", no_argument, NULL, 0x0603}, "Disable mounting /proc (default: false)"},
 		{{0, 0, 0, 0}, NULL},
 	};
         /*  *INDENT-ON* */
@@ -267,9 +273,6 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			break;
 		case 'i':
 			nsjconf->max_conns_per_ip = strtoul(optarg, NULL, 0);
-			break;
-		case 0x0506:
-			nsjconf->tmpfs_size = strtoull(optarg, NULL, 0);
 			break;
 		case 'u':
 			user = optarg;
@@ -351,16 +354,22 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			nsjconf->clone_newuts = false;
 			break;
 		case 0x0501:
-			nsjconf->apply_sandbox = false;
-			break;
-		case 0x0502:
 			nsjconf->keep_caps = true;
 			break;
+		case 0x0502:
+			nsjconf->is_silent = true;
+			break;
 		case 0x0503:
+			nsjconf->apply_sandbox = false;
+			break;
+		case 0x0601:
 			nsjconf->is_root_rw = true;
 			break;
-		case 0x0504:
-			nsjconf->is_silent = true;
+		case 0x0602:
+			nsjconf->tmpfs_size = strtoull(optarg, NULL, 0);
+			break;
+		case 0x0603:
+			nsjconf->mount_proc = false;
 			break;
 		case 'R':
 			{
@@ -399,6 +408,9 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				break;
 			case 'o':
 				nsjconf->mode = MODE_STANDALONE_ONCE;
+				break;
+			case 'e':
+				nsjconf->mode = MODE_STANDALONE_EXECVE;
 				break;
 			case 'r':
 				nsjconf->mode = MODE_STANDALONE_RERUN;

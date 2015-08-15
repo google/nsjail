@@ -204,7 +204,7 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 		return;
 	}
 
-	unsigned int flags = SIGCHLD;
+	unsigned int flags = 0UL;
 	flags |= (nsjconf->clone_newnet ? CLONE_NEWNET : 0);
 	flags |= (nsjconf->clone_newuser ? CLONE_NEWUSER : 0);
 	flags |= (nsjconf->clone_newns ? CLONE_NEWNS : 0);
@@ -212,6 +212,21 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 	flags |= (nsjconf->clone_newipc ? CLONE_NEWIPC : 0);
 	flags |= (nsjconf->clone_newuts ? CLONE_NEWUTS : 0);
 
+	if (nsjconf->mode == MODE_STANDALONE_EXECVE) {
+		if (nsjconf->clone_newpid) {
+			LOG_W("CLONE_NEWPID requested. It causes troubles with unshare() "
+			      "[ENOMEM with clone/fork/vfork]. Disabling it");
+			flags &= ~(CLONE_NEWPID);
+		}
+		LOG_D("Entering namespace with flags: %#x", flags);
+		if (unshare(flags) == -1) {
+			PLOG_E("unshare(%u)", flags);
+			_exit(EXIT_FAILURE);
+		}
+		subprocNewProc(nsjconf, fd_in, fd_out, fd_err, -1);
+	}
+
+	flags |= SIGCHLD;
 	LOG_D("Creating new process with clone flags: %#x", flags);
 
 	int pipefd[2];

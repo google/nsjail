@@ -52,7 +52,7 @@ bool logInitLogFile(struct nsjconf_t *nsjconf, const char *logfile, bool is_verb
 		logfile = _LOG_DEFAULT_FILE;
 	}
 	if (logfile == NULL) {
-		logfile = "/dev/tty";
+		logfile = "/proc/self/fd/2";
 	}
 	log_fd = open(logfile, O_CREAT | O_RDWR | O_APPEND, 0640);
 	if (log_fd == -1) {

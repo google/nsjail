@@ -46,6 +46,7 @@ struct constchar_t {
 enum mode_t {
 	MODE_LISTEN_TCP = 0,
 	MODE_STANDALONE_ONCE,
+	MODE_STANDALONE_EXECVE,
 	MODE_STANDALONE_RERUN
 };
 
@@ -84,6 +85,7 @@ struct nsjconf_t {
 	gid_t initial_gid;
 	unsigned int max_conns_per_ip;
 	size_t tmpfs_size;
+	bool mount_proc;
 	 LIST_HEAD(pidslist, pids_t) pids;
 	 LIST_HEAD(rwbindmountptslist, constchar_t) rwbindmountpts;
 	 LIST_HEAD(robindmountptslist, constchar_t) robindmountpts;
