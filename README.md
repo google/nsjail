@@ -1,8 +1,8 @@
 ### WHAT IS IT?
 NsJail is a process isolation tool for Linux. It makes use of the the namespacing, resource control, and seccomp-bpf syscall filter subsystems of the Linux kernel.
 
-It can be used, among others to:
-  * Secure networking service (e.g. web, time, DNS), by isolating them from the rest of the OS
+It can help, among others, with:
+  * Securing networking services (e.g. web, time, DNS), by isolating them from the rest of the OS
   * Hosting computer security challenges (so-called CTFs)
   * Containing invasive syscall-level OS fuzzers
 
