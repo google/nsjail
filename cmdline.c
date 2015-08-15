@@ -213,7 +213,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"hostname", required_argument, NULL, 'H'}, "UTS name (hostname) of the jail (default: 'NSJAIL')"},
 		{{"port", required_argument, NULL, 'p'}, "TCP port to bind to (only in [MODE_LISTEN_TCP]) (default: 31337)"},
 		{{"max_conns_per_ip", required_argument, NULL, 'i'}, "Maximum number of connections per one IP (default: 0 (unlimited))"},
-		{{"log", required_argument, NULL, 'l'}, "Log file (default: stderr)"},
+		{{"log", required_argument, NULL, 'l'}, "Log file (default: /proc/self/fd/2)"},
 		{{"time_limit", required_argument, NULL, 't'}, "Maximum time that a jail can exist, in seconds (default: 600)"},
 		{{"daemon", no_argument, NULL, 'd'}, "Daemonize after start? (default: false)"},
 		{{"verbose", no_argument, NULL, 'v'}, "Verbose output (default: false)"},
