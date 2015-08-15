@@ -47,6 +47,9 @@
 
 static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_err, int pipefd)
 {
+	if (containInitUserNs(nsjconf) == false) {
+		exit(1);
+	}
 	if (containPrepareEnv(nsjconf) == false) {
 		exit(1);
 	}
@@ -214,7 +217,7 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 
 	if (nsjconf->mode == MODE_STANDALONE_EXECVE) {
 		if (nsjconf->clone_newpid) {
-			LOG_W("CLONE_NEWPID requested. It causes troubles with unshare() "
+			LOG_D("CLONE_NEWPID requested. It causes troubles with unshare() "
 			      "[ENOMEM with clone/fork/vfork]. Disabling it");
 			flags &= ~(CLONE_NEWPID);
 		}

@@ -99,7 +99,7 @@ static bool containUidGidMap(struct nsjconf_t *nsjconf, uid_t uid, gid_t gid)
 	return true;
 }
 
-bool containDropPrivs(struct nsjconf_t * nsjconf)
+bool containInitUserNs(struct nsjconf_t * nsjconf)
 {
 	if (containSetGroups() == false) {
 		return false;
@@ -107,6 +107,11 @@ bool containDropPrivs(struct nsjconf_t * nsjconf)
 	if (containUidGidMap(nsjconf, nsjconf->uid, nsjconf->gid) == false) {
 		return false;
 	}
+	return true;
+}
+
+bool containDropPrivs(struct nsjconf_t * nsjconf)
+{
 	/*
 	 * Best effort because of /proc/self/setgroups
 	 */
@@ -433,19 +438,35 @@ bool containSetLimits(struct nsjconf_t * nsjconf)
 	return true;
 }
 
-bool containMakeFdsCOE(void)
+static bool containMakeFdsCOENaive(void)
+{
+	// Don't use getrlimit(RLIMIT_NOFILE) here, as it can return an artifically small value
+	// (e.g. 32), which could be smaller than a maximum assigned number to file-descriptors
+	// in this process. Just use some reasonably sane value (e.g. 1024)
+	for (unsigned fd = (STDERR_FILENO + 1); fd < 1024; fd++) {
+		int flags = fcntl(fd, F_GETFD, 0);
+		if (flags == -1) {
+			continue;
+		}
+		fcntl(fd, F_SETFD, flags | FD_CLOEXEC);
+		LOG_D("Set fd '%d' flag to FD_CLOEXEC", fd);
+	}
+	return true;
+}
+
+static bool containMakeFdsCOEProc(void)
 {
 	/* Make all fds above stderr close-on-exec */
 	DIR *dir = opendir("/proc/self/fd");
 	if (dir == NULL) {
-		PLOG_E("opendir('/proc/self/fd')");
+		PLOG_D("opendir('/proc/self/fd')");
 		return false;
 	}
 	for (;;) {
 		errno = 0;
 		struct dirent *entry = readdir(dir);
 		if (entry == NULL && errno != 0) {
-			PLOG_E("readdir('/proc/self/fd')");
+			PLOG_D("readdir('/proc/self/fd')");
 			closedir(dir);
 			return false;
 		}
@@ -466,7 +487,7 @@ bool containMakeFdsCOE(void)
 		if (fd > STDERR_FILENO) {
 			int flags = fcntl(fd, F_GETFD, 0);
 			if (flags == -1) {
-				PLOG_E("fcntl(fd, F_GETFD, 0)");
+				PLOG_D("fcntl(fd, F_GETFD, 0)");
 				return false;
 			}
 			fcntl(fd, F_SETFD, flags | FD_CLOEXEC);
@@ -475,6 +496,18 @@ bool containMakeFdsCOE(void)
 	}
 	closedir(dir);
 	return true;
+}
+
+bool containMakeFdsCOE(void)
+{
+	if (containMakeFdsCOEProc() == true) {
+		return true;
+	}
+	if (containMakeFdsCOENaive() == true) {
+		return true;
+	}
+	LOG_E("Couldn't mark relevant file-descriptors as close-on-exec with any known method");
+	return false;
 }
 
 bool containSetupFD(struct nsjconf_t * nsjconf, int fd_in, int fd_out, int fd_err, int fd_log)
