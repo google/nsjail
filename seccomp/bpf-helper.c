@@ -33,7 +33,8 @@ int bpf_resolve_jumps(struct bpf_labels *labels, struct sock_filter *filter, siz
 		switch ((filter->jt << 8) | filter->jf) {
 		case (JUMP_JT << 8) | JUMP_JF:
 			if (labels->labels[filter->k].location == 0xffffffff) {
-				fprintf(stderr, "Unresolved label: '%s'\n", labels->labels[filter->k].label);
+				fprintf(stderr, "Unresolved label: '%s'\n",
+					labels->labels[filter->k].label);
 				return 1;
 			}
 			filter->k = labels->labels[filter->k].location - (insn + 1);
@@ -42,7 +43,8 @@ int bpf_resolve_jumps(struct bpf_labels *labels, struct sock_filter *filter, siz
 			continue;
 		case (LABEL_JT << 8) | LABEL_JF:
 			if (labels->labels[filter->k].location != 0xffffffff) {
-				fprintf(stderr, "Duplicate label use: '%s'\n", labels->labels[filter->k].label);
+				fprintf(stderr, "Duplicate label use: '%s'\n",
+					labels->labels[filter->k].label);
 				return 1;
 			}
 			labels->labels[filter->k].location = insn;
@@ -86,5 +88,6 @@ void seccomp_bpf_print(struct sock_filter *filter, size_t count)
 {
 	struct sock_filter *end = filter + count;
 	for (; filter < end; ++filter)
-		printf("{ code=%u,jt=%u,jf=%u,k=%u },\n", filter->code, filter->jt, filter->jf, filter->k);
+		printf("{ code=%u,jt=%u,jf=%u,k=%u },\n", filter->code, filter->jt, filter->jf,
+		       filter->k);
 }

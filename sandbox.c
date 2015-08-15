@@ -98,7 +98,8 @@ bool sandboxApply(struct nsjconf_t * nsjconf)
 		return false;
 	}
 #else				/* defined(__x86_64__) || defined(__i386__) */
-	LOG_W("There's no seccomp-bpf implementation ready for the current CPU architecture. Sandbox not enabled");
+	LOG_W
+	    ("There's no seccomp-bpf implementation ready for the current CPU architecture. Sandbox not enabled");
 #endif				/* defined(__x86_64__) || defined(__i386__) */
 	return true;
 }

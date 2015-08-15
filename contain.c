@@ -73,7 +73,8 @@ static bool containUidGidMap(struct nsjconf_t *nsjconf, uid_t uid, gid_t gid)
 		PLOG_E("open('/proc/self/uid_map', O_WRONLY | O_CLOEXEC)");
 		return false;
 	}
-	snprintf(map, sizeof(map), "%lu %lu 1", (unsigned long)uid, (unsigned long)nsjconf->initial_uid);
+	snprintf(map, sizeof(map), "%lu %lu 1", (unsigned long)uid,
+		 (unsigned long)nsjconf->initial_uid);
 	LOG_D("Writing '%s' to /proc/self/uid_map", map);
 	if (write(fd, map, strlen(map)) == -1) {
 		PLOG_E("write('/proc/self/uid_map', %d, '%s')", fd, map);
@@ -86,7 +87,8 @@ static bool containUidGidMap(struct nsjconf_t *nsjconf, uid_t uid, gid_t gid)
 		PLOG_E("open('/proc/self/gid_map', O_WRONLY | O_CLOEXEC)");
 		return false;
 	}
-	snprintf(map, sizeof(map), "%lu %lu 1", (unsigned long)gid, (unsigned long)nsjconf->initial_gid);
+	snprintf(map, sizeof(map), "%lu %lu 1", (unsigned long)gid,
+		 (unsigned long)nsjconf->initial_gid);
 	LOG_D("Writing '%s' to /proc/self/gid_map", map);
 	if (write(fd, map, strlen(map)) == -1) {
 		PLOG_E("write('/proc/self/gid_map', %d, '%s')", fd, map);
@@ -217,16 +219,16 @@ static bool bindMountRW(struct nsjconf_t *nsjconf, const char *newrootdir, const
 	if (S_ISDIR(st.st_mode)) {
 		// Create mount_pt dir, only if the source bind mount point is also a directory
 		if (mkdir(mount_pt, 0700) == -1 && errno != EEXIST) {
-			PLOG_E("mkdir('%s') failed. Try creating the '%s/%s' directory manually", mount_pt,
-			       nsjconf->chroot, dest);
+			PLOG_E("mkdir('%s') failed. Try creating the '%s/%s' directory manually",
+			       mount_pt, nsjconf->chroot, dest);
 			goto cleanup;
 		}
 	} else {
 		// For everything else (files, sockets, pipes, devices), create a regular file
 		int fd = open(mount_pt, O_CREAT | O_RDONLY, 0700);
 		if (fd == -1) {
-			PLOG_E("creat('%s') failed. Try creating the '%s/%s' file manually", mount_pt, nsjconf->chroot,
-			       dest);
+			PLOG_E("creat('%s') failed. Try creating the '%s/%s' file manually",
+			       mount_pt, nsjconf->chroot, dest);
 			goto cleanup;
 		}
 		close(fd);
@@ -259,8 +261,10 @@ static bool remountBindMount(const char *spec, unsigned long flags)
 	char *dest = findSpecDestination(source);
 
 	LOG_D("Remounting (bind(0x%lx)) '%s' on '%s'", flags, dest, dest);
-	if (mount(dest, dest, NULL, MS_BIND | MS_NOSUID | MS_REMOUNT | MS_PRIVATE | flags, NULL) == -1) {
-		PLOG_E("mount('%s', '%s', MS_BIND|MS_NOSUID|MS_REMOUNT|MS_PRIVATE|%lu)", dest, dest, flags);
+	if (mount(dest, dest, NULL, MS_BIND | MS_NOSUID | MS_REMOUNT | MS_PRIVATE | flags, NULL) ==
+	    -1) {
+		PLOG_E("mount('%s', '%s', MS_BIND|MS_NOSUID|MS_REMOUNT|MS_PRIVATE|%lu)", dest, dest,
+		       flags);
 		goto cleanup;
 	}
 	success = true;
@@ -326,8 +330,9 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 		char tmpfsdir[PATH_MAX];
 		snprintf(tmpfsdir, sizeof(tmpfsdir), "%s/%s", newrootdir, p->value);
 		if (mkdir(tmpfsdir, 0700) == -1 && errno != EEXIST) {
-			PLOG_E("mkdir('%s') (for tmpfs:'%s'); You probably need to create it inside your "
-			       "--chroot ('%s') directory", tmpfsdir, p->value, nsjconf->chroot);
+			PLOG_E
+			    ("mkdir('%s') (for tmpfs:'%s'); You probably need to create it inside your "
+			     "--chroot ('%s') directory", tmpfsdir, p->value, nsjconf->chroot);
 			return false;
 		}
 		LOG_D("Mounting (tmpfs) '%s' at '%s'", p->value, tmpfsdir);

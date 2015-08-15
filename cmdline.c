@@ -55,8 +55,8 @@ static void cmdlineHelp(const char *pname, struct custom_option *opts)
 	LOG_HELP_BOLD("Options:");
 	for (int i = 0; opts[i].opt.name; i++) {
 		if (isprint(opts[i].opt.val)) {
-			LOG_HELP_BOLD(" --%s%s%c %s", opts[i].opt.name,
-				      "|-", opts[i].opt.val, opts[i].opt.has_arg == required_argument ? "[val]" : "");
+			LOG_HELP_BOLD(" --%s%s%c %s", opts[i].opt.name, "|-", opts[i].opt.val,
+				      opts[i].opt.has_arg == required_argument ? "[val]" : "");
 		} else {
 			LOG_HELP_BOLD(" --%s %s", opts[i].opt.name,
 				      opts[i].opt.has_arg == required_argument ? "[val]" : "");
@@ -140,7 +140,8 @@ rlim_t cmdlineParseRLimit(int res, const char *optarg, unsigned long mul)
 		return cur.rlim_cur;
 	}
 	if (cmdlineIsANumber(optarg) == false) {
-		LOG_F("RLIMIT %d needs a numeric or 'max'/'def' value ('%s' provided)", res, optarg);
+		LOG_F("RLIMIT %d needs a numeric or 'max'/'def' value ('%s' provided)", res,
+		      optarg);
 	}
 	rlim_t val = strtoul(optarg, NULL, 0) * mul;
 	if (val == ULONG_MAX && errno != 0) {
@@ -257,7 +258,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 
 	int opt_index = 0;
 	for (;;) {
-		int c = getopt_long(argc, argv, "H:c:p:i:u:g:l:t:M:Ndveh?R:B:T:I:", opts, &opt_index);
+		int c =
+		    getopt_long(argc, argv, "H:c:p:i:u:g:l:t:M:Ndveh?R:B:T:I:", opts, &opt_index);
 		if (c == -1) {
 			break;
 		}

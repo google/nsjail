@@ -139,8 +139,8 @@ void subprocDisplay(struct nsjconf_t *nsjconf)
 	LIST_FOREACH(p, &nsjconf->pids, pointers) {
 		time_t diff = now - p->start;
 		time_t left = nsjconf->tlimit ? nsjconf->tlimit - diff : 0;
-		LOG_I("PID: %d, Remote host: %s, Run time: %ld sec. (time left: %ld sec.)", p->pid, p->remote_txt,
-		      (long)diff, (long)left);
+		LOG_I("PID: %d, Remote host: %s, Run time: %ld sec. (time left: %ld sec.)", p->pid,
+		      p->remote_txt, (long)diff, (long)left);
 	}
 }
 
