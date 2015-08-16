@@ -305,6 +305,19 @@ static bool containMountProc(struct nsjconf_t *nsjconf, const char *newrootdir)
 
 bool containMountFS(struct nsjconf_t * nsjconf)
 {
+	if (nsjconf->clone_newns == false) {
+		if (chroot(nsjconf->chroot) == -1) {
+			PLOG_E("chroot('%s')", nsjconf->chroot) {
+				return false;
+			}
+		}
+		if (chdir("/") == -1) {
+			PLOG_E("chdir('/')");
+			return false;
+		}
+		return true;
+	}
+
 	const char *destdir = "/tmp";
 	if (mount("none", destdir, "tmpfs", 0, NULL) == -1) {
 		PLOG_E("mount('%s', 'tmpfs'", destdir);
