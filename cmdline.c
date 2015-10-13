@@ -129,8 +129,8 @@ static bool cmdlineIsANumber(const char *s)
 
 rlim_t cmdlineParseRLimit(int res, const char *optarg, unsigned long mul)
 {
-	struct rlimit cur;
-	if (getrlimit(res, &cur) == -1) {
+	struct rlimit64 cur;
+	if (prlimit64(0, res, NULL, &cur) == -1) {
 		PLOG_F("getrlimit(%d)", res);
 	}
 	if (strcasecmp(optarg, "max") == 0) {
@@ -143,8 +143,8 @@ rlim_t cmdlineParseRLimit(int res, const char *optarg, unsigned long mul)
 		LOG_F("RLIMIT %d needs a numeric or 'max'/'def' value ('%s' provided)", res,
 		      optarg);
 	}
-	rlim_t val = strtoul(optarg, NULL, 0) * mul;
-	if (val == ULONG_MAX && errno != 0) {
+	rlim_t val = strtoull(optarg, NULL, 0) * mul;
+	if (val == ULLONG_MAX && errno != 0) {
 		PLOG_F("strtoul('%s', 0)", optarg);
 	}
 	return val;

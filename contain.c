@@ -412,40 +412,40 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 
 bool containSetLimits(struct nsjconf_t * nsjconf)
 {
-	struct rlimit rl;
+	struct rlimit64 rl;
 	rl.rlim_cur = rl.rlim_max = nsjconf->rl_as;
-	if (setrlimit(RLIMIT_AS, &rl) == -1) {
-		PLOG_E("setrlimit(RLIMIT_AS, %lu)", nsjconf->rl_as);
+	if (prlimit64(0, RLIMIT_AS, &rl, NULL) == -1) {
+		PLOG_E("prlimit64(0, RLIMIT_AS, %lu)", nsjconf->rl_as);
 		return false;
 	}
 	rl.rlim_cur = rl.rlim_max = nsjconf->rl_core;
-	if (setrlimit(RLIMIT_CORE, &rl) == -1) {
-		PLOG_E("setrlimit(RLIMIT_CORE, %lu)", nsjconf->rl_core);
+	if (prlimit64(0, RLIMIT_CORE, &rl, NULL) == -1) {
+		PLOG_E("prlimit64(0, RLIMIT_CORE, %lu)", nsjconf->rl_core);
 		return false;
 	}
 	rl.rlim_cur = rl.rlim_max = nsjconf->rl_cpu;
-	if (setrlimit(RLIMIT_CPU, &rl) == -1) {
-		PLOG_E("setrlimit(RLIMIT_CPU), %lu", nsjconf->rl_cpu);
+	if (prlimit64(0, RLIMIT_CPU, &rl, NULL) == -1) {
+		PLOG_E("prlimit64(0, RLIMIT_CPU), %lu", nsjconf->rl_cpu);
 		return false;
 	}
 	rl.rlim_cur = rl.rlim_max = nsjconf->rl_fsize;
-	if (setrlimit(RLIMIT_FSIZE, &rl) == -1) {
-		PLOG_E("setrlimit(RLIMIT_FSIZE), %lu", nsjconf->rl_fsize);
+	if (prlimit64(0, RLIMIT_FSIZE, &rl, NULL) == -1) {
+		PLOG_E("prlimit64(0, RLIMIT_FSIZE), %lu", nsjconf->rl_fsize);
 		return false;
 	}
 	rl.rlim_cur = rl.rlim_max = nsjconf->rl_nofile;
-	if (setrlimit(RLIMIT_NOFILE, &rl) == -1) {
-		PLOG_E("setrlimit(RLIMIT_NOFILE), %lu", nsjconf->rl_nofile);
+	if (prlimit64(0, RLIMIT_NOFILE, &rl, NULL) == -1) {
+		PLOG_E("prlimit64(0, RLIMIT_NOFILE), %lu", nsjconf->rl_nofile);
 		return false;
 	}
 	rl.rlim_cur = rl.rlim_max = nsjconf->rl_nproc;
-	if (setrlimit(RLIMIT_NPROC, &rl) == -1) {
-		PLOG_E("setrlimit(RLIMIT_NPROC), %lu", nsjconf->rl_nproc);
+	if (prlimit64(0, RLIMIT_NPROC, &rl, NULL) == -1) {
+		PLOG_E("prlimit64(0, RLIMIT_NPROC), %lu", nsjconf->rl_nproc);
 		return false;
 	}
 	rl.rlim_cur = rl.rlim_max = nsjconf->rl_stack;
-	if (setrlimit(RLIMIT_STACK, &rl) == -1) {
-		PLOG_E("setrlimit(RLIMIT_STACK), %lu", nsjconf->rl_stack);
+	if (prlimit64(0, RLIMIT_STACK, &rl, NULL) == -1) {
+		PLOG_E("prlimit64(0, RLIMIT_STACK), %lu", nsjconf->rl_stack);
 		return false;
 	}
 	return true;
