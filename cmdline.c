@@ -31,8 +31,10 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <strings.h>
 #include <sys/personality.h>
+#include <sys/mount.h>
 #include <sys/time.h>
 #include <unistd.h>
 
@@ -99,15 +101,10 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	     logYesNo(nsjconf->clone_newuts), logYesNo(nsjconf->apply_sandbox),
 	     logYesNo(nsjconf->keep_caps), nsjconf->tmpfs_size);
 
-	struct constchar_t *p;
-	LIST_FOREACH(p, &nsjconf->robindmountpts, pointers) {
-		LOG_I("Additional (ro) bind mount point: '%s'", p->value);
-	}
-	LIST_FOREACH(p, &nsjconf->rwbindmountpts, pointers) {
-		LOG_I("Additional (rw) bind mount point: '%s'", p->value);
-	}
-	LIST_FOREACH(p, &nsjconf->tmpfsmountpts, pointers) {
-		LOG_I("Additional tmpfs mount point: '%s'", p->value);
+	struct mounts_t *p;
+	LIST_FOREACH(p, &nsjconf->mountpts, pointers) {
+		LOG_I("Mount point: src:'%s' dst:'%s' type:'%s' flags:%tx options:'%s'",
+		      p->src, p->dst, p->fs_type, p->flags, p->options);
 	}
 }
 
@@ -150,12 +147,34 @@ rlim_t cmdlineParseRLimit(int res, const char *optarg, unsigned long mul)
 	return val;
 }
 
+/* findSpecDestination mutates spec (source:dest) to have a null byte instead
+ * of ':' in between source and dest, then returns a pointer to the dest
+ * string. */
+static char *cmdlineMountParam(char *spec)
+{
+	char *dest = spec;
+	while (*dest != ':' && *dest != '\0') {
+		dest++;
+	}
+
+	switch (*dest) {
+	case ':':
+		*dest = '\0';
+		return dest + 1;
+	case '\0':
+		return spec;
+	default:
+		// not reached
+		return spec;
+	}
+}
+
 bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 {
 	/*  *INDENT-OFF* */
 	(*nsjconf) = (struct nsjconf_t) {
 		.hostname = "NSJAIL",
-		.chroot = "/chroot",
+		.chroot = "",
 		.argv = NULL,
 		.port = 31337,
 		.uid = -1,
@@ -192,13 +211,12 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	/*  *INDENT-OFF* */
 
 	LIST_INIT(&nsjconf->pids);
-	LIST_INIT(&nsjconf->robindmountpts);
-	LIST_INIT(&nsjconf->rwbindmountpts);
-	LIST_INIT(&nsjconf->tmpfsmountpts);
+	LIST_INIT(&nsjconf->mountpts);
 
 	const char *user = "nobody";
 	const char *group = "nobody";
 	const char *logfile = NULL;
+	static char cmdlineTmpfsSz[PATH_MAX] = "size=4194304";
 
         /*  *INDENT-OFF* */
 	struct custom_option custom_opts[] = {
@@ -208,7 +226,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			"\to: Immediately launch a single process on a console using clone/execve [MODE_STANDALONE_ONCE]\n"
 			"\te: Immediately launch a single process on a console using execve [MODE_STANDALONE_EXECVE]\n"
 			"\tr: Immediately launch a single process on a console, keep doing it forever [MODE_STANDALONE_RERUN]"},
-		{{"chroot", required_argument, NULL, 'c'}, "Directory containing / of the jail (default: '/chroot')"},
+		{{"chroot", required_argument, NULL, 'c'}, "Directory containing / of the jail (default: none)"},
 		{{"user", required_argument, NULL, 'u'}, "Username/uid of processess inside the jail (default: 'nobody')"},
 		{{"group", required_argument, NULL, 'g'}, "Groupname/gid of processess inside the jail (default: 'nogroup')"},
 		{{"hostname", required_argument, NULL, 'H'}, "UTS name (hostname) of the jail (default: 'NSJAIL')"},
@@ -369,38 +387,52 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			break;
 		case 0x0602:
 			nsjconf->tmpfs_size = strtoull(optarg, NULL, 0);
+			snprintf(cmdlineTmpfsSz, sizeof(cmdlineTmpfsSz), "size=%zu",
+				 nsjconf->tmpfs_size);
 			break;
 		case 0x0603:
 			nsjconf->mount_proc = false;
 			break;
 		case 'R':
 			{
-				struct constchar_t *p = malloc(sizeof(struct constchar_t));
+				struct mounts_t *p = malloc(sizeof(struct mounts_t));
 				if (p == NULL) {
-					PLOG_F("malloc(%zu)", sizeof(struct constchar_t));
+					PLOG_F("malloc(%zu)", sizeof(struct mounts_t));
 				}
-				p->value = optarg;
-				LIST_INSERT_HEAD(&nsjconf->robindmountpts, p, pointers);
+				p->src = optarg;
+				p->dst = cmdlineMountParam(optarg);
+				p->flags = MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY;
+				p->options = NULL;
+				p->fs_type = NULL;
+				LIST_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
 			}
 			break;
 		case 'B':
 			{
-				struct constchar_t *p = malloc(sizeof(struct constchar_t));
+				struct mounts_t *p = malloc(sizeof(struct mounts_t));
 				if (p == NULL) {
-					PLOG_F("malloc(%zu)", sizeof(struct constchar_t));
+					PLOG_F("malloc(%zu)", sizeof(struct mounts_t));
 				}
-				p->value = optarg;
-				LIST_INSERT_HEAD(&nsjconf->rwbindmountpts, p, pointers);
+				p->src = optarg;
+				p->dst = cmdlineMountParam(optarg);
+				p->flags = MS_BIND | MS_REC | MS_PRIVATE;
+				p->options = NULL;
+				p->fs_type = NULL;
+				LIST_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
 			}
 			break;
 		case 'T':
 			{
-				struct constchar_t *p = malloc(sizeof(struct constchar_t));
+				struct mounts_t *p = malloc(sizeof(struct mounts_t));
 				if (p == NULL) {
-					PLOG_F("malloc(%zu)", sizeof(struct constchar_t));
+					PLOG_F("malloc(%zu)", sizeof(struct mounts_t));
 				}
-				p->value = optarg;
-				LIST_INSERT_HEAD(&nsjconf->tmpfsmountpts, p, pointers);
+				p->src = "none";
+				p->dst = optarg;
+				p->flags = 0;
+				p->options = cmdlineTmpfsSz;
+				p->fs_type = "tmpfs";
+				LIST_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
 			}
 			break;
 		case 'M':
@@ -434,6 +466,34 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			return false;
 			break;
 		}
+	}
+
+	if (nsjconf->mount_proc == true) {
+		struct mounts_t *p = malloc(sizeof(struct mounts_t));
+		if (p == NULL) {
+			PLOG_F("malloc(%zu)", sizeof(struct mounts_t));
+		}
+		p->src = "none";
+		p->dst = "/proc";
+		p->flags = 0;
+		p->options = NULL;
+		p->fs_type = "proc";
+		LIST_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
+	}
+	if (strlen(nsjconf->chroot) > 0) {
+		struct mounts_t *p = malloc(sizeof(struct mounts_t));
+		if (p == NULL) {
+			PLOG_F(" malloc(%zu) ", sizeof(struct mounts_t));
+		}
+		p->src = nsjconf->chroot;
+		p->dst = "/";
+		p->flags = MS_BIND | MS_REC | MS_PRIVATE;
+		p->options = NULL;
+		p->fs_type = NULL;
+		if (nsjconf->is_root_rw == false) {
+			p->flags |= MS_RDONLY;
+		}
+		LIST_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
 	}
 
 	if (logInitLogFile(nsjconf, logfile, nsjconf->verbose) == false) {

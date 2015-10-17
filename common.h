@@ -22,6 +22,7 @@
 #ifndef _COMMON_H
 #define _COMMON_H
 
+#include <limits.h>
 #include <netinet/ip6.h>
 #include <stdbool.h>
 #include <sys/queue.h>
@@ -38,9 +39,13 @@ struct pids_t {
 	 LIST_ENTRY(pids_t) pointers;
 };
 
-struct constchar_t {
-	const char *value;
-	 LIST_ENTRY(constchar_t) pointers;
+struct mounts_t {
+	const char *src;
+	const char *dst;
+	const char *fs_type;
+	const char *options;
+	uintptr_t flags;
+	 LIST_ENTRY(mounts_t) pointers;
 };
 
 enum mode_t {
@@ -52,7 +57,6 @@ enum mode_t {
 
 struct nsjconf_t {
 	const char *hostname;
-	const char *chroot;
 	char *const *argv;
 	int port;
 	uid_t uid;
@@ -78,6 +82,7 @@ struct nsjconf_t {
 	bool clone_newipc;
 	bool clone_newuts;
 	enum mode_t mode;
+	const char *chroot;
 	bool is_root_rw;
 	bool is_silent;
 	char *iface;
@@ -87,9 +92,7 @@ struct nsjconf_t {
 	size_t tmpfs_size;
 	bool mount_proc;
 	 LIST_HEAD(pidslist, pids_t) pids;
-	 LIST_HEAD(rwbindmountptslist, constchar_t) rwbindmountpts;
-	 LIST_HEAD(robindmountptslist, constchar_t) robindmountpts;
-	 LIST_HEAD(tmpfsmountptslist, constchar_t) tmpfsmountpts;
+	 LIST_HEAD(mountptslist, mounts_t) mountpts;
 };
 
 #endif				/* _COMMON_H */

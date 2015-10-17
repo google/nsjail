@@ -181,125 +181,33 @@ bool containPrepareEnv(struct nsjconf_t * nsjconf)
 	return true;
 }
 
-/* findSpecDestination mutates spec (source:dest) to have a null byte instead
- * of ':' in between source and dest, then returns a pointer to the dest
- * string. */
-static char *findSpecDestination(char *spec)
+static bool containMount(struct mounts_t *mpt, const char *dst)
 {
-	char *dest = spec;
-	while (*dest != ':' && *dest != '\0') {
-		dest++;
-	}
+	LOG_D("Mounting '%s' on '%s' (type:'%s', flags:0x%zx)", mpt->src, dst, mpt->fs_type,
+	      mpt->flags);
 
-	switch (*dest) {
-	case ':':
-		*dest = '\0';
-		return dest + 1;
-	case '\0':
-		return spec;
-	default:
-		// not reached
-		return spec;
-	}
-}
-
-static bool bindMountRW(struct nsjconf_t *nsjconf, const char *newrootdir, const char *spec)
-{
-	char mount_pt[PATH_MAX];
-	bool success = false;
-	char *source = strdup(spec);
-	if (source == NULL) {
-		PLOG_E("strdup('%s')", spec);
+	if (mkdir(dst, 0711) == -1 && errno != EEXIST) {
+		PLOG_E("mkdir('%s')", dst);
 		return false;
 	}
-	char *dest = findSpecDestination(source);
-
-	snprintf(mount_pt, sizeof(mount_pt), "%s/%s", newrootdir, dest);
-
-	struct stat st;
-	if (stat(source, &st) == -1) {
-		PLOG_W("stat('%s')", source);
-		goto cleanup;
-	}
-	if (S_ISDIR(st.st_mode)) {
-		// Create mount_pt dir, only if the source bind mount point is also a directory
-		if (mkdir(mount_pt, 0700) == -1 && errno != EEXIST) {
-			PLOG_E("mkdir('%s') failed. Try creating the '%s/%s' directory manually",
-			       mount_pt, nsjconf->chroot, dest);
-			goto cleanup;
-		}
-	} else {
-		// For everything else (files, sockets, pipes, devices), create a regular file
-		int fd = open(mount_pt, O_CREAT | O_RDONLY, 0700);
-		if (fd == -1) {
-			PLOG_E("creat('%s') failed. Try creating the '%s/%s' file manually",
-			       mount_pt, nsjconf->chroot, dest);
-			goto cleanup;
-		}
-		close(fd);
-	}
-
-	LOG_D("Mounting (bind) '%s' on '%s'", source, mount_pt);
-	if (mount(source, mount_pt, NULL, MS_BIND | MS_REC, NULL) == -1) {
-		PLOG_E("mount('%s', '%s', MS_BIND|MS_REC)", source, mount_pt);
-		goto cleanup;
-	}
-	success = true;
-
- cleanup:
-	free(source);
-	return success;
-}
-
-static bool remountBindMount(const char *spec, unsigned long flags)
-{
-	if (flags == 0ULL) {
-		return true;
-	}
-
-	bool success = false;
-	char *source = strdup(spec);
-	if (source == NULL) {
-		PLOG_E("strdup('%s')", spec);
+	if (mount(mpt->src, dst, mpt->fs_type, mpt->flags, mpt->options) == -1) {
+		PLOG_E("mount('%s', '%s', type='%s')", mpt->src, dst, mpt->fs_type);
 		return false;
 	}
-	char *dest = findSpecDestination(source);
-
-	LOG_D("Remounting (bind(0x%lx)) '%s' on '%s'", flags, dest, dest);
-	if (mount(dest, dest, NULL, MS_BIND | MS_NOSUID | MS_REMOUNT | MS_PRIVATE | flags, NULL) ==
-	    -1) {
-		PLOG_E("mount('%s', '%s', MS_BIND|MS_NOSUID|MS_REMOUNT|MS_PRIVATE|%lu)", dest, dest,
-		       flags);
-		goto cleanup;
-	}
-	success = true;
-
- cleanup:
-	free(source);
-	return success;
+	return true;
 }
 
-static bool containMountProc(struct nsjconf_t *nsjconf, const char *newrootdir)
+static bool containRemountRO(struct mounts_t *mpt)
 {
-	char procrootdir[PATH_MAX];
-	snprintf(procrootdir, sizeof(procrootdir), "%s/proc", newrootdir);
-
-	if (nsjconf->mount_proc == false) {
-		return true;
-	}
-
-	if (nsjconf->mode == MODE_STANDALONE_EXECVE) {
-		if (mount("/proc", procrootdir, NULL, MS_REC | MS_BIND, NULL) == -1) {
-			PLOG_E("mount('/proc', '%s', MS_REC|MS_BIND)", procrootdir);
+	if (mpt->flags &= MS_RDONLY) {
+		LOG_D("Re-mounting RO '%s'", mpt->dst);
+		if (mount
+		    (mpt->dst, mpt->dst, NULL, MS_BIND | MS_PRIVATE | MS_REMOUNT | MS_RDONLY,
+		     0) == -1) {
+			PLOG_E("mount('%s', MS_REMOUNT|MS_RDONLY)", mpt->dst);
 			return false;
 		}
-		return true;
 	}
-	if (mount(NULL, procrootdir, "proc", MS_NOSUID | MS_NOEXEC | MS_NODEV, NULL) == -1) {
-		PLOG_E("mount('%s', 'proc')", procrootdir);
-		return false;
-	}
-
 	return true;
 }
 
@@ -329,43 +237,12 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 		PLOG_E("mkdir(/tmp/new_root)");
 		return false;
 	}
-	if (mount(nsjconf->chroot, newrootdir, NULL, MS_BIND | MS_REC, NULL) == -1) {
-		PLOG_E("mount('%s', '%s', MS_BIND | MS_REC)", nsjconf->chroot, newrootdir);
-		return false;
-	}
-	if (containMountProc(nsjconf, newrootdir) == false) {
-		return false;
-	}
 
-	struct constchar_t *p;
-	char tmpfs_size[128];
-	snprintf(tmpfs_size, sizeof(tmpfs_size), "size=%zu", nsjconf->tmpfs_size);
-	LIST_FOREACH(p, &nsjconf->tmpfsmountpts, pointers) {
-		if (strchr(p->value, ':') != NULL) {
-			PLOG_E("invalid tmpfs mount spec. source:dest format unsupported.");
-			return false;
-		}
-		char tmpfsdir[PATH_MAX];
-		snprintf(tmpfsdir, sizeof(tmpfsdir), "%s/%s", newrootdir, p->value);
-		if (mkdir(tmpfsdir, 0700) == -1 && errno != EEXIST) {
-			PLOG_E
-			    ("mkdir('%s') (for tmpfs:'%s'); You probably need to create it inside your "
-			     "--chroot ('%s') directory", tmpfsdir, p->value, nsjconf->chroot);
-			return false;
-		}
-		LOG_D("Mounting (tmpfs) '%s' at '%s'", p->value, tmpfsdir);
-		if (mount(NULL, tmpfsdir, "tmpfs", 0, tmpfs_size) == -1) {
-			PLOG_E("mount('%s', 'tmpfs') for '%s'", tmpfsdir, p->value);
-			return false;
-		}
-	}
-	LIST_FOREACH(p, &nsjconf->robindmountpts, pointers) {
-		if (!bindMountRW(nsjconf, newrootdir, p->value)) {
-			return false;
-		}
-	}
-	LIST_FOREACH(p, &nsjconf->rwbindmountpts, pointers) {
-		if (!bindMountRW(nsjconf, newrootdir, p->value)) {
+	char dst[PATH_MAX];
+	struct mounts_t *p;
+	LIST_FOREACH(p, &nsjconf->mountpts, pointers) {
+		snprintf(dst, sizeof(dst), "%s/%s", newrootdir, p->dst);
+		if (containMount(p, dst) == false) {
 			return false;
 		}
 	}
@@ -395,14 +272,8 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 		return false;
 	}
 
-	if (nsjconf->is_root_rw == false) {
-		if (!remountBindMount("/", MS_RDONLY)) {
-			return false;
-		}
-	}
-
-	LIST_FOREACH(p, &nsjconf->robindmountpts, pointers) {
-		if (!remountBindMount(p->value, MS_RDONLY)) {
+	LIST_FOREACH(p, &nsjconf->mountpts, pointers) {
+		if (containRemountRO(p) == false) {
 			return false;
 		}
 	}
