@@ -103,7 +103,7 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 
 	struct mounts_t *p;
 	LIST_FOREACH(p, &nsjconf->mountpts, pointers) {
-		LOG_I("Mount point: src:'%s' dst:'%s' type:'%s' flags:%tx options:'%s'",
+		LOG_I("Mount point: src:'%s' dst:'%s' type:'%s' flags:0x%tx options:'%s'",
 		      p->src, p->dst, p->fs_type, p->flags, p->options);
 	}
 }

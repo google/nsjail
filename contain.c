@@ -183,7 +183,7 @@ bool containPrepareEnv(struct nsjconf_t * nsjconf)
 
 static bool containMount(struct mounts_t *mpt, const char *dst)
 {
-	LOG_D("Mounting '%s' on '%s' (type:'%s', flags:0x%zx)", mpt->src, dst, mpt->fs_type,
+	LOG_D("Mounting '%s' on '%s' (type:'%s', flags:0x%tx)", mpt->src, dst, mpt->fs_type,
 	      mpt->flags);
 
 	if (mkdir(dst, 0711) == -1 && errno != EEXIST) {
