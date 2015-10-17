@@ -254,8 +254,11 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 		LOG_E("Couldn't create and put MACVTAP interface into NS of PID '%d'", pid);
 	}
 
-	char log_buf[4096];
+	char cs_addr[64];
+	netConnToText(fd_in, true /* remote */ , cs_addr, sizeof(cs_addr), NULL);
+	LOG_I("PID: %d about to execute '%s' for %s", pid, nsjconf->argv[0], cs_addr);
 
+	char log_buf[4096];
 	close(pipefd[1]);
 	ssize_t sz;
 	while ((sz = read(pipefd[0], log_buf, sizeof(log_buf) - 1)) > 0) {
@@ -265,8 +268,4 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 	close(pipefd[0]);
 
 	subprocAdd(nsjconf, pid, fd_in);
-
-	char cs_addr[64];
-	netConnToText(fd_in, true /* remote */ , cs_addr, sizeof(cs_addr), NULL);
-	LOG_I("PID: %d about to execute '%s' for %s", pid, nsjconf->argv[0], cs_addr);
 }
