@@ -26,20 +26,20 @@
 
 #include "common.h"
 
-#define LOG_HELP(...) logLog(HELP, __FUNCTION__, __LINE__, false, __VA_ARGS__);
-#define LOG_HELP_BOLD(...) logLog(HELP_BOLD, __FUNCTION__, __LINE__, false, __VA_ARGS__);
+#define LOG_HELP(...) logLog(HELP, __func__, __LINE__, false, __VA_ARGS__);
+#define LOG_HELP_BOLD(...) logLog(HELP_BOLD, __func__, __LINE__, false, __VA_ARGS__);
 
-#define LOG_D(...) logLog(DEBUG, __FUNCTION__, __LINE__, false, __VA_ARGS__);
-#define LOG_I(...) logLog(INFO, __FUNCTION__, __LINE__, false, __VA_ARGS__);
-#define LOG_W(...) logLog(WARNING, __FUNCTION__, __LINE__, false, __VA_ARGS__);
-#define LOG_E(...) logLog(ERROR, __FUNCTION__, __LINE__, false, __VA_ARGS__);
-#define LOG_F(...) logLog(FATAL, __FUNCTION__, __LINE__, false, __VA_ARGS__);
+#define LOG_D(...) logLog(DEBUG, __func__, __LINE__, false, __VA_ARGS__);
+#define LOG_I(...) logLog(INFO, __func__, __LINE__, false, __VA_ARGS__);
+#define LOG_W(...) logLog(WARNING, __func__, __LINE__, false, __VA_ARGS__);
+#define LOG_E(...) logLog(ERROR, __func__, __LINE__, false, __VA_ARGS__);
+#define LOG_F(...) logLog(FATAL, __func__, __LINE__, false, __VA_ARGS__);
 
-#define PLOG_D(...) logLog(DEBUG, __FUNCTION__, __LINE__, true, __VA_ARGS__);
-#define PLOG_I(...) logLog(INFO, __FUNCTION__, __LINE__, true, __VA_ARGS__);
-#define PLOG_W(...) logLog(WARNING, __FUNCTION__, __LINE__, true, __VA_ARGS__);
-#define PLOG_E(...) logLog(ERROR, __FUNCTION__, __LINE__, true, __VA_ARGS__);
-#define PLOG_F(...) logLog(FATAL, __FUNCTION__, __LINE__, true, __VA_ARGS__);
+#define PLOG_D(...) logLog(DEBUG, __func__, __LINE__, true, __VA_ARGS__);
+#define PLOG_I(...) logLog(INFO, __func__, __LINE__, true, __VA_ARGS__);
+#define PLOG_W(...) logLog(WARNING, __func__, __LINE__, true, __VA_ARGS__);
+#define PLOG_E(...) logLog(ERROR, __func__, __LINE__, true, __VA_ARGS__);
+#define PLOG_F(...) logLog(FATAL, __func__, __LINE__, true, __VA_ARGS__);
 
 enum llevel_t {
 	HELP = 0,
