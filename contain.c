@@ -24,6 +24,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <grp.h>
+#include <inttypes.h>
 #include <linux/capability.h>
 #include <sched.h>
 #include <signal.h>
@@ -47,7 +48,7 @@ static bool containSetGroups(void)
 {
 	int fd = open("/proc/self/setgroups", O_WRONLY | O_CLOEXEC);
 	if (fd == -1) {
-		/* Not present with all kernels */
+		/* Not present in all kernels */
 		PLOG_D("'/proc/self/setgroups' not present in this kernel?");
 		return true;
 	}
@@ -226,7 +227,7 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 		return true;
 	}
 
-	const char *destdir = "/tmp";
+	const char *const destdir = "/tmp";
 	if (mount("none", destdir, "tmpfs", 0, NULL) == -1) {
 		PLOG_E("mount('%s', 'tmpfs'", destdir);
 		return false;
@@ -234,13 +235,13 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 	char newrootdir[PATH_MAX];
 	snprintf(newrootdir, sizeof(newrootdir), "%s/%s", destdir, "new_root");
 	if (mkdir(newrootdir, 0755) == -1) {
-		PLOG_E("mkdir(/tmp/new_root)");
+		PLOG_E("mkdir('%s')", newrootdir);
 		return false;
 	}
 
-	char dst[PATH_MAX];
 	struct mounts_t *p;
 	LIST_FOREACH(p, &nsjconf->mountpts, pointers) {
+		char dst[PATH_MAX];
 		snprintf(dst, sizeof(dst), "%s/%s", newrootdir, p->dst);
 		if (containMount(p, dst) == false) {
 			return false;
@@ -286,37 +287,37 @@ bool containSetLimits(struct nsjconf_t * nsjconf)
 	struct rlimit64 rl;
 	rl.rlim_cur = rl.rlim_max = nsjconf->rl_as;
 	if (prlimit64(0, RLIMIT_AS, &rl, NULL) == -1) {
-		PLOG_E("prlimit64(0, RLIMIT_AS, %lu)", nsjconf->rl_as);
+		PLOG_E("prlimit64(0, RLIMIT_AS, %" PRIu64 ")", nsjconf->rl_as);
 		return false;
 	}
 	rl.rlim_cur = rl.rlim_max = nsjconf->rl_core;
 	if (prlimit64(0, RLIMIT_CORE, &rl, NULL) == -1) {
-		PLOG_E("prlimit64(0, RLIMIT_CORE, %lu)", nsjconf->rl_core);
+		PLOG_E("prlimit64(0, RLIMIT_CORE, %" PRIu64 ")", nsjconf->rl_core);
 		return false;
 	}
 	rl.rlim_cur = rl.rlim_max = nsjconf->rl_cpu;
 	if (prlimit64(0, RLIMIT_CPU, &rl, NULL) == -1) {
-		PLOG_E("prlimit64(0, RLIMIT_CPU), %lu", nsjconf->rl_cpu);
+		PLOG_E("prlimit64(0, RLIMIT_CPU, %" PRIu64 ")", nsjconf->rl_cpu);
 		return false;
 	}
 	rl.rlim_cur = rl.rlim_max = nsjconf->rl_fsize;
 	if (prlimit64(0, RLIMIT_FSIZE, &rl, NULL) == -1) {
-		PLOG_E("prlimit64(0, RLIMIT_FSIZE), %lu", nsjconf->rl_fsize);
+		PLOG_E("prlimit64(0, RLIMIT_FSIZE, %" PRIu64 ")", nsjconf->rl_fsize);
 		return false;
 	}
 	rl.rlim_cur = rl.rlim_max = nsjconf->rl_nofile;
 	if (prlimit64(0, RLIMIT_NOFILE, &rl, NULL) == -1) {
-		PLOG_E("prlimit64(0, RLIMIT_NOFILE), %lu", nsjconf->rl_nofile);
+		PLOG_E("prlimit64(0, RLIMIT_NOFILE, %" PRIu64 ")", nsjconf->rl_nofile);
 		return false;
 	}
 	rl.rlim_cur = rl.rlim_max = nsjconf->rl_nproc;
 	if (prlimit64(0, RLIMIT_NPROC, &rl, NULL) == -1) {
-		PLOG_E("prlimit64(0, RLIMIT_NPROC), %lu", nsjconf->rl_nproc);
+		PLOG_E("prlimit64(0, RLIMIT_NPROC, %" PRIu64 ")", nsjconf->rl_nproc);
 		return false;
 	}
 	rl.rlim_cur = rl.rlim_max = nsjconf->rl_stack;
 	if (prlimit64(0, RLIMIT_STACK, &rl, NULL) == -1) {
-		PLOG_E("prlimit64(0, RLIMIT_STACK), %lu", nsjconf->rl_stack);
+		PLOG_E("prlimit64(0, RLIMIT_STACK, %" PRIu64 ")", nsjconf->rl_stack);
 		return false;
 	}
 	return true;

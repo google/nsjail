@@ -140,7 +140,7 @@ rlim_t cmdlineParseRLimit(int res, const char *optarg, unsigned long mul)
 		LOG_F("RLIMIT %d needs a numeric or 'max'/'def' value ('%s' provided)", res,
 		      optarg);
 	}
-	rlim_t val = strtoull(optarg, NULL, 0) * mul;
+	rlim64_t val = strtoull(optarg, NULL, 0) * mul;
 	if (val == ULLONG_MAX && errno != 0) {
 		PLOG_F("strtoul('%s', 0)", optarg);
 	}
