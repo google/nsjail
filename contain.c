@@ -144,7 +144,7 @@ bool containDropPrivs(struct nsjconf_t * nsjconf)
 			.version = _LINUX_CAPABILITY_VERSION_3,
 			.pid = 0,
 		};
-		struct __user_cap_data_struct cap_data[_LINUX_CAPABILITY_U32S_3] = {
+		const struct __user_cap_data_struct const cap_data[_LINUX_CAPABILITY_U32S_3] = {
 			[0 ... (_LINUX_CAPABILITY_U32S_3 - 1)].inheritable = 0U,
 			[0 ... (_LINUX_CAPABILITY_U32S_3 - 1)].effective = 0U,
 			[0 ... (_LINUX_CAPABILITY_U32S_3 - 1)].permitted = 0U,
