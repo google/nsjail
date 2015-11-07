@@ -57,6 +57,7 @@ enum mode_t {
 
 struct nsjconf_t {
 	const char *hostname;
+	const char *cwd;
 	char *const *argv;
 	int port;
 	uid_t uid;

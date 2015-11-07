@@ -174,6 +174,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	/*  *INDENT-OFF* */
 	(*nsjconf) = (struct nsjconf_t) {
 		.hostname = "NSJAIL",
+		.cwd = "/",
 		.chroot = "",
 		.argv = NULL,
 		.port = 31337,
@@ -230,6 +231,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"user", required_argument, NULL, 'u'}, "Username/uid of processess inside the jail (default: 'nobody')"},
 		{{"group", required_argument, NULL, 'g'}, "Groupname/gid of processess inside the jail (default: 'nogroup')"},
 		{{"hostname", required_argument, NULL, 'H'}, "UTS name (hostname) of the jail (default: 'NSJAIL')"},
+		{{"cwd", required_argument, NULL, 'D'}, "Directory in the namespace the process will run (default: '/')"},
 		{{"port", required_argument, NULL, 'p'}, "TCP port to bind to (only in [MODE_LISTEN_TCP]) (default: 31337)"},
 		{{"max_conns_per_ip", required_argument, NULL, 'i'}, "Maximum number of connections per one IP (default: 0 (unlimited))"},
 		{{"log", required_argument, NULL, 'l'}, "Log file (default: /proc/self/fd/2)"},
@@ -277,13 +279,16 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	int opt_index = 0;
 	for (;;) {
 		int c =
-		    getopt_long(argc, argv, "H:c:p:i:u:g:l:t:M:Ndveh?R:B:T:I:", opts, &opt_index);
+		    getopt_long(argc, argv, "H:D:c:p:i:u:g:l:t:M:Ndveh?R:B:T:I:", opts, &opt_index);
 		if (c == -1) {
 			break;
 		}
 		switch (c) {
 		case 'H':
 			nsjconf->hostname = optarg;
+			break;
+		case 'D':
+			nsjconf->cwd = optarg;
 			break;
 		case 'c':
 			nsjconf->chroot = optarg;

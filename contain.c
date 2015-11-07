@@ -267,9 +267,9 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 		PLOG_E("CHROOT('/new_root')");
 		return false;
 	}
-
-	if (chdir("/") == -1) {
-		PLOG_E("chdir('/')");
+	
+	if (chdir(&nsjconf->cwd) == -1) {
+		PLOG_E("chdir('%s')", &nsjconf->cwd);
 		return false;
 	}
 
