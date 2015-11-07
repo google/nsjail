@@ -268,8 +268,8 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 		return false;
 	}
 	
-	if (chdir(&nsjconf->cwd) == -1) {
-		PLOG_E("chdir('%s')", &nsjconf->cwd);
+	if (chdir(nsjconf->cwd) == -1) {
+		PLOG_E("chdir('%s')", nsjconf->cwd);
 		return false;
 	}
 
