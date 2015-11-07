@@ -102,6 +102,8 @@ Options:
 	Groupname/gid of processess inside the jail (default: 'nogroup')
  --hostname|-H [val]
 	UTS name (hostname) of the jail (default: 'NSJAIL')
+ --cwd|-D [val]
+    Directory in the namespace the process will run (default: '/')
  --port|-p [val]
 	TCP port to bind to (only in [MODE_LISTEN_TCP]) (default: 31337)
  --max_conns_per_ip|-i [val]
