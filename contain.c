@@ -179,6 +179,7 @@ bool containPrepareEnv(struct nsjconf_t * nsjconf)
 	if (setpriority(PRIO_PROCESS, 0, 19) == -1 && errno != 0) {
 		PLOG_W("setpriority(19)");
 	}
+	setsid();
 	return true;
 }
 
@@ -267,7 +268,7 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 		PLOG_E("CHROOT('/new_root')");
 		return false;
 	}
-	
+
 	if (chdir(nsjconf->cwd) == -1) {
 		PLOG_E("chdir('%s')", nsjconf->cwd);
 		return false;

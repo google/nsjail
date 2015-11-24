@@ -238,7 +238,7 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 		return;
 	}
 
-	pid_t pid = syscall(__NR_clone, (uintptr_t)flags, NULL, NULL, NULL, (uintptr_t)0);
+	pid_t pid = syscall(__NR_clone, (uintptr_t) flags, NULL, NULL, NULL, (uintptr_t) 0);
 	if (pid == 0) {
 		subprocNewProc(nsjconf, fd_in, fd_out, fd_err, pipefd[1]);
 	}
