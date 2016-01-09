@@ -241,7 +241,7 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 	}
 
 	struct mounts_t *p;
-	LIST_FOREACH(p, &nsjconf->mountpts, pointers) {
+	TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
 		char dst[PATH_MAX];
 		snprintf(dst, sizeof(dst), "%s/%s", newrootdir, p->dst);
 		if (containMount(p, dst) == false) {
@@ -274,7 +274,7 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 		return false;
 	}
 
-	LIST_FOREACH(p, &nsjconf->mountpts, pointers) {
+	TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
 		if (containRemountRO(p) == false) {
 			return false;
 		}

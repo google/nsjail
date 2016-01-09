@@ -103,7 +103,7 @@ static void subprocAdd(struct nsjconf_t *nsjconf, pid_t pid, int sock)
 	p->start = time(NULL);
 	netConnToText(sock, true /* remote */ , p->remote_txt, sizeof(p->remote_txt),
 		      &p->remote_addr);
-	LIST_INSERT_HEAD(&nsjconf->pids, p, pointers);
+	TAILQ_INSERT_HEAD(&nsjconf->pids, p, pointers);
 
 	LOG_D("Added pid '%d' with start time '%u' to the queue for IP: '%s'", pid,
 	      (unsigned int)p->start, p->remote_txt);
@@ -112,11 +112,11 @@ static void subprocAdd(struct nsjconf_t *nsjconf, pid_t pid, int sock)
 static void subprocRemove(struct nsjconf_t *nsjconf, pid_t pid)
 {
 	struct pids_t *p;
-	LIST_FOREACH(p, &nsjconf->pids, pointers) {
+	TAILQ_FOREACH(p, &nsjconf->pids, pointers) {
 		if (p->pid == pid) {
 			LOG_D("Removing pid '%d' from the queue (IP:'%s', start time:'%u')", p->pid,
 			      p->remote_txt, (unsigned int)p->start);
-			LIST_REMOVE(p, pointers);
+			TAILQ_REMOVE(&nsjconf->pids, p, pointers);
 			free(p);
 			return;
 		}
@@ -128,7 +128,7 @@ int subprocCount(struct nsjconf_t *nsjconf)
 {
 	int cnt = 0;
 	struct pids_t *p;
-	LIST_FOREACH(p, &nsjconf->pids, pointers) {
+	TAILQ_FOREACH(p, &nsjconf->pids, pointers) {
 		cnt++;
 	}
 	return cnt;
@@ -139,7 +139,7 @@ void subprocDisplay(struct nsjconf_t *nsjconf)
 	LOG_I("Total number of spawned namespaces: %d", subprocCount(nsjconf));
 	time_t now = time(NULL);
 	struct pids_t *p;
-	LIST_FOREACH(p, &nsjconf->pids, pointers) {
+	TAILQ_FOREACH(p, &nsjconf->pids, pointers) {
 		time_t diff = now - p->start;
 		time_t left = nsjconf->tlimit ? nsjconf->tlimit - diff : 0;
 		LOG_I("PID: %d, Remote host: %s, Run time: %ld sec. (time left: %ld sec.)", p->pid,
@@ -170,7 +170,7 @@ int subprocReap(struct nsjconf_t *nsjconf)
 
 	time_t now = time(NULL);
 	struct pids_t *p;
-	LIST_FOREACH(p, &nsjconf->pids, pointers) {
+	TAILQ_FOREACH(p, &nsjconf->pids, pointers) {
 		if (nsjconf->tlimit == 0) {
 			continue;
 		}
@@ -196,7 +196,7 @@ int subprocReap(struct nsjconf_t *nsjconf)
 void subprocKillAll(struct nsjconf_t *nsjconf)
 {
 	struct pids_t *p;
-	LIST_FOREACH(p, &nsjconf->pids, pointers) {
+	TAILQ_FOREACH(p, &nsjconf->pids, pointers) {
 		kill(p->pid, SIGKILL);
 	}
 }

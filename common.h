@@ -36,7 +36,7 @@ struct pids_t {
 	time_t start;
 	char remote_txt[64];
 	struct sockaddr_in6 remote_addr;
-	 LIST_ENTRY(pids_t) pointers;
+	 TAILQ_ENTRY(pids_t) pointers;
 };
 
 struct mounts_t {
@@ -45,7 +45,7 @@ struct mounts_t {
 	const char *fs_type;
 	const char *options;
 	uintptr_t flags;
-	 LIST_ENTRY(mounts_t) pointers;
+	 TAILQ_ENTRY(mounts_t) pointers;
 };
 
 enum mode_t {
@@ -92,8 +92,8 @@ struct nsjconf_t {
 	unsigned int max_conns_per_ip;
 	size_t tmpfs_size;
 	bool mount_proc;
-	 LIST_HEAD(pidslist, pids_t) pids;
-	 LIST_HEAD(mountptslist, mounts_t) mountpts;
+	 TAILQ_HEAD(pidslist, pids_t) pids;
+	 TAILQ_HEAD(mountptslist, mounts_t) mountpts;
 };
 
 #endif				/* _COMMON_H */

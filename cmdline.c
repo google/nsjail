@@ -102,7 +102,7 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	     logYesNo(nsjconf->keep_caps), nsjconf->tmpfs_size);
 
 	struct mounts_t *p;
-	LIST_FOREACH(p, &nsjconf->mountpts, pointers) {
+	TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
 		LOG_I("Mount point: src:'%s' dst:'%s' type:'%s' flags:0x%tx options:'%s'",
 		      p->src, p->dst, p->fs_type, p->flags, p->options);
 	}
@@ -175,7 +175,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	(*nsjconf) = (struct nsjconf_t) {
 		.hostname = "NSJAIL",
 		.cwd = "/",
-		.chroot = "",
+		.chroot = NULL,
 		.argv = NULL,
 		.port = 31337,
 		.uid = -1,
@@ -211,8 +211,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	};
 	/*  *INDENT-OFF* */
 
-	LIST_INIT(&nsjconf->pids);
-	LIST_INIT(&nsjconf->mountpts);
+	TAILQ_INIT(&nsjconf->pids);
+	TAILQ_INIT(&nsjconf->mountpts);
 
 	const char *user = "nobody";
 	const char *group = "nobody";
@@ -409,7 +409,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				p->flags = MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY;
 				p->options = NULL;
 				p->fs_type = NULL;
-				LIST_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
+				TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
 			}
 			break;
 		case 'B':
@@ -423,7 +423,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				p->flags = MS_BIND | MS_REC | MS_PRIVATE;
 				p->options = NULL;
 				p->fs_type = NULL;
-				LIST_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
+				TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
 			}
 			break;
 		case 'T':
@@ -437,7 +437,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				p->flags = 0;
 				p->options = cmdlineTmpfsSz;
 				p->fs_type = "tmpfs";
-				LIST_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
+				TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
 			}
 			break;
 		case 'M':
@@ -483,7 +483,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		p->flags = 0;
 		p->options = NULL;
 		p->fs_type = "proc";
-		LIST_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
+		TAILQ_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
 	}
 	if (strlen(nsjconf->chroot) > 0) {
 		struct mounts_t *p = malloc(sizeof(struct mounts_t));
@@ -498,7 +498,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		if (nsjconf->is_root_rw == false) {
 			p->flags |= MS_RDONLY;
 		}
-		LIST_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
+		TAILQ_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
 	}
 
 	if (logInitLogFile(nsjconf, logfile, nsjconf->verbose) == false) {
