@@ -175,7 +175,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	(*nsjconf) = (struct nsjconf_t) {
 		.hostname = "NSJAIL",
 		.cwd = "/",
-		.chroot = NULL,
+		.chroot = "",
 		.argv = NULL,
 		.port = 31337,
 		.uid = -1,
