@@ -227,6 +227,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			"\to: Immediately launch a single process on a console using clone/execve [MODE_STANDALONE_ONCE]\n"
 			"\te: Immediately launch a single process on a console using execve [MODE_STANDALONE_EXECVE]\n"
 			"\tr: Immediately launch a single process on a console, keep doing it forever [MODE_STANDALONE_RERUN]"},
+		{{"cmd", no_argument, NULL, 0x500}, "Equivalent of -Mo (MODE_STANDALONE_ONCE), run command on a local console, once"},
 		{{"chroot", required_argument, NULL, 'c'}, "Directory containing / of the jail (default: none)"},
 		{{"user", required_argument, NULL, 'u'}, "Username/uid of processess inside the jail (default: 'nobody')"},
 		{{"group", required_argument, NULL, 'g'}, "Groupname/gid of processess inside the jail (default: 'nogroup')"},
@@ -377,6 +378,9 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			break;
 		case 0x0406:
 			nsjconf->clone_newuts = false;
+			break;
+		case 0x0500:
+			nsjconf->mode = MODE_STANDALONE_ONCE;
 			break;
 		case 0x0501:
 			nsjconf->keep_caps = true;
