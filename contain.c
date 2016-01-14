@@ -183,15 +183,60 @@ bool containPrepareEnv(struct nsjconf_t * nsjconf)
 	return true;
 }
 
+static bool containIsDir(const char *path)
+{
+	if (path == NULL || strcmp(path, "none") == 0) {
+		return false;
+	}
+	struct stat st;
+	if (stat(path, &st) == -1) {
+		PLOG_E("stat('%s')", path);
+		return false;
+	}
+	if (S_ISDIR(st.st_mode)) {
+		return true;
+	}
+	return false;
+}
+
+// It's a not a simple reversal of containIsDir() as it returns also 'false' upon
+// stat() failure
+static bool containNotIsDir(const char *path)
+{
+	if (path == NULL || strcmp(path, "none") == 0) {
+		return false;
+	}
+	struct stat st;
+	if (stat(path, &st) == -1) {
+		PLOG_E("stat('%s')", path);
+		return false;
+	}
+	if (S_ISDIR(st.st_mode)) {
+		return false;
+	}
+	return true;
+}
+
 static bool containMount(struct mounts_t *mpt, const char *dst)
 {
 	LOG_D("Mounting '%s' on '%s' (type:'%s', flags:0x%tx)", mpt->src, dst, mpt->fs_type,
 	      mpt->flags);
 
-	if (mkdir(dst, 0711) == -1 && errno != EEXIST) {
-		PLOG_E("mkdir('%s')", dst);
-		return false;
+	if (containIsDir(mpt->src) == true) {
+		if (mkdir(dst, 0711) == -1 && errno != EEXIST) {
+			PLOG_W("mkdir('%s')", dst);
+		}
 	}
+
+	if (containNotIsDir(mpt->src) == true) {
+		int fd = open(dst, O_CREAT | O_RDONLY, 0644);
+		if (fd >= 0) {
+			close(fd);
+		} else {
+			PLOG_W("open('%s', O_CREAT|O_RDONLY, 0700)", dst);
+		}
+	}
+
 	if (mount(mpt->src, dst, mpt->fs_type, mpt->flags, mpt->options) == -1) {
 		PLOG_E("mount('%s', '%s', type='%s')", mpt->src, dst, mpt->fs_type);
 		return false;
