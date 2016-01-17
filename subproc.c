@@ -44,6 +44,7 @@
 #include "log.h"
 #include "net.h"
 #include "sandbox.h"
+#include "util.h"
 
 static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_err, int pipefd)
 {
@@ -93,12 +94,7 @@ static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int 
 
 static void subprocAdd(struct nsjconf_t *nsjconf, pid_t pid, int sock)
 {
-	struct pids_t *p = malloc(sizeof(struct pids_t));
-	if (p == NULL) {
-		PLOG_E("malloc");
-		return;
-	}
-
+	struct pids_t *p = util_malloc(sizeof(struct pids_t));
 	p->pid = pid;
 	p->start = time(NULL);
 	netConnToText(sock, true /* remote */ , p->remote_txt, sizeof(p->remote_txt),

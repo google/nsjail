@@ -40,6 +40,7 @@
 
 #include "common.h"
 #include "log.h"
+#include "util.h"
 
 struct custom_option {
 	struct option opt;
@@ -404,10 +405,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			break;
 		case 'R':
 			{
-				struct mounts_t *p = malloc(sizeof(struct mounts_t));
-				if (p == NULL) {
-					PLOG_F("malloc(%zu)", sizeof(struct mounts_t));
-				}
+				struct mounts_t *p = util_malloc(sizeof(struct mounts_t));
 				p->src = optarg;
 				p->dst = cmdlineMountParam(optarg);
 				p->flags = MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY;
@@ -418,10 +416,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			break;
 		case 'B':
 			{
-				struct mounts_t *p = malloc(sizeof(struct mounts_t));
-				if (p == NULL) {
-					PLOG_F("malloc(%zu)", sizeof(struct mounts_t));
-				}
+				struct mounts_t *p = util_malloc(sizeof(struct mounts_t));
 				p->src = optarg;
 				p->dst = cmdlineMountParam(optarg);
 				p->flags = MS_BIND | MS_REC | MS_PRIVATE;
@@ -432,10 +427,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			break;
 		case 'T':
 			{
-				struct mounts_t *p = malloc(sizeof(struct mounts_t));
-				if (p == NULL) {
-					PLOG_F("malloc(%zu)", sizeof(struct mounts_t));
-				}
+				struct mounts_t *p = util_malloc(sizeof(struct mounts_t));
 				p->src = "none";
 				p->dst = optarg;
 				p->flags = 0;
@@ -462,6 +454,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				LOG_E("Modes supported: -M l - MODE_LISTEN_TCP (default)");
 				LOG_E("                 -M o - MODE_STANDALONE_ONCE");
 				LOG_E("                 -M r - MODE_STANDALONE_RERUN");
+				LOG_E("                 -M e - MODE_STANDALONE_EXECVE");
 				cmdlineUsage(argv[0], custom_opts);
 				return false;
 				break;
@@ -478,10 +471,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	}
 
 	if (nsjconf->mount_proc == true) {
-		struct mounts_t *p = malloc(sizeof(struct mounts_t));
-		if (p == NULL) {
-			PLOG_F("malloc(%zu)", sizeof(struct mounts_t));
-		}
+		struct mounts_t *p = util_malloc(sizeof(struct mounts_t));
 		p->src = "none";
 		p->dst = "/proc";
 		p->flags = 0;
@@ -490,10 +480,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		TAILQ_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
 	}
 	if (strlen(nsjconf->chroot) > 0) {
-		struct mounts_t *p = malloc(sizeof(struct mounts_t));
-		if (p == NULL) {
-			PLOG_F(" malloc(%zu) ", sizeof(struct mounts_t));
-		}
+		struct mounts_t *p = util_malloc(sizeof(struct mounts_t));
 		p->src = nsjconf->chroot;
 		p->dst = "/";
 		p->flags = MS_BIND | MS_REC | MS_PRIVATE;

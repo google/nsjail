@@ -26,7 +26,7 @@ CFLAGS += -O2 -g -ggdb -c -std=c11 \
 LD = gcc
 LDFLAGS += -Wl,-z,now -Wl,-z,relro -pie
 
-SRCS = nsjail.c cmdline.c contain.c log.c net.c subproc.c sandbox.c seccomp/bpf-helper.c
+SRCS = nsjail.c cmdline.c contain.c log.c net.c subproc.c sandbox.c util.c seccomp/bpf-helper.c
 OBJS = $(SRCS:.c=.o)
 BIN = nsjail
 
@@ -50,10 +50,11 @@ indent:
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 
 nsjail.o: nsjail.h cmdline.h common.h log.h net.h subproc.h
-cmdline.o: cmdline.h common.h log.h
+cmdline.o: cmdline.h common.h log.h util.h
 contain.o: contain.h common.h log.h
 log.o: log.h common.h
 net.o: net.h common.h log.h
-subproc.o: subproc.h common.h contain.h log.h net.h sandbox.h
+subproc.o: subproc.h common.h contain.h log.h net.h sandbox.h util.h
 sandbox.o: sandbox.h common.h log.h seccomp/bpf-helper.h
+util.o: util.h log.h common.h
 seccomp/bpf-helper.o: seccomp/bpf-helper.h
