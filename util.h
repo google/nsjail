@@ -27,4 +27,4 @@
 
 void *util_malloc(size_t sz);
 
-#endif				/* _NET_H */
+#endif				/* _UTIL_H */
