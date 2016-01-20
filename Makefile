@@ -20,7 +20,7 @@
 CC = gcc
 CFLAGS += -O2 -g -ggdb -c -std=c11 \
 	-D_GNU_SOURCE \
-	-fstack-protector-all -Wformat -Wformat=2 -Wformat-security -fPIE -D_FORTIFY_SOURCE=2 -Wa,--noexecstack \
+	-fstack-protector-all -Wformat -Wformat=2 -Wformat-security -fPIE -Wa,--noexecstack \
 	-Wall -Wextra -Werror
 
 LD = gcc
