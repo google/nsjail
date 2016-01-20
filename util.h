@@ -23,8 +23,6 @@
 
 #include <stdlib.h>
 
-#include "log.h"
-
 void *util_malloc(size_t sz);
 
 #endif				/* _UTIL_H */
