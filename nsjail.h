@@ -4,6 +4,7 @@
    -----------------------------------------
 
    Copyright 2014 Google Inc. All Rights Reserved.
+   Copyright 2016 Sergiusz Bazanski. All Rights Reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -20,5 +21,11 @@
 */
 #ifndef _NSJAIL_H
 #define _NSJAIL_H
+
+#ifdef _FORTIFY_SOURCE
+#undef _FORTIFY_SOURCE
+#endif              /* _FORTIFY_SOURCE */
+
+#define _FORTIFY_SOURCE 2
 
 #endif				/* _NSJAIL_H */
