@@ -219,7 +219,7 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 		}
 		LOG_D("Entering namespace with flags: %#x", flags);
 		if (unshare(flags) == -1) {
-			PLOG_E("unshare(%u)", flags);
+			PLOG_E("unshare(%#x)", flags);
 			_exit(EXIT_FAILURE);
 		}
 		subprocNewProc(nsjconf, fd_in, fd_out, fd_err, -1);
