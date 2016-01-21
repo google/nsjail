@@ -19,13 +19,8 @@
    limitations under the License.
 
 */
+
 #ifndef _NSJAIL_H
 #define _NSJAIL_H
-
-#ifdef _FORTIFY_SOURCE
-#undef _FORTIFY_SOURCE
-#endif              /* _FORTIFY_SOURCE */
-
-#define _FORTIFY_SOURCE 2
 
 #endif				/* _NSJAIL_H */
