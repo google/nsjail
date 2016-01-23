@@ -62,7 +62,7 @@ static bool containSetGroups(void)
 	return true;
 }
 
-static bool containUidGidMap(struct nsjconf_t *nsjconf, uid_t uid, gid_t gid)
+static bool containUidGidMap(struct nsjconf_t *nsjconf)
 {
 	if (nsjconf->clone_newuser == false) {
 		return true;
@@ -74,8 +74,8 @@ static bool containUidGidMap(struct nsjconf_t *nsjconf, uid_t uid, gid_t gid)
 		PLOG_E("open('/proc/self/uid_map', O_WRONLY | O_CLOEXEC)");
 		return false;
 	}
-	snprintf(map, sizeof(map), "%lu %lu 1", (unsigned long)uid,
-		 (unsigned long)nsjconf->initial_uid);
+	snprintf(map, sizeof(map), "%lu %lu 1", (unsigned long)nsjconf->inside_uid,
+		 (unsigned long)nsjconf->outside_uid);
 	LOG_D("Writing '%s' to /proc/self/uid_map", map);
 	if (write(fd, map, strlen(map)) == -1) {
 		PLOG_E("write('/proc/self/uid_map', %d, '%s')", fd, map);
@@ -88,8 +88,8 @@ static bool containUidGidMap(struct nsjconf_t *nsjconf, uid_t uid, gid_t gid)
 		PLOG_E("open('/proc/self/gid_map', O_WRONLY | O_CLOEXEC)");
 		return false;
 	}
-	snprintf(map, sizeof(map), "%lu %lu 1", (unsigned long)gid,
-		 (unsigned long)nsjconf->initial_gid);
+	snprintf(map, sizeof(map), "%lu %lu 1", (unsigned long)nsjconf->inside_gid,
+		 (unsigned long)nsjconf->outside_gid);
 	LOG_D("Writing '%s' to /proc/self/gid_map", map);
 	if (write(fd, map, strlen(map)) == -1) {
 		PLOG_E("write('/proc/self/gid_map', %d, '%s')", fd, map);
@@ -105,7 +105,7 @@ bool containInitUserNs(struct nsjconf_t * nsjconf)
 	if (containSetGroups() == false) {
 		return false;
 	}
-	if (containUidGidMap(nsjconf, nsjconf->uid, nsjconf->gid) == false) {
+	if (containUidGidMap(nsjconf) == false) {
 		return false;
 	}
 	return true;
@@ -120,12 +120,12 @@ bool containDropPrivs(struct nsjconf_t * nsjconf)
 	if (setgroups(0, group_list) == -1) {
 		PLOG_D("setgroups(NULL) failed");
 	}
-	if (setresgid(nsjconf->gid, nsjconf->gid, nsjconf->gid) == -1) {
-		PLOG_E("setresgid(%u)", nsjconf->gid);
+	if (setresgid(nsjconf->inside_gid, nsjconf->inside_gid, nsjconf->inside_gid) == -1) {
+		PLOG_E("setresgid(%u)", nsjconf->inside_gid);
 		return false;
 	}
-	if (setresuid(nsjconf->uid, nsjconf->uid, nsjconf->uid) == -1) {
-		PLOG_E("setresuid(%u)", nsjconf->uid);
+	if (setresuid(nsjconf->inside_uid, nsjconf->inside_uid, nsjconf->inside_uid) == -1) {
+		PLOG_E("setresuid(%u)", nsjconf->inside_uid);
 		return false;
 	}
 #ifndef PR_SET_NO_NEW_PRIVS

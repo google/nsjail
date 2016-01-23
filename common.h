@@ -60,8 +60,6 @@ struct nsjconf_t {
 	const char *cwd;
 	char *const *argv;
 	int port;
-	uid_t uid;
-	gid_t gid;
 	bool daemonize;
 	time_t tlimit;
 	bool apply_sandbox;
@@ -87,8 +85,10 @@ struct nsjconf_t {
 	bool is_root_rw;
 	bool is_silent;
 	char *iface;
-	uid_t initial_uid;
-	gid_t initial_gid;
+	uid_t outside_uid;
+	gid_t outside_gid;
+	uid_t inside_uid;
+	gid_t inside_gid;
 	unsigned int max_conns_per_ip;
 	size_t tmpfs_size;
 	bool mount_proc;

@@ -90,13 +90,14 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 
 	LOG_I
 	    ("Jail parameters: hostname:'%s', chroot:'%s', process:'%s', port:%d, "
-	     "max_conns_per_ip:%u, uid:%u, gid:%u, time_limit:%ld, personality:%#lx, daemonize:%s, "
+	     "max_conns_per_ip:%u, uid:(ns:%u, global:%u), gid:(ns:%u, global:%u), time_limit:%ld, personality:%#lx, daemonize:%s, "
 	     "clone_newnet:%s, clone_newuser:%s, clone_newns:%s, clone_newpid:%s, "
 	     "clone_newipc:%s, clonew_newuts:%s, apply_sandbox:%s, keep_caps:%s, "
 	     "tmpfs_size:%zu",
 	     nsjconf->hostname, nsjconf->chroot, nsjconf->argv[0], nsjconf->port,
-	     nsjconf->max_conns_per_ip, nsjconf->uid, nsjconf->gid, nsjconf->tlimit,
-	     nsjconf->personality, logYesNo(nsjconf->daemonize), logYesNo(nsjconf->clone_newnet),
+	     nsjconf->max_conns_per_ip, nsjconf->inside_uid, nsjconf->outside_uid,
+	     nsjconf->inside_gid, nsjconf->outside_gid, nsjconf->tlimit, nsjconf->personality,
+	     logYesNo(nsjconf->daemonize), logYesNo(nsjconf->clone_newnet),
 	     logYesNo(nsjconf->clone_newuser), logYesNo(nsjconf->clone_newns),
 	     logYesNo(nsjconf->clone_newpid), logYesNo(nsjconf->clone_newipc),
 	     logYesNo(nsjconf->clone_newuts), logYesNo(nsjconf->apply_sandbox),
@@ -151,7 +152,7 @@ rlim_t cmdlineParseRLimit(int res, const char *optarg, unsigned long mul)
 /* findSpecDestination mutates spec (source:dest) to have a null byte instead
  * of ':' in between source and dest, then returns a pointer to the dest
  * string. */
-static char *cmdlineMountParam(char *spec)
+static char *cmdlineSplitStrByColon(char *spec)
 {
 	char *dest = spec;
 	while (*dest != ':' && *dest != '\0') {
@@ -170,6 +171,74 @@ static char *cmdlineMountParam(char *spec)
 	}
 }
 
+static bool cmdlineParseUid(struct nsjconf_t *nsjconf, char *str)
+{
+	if (str == NULL) {
+		return true;
+	}
+
+	char *second = cmdlineSplitStrByColon(str);
+
+	struct passwd *pw = getpwnam(str);
+	if (pw != NULL) {
+		nsjconf->inside_uid = pw->pw_uid;
+	} else if (cmdlineIsANumber(str)) {
+		nsjconf->inside_uid = (uid_t) strtoull(str, NULL, 0);
+	} else {
+		LOG_E("No such user '%s'", str);
+		return false;
+	}
+
+	if (str == second) {
+		return true;
+	}
+
+	pw = getpwnam(second);
+	if (pw != NULL) {
+		nsjconf->outside_uid = pw->pw_uid;
+	} else if (cmdlineIsANumber(second)) {
+		nsjconf->outside_uid = (uid_t) strtoull(second, NULL, 0);
+	} else {
+		LOG_E("No such user '%s'", second);
+		return false;
+	}
+	return true;
+}
+
+static bool cmdlineParseGid(struct nsjconf_t *nsjconf, char *str)
+{
+	if (str == NULL) {
+		return true;
+	}
+
+	char *second = cmdlineSplitStrByColon(str);
+
+	struct group *gr = getgrnam(str);
+	if (gr != NULL) {
+		nsjconf->inside_gid = gr->gr_gid;
+	} else if (cmdlineIsANumber(str)) {
+		nsjconf->inside_gid = (gid_t) strtoull(str, NULL, 0);
+	} else {
+		LOG_E("No such group '%s'", str);
+		return false;
+	}
+
+	if (str == second) {
+		return true;
+	}
+
+	gr = getgrnam(second);
+	if (gr != NULL) {
+		nsjconf->outside_gid = gr->gr_gid;
+	} else if (cmdlineIsANumber(second)) {
+		nsjconf->outside_gid = (gid_t) strtoull(second, NULL, 0);
+	} else {
+		LOG_E("No such group '%s'", second);
+		return false;
+	}
+	return true;
+}
+
 bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 {
 	/*  *INDENT-OFF* */
@@ -179,8 +248,6 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		.chroot = "",
 		.argv = NULL,
 		.port = 31337,
-		.uid = -1,
-		.gid = -1,
 		.daemonize = false,
 		.tlimit = 0,
 		.apply_sandbox = true,
@@ -204,8 +271,10 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		.is_root_rw = false,
 		.is_silent = false,
 		.iface = NULL,
-		.initial_uid = getuid(),
-		.initial_gid = getgid(),
+		.inside_uid = getuid(),
+		.inside_gid = getgid(),
+		.outside_uid = getuid(),
+		.outside_gid = getgid(),
 		.max_conns_per_ip = 0,
 		.tmpfs_size = 4 * (1024 * 1024),
 		.mount_proc = true,
@@ -215,8 +284,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	TAILQ_INIT(&nsjconf->pids);
 	TAILQ_INIT(&nsjconf->mountpts);
 
-	const char *user = "nobody";
-	const char *group = "nobody";
+	char *user = NULL;
+	char *group = NULL;
 	const char *logfile = NULL;
 	static char cmdlineTmpfsSz[PATH_MAX] = "size=4194304";
 
@@ -407,7 +476,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			{
 				struct mounts_t *p = util_malloc(sizeof(struct mounts_t));
 				p->src = optarg;
-				p->dst = cmdlineMountParam(optarg);
+				p->dst = cmdlineSplitStrByColon(optarg);
 				p->flags = MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY;
 				p->options = NULL;
 				p->fs_type = NULL;
@@ -418,7 +487,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			{
 				struct mounts_t *p = util_malloc(sizeof(struct mounts_t));
 				p->src = optarg;
-				p->dst = cmdlineMountParam(optarg);
+				p->dst = cmdlineSplitStrByColon(optarg);
 				p->flags = MS_BIND | MS_REC | MS_PRIVATE;
 				p->options = NULL;
 				p->fs_type = NULL;
@@ -496,29 +565,17 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		return false;
 	}
 
+	if (cmdlineParseUid(nsjconf, user) == false) {
+		return false;
+	}
+	if (cmdlineParseGid(nsjconf, group) == false) {
+		return false;
+	}
+
 	nsjconf->argv = &argv[optind];
 	if (nsjconf->argv[0] == NULL) {
 		LOG_E("No command provided");
 		cmdlineUsage(argv[0], custom_opts);
-		return false;
-	}
-
-	struct passwd *pw = getpwnam(user);
-	if (pw != NULL) {
-		nsjconf->uid = pw->pw_uid;
-	} else if (cmdlineIsANumber(user)) {
-		nsjconf->uid = (uid_t) strtoull(user, NULL, 0);
-	} else {
-		LOG_E("No such user '%s'", user);
-		return false;
-	}
-	struct group *gr = getgrnam(group);
-	if (gr != NULL) {
-		nsjconf->gid = gr->gr_gid;
-	} else if (cmdlineIsANumber(group)) {
-		nsjconf->gid = (gid_t) strtoull(group, NULL, 0);
-	} else {
-		LOG_E("No such group '%s'", group);
 		return false;
 	}
 
