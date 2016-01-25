@@ -179,7 +179,9 @@ bool containPrepareEnv(struct nsjconf_t * nsjconf)
 	if (setpriority(PRIO_PROCESS, 0, 19) == -1 && errno != 0) {
 		PLOG_W("setpriority(19)");
 	}
-	setsid();
+	if (nsjconf->skip_setsid == false) {
+		setsid();
+	}
 	return true;
 }
 

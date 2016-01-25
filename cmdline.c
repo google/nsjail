@@ -270,6 +270,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		.mode = MODE_LISTEN_TCP,
 		.is_root_rw = false,
 		.is_silent = false,
+		.skip_setsid = false,
 		.iface = NULL,
 		.inside_uid = getuid(),
 		.inside_gid = getgid(),
@@ -314,6 +315,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"keep_caps", no_argument, NULL, 0x0501}, "Don't drop capabilities (DANGEROUS) (default: false)"},
 		{{"silent", no_argument, NULL, 0x0502}, "Redirect child's fd:0/1/2 to /dev/null (default: false)"},
 		{{"disable_sandbox", no_argument, NULL, 0x0503}, "Don't enable the seccomp-bpf sandboxing (default: false)"},
+		{{"skip_setsid", no_argument, NULL, 0x0504}, "Don't call setsid(), allows for terminal signal handling in the sandboxed process (default: false)"},
 		{{"rlimit_as", required_argument, NULL, 0x0201}, "RLIMIT_AS in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 512)"},
 		{{"rlimit_core", required_argument, NULL, 0x0202}, "RLIMIT_CORE in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 0)"},
 		{{"rlimit_cpu", required_argument, NULL, 0x0203}, "RLIMIT_CPU, 'max' for RLIM_INFINITY, 'def' for the current value (default: 600)"},
@@ -460,6 +462,9 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			break;
 		case 0x0503:
 			nsjconf->apply_sandbox = false;
+			break;
+		case 0x0504:
+			nsjconf->skip_setsid = true;
 			break;
 		case 0x0601:
 			nsjconf->is_root_rw = true;

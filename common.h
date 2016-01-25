@@ -84,6 +84,7 @@ struct nsjconf_t {
 	const char *chroot;
 	bool is_root_rw;
 	bool is_silent;
+	bool skip_setsid;
 	char *iface;
 	uid_t outside_uid;
 	gid_t outside_gid;
