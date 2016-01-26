@@ -76,16 +76,19 @@ static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int 
 		exit(1);
 	}
 
-	char *const *env = { NULL };
-	if (nsjconf->keep_env == true) {
-		env = environ;
+	if (nsjconf->keep_env == false) {
+		clearenv();
+	}
+	struct charptr_t *p;
+	TAILQ_FOREACH(p, &nsjconf->envs, pointers) {
+		putenv(p->val);
 	}
 
 	LOG_D("Trying to execve('%s')", nsjconf->argv[0]);
 	for (int i = 0; nsjconf->argv[i]; i++) {
 		LOG_D(" Arg[%d]: '%s'", i, nsjconf->argv[i]);
 	}
-	execve(nsjconf->argv[0], &nsjconf->argv[0], env);
+	execv(nsjconf->argv[0], &nsjconf->argv[0]);
 
 	PLOG_E("execve('%s') failed", nsjconf->argv[0]);
 

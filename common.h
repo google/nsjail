@@ -55,6 +55,11 @@ enum mode_t {
 	MODE_STANDALONE_RERUN
 };
 
+struct charptr_t {
+	char *val;
+	 TAILQ_ENTRY(charptr_t) pointers;
+};
+
 struct nsjconf_t {
 	const char *hostname;
 	const char *cwd;
@@ -93,6 +98,7 @@ struct nsjconf_t {
 	unsigned int max_conns_per_ip;
 	size_t tmpfs_size;
 	bool mount_proc;
+	 TAILQ_HEAD(envlist, charptr_t) envs;
 	 TAILQ_HEAD(pidslist, pids_t) pids;
 	 TAILQ_HEAD(mountptslist, mounts_t) mountpts;
 };

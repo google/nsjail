@@ -282,6 +282,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	};
 	/*  *INDENT-OFF* */
 
+	TAILQ_INIT(&nsjconf->envs);
 	TAILQ_INIT(&nsjconf->pids);
 	TAILQ_INIT(&nsjconf->mountpts);
 
@@ -312,6 +313,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"daemon", no_argument, NULL, 'd'}, "Daemonize after start? (default: false)"},
 		{{"verbose", no_argument, NULL, 'v'}, "Verbose output (default: false)"},
 		{{"keep_env", no_argument, NULL, 'e'}, "Should all environment variables be passed to the child? (default: false)"},
+		{{"env", required_argument, NULL, 'E'}, "Environment variable (can be used multiple times)"},
 		{{"keep_caps", no_argument, NULL, 0x0501}, "Don't drop capabilities (DANGEROUS) (default: false)"},
 		{{"silent", no_argument, NULL, 0x0502}, "Redirect child's fd:0/1/2 to /dev/null (default: false)"},
 		{{"disable_sandbox", no_argument, NULL, 0x0503}, "Don't enable the seccomp-bpf sandboxing (default: false)"},
@@ -351,8 +353,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 
 	int opt_index = 0;
 	for (;;) {
-		int c =
-		    getopt_long(argc, argv, "H:D:c:p:i:u:g:l:t:M:Ndveh?R:B:T:I:", opts, &opt_index);
+		int c = getopt_long(argc, argv, "H:D:c:p:i:u:g:l:t:M:Ndveh?E:R:B:T:I:", opts,
+				    &opt_index);
 		if (c == -1) {
 			break;
 		}
@@ -476,6 +478,13 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			break;
 		case 0x0603:
 			nsjconf->mount_proc = false;
+			break;
+		case 'E':
+			{
+				struct charptr_t *p = util_malloc(sizeof(struct charptr_t));
+				p->val = optarg;
+				TAILQ_INSERT_TAIL(&nsjconf->envs, p, pointers);
+			}
 			break;
 		case 'R':
 			{
