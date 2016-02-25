@@ -516,7 +516,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		case 'T':
 			{
 				struct mounts_t *p = util_malloc(sizeof(struct mounts_t));
-				p->src = "none";
+				p->src = "/";
 				p->dst = optarg;
 				p->flags = 0;
 				p->options = cmdlineTmpfsSz;
@@ -560,7 +560,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 
 	if (nsjconf->mount_proc == true) {
 		struct mounts_t *p = util_malloc(sizeof(struct mounts_t));
-		p->src = "none";
+		p->src = "/proc";
 		p->dst = "/proc";
 		p->flags = 0;
 		p->options = NULL;
