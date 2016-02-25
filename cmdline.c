@@ -89,12 +89,12 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	}
 
 	LOG_I
-	    ("Jail parameters: hostname:'%s', chroot:'%s', process:'%s', port:%d, "
+	    ("Jail parameters: hostname:'%s', chroot:'%s', process:'%s', bind:[%s]:%d, "
 	     "max_conns_per_ip:%u, uid:(ns:%u, global:%u), gid:(ns:%u, global:%u), time_limit:%ld, personality:%#lx, daemonize:%s, "
 	     "clone_newnet:%s, clone_newuser:%s, clone_newns:%s, clone_newpid:%s, "
 	     "clone_newipc:%s, clonew_newuts:%s, apply_sandbox:%s, keep_caps:%s, "
 	     "tmpfs_size:%zu",
-	     nsjconf->hostname, nsjconf->chroot, nsjconf->argv[0], nsjconf->port,
+	     nsjconf->hostname, nsjconf->chroot, nsjconf->argv[0], nsjconf->bindhost, nsjconf->port,
 	     nsjconf->max_conns_per_ip, nsjconf->inside_uid, nsjconf->outside_uid,
 	     nsjconf->inside_gid, nsjconf->outside_gid, nsjconf->tlimit, nsjconf->personality,
 	     logYesNo(nsjconf->daemonize), logYesNo(nsjconf->clone_newnet),
@@ -248,6 +248,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		.chroot = "/",
 		.argv = NULL,
 		.port = 31337,
+		.bindhost = "::",
 		.daemonize = false,
 		.tlimit = 0,
 		.apply_sandbox = true,
@@ -301,12 +302,13 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			"\tr: Immediately launch a single process on a console, keep doing it forever [MODE_STANDALONE_RERUN]"},
 		{{"cmd", no_argument, NULL, 0x500}, "Equivalent of -Mo (MODE_STANDALONE_ONCE), run command on a local console, once"},
 		{{"chroot", required_argument, NULL, 'c'}, "Directory containing / of the jail (default: \"/\")"},
-		{{"rw", no_argument, NULL, 0x0601}, "Mount / as RW (default: RO)"},
+		{{"rw", no_argument, NULL, 0x601}, "Mount / as RW (default: RO)"},
 		{{"user", required_argument, NULL, 'u'}, "Username/uid of processess inside the jail (default: 'nobody')"},
 		{{"group", required_argument, NULL, 'g'}, "Groupname/gid of processess inside the jail (default: 'nogroup')"},
 		{{"hostname", required_argument, NULL, 'H'}, "UTS name (hostname) of the jail (default: 'NSJAIL')"},
 		{{"cwd", required_argument, NULL, 'D'}, "Directory in the namespace the process will run (default: '/')"},
 		{{"port", required_argument, NULL, 'p'}, "TCP port to bind to (only in [MODE_LISTEN_TCP]) (default: 31337)"},
+		{{"bindhost", required_argument, NULL, 0x604}, "IP address port to bind to (only in [MODE_LISTEN_TCP]) (default: '::')"},
 		{{"max_conns_per_ip", required_argument, NULL, 'i'}, "Maximum number of connections per one IP (default: 0 (unlimited))"},
 		{{"log", required_argument, NULL, 'l'}, "Log file (default: /proc/self/fd/2)"},
 		{{"time_limit", required_argument, NULL, 't'}, "Maximum time that a jail can exist, in seconds (default: 600)"},
@@ -370,6 +372,9 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			break;
 		case 'p':
 			nsjconf->port = strtoul(optarg, NULL, 0);
+			break;
+		case 0x604:
+			nsjconf->bindhost = optarg;
 			break;
 		case 'i':
 			nsjconf->max_conns_per_ip = strtoul(optarg, NULL, 0);

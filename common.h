@@ -65,6 +65,7 @@ struct nsjconf_t {
 	const char *cwd;
 	char *const *argv;
 	int port;
+	const char *bindhost;
 	bool daemonize;
 	time_t tlimit;
 	bool apply_sandbox;

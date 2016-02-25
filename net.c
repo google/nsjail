@@ -141,10 +141,16 @@ bool netLimitConns(struct nsjconf_t * nsjconf, int connsock)
 	return true;
 }
 
-int netGetRecvSocket(int port)
+int netGetRecvSocket(const char *bindhost, int port)
 {
 	if (port < 1 || port > 65535) {
 		LOG_F("TCP port %d out of bounds (0 <= port <= 65535)", port);
+	}
+
+	struct in6_addr in6a;
+	if (inet_pton(AF_INET6, bindhost, &in6a) != 1) {
+		PLOG_E("Couldn't convert '%s' into AF_INET6 address", bindhost);
+		return -1;
 	}
 
 	int sockfd = socket(AF_INET6, SOCK_STREAM, 0);
@@ -161,11 +167,11 @@ int netGetRecvSocket(int port)
 		.sin6_family = AF_INET6,
 		.sin6_port = htons(port),
 		.sin6_flowinfo = 0,
-		.sin6_addr = in6addr_any,
+		.sin6_addr = in6a,
 		.sin6_scope_id = 0,
 	};
 	if (bind(sockfd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
-		PLOG_E("bind(port:%d)", port);
+		PLOG_E("bind(host:[%s], port:%d)", bindhost, port);
 		return -1;
 	}
 	if (listen(sockfd, SOMAXCONN) == -1) {
@@ -237,6 +243,6 @@ void netConnToText(int fd, bool remote, char *buf, size_t s, struct sockaddr_in6
 		snprintf(buf, s, "[unknown]:%hu", ntohs(addr.sin6_port));
 		return;
 	}
-	snprintf(buf, s, "%s:%hu", tmp, ntohs(addr.sin6_port));
+	snprintf(buf, s, "[%s]:%hu", tmp, ntohs(addr.sin6_port));
 	return;
 }

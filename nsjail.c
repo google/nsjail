@@ -111,7 +111,7 @@ static bool nsjailSetTimer(struct nsjconf_t *nsjconf)
 
 static void nsjailListenMode(struct nsjconf_t *nsjconf)
 {
-	int listenfd = netGetRecvSocket(nsjconf->port);
+	int listenfd = netGetRecvSocket(nsjconf->bindhost, nsjconf->port);
 	if (listenfd == -1) {
 		return;
 	}
