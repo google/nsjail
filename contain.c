@@ -251,9 +251,9 @@ static bool containRemountRO(struct mounts_t *mpt)
 	if (mpt->flags &= MS_RDONLY) {
 		LOG_D("Re-mounting RO '%s'", mpt->dst);
 		if (mount
-		    (mpt->dst, mpt->dst, NULL, MS_BIND | MS_PRIVATE | MS_REMOUNT | MS_RDONLY,
+		    (mpt->dst, mpt->dst, NULL, MS_REC | MS_BIND | MS_PRIVATE | MS_REMOUNT | MS_RDONLY,
 		     0) == -1) {
-			PLOG_E("mount('%s', MS_REMOUNT|MS_RDONLY)", mpt->dst);
+			PLOG_E("mount('%s', MS_REC|MS_BIND|MS_REMOUNT|MS_RDONLY)", mpt->dst);
 			return false;
 		}
 	}
