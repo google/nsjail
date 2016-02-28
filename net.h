@@ -26,6 +26,7 @@
 
 #include "common.h"
 
+bool netSystemSbinIp(struct nsjconf_t *nsjconf, char *const *argv);
 bool netCloneMacVtapAndNS(struct nsjconf_t *nsjconf, int pid);
 bool netLimitConns(struct nsjconf_t *nsjconf, int connsock);
 int netGetRecvSocket(const char *bindhost, int port);

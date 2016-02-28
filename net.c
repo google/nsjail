@@ -40,7 +40,7 @@
 
 #include "log.h"
 
-static bool netSystem(const char *bin, char *const *argv)
+bool netSystemSbinIp(struct nsjconf_t *nsjconf, char *const *argv)
 {
 	int pid = fork();
 	if (pid == -1) {
@@ -48,8 +48,8 @@ static bool netSystem(const char *bin, char *const *argv)
 		return false;
 	}
 	if (pid == 0) {
-		execv(bin, argv);
-		PLOG_E("execve('%s')", bin);
+		fexecve(nsjconf->sbinip_fd, argv, environ);
+		PLOG_E("fexecve('fd=%d')", nsjconf->sbinip_fd);
 		_exit(1);
 	}
 
@@ -60,19 +60,18 @@ static bool netSystem(const char *bin, char *const *argv)
 			if (WEXITSTATUS(status) == 0) {
 				return true;
 			}
-			LOG_W("'%s' returned with exit status: %d", bin, WEXITSTATUS(status));
+			LOG_W("'/sbin/ip' returned with exit status: %d", WEXITSTATUS(status));
 			return false;
 		}
 		if (WIFSIGNALED(status)) {
-			LOG_W("'%s' killed with signal: %d", bin, WTERMSIG(status));
+			LOG_W("'/sbin/ip' killed with signal: %d", WTERMSIG(status));
 			return false;
 		}
-		LOG_E("Unknown exit status for '%s' (pid=%d): %d", bin, pid, status);
+		LOG_E("Unknown exit status for '/sbin/ip' (pid=%d): %d", pid, status);
 		kill(pid, SIGKILL);
 	}
 }
 
-#define SBIN_IP_PATH "/sbin/ip"
 bool netCloneMacVtapAndNS(struct nsjconf_t * nsjconf, int pid)
 {
 	if (nsjconf->iface == NULL) {
@@ -83,8 +82,8 @@ bool netCloneMacVtapAndNS(struct nsjconf_t * nsjconf, int pid)
 	snprintf(iface, sizeof(iface), "NS.TAP.%d", pid);
 
 	char *const argv_add[] =
-	    { SBIN_IP_PATH, "link", "add", "link", nsjconf->iface, iface, "type", "macvtap", NULL };
-	if (netSystem(SBIN_IP_PATH, argv_add) == false) {
+	    { "ip", "link", "add", "link", nsjconf->iface, iface, "type", "macvtap", NULL };
+	if (netSystemSbinIp(nsjconf, argv_add) == false) {
 		LOG_E("Couldn't create MACVTAP interface for '%s'", nsjconf->iface);
 		return false;
 	}
@@ -92,10 +91,10 @@ bool netCloneMacVtapAndNS(struct nsjconf_t * nsjconf, int pid)
 	char pid_str[256];
 	snprintf(pid_str, sizeof(pid_str), "%d", pid);
 	char *const argv_netns[] =
-	    { SBIN_IP_PATH, "link", "set", "dev", iface, "netns", pid_str, "name", "virt.ns",
+	    { "ip", "link", "set", "dev", iface, "netns", pid_str, "name", "virt.ns",
 		NULL
 	};
-	if (netSystem(SBIN_IP_PATH, argv_netns) == false) {
+	if (netSystemSbinIp(nsjconf, argv_netns) == false) {
 		LOG_E("Couldn't put interface '%s' into NS of PID '%d'", iface, pid);
 		return false;
 	}

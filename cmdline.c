@@ -24,6 +24,7 @@
 
 #include <ctype.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <getopt.h>
 #include <grp.h>
 #include <limits.h>
@@ -35,7 +36,9 @@
 #include <strings.h>
 #include <sys/personality.h>
 #include <sys/mount.h>
+#include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "common.h"
@@ -280,6 +283,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		.max_conns_per_ip = 0,
 		.tmpfs_size = 4 * (1024 * 1024),
 		.mount_proc = true,
+		.sbinip_fd = -1,
 	};
 	/*  *INDENT-OFF* */
 
@@ -596,6 +600,10 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		LOG_E("No command provided");
 		cmdlineUsage(argv[0], custom_opts);
 		return false;
+	}
+
+	if ((nsjconf->sbinip_fd = open("/sbin/ip", O_RDONLY)) == -1) {
+		PLOG_E("No /sbin/ip on your system. Networking support is limited");
 	}
 
 	return true;
