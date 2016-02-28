@@ -68,9 +68,6 @@ static bool containUidGidMap(struct nsjconf_t *nsjconf)
 		return true;
 	}
 
-	sleep(10);
-	return true;
-
 	int fd;
 	char map[64];
 	if ((fd = open("/proc/self/uid_map", O_WRONLY | O_CLOEXEC)) == -1) {
