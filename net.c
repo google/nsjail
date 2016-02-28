@@ -74,6 +74,12 @@ static bool netSystemSbinIp(struct nsjconf_t *nsjconf, char *const *argv)
 			LOG_W("'/sbin/ip' killed with signal: %d", WTERMSIG(status));
 			return false;
 		}
+		if (WIFSTOPPED(status)) {
+			continue;
+		}
+		if (WIFCONTINUED(status)) {
+			continue;
+		}
 		LOG_W("Unknown exit status for '/sbin/ip' (pid=%d): %d", pid, status);
 		kill(pid, SIGKILL);
 	}
