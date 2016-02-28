@@ -241,6 +241,7 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 	if (pid == 0) {
 		subprocNewProc(nsjconf, fd_in, fd_out, fd_err, pipefd[1]);
 	}
+
 	if (pid == -1) {
 		PLOG_E("clone(flags=%#x) failed. You probably need root privileges if your system "
 		       "doesn't support CLONE_NEWUSER. Alternatively, you might want to recompile your "

@@ -77,7 +77,7 @@ bool netCloneMacVtapAndNS(struct nsjconf_t * nsjconf, int pid)
 		return true;
 	}
 
-	char iface[512];
+	char iface[16];
 	snprintf(iface, sizeof(iface), "%s.ns.%d", nsjconf->iface, pid);
 
 #define SBIN_IP_PATH "/sbin/ip"
@@ -88,7 +88,7 @@ bool netCloneMacVtapAndNS(struct nsjconf_t * nsjconf, int pid)
 		return false;
 	}
 
-	char pid_str[512];
+	char pid_str[256];
 	snprintf(pid_str, sizeof(pid_str), "%d", pid);
 	char *const argv_netns[] =
 	    { SBIN_IP_PATH, "link", "set", "dev", iface, "netns", pid_str, NULL };
