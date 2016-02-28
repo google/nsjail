@@ -22,6 +22,7 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
+#include <linux/if.h>
 #include <sched.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -71,16 +72,16 @@ static bool netSystem(const char *bin, char *const *argv)
 	}
 }
 
+#define SBIN_IP_PATH "/sbin/ip"
 bool netCloneMacVtapAndNS(struct nsjconf_t * nsjconf, int pid)
 {
 	if (nsjconf->iface == NULL) {
 		return true;
 	}
 
-	char iface[16];
-	snprintf(iface, sizeof(iface), "%s.ns.%d", nsjconf->iface, pid);
+	char iface[IFNAMSIZ];
+	snprintf(iface, sizeof(iface), "NS.TAP.%d", pid);
 
-#define SBIN_IP_PATH "/sbin/ip"
 	char *const argv_add[] =
 	    { SBIN_IP_PATH, "link", "add", "link", nsjconf->iface, iface, "type", "macvtap", NULL };
 	if (netSystem(SBIN_IP_PATH, argv_add) == false) {
@@ -91,7 +92,7 @@ bool netCloneMacVtapAndNS(struct nsjconf_t * nsjconf, int pid)
 	char pid_str[256];
 	snprintf(pid_str, sizeof(pid_str), "%d", pid);
 	char *const argv_netns[] =
-	    { SBIN_IP_PATH, "link", "set", "dev", iface, "netns", pid_str, NULL };
+	    { SBIN_IP_PATH, "link", "set", "dev", iface, "netns", pid_str, "name", "virt.ns", NULL };
 	if (netSystem(SBIN_IP_PATH, argv_netns) == false) {
 		LOG_E("Couldn't put interface '%s' into NS of PID '%d'", iface, pid);
 		return false;
