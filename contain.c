@@ -47,6 +47,14 @@
 
 static bool containSetGroups(pid_t pid)
 {
+	/*
+	 * No need to write 'deny' to /proc/pid/setgroups if our euid==0, as writing to uid_map/gid_map
+	 * will succeed anyway
+	 */
+	if (geteuid() == 0) {
+		return true;
+	}
+
 	char fname[PATH_MAX];
 	snprintf(fname, sizeof(fname), "/proc/%d/setgroups", pid);
 	const char *denystr = "deny";
