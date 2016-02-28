@@ -249,6 +249,7 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 		subprocNewProc(nsjconf, fd_in, fd_out, fd_err, sv[0]);
 	}
 	close(sv[0]);
+	subprocAdd(nsjconf, pid, fd_in);
 
 	if (pid == -1) {
 		PLOG_E("clone(flags=%#x) failed. You probably need root privileges if your system "
@@ -261,12 +262,18 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 
 	if (netCloneMacVtapAndNS(nsjconf, pid) == false) {
 		LOG_E("Couldn't create and put MACVTAP interface into NS of PID '%d'", pid);
+		close(sv[1]);
+		return;
 	}
 	if (containInitUserNs(nsjconf, pid) == false) {
 		LOG_E("Couldn't initialize user namespaces for pid %d", pid);
+		close(sv[1]);
+		return;
 	}
 	if (utilWriteToFd(sv[1], &subprocDoneChar, sizeof(subprocDoneChar)) != sizeof(subprocDoneChar)) {
 		LOG_E("Couldn't signal the new process via a socketpair");
+		close(sv[1]);
+		return;
 	}
 
 	char cs_addr[64];
@@ -280,6 +287,4 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 		logDirectlyToFD(log_buf);
 	}
 	close(sv[1]);
-
-	subprocAdd(nsjconf, pid, fd_in);
 }
