@@ -92,7 +92,9 @@ bool netCloneMacVtapAndNS(struct nsjconf_t * nsjconf, int pid)
 	char pid_str[256];
 	snprintf(pid_str, sizeof(pid_str), "%d", pid);
 	char *const argv_netns[] =
-	    { SBIN_IP_PATH, "link", "set", "dev", iface, "netns", pid_str, "name", "virt.ns", NULL };
+	    { SBIN_IP_PATH, "link", "set", "dev", iface, "netns", pid_str, "name", "virt.ns",
+		NULL
+	};
 	if (netSystem(SBIN_IP_PATH, argv_netns) == false) {
 		LOG_E("Couldn't put interface '%s' into NS of PID '%d'", iface, pid);
 		return false;

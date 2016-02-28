@@ -206,6 +206,24 @@ void subprocKillAll(struct nsjconf_t *nsjconf)
 	}
 }
 
+static bool subprocInitParent(struct nsjconf_t *nsjconf, pid_t pid, int pipefd)
+{
+	if (netCloneMacVtapAndNS(nsjconf, pid) == false) {
+		LOG_E("Couldn't create and put MACVTAP interface into NS of PID '%d'", pid);
+		return false;
+	}
+	if (containInitUserNs(nsjconf, pid) == false) {
+		LOG_E("Couldn't initialize user namespaces for pid %d", pid);
+		return false;
+	}
+	if (utilWriteToFd(pipefd, &subprocDoneChar, sizeof(subprocDoneChar)) !=
+	    sizeof(subprocDoneChar)) {
+		LOG_E("Couldn't signal the new process via a socketpair");
+		return false;
+	}
+	return true;
+}
+
 void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_err)
 {
 	if (netLimitConns(nsjconf, fd_in) == false) {
@@ -260,18 +278,7 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 		return;
 	}
 
-	if (netCloneMacVtapAndNS(nsjconf, pid) == false) {
-		LOG_E("Couldn't create and put MACVTAP interface into NS of PID '%d'", pid);
-		close(sv[1]);
-		return;
-	}
-	if (containInitUserNs(nsjconf, pid) == false) {
-		LOG_E("Couldn't initialize user namespaces for pid %d", pid);
-		close(sv[1]);
-		return;
-	}
-	if (utilWriteToFd(sv[1], &subprocDoneChar, sizeof(subprocDoneChar)) != sizeof(subprocDoneChar)) {
-		LOG_E("Couldn't signal the new process via a socketpair");
+	if (subprocInitParent(nsjconf, pid, sv[1]) == false) {
 		close(sv[1]);
 		return;
 	}
