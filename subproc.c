@@ -265,7 +265,7 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 	if (containInitUserNs(nsjconf, pid) == false) {
 		LOG_E("Couldn't initialize user namespaces for pid %d", pid);
 	}
-	if (utilWriteToFd(sv[1], &subprocDoneChar, sizeof(subprocDoneChar)) == false) {
+	if (utilWriteToFd(sv[1], &subprocDoneChar, sizeof(subprocDoneChar)) != sizeof(subprocDoneChar)) {
 		LOG_E("Couldn't signal the new process via a socketpair");
 	}
 
