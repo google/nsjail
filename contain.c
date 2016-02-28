@@ -43,7 +43,18 @@
 #include <unistd.h>
 
 #include "log.h"
+#include "net.h"
 #include "util.h"
+
+bool containInitNetNs(struct nsjconf_t * nsjconf)
+{
+	if (nsjconf->iface_lo_up) {
+		if (netIfaceUp("lo") == false) {
+			return false;
+		}
+	}
+	return true;
+}
 
 static bool containSetGroups(pid_t pid)
 {

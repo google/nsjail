@@ -91,7 +91,6 @@ struct nsjconf_t {
 	bool is_root_rw;
 	bool is_silent;
 	bool skip_setsid;
-	char *iface;
 	uid_t outside_uid;
 	gid_t outside_gid;
 	uid_t inside_uid;
@@ -99,6 +98,8 @@ struct nsjconf_t {
 	unsigned int max_conns_per_ip;
 	size_t tmpfs_size;
 	bool mount_proc;
+	char *iface;
+	bool iface_lo_up;
 	int sbinip_fd;
 	 TAILQ_HEAD(envlist, charptr_t) envs;
 	 TAILQ_HEAD(pidslist, pids_t) pids;

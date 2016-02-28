@@ -275,7 +275,6 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		.is_root_rw = false,
 		.is_silent = false,
 		.skip_setsid = false,
-		.iface = NULL,
 		.inside_uid = getuid(),
 		.inside_gid = getgid(),
 		.outside_uid = getuid(),
@@ -283,6 +282,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		.max_conns_per_ip = 0,
 		.tmpfs_size = 4 * (1024 * 1024),
 		.mount_proc = true,
+		.iface = NULL,
+		.iface_lo_up = false,
 		.sbinip_fd = -1,
 	};
 	/*  *INDENT-OFF* */
@@ -346,6 +347,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"bindmount", required_argument, NULL, 'B'}, "List of mountpoints to be mounted --bind (rw) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'"},
 		{{"tmpfsmount", required_argument, NULL, 'T'}, "List of mountpoints to be mounted as RW/tmpfs inside the container. Can be specified multiple times. Supports 'dest' syntax"},
 		{{"iface", required_argument, NULL, 'I'}, "Interface which will be cloned (MACVTAP) and put inside the subprocess' namespace"},
+		{{"iface_lo_up", no_argument, NULL, 0x700}, "Bring up the 'lo' interface"},
 		{{"tmpfs_size", required_argument, NULL, 0x0602}, "Number of bytes to allocate for tmpfsmounts (default: 4194304)"},
 		{{"disable_proc", no_argument, NULL, 0x0603}, "Disable mounting /proc in the jail"},
 		{{0, 0, 0, 0}, NULL},
@@ -554,6 +556,9 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			break;
 		case 'I':
 			nsjconf->iface = optarg;
+			break;
+		case 0x700:
+			nsjconf->iface_lo_up = true;
 			break;
 		default:
 			cmdlineUsage(argv[0], custom_opts);

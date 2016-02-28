@@ -22,7 +22,7 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
-#include <linux/if.h>
+#include <net/if.h>
 #include <sched.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -31,6 +31,7 @@
 #include <strings.h>
 #include <netinet/ip6.h>
 #include <netinet/tcp.h>
+#include <sys/ioctl.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/time.h>
@@ -40,8 +41,14 @@
 
 #include "log.h"
 
-bool netSystemSbinIp(struct nsjconf_t *nsjconf, char *const *argv)
+static bool netSystemSbinIp(struct nsjconf_t *nsjconf, char *const *argv)
 {
+	if (nsjconf->clone_newnet == false) {
+		LOG_W
+		    ("CLONE_NEWNET not enabled. All changes would affect the global networking namespace");
+		return false;
+	}
+
 	int pid = fork();
 	if (pid == -1) {
 		PLOG_E("fork()");
@@ -67,7 +74,7 @@ bool netSystemSbinIp(struct nsjconf_t *nsjconf, char *const *argv)
 			LOG_W("'/sbin/ip' killed with signal: %d", WTERMSIG(status));
 			return false;
 		}
-		LOG_E("Unknown exit status for '/sbin/ip' (pid=%d): %d", pid, status);
+		LOG_W("Unknown exit status for '/sbin/ip' (pid=%d): %d", pid, status);
 		kill(pid, SIGKILL);
 	}
 }
@@ -78,7 +85,7 @@ bool netCloneMacVtapAndNS(struct nsjconf_t * nsjconf, int pid)
 		return true;
 	}
 
-	char iface[IFNAMSIZ];
+	char iface[IF_NAMESIZE];
 	snprintf(iface, sizeof(iface), "NS.TAP.%d", pid);
 
 	char *const argv_add[] =
@@ -247,4 +254,33 @@ void netConnToText(int fd, bool remote, char *buf, size_t s, struct sockaddr_in6
 	}
 	snprintf(buf, s, "[%s]:%hu", tmp, ntohs(addr.sin6_port));
 	return;
+}
+
+bool netIfaceUp(const char *ifacename)
+{
+	int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+	if (sock == -1) {
+		PLOG_E("socket(AF_INET, SOCK_STREAM, IPPROTO_IP)");
+		return false;
+	}
+
+	struct ifreq ifr;
+	snprintf(ifr.ifr_name, IF_NAMESIZE, "%s", ifacename);
+
+	if (ioctl(sock, SIOCGIFFLAGS, &ifr) == -1) {
+		PLOG_E("ioctl(iface='%s', SIOCGIFFLAGS, IFF_UP", ifacename);
+		close(sock);
+		return false;
+	}
+
+	ifr.ifr_flags |= (IFF_UP | IFF_RUNNING);
+
+	if (ioctl(sock, SIOCSIFFLAGS, &ifr) == -1) {
+		PLOG_E("ioctl(iface='%s', SIOCSIFFLAGS, IFF_UP", ifacename);
+		close(sock);
+		return false;
+	}
+
+	close(sock);
+	return true;
 }
