@@ -43,72 +43,55 @@
 #include <unistd.h>
 
 #include "log.h"
+#include "util.h"
 
-static bool containSetGroups(void)
+static bool containSetGroups(pid_t pid)
 {
-	int fd = open("/proc/self/setgroups", O_WRONLY | O_CLOEXEC);
-	if (fd == -1) {
-		/* Not present in all kernels */
-		PLOG_D("'/proc/self/setgroups' not present in this kernel?");
-		return true;
-	}
+	char fname[PATH_MAX];
+	snprintf(fname, sizeof(fname), "/proc/%d/setgroups", pid);
 	const char *denystr = "deny";
-	if (write(fd, denystr, strlen(denystr)) == -1) {
-		PLOG_E("write('/proc/self/setgroups', '%s') failed", denystr);
-		close(fd);
+	if (utilWriteBufToFile(fname, denystr, strlen(denystr), O_WRONLY) == false) {
+		LOG_E("utilWriteBufToFile('%s', '%s') failed", fname, denystr);
 		return false;
 	}
-	close(fd);
 	return true;
 }
 
-static bool containUidGidMap(struct nsjconf_t *nsjconf)
+static bool containUidGidMap(struct nsjconf_t *nsjconf, pid_t pid)
 {
 	if (nsjconf->clone_newuser == false) {
 		return true;
 	}
 
-	sleep(10);
-	return true;
+	char fname[PATH_MAX];
+	char map[128];
 
-	int fd;
-	char map[64];
-	if ((fd = open("/proc/self/uid_map", O_WRONLY | O_CLOEXEC)) == -1) {
-		PLOG_E("open('/proc/self/uid_map', O_WRONLY | O_CLOEXEC)");
-		return false;
-	}
+	snprintf(fname, sizeof(fname), "/proc/%d/uid_map", pid);
 	snprintf(map, sizeof(map), "%lu %lu 1", (unsigned long)nsjconf->inside_uid,
 		 (unsigned long)nsjconf->outside_uid);
-	LOG_D("Writing '%s' to /proc/self/uid_map", map);
-	if (write(fd, map, strlen(map)) == -1) {
-		PLOG_E("write('/proc/self/uid_map', %d, '%s')", fd, map);
-		close(fd);
+	LOG_D("Writing '%s' to '%s'", map, fname);
+	if (utilWriteBufToFile(fname, map, strlen(map), O_WRONLY) == false) {
+		LOG_E("utilWriteBufToFile('%s', '%s') failed", fname, map);
 		return false;
 	}
-	close(fd);
 
-	if ((fd = open("/proc/self/gid_map", O_WRONLY | O_CLOEXEC)) == -1) {
-		PLOG_E("open('/proc/self/gid_map', O_WRONLY | O_CLOEXEC)");
-		return false;
-	}
+	snprintf(fname, sizeof(fname), "/proc/%d/gid_map", pid);
 	snprintf(map, sizeof(map), "%lu %lu 1", (unsigned long)nsjconf->inside_gid,
 		 (unsigned long)nsjconf->outside_gid);
-	LOG_D("Writing '%s' to /proc/self/gid_map", map);
-	if (write(fd, map, strlen(map)) == -1) {
-		PLOG_E("write('/proc/self/gid_map', %d, '%s')", fd, map);
-		close(fd);
+	LOG_D("Writing '%s' to '%s'", map, fname);
+	if (utilWriteBufToFile(fname, map, strlen(map), O_WRONLY) == false) {
+		LOG_E("utilWriteBufToFile('%s', '%s') failed", fname, map);
 		return false;
 	}
-	close(fd);
 	return true;
 }
 
-bool containInitUserNs(struct nsjconf_t * nsjconf)
+bool containInitUserNs(struct nsjconf_t * nsjconf, pid_t pid)
 {
-	if (containSetGroups() == false) {
+	if (containSetGroups(pid) == false) {
 		return false;
 	}
-	if (containUidGidMap(nsjconf) == false) {
+	if (containUidGidMap(nsjconf, pid) == false) {
 		return false;
 	}
 	return true;

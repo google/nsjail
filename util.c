@@ -21,15 +21,77 @@
 
 #include "util.h"
 
+#include <errno.h>
+#include <fcntl.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "log.h"
 
-void *util_malloc(size_t sz)
+void *utilMalloc(size_t sz)
 {
 	void *ret = malloc(sz);
 	if (ret == NULL) {
 		LOG_F("malloc(sz=%zu) failed", sz);
 	}
 	return ret;
+}
+
+ssize_t utilReadFromFd(int fd, void *buf, size_t len)
+{
+	uint8_t *charbuf = (uint8_t *) buf;
+
+	size_t readSz = 0;
+	while (readSz < len) {
+		ssize_t sz = read(fd, &charbuf[readSz], len - readSz);
+		if (sz < 0 && errno == EINTR)
+			continue;
+
+		if (sz <= 0)
+			break;
+
+		readSz += sz;
+	}
+	return readSz;
+}
+
+ssize_t utilWriteToFd(int fd, const void *buf, size_t len)
+{
+	const uint8_t *charbuf = (const uint8_t *)buf;
+
+	size_t writtenSz = 0;
+	while (writtenSz < len) {
+		ssize_t sz = write(fd, &charbuf[writtenSz], len - writtenSz);
+		if (sz < 0 && errno == EINTR)
+			continue;
+
+		if (sz < 0)
+			return false;
+
+		writtenSz += sz;
+	}
+	return true;
+}
+
+bool utilWriteBufToFile(char *filename, const void *buf, size_t len, int open_flags)
+{
+	int fd = open(filename, open_flags, 0644);
+	if (fd == -1) {
+		PLOG_E("Couldn't open '%s' for R/O", filename);
+		return false;
+	}
+
+	if (utilWriteToFd(fd, buf, len) == false) {
+		PLOG_E("Couldn't write '%zu' bytes to file '%s' (fd='%d')", len, filename, fd);
+		close(fd);
+		unlink(filename);
+		return false;
+	}
+	close(fd);
+
+	LOG_D("Written '%zu' bytes to '%s'", len, filename);
+
+	return true;
 }

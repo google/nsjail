@@ -486,14 +486,14 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			break;
 		case 'E':
 			{
-				struct charptr_t *p = util_malloc(sizeof(struct charptr_t));
+				struct charptr_t *p = utilMalloc(sizeof(struct charptr_t));
 				p->val = optarg;
 				TAILQ_INSERT_TAIL(&nsjconf->envs, p, pointers);
 			}
 			break;
 		case 'R':
 			{
-				struct mounts_t *p = util_malloc(sizeof(struct mounts_t));
+				struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
 				p->src = optarg;
 				p->dst = cmdlineSplitStrByColon(optarg);
 				p->flags = MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY;
@@ -504,7 +504,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			break;
 		case 'B':
 			{
-				struct mounts_t *p = util_malloc(sizeof(struct mounts_t));
+				struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
 				p->src = optarg;
 				p->dst = cmdlineSplitStrByColon(optarg);
 				p->flags = MS_BIND | MS_REC | MS_PRIVATE;
@@ -515,7 +515,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			break;
 		case 'T':
 			{
-				struct mounts_t *p = util_malloc(sizeof(struct mounts_t));
+				struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
 				p->src = "/";
 				p->dst = optarg;
 				p->flags = 0;
@@ -559,7 +559,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	}
 
 	if (nsjconf->mount_proc == true) {
-		struct mounts_t *p = util_malloc(sizeof(struct mounts_t));
+		struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
 		p->src = "/proc";
 		p->dst = "/proc";
 		p->flags = 0;
@@ -568,7 +568,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		TAILQ_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
 	}
 	{
-		struct mounts_t *p = util_malloc(sizeof(struct mounts_t));
+		struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
 		p->src = nsjconf->chroot;
 		p->dst = "/";
 		p->flags = MS_BIND | MS_REC | MS_PRIVATE;

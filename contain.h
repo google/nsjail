@@ -26,7 +26,7 @@
 
 #include "common.h"
 
-bool containInitUserNs(struct nsjconf_t *nsjconf);
+bool containInitUserNs(struct nsjconf_t *nsjconf, pid_t pid);
 bool containDropPrivs(struct nsjconf_t *nsjconf);
 bool containPrepareEnv(struct nsjconf_t *nsjconf);
 bool containMountFS(struct nsjconf_t *nsjconf);

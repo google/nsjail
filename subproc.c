@@ -46,15 +46,21 @@
 #include "sandbox.h"
 #include "util.h"
 
+const char subprocDoneChar = 'D';
+
 static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_err, int pipefd)
 {
-	if (containInitUserNs(nsjconf) == false) {
+	if (containSetupFD(nsjconf, fd_in, fd_out, fd_err, pipefd) == false) {
+		exit(1);
+	}
+	char doneChar;
+	if (utilReadFromFd(pipefd, &doneChar, sizeof(doneChar)) != sizeof(doneChar)) {
+		exit(1);
+	}
+	if (doneChar != subprocDoneChar) {
 		exit(1);
 	}
 	if (containPrepareEnv(nsjconf) == false) {
-		exit(1);
-	}
-	if (containSetupFD(nsjconf, fd_in, fd_out, fd_err, pipefd) == false) {
 		exit(1);
 	}
 	if (containMountFS(nsjconf) == false) {
@@ -97,7 +103,7 @@ static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int 
 
 static void subprocAdd(struct nsjconf_t *nsjconf, pid_t pid, int sock)
 {
-	struct pids_t *p = util_malloc(sizeof(struct pids_t));
+	struct pids_t *p = utilMalloc(sizeof(struct pids_t));
 	p->pid = pid;
 	p->start = time(NULL);
 	netConnToText(sock, true /* remote */ , p->remote_txt, sizeof(p->remote_txt),
@@ -231,27 +237,36 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 	flags |= SIGCHLD;
 	LOG_D("Creating new process with clone flags: %#x", flags);
 
-	int pipefd[2];
-	if (pipe2(pipefd, O_CLOEXEC) == -1) {
-		PLOG_E("pipe2(pipefd, O_CLOEXEC) failed");
+	int sv[2];
+	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, sv) == -1) {
+		PLOG_E("socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC) failed");
 		return;
 	}
 
 	pid_t pid = syscall(__NR_clone, (uintptr_t) flags, NULL, NULL, NULL, (uintptr_t) 0);
 	if (pid == 0) {
-		subprocNewProc(nsjconf, fd_in, fd_out, fd_err, pipefd[1]);
+		close(sv[1]);
+		subprocNewProc(nsjconf, fd_in, fd_out, fd_err, sv[0]);
 	}
+	close(sv[0]);
 
 	if (pid == -1) {
 		PLOG_E("clone(flags=%#x) failed. You probably need root privileges if your system "
 		       "doesn't support CLONE_NEWUSER. Alternatively, you might want to recompile your "
 		       "kernel with support for namespaces or check the setting of the "
 		       "kernel.unprivileged_userns_clone sysctl", flags);
+		close(sv[1]);
 		return;
 	}
 
 	if (netCloneMacVtapAndNS(nsjconf, pid) == false) {
 		LOG_E("Couldn't create and put MACVTAP interface into NS of PID '%d'", pid);
+	}
+	if (containInitUserNs(nsjconf, pid) == false) {
+		LOG_E("Couldn't initialize user namespaces for pid %d", pid);
+	}
+	if (utilWriteToFd(sv[1], &subprocDoneChar, sizeof(subprocDoneChar)) == false) {
+		LOG_E("Couldn't signal the new process via a socketpair");
 	}
 
 	char cs_addr[64];
@@ -259,13 +274,12 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 	LOG_I("PID: %d about to execute '%s' for %s", pid, nsjconf->argv[0], cs_addr);
 
 	char log_buf[4096];
-	close(pipefd[1]);
 	ssize_t sz;
-	while ((sz = read(pipefd[0], log_buf, sizeof(log_buf) - 1)) > 0) {
+	while ((sz = read(sv[1], log_buf, sizeof(log_buf) - 1)) > 0) {
 		log_buf[sz] = '\0';
 		logDirectlyToFD(log_buf);
 	}
-	close(pipefd[0]);
+	close(sv[1]);
 
 	subprocAdd(nsjconf, pid, fd_in);
 }
