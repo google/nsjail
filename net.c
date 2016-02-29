@@ -79,7 +79,6 @@ bool netCloneMacVtapAndNS(struct nsjconf_t *nsjconf, int pid)
 
 	rtnl_link_set_name(rmv, IFACE_NAME);
 	rtnl_link_set_link(rmv, master_index);
-	rtnl_link_set_type(rmv, "bridge");
 	rtnl_link_set_ns_pid(rmv, pid);
 
 	if ((err = rtnl_link_add(sk, rmv, NLM_F_CREATE)) < 0) {
