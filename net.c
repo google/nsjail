@@ -77,7 +77,7 @@ bool netCloneMacVtapAndNS(struct nsjconf_t *nsjconf, int pid)
 	}
 
 	if (!(master_index = rtnl_link_name2i(link_cache, nsjconf->iface))) {
-		LOG_E("rtnl_link_name2i(): %s", nl_geterror(master_index));
+		LOG_E("rtnl_link_name2i(): Did not find '%s' interface", nsjconf->iface);
 		goto out_cache;
 	}
 
