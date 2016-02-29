@@ -48,11 +48,17 @@
 
 bool containInitNetNs(struct nsjconf_t * nsjconf)
 {
-	if (nsjconf->iface_lo_up) {
+	if (nsjconf->iface_no_lo == false) {
 		if (netIfaceUp("lo") == false) {
 			return false;
 		}
 	}
+	if (nsjconf->iface) {
+		if (netConfigureVs(nsjconf) == false) {
+			return false;
+		}
+	}
+
 	return true;
 }
 

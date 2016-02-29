@@ -99,7 +99,10 @@ struct nsjconf_t {
 	size_t tmpfs_size;
 	bool mount_proc;
 	char *iface;
-	bool iface_lo_up;
+	bool iface_no_lo;
+	const char *iface_vs_ip;
+	const char *iface_vs_nm;
+	const char *iface_vs_gw;
 	int sbinip_fd;
 	 TAILQ_HEAD(envlist, charptr_t) envs;
 	 TAILQ_HEAD(pidslist, pids_t) pids;

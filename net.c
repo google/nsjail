@@ -23,14 +23,15 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <net/if.h>
+#include <net/route.h>
+#include <netinet/ip6.h>
+#include <netinet/tcp.h>
 #include <sched.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
-#include <netinet/ip6.h>
-#include <netinet/tcp.h>
 #include <sys/ioctl.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
@@ -85,7 +86,8 @@ static bool netSystemSbinIp(struct nsjconf_t *nsjconf, char *const *argv)
 	}
 }
 
-bool netCloneMacVtapAndNS(struct nsjconf_t * nsjconf, int pid)
+#define IFACE_NAME "vs"
+bool netCloneMacVtapAndNS(struct nsjconf_t *nsjconf, int pid)
 {
 	if (nsjconf->iface == NULL) {
 		return true;
@@ -104,7 +106,7 @@ bool netCloneMacVtapAndNS(struct nsjconf_t * nsjconf, int pid)
 	char pid_str[256];
 	snprintf(pid_str, sizeof(pid_str), "%d", pid);
 	char *const argv_netns[] =
-	    { "ip", "link", "set", "dev", iface, "netns", pid_str, "name", "virt.ns",
+	    { "ip", "link", "set", "dev", iface, "netns", pid_str, "name", IFACE_NAME,
 		NULL
 	};
 	if (netSystemSbinIp(nsjconf, argv_netns) == false) {
@@ -274,7 +276,7 @@ bool netIfaceUp(const char *ifacename)
 	snprintf(ifr.ifr_name, IF_NAMESIZE, "%s", ifacename);
 
 	if (ioctl(sock, SIOCGIFFLAGS, &ifr) == -1) {
-		PLOG_E("ioctl(iface='%s', SIOCGIFFLAGS, IFF_UP", ifacename);
+		PLOG_E("ioctl(iface='%s', SIOCGIFFLAGS, IFF_UP)", ifacename);
 		close(sock);
 		return false;
 	}
@@ -282,7 +284,81 @@ bool netIfaceUp(const char *ifacename)
 	ifr.ifr_flags |= (IFF_UP | IFF_RUNNING);
 
 	if (ioctl(sock, SIOCSIFFLAGS, &ifr) == -1) {
-		PLOG_E("ioctl(iface='%s', SIOCSIFFLAGS, IFF_UP", ifacename);
+		PLOG_E("ioctl(iface='%s', SIOCSIFFLAGS, IFF_UP)", ifacename);
+		close(sock);
+		return false;
+	}
+
+	close(sock);
+	return true;
+}
+
+bool netConfigureVs(struct nsjconf_t * nsjconf)
+{
+	struct ifreq ifr;
+	snprintf(ifr.ifr_name, IF_NAMESIZE, "%s", IFACE_NAME);
+	struct in_addr addr;
+
+	int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+	if (sock == -1) {
+		PLOG_E("socket(AF_INET, SOCK_STREAM, IPPROTO_IP)");
+		return false;
+	}
+
+	if (inet_pton(AF_INET, nsjconf->iface_vs_ip, &addr) != 1) {
+		PLOG_E("Cannot convert '%s' into an IPv4 address", nsjconf->iface_vs_ip);
+		close(sock);
+		return false;
+	}
+	struct sockaddr_in *sa = (struct sockaddr_in *)(&ifr.ifr_addr);
+	sa->sin_family = AF_INET;
+	sa->sin_addr = addr;
+	if (ioctl(sock, SIOCSIFADDR, &ifr) == -1) {
+		PLOG_E("ioctl(iface='%s', SIOCSIFADDR, '%s')", IFACE_NAME, nsjconf->iface_vs_ip);
+		close(sock);
+		return false;
+	}
+
+	if (inet_pton(AF_INET, nsjconf->iface_vs_nm, &addr) != 1) {
+		PLOG_E("Cannot convert '%s' into an IPv4 netmask", nsjconf->iface_vs_nm);
+		close(sock);
+		return false;
+	}
+	sa->sin_family = AF_INET;
+	sa->sin_addr = addr;
+	if (ioctl(sock, SIOCSIFNETMASK, &ifr) == -1) {
+		PLOG_E("ioctl(iface='%s', SIOCSIFNETMASK, '%s')", IFACE_NAME, nsjconf->iface_vs_nm);
+		close(sock);
+		return false;
+	}
+
+	if (netIfaceUp(IFACE_NAME) == false) {
+		return false;
+	}
+
+	if (inet_pton(AF_INET, nsjconf->iface_vs_gw, &addr) != 1) {
+		PLOG_E("Cannot convert '%s' into an IPv4 GW address", nsjconf->iface_vs_gw);
+		close(sock);
+		return false;
+	}
+
+	struct rtentry rt;
+	memset(&rt, '\0', sizeof(rt));
+
+	struct sockaddr_in *sdest = (struct sockaddr_in *)(&rt.rt_dst);
+	struct sockaddr_in *smask = (struct sockaddr_in *)(&rt.rt_genmask);
+	struct sockaddr_in *sgate = (struct sockaddr_in *)(&rt.rt_gateway);
+	sdest->sin_family = AF_INET;
+	sdest->sin_addr.s_addr = INADDR_ANY;
+	smask->sin_family = AF_INET;
+	smask->sin_addr.s_addr = INADDR_ANY;
+	sgate->sin_family = AF_INET;
+	sgate->sin_addr = addr;
+
+	rt.rt_flags = RTF_UP | RTF_GATEWAY;
+
+	if (ioctl(sock, SIOCADDRT, &rt) == -1) {
+		PLOG_E("ioctl(SIOCADDRT, '%s')", nsjconf->iface_vs_gw);
 		close(sock);
 		return false;
 	}
