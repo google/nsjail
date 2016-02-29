@@ -312,6 +312,11 @@ bool netConfigureVs(struct nsjconf_t * nsjconf)
 		close(sock);
 		return false;
 	}
+	if (addr.s_addr == INADDR_ANY) {
+		LOG_I("IP address for interface '%s' not set", IFACE_NAME);
+		return true;
+	}
+
 	struct sockaddr_in *sa = (struct sockaddr_in *)(&ifr.ifr_addr);
 	sa->sin_family = AF_INET;
 	sa->sin_addr = addr;
@@ -343,7 +348,6 @@ bool netConfigureVs(struct nsjconf_t * nsjconf)
 		close(sock);
 		return false;
 	}
-
 	if (addr.s_addr == INADDR_ANY) {
 		LOG_I("Gateway address for '%s' is 0.0.0.0. Not adding the default route",
 		      IFACE_NAME);

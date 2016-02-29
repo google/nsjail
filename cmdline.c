@@ -284,7 +284,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		.mount_proc = true,
 		.iface_no_lo = false,
 		.iface = NULL,
-		.iface_vs_ip = "192.168.255.2",
+		.iface_vs_ip = "0.0.0.0",
 		.iface_vs_nm = "255.255.255.0",
 		.iface_vs_gw = "0.0.0.0",
 	};
