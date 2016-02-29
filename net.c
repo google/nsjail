@@ -49,6 +49,10 @@
 #include <netlink/route/link/macvlan.h>
 bool netCloneMacVtapAndNS(struct nsjconf_t *nsjconf, int pid)
 {
+	if (nsjconf->iface == NULL) {
+		return true;
+	}
+
 	struct nl_sock *sk;
 	struct nl_cache *link_cache;
 	int err, master_index;
