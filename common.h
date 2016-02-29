@@ -98,12 +98,11 @@ struct nsjconf_t {
 	unsigned int max_conns_per_ip;
 	size_t tmpfs_size;
 	bool mount_proc;
-	char *iface;
 	bool iface_no_lo;
+	const char *iface;
 	const char *iface_vs_ip;
 	const char *iface_vs_nm;
 	const char *iface_vs_gw;
-	int sbinip_fd;
 	 TAILQ_HEAD(envlist, charptr_t) envs;
 	 TAILQ_HEAD(pidslist, pids_t) pids;
 	 TAILQ_HEAD(mountptslist, mounts_t) mountpts;

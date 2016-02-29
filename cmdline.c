@@ -282,12 +282,11 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		.max_conns_per_ip = 0,
 		.tmpfs_size = 4 * (1024 * 1024),
 		.mount_proc = true,
-		.iface = NULL,
 		.iface_no_lo = false,
-		.iface_vs_ip = "0.0.0.0",
-		.iface_vs_nm = "255.255.255.255",
+		.iface = NULL,
+		.iface_vs_ip = "192.168.255.2",
+		.iface_vs_nm = "255.255.255.0",
 		.iface_vs_gw = "0.0.0.0",
-		.sbinip_fd = -1,
 	};
 	/*  *INDENT-OFF* */
 
@@ -351,8 +350,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"tmpfsmount", required_argument, NULL, 'T'}, "List of mountpoints to be mounted as RW/tmpfs inside the container. Can be specified multiple times. Supports 'dest' syntax"},
 		{{"tmpfs_size", required_argument, NULL, 0x0602}, "Number of bytes to allocate for tmpfsmounts (default: 4194304)"},
 		{{"disable_proc", no_argument, NULL, 0x0603}, "Disable mounting /proc in the jail"},
-		{{"iface", required_argument, NULL, 'I'}, "Interface which will be cloned (MACVTAP) and put inside the subprocess' namespace as 'vs'"},
 		{{"iface_no_lo", no_argument, NULL, 0x700}, "Don't Bring up the 'lo' interface"},
+		{{"iface", required_argument, NULL, 'I'}, "Interface which will be cloned (MACVTAP) and put inside the subprocess' namespace as 'vs'"},
 		{{"iface_vs_ip", required_argument, NULL, 0x701}, "IP of the 'vs' interface"},
 		{{"iface_vs_nm", required_argument, NULL, 0x702}, "Netmask of the 'vs' interface"},
 		{{"iface_vs_gw", required_argument, NULL, 0x703}, "Default GW for the 'vs' interface"},
@@ -560,11 +559,11 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				break;
 			}
 			break;
-		case 'I':
-			nsjconf->iface = optarg;
-			break;
 		case 0x700:
 			nsjconf->iface_no_lo = true;
+			break;
+		case 'I':
+			nsjconf->iface = optarg;
 			break;
 		case 0x701:
 			nsjconf->iface_vs_ip = optarg;
@@ -620,10 +619,6 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		LOG_E("No command provided");
 		cmdlineUsage(argv[0], custom_opts);
 		return false;
-	}
-
-	if ((nsjconf->sbinip_fd = open("/sbin/ip", O_RDONLY)) == -1) {
-		PLOG_E("No /sbin/ip on your system. Networking support is limited");
 	}
 
 	return true;

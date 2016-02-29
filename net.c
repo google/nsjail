@@ -56,8 +56,8 @@ static bool netSystemSbinIp(struct nsjconf_t *nsjconf, char *const *argv)
 		return false;
 	}
 	if (pid == 0) {
-		fexecve(nsjconf->sbinip_fd, argv, environ);
-		PLOG_E("fexecve('fd=%d')", nsjconf->sbinip_fd);
+		execve("/sbin/ip", argv, environ);
+		PLOG_E("execve('/sbin/ip'");
 		_exit(1);
 	}
 
@@ -97,7 +97,7 @@ bool netCloneMacVtapAndNS(struct nsjconf_t *nsjconf, int pid)
 	snprintf(iface, sizeof(iface), "NS.TAP.%d", pid);
 
 	char *const argv_add[] =
-	    { "ip", "link", "add", "link", nsjconf->iface, iface, "type", "macvtap", NULL };
+	    { "ip", "link", "add", "link", (char *)nsjconf->iface, iface, "type", "macvtap", NULL };
 	if (netSystemSbinIp(nsjconf, argv_add) == false) {
 		LOG_E("Couldn't create MACVTAP interface for '%s'", nsjconf->iface);
 		return false;
@@ -340,6 +340,12 @@ bool netConfigureVs(struct nsjconf_t * nsjconf)
 		PLOG_E("Cannot convert '%s' into an IPv4 GW address", nsjconf->iface_vs_gw);
 		close(sock);
 		return false;
+	}
+
+	if (addr.s_addr == INADDR_ANY) {
+		LOG_I("Gateway address for '%s' is 0.0.0.0. Not adding the default route",
+		      IFACE_NAME);
+		return true;
 	}
 
 	struct rtentry rt;
