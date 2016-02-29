@@ -17,13 +17,12 @@
 #   limitations under the License.
 #
 
-CC = gcc
+CC ?= gcc
 CFLAGS += -O2 -g -ggdb -c -std=c11 \
 	-D_GNU_SOURCE \
 	-fstack-protector-all -Wformat -Wformat=2 -Wformat-security -fPIE -Wa,--noexecstack \
 	-Wall -Wextra -Werror
 
-LD = gcc
 LDFLAGS += -Wl,-z,now -Wl,-z,relro -pie
 
 SRCS = nsjail.c cmdline.c contain.c log.c net.c subproc.c sandbox.c util.c seccomp/bpf-helper.c
@@ -36,7 +35,7 @@ BIN = nsjail
 all: $(BIN)
 
 $(BIN): $(OBJS)
-	$(LD) -o $(BIN) $(OBJS) $(LDFLAGS)
+	$(CC) -o $(BIN) $(OBJS) $(LDFLAGS)
 
 clean:
 	$(RM) core Makefile.bak $(OBJS) $(BIN)
