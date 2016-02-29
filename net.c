@@ -97,7 +97,8 @@ bool netCloneMacVtapAndNS(struct nsjconf_t *nsjconf, int pid)
 	snprintf(iface, sizeof(iface), "NS.TAP.%d", pid);
 
 	char *const argv_add[] =
-	    { "ip", "link", "add", "link", (char *)nsjconf->iface, iface, "type", "macvlan", "mode",
+	    { "ip", "link", "add", "link", (char *)nsjconf->iface, "name", iface, "type", "macvlan",
+"mode",
 		"bridge", NULL
 	};
 	if (netSystemSbinIp(nsjconf, argv_add) == false) {
