@@ -303,7 +303,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	struct custom_option custom_opts[] = {
 		{{"help", no_argument, NULL, 'h'}, "Help plz.."},
 		{{"mode", required_argument, NULL, 'M'}, "Execution mode (default: l [MODE_LISTEN_TCP]):\n"
-			"\tl: Listen to connections on a TCP port (specified with --port) [MODE_LISTEN_TCP]\n"
+			"\tl: Wait for connections on a TCP port (specified with --port) [MODE_LISTEN_TCP]\n"
 			"\to: Immediately launch a single process on a console using clone/execve [MODE_STANDALONE_ONCE]\n"
 			"\te: Immediately launch a single process on a console using execve [MODE_STANDALONE_EXECVE]\n"
 			"\tr: Immediately launch a single process on a console, keep doing it forever [MODE_STANDALONE_RERUN]"},
@@ -339,8 +339,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"persona_read_implies_exec", no_argument, NULL, 0x0303}, "personality(READ_IMPLIES_EXEC)"},
 		{{"persona_addr_limit_3gb", no_argument, NULL, 0x0304}, "personality(ADDR_LIMIT_3GB)"},
 		{{"persona_addr_no_randomize", no_argument, NULL, 0x0305}, "personality(ADDR_NO_RANDOMIZE)"},
-		{{"disable_clone_newnet", no_argument, NULL, 'N'}, "Enable networking inside the jail"},
-		{{"disable_clone_newuser", no_argument, NULL, 0x0402}, "Don't use CLONE_NEWUSER"},
+		{{"disable_clone_newnet", no_argument, NULL, 'N'}, "Don't use CLONE_NEWNET. Enable networking inside the jail"},
+		{{"disable_clone_newuser", no_argument, NULL, 0x0402}, "Don't use CLONE_NEWUSER. Requires euid==0"},
 		{{"disable_clone_newns", no_argument, NULL, 0x0403}, "Don't use CLONE_NEWNS"},
 		{{"disable_clone_newpid", no_argument, NULL, 0x0404}, "Don't use CLONE_NEWPID"},
 		{{"disable_clone_newipc", no_argument, NULL, 0x0405}, "Don't use CLONE_NEWIPC"},
@@ -350,7 +350,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"tmpfsmount", required_argument, NULL, 'T'}, "List of mountpoints to be mounted as RW/tmpfs inside the container. Can be specified multiple times. Supports 'dest' syntax"},
 		{{"tmpfs_size", required_argument, NULL, 0x0602}, "Number of bytes to allocate for tmpfsmounts (default: 4194304)"},
 		{{"disable_proc", no_argument, NULL, 0x0603}, "Disable mounting /proc in the jail"},
-		{{"iface_no_lo", no_argument, NULL, 0x700}, "Don't Bring up the 'lo' interface"},
+		{{"iface_no_lo", no_argument, NULL, 0x700}, "Don't bring up the 'lo' interface"},
 		{{"iface", required_argument, NULL, 'I'}, "Interface which will be cloned (MACVTAP) and put inside the subprocess' namespace as 'vs'"},
 		{{"iface_vs_ip", required_argument, NULL, 0x701}, "IP of the 'vs' interface"},
 		{{"iface_vs_nm", required_argument, NULL, 0x702}, "Netmask of the 'vs' interface"},
