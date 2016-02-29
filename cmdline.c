@@ -508,8 +508,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				p->src = optarg;
 				p->dst = cmdlineSplitStrByColon(optarg);
 				p->flags = MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY;
-				p->options = NULL;
-				p->fs_type = NULL;
+				p->options = "";
+				p->fs_type = "";
 				TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
 			}
 			break;
@@ -519,8 +519,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				p->src = optarg;
 				p->dst = cmdlineSplitStrByColon(optarg);
 				p->flags = MS_BIND | MS_REC | MS_PRIVATE;
-				p->options = NULL;
-				p->fs_type = NULL;
+				p->options = "";
+				p->fs_type = "";
 				TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
 			}
 			break;
@@ -586,7 +586,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		p->src = "/proc";
 		p->dst = "/proc";
 		p->flags = 0;
-		p->options = NULL;
+		p->options = "";
 		p->fs_type = "proc";
 		TAILQ_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
 	}
@@ -595,8 +595,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		p->src = nsjconf->chroot;
 		p->dst = "/";
 		p->flags = MS_BIND | MS_REC | MS_PRIVATE;
-		p->options = NULL;
-		p->fs_type = NULL;
+		p->options = "";
+		p->fs_type = "";
 		if (nsjconf->is_root_rw == false) {
 			p->flags |= MS_RDONLY;
 		}
