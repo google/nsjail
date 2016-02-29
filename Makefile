@@ -29,6 +29,11 @@ SRCS = nsjail.c cmdline.c contain.c log.c net.c subproc.c sandbox.c util.c secco
 OBJS = $(SRCS:.c=.o)
 BIN = nsjail
 
+ifeq ("$(wildcard /usr/include/libnl3/netlink/route/link/macvlan.h)","/usr/include/libnl3/netlink/route/link/macvlan.h")
+	CFLAGS += -DNSJAIL_NL3_WITH_MACVLAN -I/usr/include/libnl3
+	LDFLAGS += -lnl-3 -lnl-route-3
+endif
+
 .c.o: %.c
 	$(CC) $(CFLAGS) $< -o $@
 

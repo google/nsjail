@@ -42,6 +42,61 @@
 
 #include "log.h"
 
+#define IFACE_NAME "vs"
+
+#if defined(NSJAIL_NL3_WITH_MACVLAN)
+#include <netlink/route/link.h>
+#include <netlink/route/link/macvlan.h>
+bool netCloneMacVtapAndNS(struct nsjconf_t *nsjconf, int pid)
+{
+	struct nl_sock *sk;
+	struct nl_cache *link_cache;
+	int err, master_index;
+	bool ret = false;
+
+	sk = nl_socket_alloc();
+	if ((err = nl_connect(sk, NETLINK_ROUTE)) < 0) {
+		LOG_E("Unable to connect socket: %s", nl_geterror(err));
+		goto out_sock;
+	}
+
+	struct rtnl_link *rmv = rtnl_link_macvlan_alloc();
+
+	if (rmv == NULL) {
+		LOG_E("rtnl_link_macvlan_alloc(): %s", nl_geterror(err));
+		goto out_sock;
+	}
+
+	if ((err = rtnl_link_alloc_cache(sk, AF_UNSPEC, &link_cache)) < 0) {
+		LOG_E("rtnl_link_alloc_cache(): %s", nl_geterror(err));
+		goto out_link;
+	}
+
+	if (!(master_index = rtnl_link_name2i(link_cache, nsjconf->iface))) {
+		LOG_E("rtnl_link_name2i(): %s", nl_geterror(master_index));
+		goto out_cache;
+	}
+
+	rtnl_link_set_name(rmv, IFACE_NAME);
+	rtnl_link_set_link(rmv, master_index);
+	rtnl_link_set_type(rmv, "bridge");
+	rtnl_link_set_ns_pid(rmv, pid);
+
+	if ((err = rtnl_link_add(sk, rmv, NLM_F_CREATE)) < 0) {
+		LOG_E("rtnl_link_add(): %s", nl_geterror(err));
+		goto out_cache;
+	}
+
+	ret = true;
+ out_cache:
+	nl_cache_free(link_cache);
+ out_link:
+	rtnl_link_put(rmv);
+ out_sock:
+	nl_socket_free(sk);
+	return ret;
+}
+#else				// defined(NSJAIL_NL3_WITH_MACVLAN)
 static bool netSystemSbinIp(struct nsjconf_t *nsjconf, char *const *argv)
 {
 	if (nsjconf->clone_newnet == false) {
@@ -86,7 +141,6 @@ static bool netSystemSbinIp(struct nsjconf_t *nsjconf, char *const *argv)
 	}
 }
 
-#define IFACE_NAME "vs"
 bool netCloneMacVtapAndNS(struct nsjconf_t *nsjconf, int pid)
 {
 	if (nsjconf->iface == NULL) {
@@ -107,6 +161,7 @@ bool netCloneMacVtapAndNS(struct nsjconf_t *nsjconf, int pid)
 
 	return true;
 }
+#endif				// defined(NSJAIL_NL3_WITH_MACVLAN)
 
 static bool netIsSocket(int fd)
 {
@@ -264,6 +319,7 @@ bool netIfaceUp(const char *ifacename)
 	}
 
 	struct ifreq ifr;
+	memset(&ifr, '\0', sizeof(ifr));
 	snprintf(ifr.ifr_name, IF_NAMESIZE, "%s", ifacename);
 
 	if (ioctl(sock, SIOCGIFFLAGS, &ifr) == -1) {
@@ -287,6 +343,7 @@ bool netIfaceUp(const char *ifacename)
 bool netConfigureVs(struct nsjconf_t * nsjconf)
 {
 	struct ifreq ifr;
+	memset(&ifr, '\0', sizeof(ifr));
 	snprintf(ifr.ifr_name, IF_NAMESIZE, "%s", IFACE_NAME);
 	struct in_addr addr;
 
