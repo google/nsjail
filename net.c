@@ -98,7 +98,8 @@ bool netCloneMacVtapAndNS(struct nsjconf_t *nsjconf, int pid)
 
 	char *const argv_add[] =
 	    { "ip", "link", "add", "link", (char *)nsjconf->iface, "name", IFACE_NAME, "netns",
-pid_str, "type", "macvlan", "mode", "bridge", NULL };
+		pid_str, "type", "macvlan", "mode", "bridge", NULL
+	};
 	if (netSystemSbinIp(nsjconf, argv_add) == false) {
 		LOG_E("Couldn't create MACVTAP interface for '%s'", nsjconf->iface);
 		return false;

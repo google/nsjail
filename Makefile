@@ -51,7 +51,7 @@ indent:
 
 nsjail.o: nsjail.h cmdline.h common.h log.h net.h subproc.h
 cmdline.o: cmdline.h common.h log.h util.h
-contain.o: contain.h common.h log.h
+contain.o: contain.h common.h log.h net.h util.h
 log.o: log.h common.h
 net.o: net.h common.h log.h
 subproc.o: subproc.h common.h contain.h log.h net.h sandbox.h util.h
