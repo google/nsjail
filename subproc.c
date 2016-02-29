@@ -270,8 +270,6 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 		subprocNewProc(nsjconf, fd_in, fd_out, fd_err, sv[0]);
 	}
 	close(sv[0]);
-	subprocAdd(nsjconf, pid, fd_in);
-
 	if (pid == -1) {
 		PLOG_E("clone(flags=%#x) failed. You probably need root privileges if your system "
 		       "doesn't support CLONE_NEWUSER. Alternatively, you might want to recompile your "
@@ -280,6 +278,7 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 		close(sv[1]);
 		return;
 	}
+	subprocAdd(nsjconf, pid, fd_in);
 
 	if (subprocInitParent(nsjconf, pid, sv[1]) == false) {
 		close(sv[1]);
