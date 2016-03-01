@@ -362,7 +362,7 @@ bool netConfigureVs(struct nsjconf_t * nsjconf)
 		return false;
 	}
 	if (addr.s_addr == INADDR_ANY) {
-		LOG_I("IP address for interface '%s' not set", IFACE_NAME);
+		LOG_I("IPv4 address for interface '%s' not set", IFACE_NAME);
 		return true;
 	}
 
@@ -376,7 +376,7 @@ bool netConfigureVs(struct nsjconf_t * nsjconf)
 	}
 
 	if (inet_pton(AF_INET, nsjconf->iface_vs_nm, &addr) != 1) {
-		PLOG_E("Cannot convert '%s' into an IPv4 netmask", nsjconf->iface_vs_nm);
+		PLOG_E("Cannot convert '%s' into a IPv4 netmask", nsjconf->iface_vs_nm);
 		close(sock);
 		return false;
 	}
@@ -393,13 +393,12 @@ bool netConfigureVs(struct nsjconf_t * nsjconf)
 	}
 
 	if (inet_pton(AF_INET, nsjconf->iface_vs_gw, &addr) != 1) {
-		PLOG_E("Cannot convert '%s' into an IPv4 GW address", nsjconf->iface_vs_gw);
+		PLOG_E("Cannot convert '%s' into a IPv4 GW address", nsjconf->iface_vs_gw);
 		close(sock);
 		return false;
 	}
 	if (addr.s_addr == INADDR_ANY) {
-		LOG_I("Gateway address for '%s' is 0.0.0.0. Not adding the default route",
-		      IFACE_NAME);
+		LOG_I("Gateway address for '%s' is not set", IFACE_NAME);
 		return true;
 	}
 
@@ -417,6 +416,7 @@ bool netConfigureVs(struct nsjconf_t * nsjconf)
 	sgate->sin_addr = addr;
 
 	rt.rt_flags = RTF_UP | RTF_GATEWAY;
+	rt.rt_dev = IFACE_NAME;
 
 	if (ioctl(sock, SIOCADDRT, &rt) == -1) {
 		PLOG_E("ioctl(SIOCADDRT, '%s')", nsjconf->iface_vs_gw);

@@ -230,7 +230,7 @@ static bool containNotIsDir(const char *path)
 	return true;
 }
 
-static bool containMount(struct mounts_t *mpt, const char *dst)
+static bool containMount(struct nsjconf_t *nsjconf, struct mounts_t *mpt, const char *dst)
 {
 	LOG_D("Mounting '%s' on '%s' (type:'%s', flags:0x%tx)", mpt->src, dst, mpt->fs_type,
 	      mpt->flags);
@@ -251,7 +251,13 @@ static bool containMount(struct mounts_t *mpt, const char *dst)
 	}
 
 	if (mount(mpt->src, dst, mpt->fs_type, mpt->flags, mpt->options) == -1) {
-		PLOG_E("mount('%s', '%s', type='%s')", mpt->src, dst, mpt->fs_type);
+		if (errno == EACCES) {
+			PLOG_E
+			    ("mount('%s', '%s', type='%s') failed. Try fixing this problem by applying 'chmod o+x' to the '%s' directory and its ancestors",
+			     mpt->src, dst, mpt->fs_type, nsjconf->chroot);
+		} else {
+			PLOG_E("mount('%s', '%s', type='%s') failed", mpt->src, dst, mpt->fs_type);
+		}
 		return false;
 	}
 	return true;
@@ -302,7 +308,7 @@ bool containMountFS(struct nsjconf_t * nsjconf)
 	TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
 		char dst[PATH_MAX];
 		snprintf(dst, sizeof(dst), "%s/%s", newrootdir, p->dst);
-		if (containMount(p, dst) == false) {
+		if (containMount(nsjconf, p, dst) == false) {
 			return false;
 		}
 	}
