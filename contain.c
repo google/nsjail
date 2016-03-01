@@ -272,7 +272,7 @@ static bool containRemountRO(struct mounts_t *mpt)
 		return false;
 	}
 
-	if (mpt->flags &= MS_RDONLY) {
+	if (mpt->flags & MS_RDONLY) {
 		LOG_D("Re-mounting RO '%s'", mpt->dst);
 		if (mount
 		    (mpt->dst, mpt->dst, NULL,
