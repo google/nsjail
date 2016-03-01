@@ -18,11 +18,14 @@
    limitations under the License.
 
 */
+
 #ifndef _UTIL_H
 #define _UTIL_H
 
 #include <stdbool.h>
 #include <stdlib.h>
+
+#include "common.h"
 
 void *utilMalloc(size_t sz);
 ssize_t utilWriteToFd(int fd, const void *buf, size_t len);

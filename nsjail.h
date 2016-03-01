@@ -23,4 +23,6 @@
 #ifndef _NSJAIL_H
 #define _NSJAIL_H
 
+#include "common.h"
+
 #endif				/* _NSJAIL_H */

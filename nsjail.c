@@ -18,6 +18,7 @@
    limitations under the License.
 
 */
+
 #include "nsjail.h"
 
 #include <errno.h>
@@ -30,7 +31,6 @@
 #include <unistd.h>
 
 #include "cmdline.h"
-#include "common.h"
 #include "log.h"
 #include "net.h"
 #include "subproc.h"
