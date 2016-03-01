@@ -38,6 +38,7 @@
 #include <sys/prctl.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <unistd.h>
@@ -265,11 +266,17 @@ static bool containMount(struct nsjconf_t *nsjconf, struct mounts_t *mpt, const 
 
 static bool containRemountRO(struct mounts_t *mpt)
 {
+	struct statvfs vfs;
+	if (statvfs(mpt->dst, &vfs) == -1) {
+		PLOG_E("statvfs('%s')", mpt->dst);
+		return false;
+	}
+
 	if (mpt->flags &= MS_RDONLY) {
 		LOG_D("Re-mounting RO '%s'", mpt->dst);
 		if (mount
 		    (mpt->dst, mpt->dst, NULL,
-		     MS_REC | MS_BIND | MS_PRIVATE | MS_REMOUNT | MS_RDONLY, 0) == -1) {
+		     MS_BIND | MS_REMOUNT | MS_RDONLY | vfs.f_flag, 0) == -1) {
 			PLOG_E("mount('%s', MS_REC|MS_BIND|MS_REMOUNT|MS_RDONLY)", mpt->dst);
 			return false;
 		}

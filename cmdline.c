@@ -507,7 +507,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
 				p->src = optarg;
 				p->dst = cmdlineSplitStrByColon(optarg);
-				p->flags = MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY;
+				p->flags = MS_BIND | MS_REC | MS_RDONLY;
 				p->options = "";
 				p->fs_type = "";
 				TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
@@ -518,7 +518,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
 				p->src = optarg;
 				p->dst = cmdlineSplitStrByColon(optarg);
-				p->flags = MS_BIND | MS_REC | MS_PRIVATE;
+				p->flags = MS_BIND | MS_REC;
 				p->options = "";
 				p->fs_type = "";
 				TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
@@ -594,7 +594,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
 		p->src = nsjconf->chroot;
 		p->dst = "/";
-		p->flags = MS_BIND | MS_REC | MS_PRIVATE;
+		p->flags = MS_BIND | MS_REC;
 		p->options = "";
 		p->fs_type = "";
 		if (nsjconf->is_root_rw == false) {
