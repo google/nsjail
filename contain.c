@@ -274,6 +274,12 @@ static bool containRemountRO(struct mounts_t *mpt)
 
 	if (mpt->flags & MS_RDONLY) {
 		LOG_D("Re-mounting RO '%s'", mpt->dst);
+		/*
+		 * It's fine to use 'flags | vfs.f_flag' here as per
+		 * /usr/include/x86_64-linux-gnu/bits/statvfs.h: 'Definitions for
+		 * the flag in `f_flag'.  These definitions should be
+		 * kept in sync with the definitions in <sys/mount.h>'
+		 */
 		if (mount
 		    (mpt->dst, mpt->dst, NULL,
 		     MS_BIND | MS_REMOUNT | MS_RDONLY | vfs.f_flag, 0) == -1) {
