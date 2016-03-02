@@ -16,7 +16,7 @@ This is NOT an official Google product.
 5. Cloned and separated Ethernet interfaces
 
 ### WHAT KIND OF USE-CASES ARE SUPPORTED?
-#### Isolation of network servers (inetd-style)
+#### Isolation of network services (inetd-style)
 
 + Server:
 ```
@@ -39,6 +39,43 @@ This is NOT an official Google product.
  3 99999    {busybox} ps wuax
  / $
 
+```
+
+#### Isolation, with access to a private, cloned interface (requires euid==0)
+```
+$ sudo ./nsjail --user 9999 --group 9999 --iface eth0 --chroot /chroot/ -Mo --iface_vs_ip 192.168.0.44 --iface_vs_nm 255.255.255.0 --iface_vs_gw 192.168.0.1 -- /bin/sh -i
+/ $ id
+uid=9999 gid=9999
+/ $ ip addr sh
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue 
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+    inet6 ::1/128 scope host 
+       valid_lft forever preferred_lft forever
+2: vs: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue 
+    link/ether ca:a2:69:21:33:66 brd ff:ff:ff:ff:ff:ff
+    inet 192.168.0.44/24 brd 192.168.0.255 scope global vs
+       valid_lft forever preferred_lft forever
+    inet6 fe80::c8a2:69ff:fe21:cd66/64 scope link 
+       valid_lft forever preferred_lft forever
+/ $ nc 217.146.165.209 80
+GET / HTTP/1.0
+
+HTTP/1.0 302 Found
+Cache-Control: private
+Content-Type: text/html; charset=UTF-8
+Location: http://www.google.ch/?gfe_rd=cr&ei=cEzWVrG2CeTI8ge88ofwDA
+Content-Length: 258
+Date: Wed, 02 Mar 2016 02:14:08 GMT
+
+<HTML><HEAD><meta http-equiv="content-type" content="text/html;charset=utf-8">
+<TITLE>302 Moved</TITLE></HEAD><BODY>
+<H1>302 Moved</H1>
+The document has moved
+<A HREF="http://www.google.ch/?gfe_rd=cr&amp;ei=cEzWVrG2CeTI8ge88ofwDA">here</A>.
+</BODY></HTML>
+/ $ 
 ```
 
 #### Isolation of local processes
