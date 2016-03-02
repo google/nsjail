@@ -1,35 +1,38 @@
 <!DOCTYPE html>
 <html>
+
   <head>
     <meta charset='utf-8'>
     <meta http-equiv="X-UA-Compatible" content="chrome=1">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-    <link href='https://fonts.googleapis.com/css?family=Architects+Daughter' rel='stylesheet' type='text/css'>
-    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
-    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
-    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print">
+    <meta name="description" content="NsJail : A light-weight process isolation tool, making use of Linux namespaces and seccomp-bpf">
 
-    <!--[if lt IE 9]>
-    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
-    <![endif]-->
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
 
-    <title>NsJail by google</title>
+    <title>NsJail</title>
   </head>
 
   <body>
-    <header>
-      <div class="inner">
-        <h1>NsJail</h1>
-        <h2>A light-weight process isolation tool, making use of Linux namespaces and seccomp-bpf</h2>
-        <a href="https://github.com/google/nsjail" class="button"><small>View project on</small> GitHub</a>
-      </div>
-    </header>
 
-    <div id="content-wrapper">
-      <div class="inner clearfix">
-        <section id="main-content">
-          <h3>
-<a id="what-is-it" class="anchor" href="#what-is-it" aria-hidden="true"><span class="octicon octicon-link"></span></a>WHAT IS IT?</h3>
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/google/nsjail">View on GitHub</a>
+
+          <h1 id="project_title">NsJail</h1>
+          <h2 id="project_tagline">A light-weight process isolation tool, making use of Linux namespaces and seccomp-bpf</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/google/nsjail/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/google/nsjail/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h3>
+<a id="what-is-it" class="anchor" href="#what-is-it" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>WHAT IS IT?</h3>
 
 <p>NsJail is a process isolation tool for Linux. It makes use of the the namespacing, resource control, and seccomp-bpf syscall filter subsystems of the Linux kernel.</p>
 
@@ -44,7 +47,7 @@
 <p>This is NOT an official Google product.</p>
 
 <h3>
-<a id="what-kind-of-isolation-does-it-provide" class="anchor" href="#what-kind-of-isolation-does-it-provide" aria-hidden="true"><span class="octicon octicon-link"></span></a>WHAT KIND OF ISOLATION DOES IT PROVIDE?</h3>
+<a id="what-kind-of-isolation-does-it-provide" class="anchor" href="#what-kind-of-isolation-does-it-provide" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>WHAT KIND OF ISOLATION DOES IT PROVIDE?</h3>
 
 <ol>
 <li>Linux namespaces: UTS (hostname), MOUNT (chroot), PID (separate PID tree), IPC, NET (separate networking context), USER</li>
@@ -54,10 +57,10 @@
 </ol>
 
 <h3>
-<a id="which-use-cases-are-covered" class="anchor" href="#which-use-cases-are-covered" aria-hidden="true"><span class="octicon octicon-link"></span></a>WHICH USE-CASES ARE COVERED?</h3>
+<a id="which-use-cases-are-covered" class="anchor" href="#which-use-cases-are-covered" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>WHICH USE-CASES ARE COVERED?</h3>
 
 <h4>
-<a id="isolation-of-network-servers-inetd-style" class="anchor" href="#isolation-of-network-servers-inetd-style" aria-hidden="true"><span class="octicon octicon-link"></span></a>Isolation of network servers (inetd-style)</h4>
+<a id="isolation-of-network-servers-inetd-style" class="anchor" href="#isolation-of-network-servers-inetd-style" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Isolation of network servers (inetd-style)</h4>
 
 <ul>
 <li>Server:</li>
@@ -87,7 +90,7 @@
 </code></pre>
 
 <h4>
-<a id="isolation-of-local-processes" class="anchor" href="#isolation-of-local-processes" aria-hidden="true"><span class="octicon octicon-link"></span></a>Isolation of local processes</h4>
+<a id="isolation-of-local-processes" class="anchor" href="#isolation-of-local-processes" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Isolation of local processes</h4>
 
 <pre><code> $ ./nsjail -Mo --chroot /chroot/ --user 99999 --group 99999 -- /bin/sh -i
  / $ ifconfig -a
@@ -107,7 +110,7 @@
 </code></pre>
 
 <h4>
-<a id="isolation-of-local-processes-and-re-running-them" class="anchor" href="#isolation-of-local-processes-and-re-running-them" aria-hidden="true"><span class="octicon octicon-link"></span></a>Isolation of local processes (and re-running them)</h4>
+<a id="isolation-of-local-processes-and-re-running-them" class="anchor" href="#isolation-of-local-processes-and-re-running-them" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Isolation of local processes (and re-running them)</h4>
 
 <pre><code> $ ./nsjail -Mr --chroot /chroot/ --user 99999 --group 99999 -- /bin/sh -i
  BusyBox v1.21.1 (Ubuntu 1:1.21.0-1ubuntu1) built-in shell (ash)
@@ -127,7 +130,7 @@
 </code></pre>
 
 <h3>
-<a id="more-info" class="anchor" href="#more-info" aria-hidden="true"><span class="octicon octicon-link"></span></a>MORE INFO?</h3>
+<a id="more-info" class="anchor" href="#more-info" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>MORE INFO?</h3>
 
 <p>Type:</p>
 
@@ -221,25 +224,18 @@ Options:
  --tmpfs_size [val]
     Number of bytes to allocate for tmpfsmounts in bytes (default: 4194304)
 </code></pre>
-        </section>
-
-        <aside id="sidebar">
-          <a href="https://github.com/google/nsjail/zipball/master" class="button">
-            <small>Download</small>
-            .zip file
-          </a>
-          <a href="https://github.com/google/nsjail/tarball/master" class="button">
-            <small>Download</small>
-            .tar.gz file
-          </a>
-
-          <p class="repo-owner"><a href="https://github.com/google/nsjail"></a> is maintained by <a href="https://github.com/google">google</a>.</p>
-
-          <p>This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the Architect theme by <a href="https://twitter.com/jasonlong">Jason Long</a>.</p>
-        </aside>
-      </div>
+      </section>
     </div>
 
-  
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">NsJail maintained by <a href="https://github.com/google">google</a></p>
+        <p>Published with <a href="https://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
   </body>
 </html>
