@@ -8,13 +8,14 @@ It can help, among others, with:
 
 This is NOT an official Google product.
 
-### WHAT KIND OF ISOLATION DOES IT PROVIDE?
+### WHAT KIND OF ISOLATION DOES THIS TOOL PROVIDE?
 1. Linux namespaces: UTS (hostname), MOUNT (chroot), PID (separate PID tree), IPC, NET (separate networking context), USER
 2. FS constraints: chroot(), pivot_root(), RO-remounting
 3. Resource limits (wall-time/CPU time limits, VM/mem address space limits, etc.)
 4. Programmable seccomp-bpf syscall filters
+5. Cloned and separated Ethernet interfaces
 
-### WHICH USE-CASES ARE COVERED?
+### WHAT KIND OF USE-CASES ARE SUPPORTED?
 #### Isolation of network servers (inetd-style)
 
 + Server:
@@ -87,38 +88,54 @@ The commandline options are reasonably well-documented
 ```
 Usage: ./nsjail [options] -- path_to_command [args]
 Options:
- --help|-h
+ --help|-h 
 	Help plz..
  --mode|-M [val]
 	Execution mode (default: l [MODE_LISTEN_TCP]):
-	l: Listen to connections on a TCP port (specified with --port) [MODE_LISTEN_TCP]
-	o: Immediately launch a single process on a console [MODE_STANDALONE_ONCE]
+	l: Wait for connections on a TCP port (specified with --port) [MODE_LISTEN_TCP]
+	o: Immediately launch a single process on a console using clone/execve [MODE_STANDALONE_ONCE]
+	e: Immediately launch a single process on a console using execve [MODE_STANDALONE_EXECVE]
 	r: Immediately launch a single process on a console, keep doing it forever [MODE_STANDALONE_RERUN]
+ --cmd 
+	Equivalent of -Mo (MODE_STANDALONE_ONCE), run command on a local console, once
  --chroot|-c [val]
-	Directory containing / of the jail (default: '/chroot')
+	Directory containing / of the jail (default: "/"). Skip mounting it if ""
+ --rw 
+	Mount / as RW (default: RO)
  --user|-u [val]
-	Username/uid of processess inside the jail (default: 'nobody')
+	Username/uid of processess inside the jail (default: your current uid). You can also use inside_ns_uid:outside_ns_uid convention here
  --group|-g [val]
-	Groupname/gid of processess inside the jail (default: 'nogroup')
+	Groupname/gid of processess inside the jail (default: your current gid). You can also use inside_ns_gid:global_ns_gid convention here
  --hostname|-H [val]
 	UTS name (hostname) of the jail (default: 'NSJAIL')
  --cwd|-D [val]
-    Directory in the namespace the process will run (default: '/')
+	Directory in the namespace the process will run (default: '/')
  --port|-p [val]
 	TCP port to bind to (only in [MODE_LISTEN_TCP]) (default: 31337)
+ --bindhost [val]
+	IP address port to bind to (only in [MODE_LISTEN_TCP]) (default: '::')
  --max_conns_per_ip|-i [val]
 	Maximum number of connections per one IP (default: 0 (unlimited))
  --log|-l [val]
-	Log file (default: stderr)
+	Log file (default: /proc/self/fd/2)
  --time_limit|-t [val]
 	Maximum time that a jail can exist, in seconds (default: 600)
- --daemon|-d
- --verbose|-v
-	Verbose output (default: false)
- --keep_env|-e
-	Should all environment variables be passed to the child? (default: false)
- --keep_caps
-	Don't drop capabilities (DANGEROUS) (default: false)
+ --daemon|-d 
+	Daemonize after start
+ --verbose|-v 
+	Verbose output
+ --keep_env|-e 
+	Should all environment variables be passed to the child?
+ --env|-E [val]
+	Environment variable (can be used multiple times)
+ --keep_caps 
+	Don't drop capabilities (DANGEROUS)
+ --silent 
+	Redirect child's fd:0/1/2 to /dev/null
+ --disable_sandbox 
+	Don't enable the seccomp-bpf sandboxing
+ --skip_setsid 
+	Don't call setsid(), allows for terminal signal handling in the sandboxed process
  --rlimit_as [val]
 	RLIMIT_AS in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 512)
  --rlimit_core [val]
@@ -133,42 +150,46 @@ Options:
 	RLIMIT_NPROC, 'max' for RLIM_INFINITY, 'def' for the current value (default: 'def')
  --rlimit_stack [val]
 	RLIMIT_STACK in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 'def')
- --persona_addr_compat_layout
-	personality(ADDR_COMPAT_LAYOUT) (default: false)
- --persona_mmap_page_zero
-	personality(MMAP_PAGE_ZERO) (default: false)
- --persona_read_implies_exec
-	personality(READ_IMPLIES_EXEC) (default: false)
- --persona_addr_limit_3gb
-	personality(ADDR_LIMIT_3GB) (default: false)
- --persona_addr_no_randomize
-	personality(ADDR_NO_RANDOMIZE) (default: false)
- --disable_clone_newnet|-N
-	Enable networking inside the jail (default: false)
- --disable_clone_newuser
-	Don't use CLONE_NEWUSER (default: false)
- --disable_clone_newns
-	Don't use CLONE_NEWNS (default: false)
- --disable_clone_newpid
-	Don't use CLONE_NEWPID (default: false)
- --disable_clone_newipc
-	Don't use CLONE_NEWIPC (default: false)
- --disable_clone_newuts
-	Don't use CLONE_NEWUTS (default: false)
- --disable_sandbox
-	Don't enable the seccomp-bpf sandboxing (default: false)
- --rw
-	Mount / as RW (default: RO)
- --silent
-	Redirect child's fd:0/1/2 to /dev/null (default: false)
- --bindmount_ro [val]
-	List of mountpoints to be mounted --bind (ro) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'. (default: none)
+ --persona_addr_compat_layout 
+	personality(ADDR_COMPAT_LAYOUT)
+ --persona_mmap_page_zero 
+	personality(MMAP_PAGE_ZERO)
+ --persona_read_implies_exec 
+	personality(READ_IMPLIES_EXEC)
+ --persona_addr_limit_3gb 
+	personality(ADDR_LIMIT_3GB)
+ --persona_addr_no_randomize 
+	personality(ADDR_NO_RANDOMIZE)
+ --disable_clone_newnet|-N 
+	Don't use CLONE_NEWNET. Enable networking inside the jail
+ --disable_clone_newuser 
+	Don't use CLONE_NEWUSER. Requires euid==0
+ --disable_clone_newns 
+	Don't use CLONE_NEWNS
+ --disable_clone_newpid 
+	Don't use CLONE_NEWPID
+ --disable_clone_newipc 
+	Don't use CLONE_NEWIPC
+ --disable_clone_newuts 
+	Don't use CLONE_NEWUTS
+ --bindmount_ro|-R [val]
+	List of mountpoints to be mounted --bind (ro) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'
  --bindmount|-B [val]
-	List of mountpoints to be mounted --bind (rw) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'. (default: none)
+	List of mountpoints to be mounted --bind (rw) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'
  --tmpfsmount|-T [val]
-	List of mountpoints to be mounted as RW/tmpfs inside the container. Can be specified multiple times. Supports 'dest' syntax. (default: none)
- --iface|-I [val]
-	Interface which will be cloned (MACVTAP) and put inside the subprocess' namespace
+	List of mountpoints to be mounted as RW/tmpfs inside the container. Can be specified multiple times. Supports 'dest' syntax
  --tmpfs_size [val]
-	Number of bytes to allocate for tmpfsmounts in bytes (default: 4194304)
+	Number of bytes to allocate for tmpfsmounts (default: 4194304)
+ --disable_proc 
+	Disable mounting /proc in the jail
+ --iface_no_lo 
+	Don't bring up the 'lo' interface
+ --iface|-I [val]
+	Interface which will be cloned (MACVTAP) and put inside the subprocess' namespace as 'vs'
+ --iface_vs_ip [val]
+	IP of the 'vs' interface
+ --iface_vs_nm [val]
+	Netmask of the 'vs' interface
+ --iface_vs_gw [val]
+	Default GW for the 'vs' interface
 ```
