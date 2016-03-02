@@ -244,7 +244,7 @@ static bool cmdlineParseGid(struct nsjconf_t *nsjconf, char *str)
 bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 {
 	/*  *INDENT-OFF* */
-	(*nsjconf) = (struct nsjconf_t) {
+	(*nsjconf) = (const struct nsjconf_t) {
 		.hostname = "NSJAIL",
 		.cwd = "/",
 		.chroot = "/",
