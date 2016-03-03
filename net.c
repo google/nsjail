@@ -360,6 +360,7 @@ static bool netConfigureVs(struct nsjconf_t *nsjconf)
 	int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
 	if (sock == -1) {
 		PLOG_E("socket(AF_INET, SOCK_STREAM, IPPROTO_IP)");
+		close(sock);
 		return false;
 	}
 
@@ -370,6 +371,7 @@ static bool netConfigureVs(struct nsjconf_t *nsjconf)
 	}
 	if (addr.s_addr == INADDR_ANY) {
 		LOG_I("IPv4 address for interface '%s' not set", IFACE_NAME);
+		close(sock);
 		return true;
 	}
 
@@ -406,6 +408,7 @@ static bool netConfigureVs(struct nsjconf_t *nsjconf)
 	}
 	if (addr.s_addr == INADDR_ANY) {
 		LOG_I("Gateway address for '%s' is not set", IFACE_NAME);
+		close(sock);
 		return true;
 	}
 
