@@ -44,6 +44,7 @@
 #include "log.h"
 #include "net.h"
 #include "sandbox.h"
+#include "user.h"
 #include "util.h"
 
 const char subprocDoneChar = 'D';
@@ -215,7 +216,7 @@ static bool subprocInitParent(struct nsjconf_t *nsjconf, pid_t pid, int pipefd)
 		LOG_E("Couldn't create and put MACVTAP interface into NS of PID '%d'", pid);
 		return false;
 	}
-	if (containInitUserNs(nsjconf, pid) == false) {
+	if (userInitNsFromParent(nsjconf, pid) == false) {
 		LOG_E("Couldn't initialize user namespaces for pid %d", pid);
 		return false;
 	}
