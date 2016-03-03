@@ -34,12 +34,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/mount.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
-#include <sys/statvfs.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <unistd.h>
@@ -51,7 +49,7 @@
 
 bool containInitNetNs(struct nsjconf_t * nsjconf)
 {
-	return netInitNs(nsjconf);
+	return netInitNsFromChild(nsjconf);
 }
 
 static bool containSetGroups(pid_t pid)

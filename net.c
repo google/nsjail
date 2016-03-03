@@ -48,7 +48,7 @@
 #if defined(NSJAIL_NL3_WITH_MACVLAN)
 #include <netlink/route/link.h>
 #include <netlink/route/link/macvlan.h>
-bool netCloneMacVtapAndNS(struct nsjconf_t * nsjconf, int pid)
+bool netInitNsFromParent(struct nsjconf_t * nsjconf, int pid)
 {
 	if (nsjconf->iface == NULL) {
 		return true;
@@ -145,7 +145,7 @@ static bool netSystemSbinIp(struct nsjconf_t *nsjconf, char *const *argv)
 	}
 }
 
-bool netCloneMacVtapAndNS(struct nsjconf_t *nsjconf, int pid)
+bool netInitNsFromParent(struct nsjconf_t *nsjconf, int pid)
 {
 	if (nsjconf->iface == NULL) {
 		return true;
@@ -429,7 +429,7 @@ static bool netConfigureVs(struct nsjconf_t *nsjconf)
 	return true;
 }
 
-bool netInitNs(struct nsjconf_t * nsjconf)
+bool netInitNsFromChild(struct nsjconf_t * nsjconf)
 {
 	if (nsjconf->iface_no_lo == false) {
 		if (netIfaceUp("lo") == false) {

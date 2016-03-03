@@ -211,7 +211,7 @@ void subprocKillAll(struct nsjconf_t *nsjconf)
 
 static bool subprocInitParent(struct nsjconf_t *nsjconf, pid_t pid, int pipefd)
 {
-	if (netCloneMacVtapAndNS(nsjconf, pid) == false) {
+	if (netInitNsFromParent(nsjconf, pid) == false) {
 		LOG_E("Couldn't create and put MACVTAP interface into NS of PID '%d'", pid);
 		return false;
 	}
