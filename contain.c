@@ -46,70 +46,16 @@
 #include "mount.h"
 #include "net.h"
 #include "util.h"
+#include "uts.h"
 
 bool containInitNetNs(struct nsjconf_t * nsjconf)
 {
 	return netInitNsFromChild(nsjconf);
 }
 
-static bool containSetGroups(pid_t pid)
+bool containInitUtsNs(struct nsjconf_t * nsjconf)
 {
-	/*
-	 * No need to write 'deny' to /proc/pid/setgroups if our euid==0, as writing to uid_map/gid_map
-	 * will succeed anyway
-	 */
-	if (geteuid() == 0) {
-		return true;
-	}
-
-	char fname[PATH_MAX];
-	snprintf(fname, sizeof(fname), "/proc/%d/setgroups", pid);
-	const char *denystr = "deny";
-	if (utilWriteBufToFile(fname, denystr, strlen(denystr), O_WRONLY) == false) {
-		LOG_E("utilWriteBufToFile('%s', '%s') failed", fname, denystr);
-		return false;
-	}
-	return true;
-}
-
-static bool containUidGidMap(struct nsjconf_t *nsjconf, pid_t pid)
-{
-	if (nsjconf->clone_newuser == false) {
-		return true;
-	}
-
-	char fname[PATH_MAX];
-	char map[128];
-
-	snprintf(fname, sizeof(fname), "/proc/%d/uid_map", pid);
-	snprintf(map, sizeof(map), "%lu %lu 1", (unsigned long)nsjconf->inside_uid,
-		 (unsigned long)nsjconf->outside_uid);
-	LOG_D("Writing '%s' to '%s'", map, fname);
-	if (utilWriteBufToFile(fname, map, strlen(map), O_WRONLY) == false) {
-		LOG_E("utilWriteBufToFile('%s', '%s') failed", fname, map);
-		return false;
-	}
-
-	snprintf(fname, sizeof(fname), "/proc/%d/gid_map", pid);
-	snprintf(map, sizeof(map), "%lu %lu 1", (unsigned long)nsjconf->inside_gid,
-		 (unsigned long)nsjconf->outside_gid);
-	LOG_D("Writing '%s' to '%s'", map, fname);
-	if (utilWriteBufToFile(fname, map, strlen(map), O_WRONLY) == false) {
-		LOG_E("utilWriteBufToFile('%s', '%s') failed", fname, map);
-		return false;
-	}
-	return true;
-}
-
-bool containInitUserNs(struct nsjconf_t * nsjconf, pid_t pid)
-{
-	if (containSetGroups(pid) == false) {
-		return false;
-	}
-	if (containUidGidMap(nsjconf, pid) == false) {
-		return false;
-	}
-	return true;
+	return utsInitNs(nsjconf);
 }
 
 bool containDropPrivs(struct nsjconf_t * nsjconf)
@@ -161,13 +107,6 @@ bool containDropPrivs(struct nsjconf_t * nsjconf)
 
 bool containPrepareEnv(struct nsjconf_t * nsjconf)
 {
-	LOG_D("Setting hostname to '%s'", nsjconf->hostname);
-	if (nsjconf->clone_newuts) {
-		if (sethostname(nsjconf->hostname, strlen(nsjconf->hostname)) == -1) {
-			PLOG_E("sethostname('%s')", nsjconf->hostname);
-			return false;
-		}
-	}
 	if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0) == -1) {
 		PLOG_E("prctl(PR_SET_PDEATHSIG, SIGKILL)");
 		return false;

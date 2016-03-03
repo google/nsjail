@@ -1,6 +1,6 @@
 /*
 
-   nsjail - isolating the binary
+   nsjail - CLONE_NEWUTS routines
    -----------------------------------------
 
    Copyright 2014 Google Inc. All Rights Reserved.
@@ -19,20 +19,22 @@
 
 */
 
-#ifndef _CONTAIN_H
-#define _CONTAIN_H
+#include "uts.h"
 
-#include <stdbool.h>
+#include <string.h>
+#include <unistd.h>
 
-#include "common.h"
+#include "log.h"
 
-bool containInitNetNs(struct nsjconf_t *nsjconf);
-bool containInitUtsNs(struct nsjconf_t *nsjconf);
-bool containDropPrivs(struct nsjconf_t *nsjconf);
-bool containPrepareEnv(struct nsjconf_t *nsjconf);
-bool containInitMountNs(struct nsjconf_t *nsjconf);
-bool containSetLimits(struct nsjconf_t *nsjconf);
-bool containMakeFdsCOE(void);
-bool containSetupFD(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_err, int fd_log);
-
-#endif				/* _CONTAIN_H */
+bool utsInitNs(struct nsjconf_t * nsjconf)
+{
+	LOG_D("Setting hostname to '%s'", nsjconf->hostname);
+	if (nsjconf->clone_newuts == false) {
+		return true;
+	}
+	if (sethostname(nsjconf->hostname, strlen(nsjconf->hostname)) == -1) {
+		PLOG_E("sethostname('%s')", nsjconf->hostname);
+		return false;
+	}
+	return true;
+}
