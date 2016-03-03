@@ -85,6 +85,9 @@ static bool userUidGidMap(struct nsjconf_t *nsjconf, pid_t pid)
 
 bool userInitNsFromParent(struct nsjconf_t * nsjconf, pid_t pid)
 {
+	if (nsjconf->clone_newuser == false) {
+		return true;
+	}
 	if (userSetGroups(pid) == false) {
 		return false;
 	}

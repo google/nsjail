@@ -28,6 +28,10 @@
 
 bool utsInitNs(struct nsjconf_t * nsjconf)
 {
+	if (nsjconf->clone_newuts == false) {
+		return true;
+	}
+
 	LOG_D("Setting hostname to '%s'", nsjconf->hostname);
 	if (nsjconf->clone_newuts == false) {
 		return true;

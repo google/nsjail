@@ -50,6 +50,9 @@
 #include <netlink/route/link/macvlan.h>
 bool netInitNsFromParent(struct nsjconf_t * nsjconf, int pid)
 {
+	if (nsjconf->clone_newnet == false) {
+		return true;
+	}
 	if (nsjconf->iface == NULL) {
 		return true;
 	}
@@ -147,6 +150,9 @@ static bool netSystemSbinIp(struct nsjconf_t *nsjconf, char *const *argv)
 
 bool netInitNsFromParent(struct nsjconf_t *nsjconf, int pid)
 {
+	if (nsjconf->clone_newnet == false) {
+		return true;
+	}
 	if (nsjconf->iface == NULL) {
 		return true;
 	}
@@ -431,6 +437,9 @@ static bool netConfigureVs(struct nsjconf_t *nsjconf)
 
 bool netInitNsFromChild(struct nsjconf_t * nsjconf)
 {
+	if (nsjconf->clone_newnet == false) {
+		return true;
+	}
 	if (nsjconf->iface_no_lo == false) {
 		if (netIfaceUp("lo") == false) {
 			return false;
