@@ -63,7 +63,7 @@ static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int 
 	if (containPrepareEnv(nsjconf) == false) {
 		exit(1);
 	}
-	if (containMountFS(nsjconf) == false) {
+	if (containInitMountNs(nsjconf) == false) {
 		exit(1);
 	}
 	if (containInitNetNs(nsjconf) == false) {

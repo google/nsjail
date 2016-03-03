@@ -48,7 +48,7 @@
 #if defined(NSJAIL_NL3_WITH_MACVLAN)
 #include <netlink/route/link.h>
 #include <netlink/route/link/macvlan.h>
-bool netCloneMacVtapAndNS(struct nsjconf_t *nsjconf, int pid)
+bool netCloneMacVtapAndNS(struct nsjconf_t * nsjconf, int pid)
 {
 	if (nsjconf->iface == NULL) {
 		return true;
@@ -314,7 +314,7 @@ void netConnToText(int fd, bool remote, char *buf, size_t s, struct sockaddr_in6
 	return;
 }
 
-bool netIfaceUp(const char *ifacename)
+static bool netIfaceUp(const char *ifacename)
 {
 	int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
 	if (sock == -1) {
@@ -344,7 +344,7 @@ bool netIfaceUp(const char *ifacename)
 	return true;
 }
 
-bool netConfigureVs(struct nsjconf_t * nsjconf)
+static bool netConfigureVs(struct nsjconf_t *nsjconf)
 {
 	struct ifreq ifr;
 	memset(&ifr, '\0', sizeof(ifr));
@@ -426,5 +426,20 @@ bool netConfigureVs(struct nsjconf_t * nsjconf)
 	}
 
 	close(sock);
+	return true;
+}
+
+bool netInitNs(struct nsjconf_t * nsjconf)
+{
+	if (nsjconf->iface_no_lo == false) {
+		if (netIfaceUp("lo") == false) {
+			return false;
+		}
+	}
+	if (nsjconf->iface) {
+		if (netConfigureVs(nsjconf) == false) {
+			return false;
+		}
+	}
 	return true;
 }

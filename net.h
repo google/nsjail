@@ -32,7 +32,6 @@ bool netLimitConns(struct nsjconf_t *nsjconf, int connsock);
 int netGetRecvSocket(const char *bindhost, int port);
 int netAcceptConn(int listenfd);
 void netConnToText(int fd, bool remote, char *buf, size_t s, struct sockaddr_in6 *addr_or_null);
-bool netIfaceUp(const char *ifacename);
-bool netConfigureVs(struct nsjconf_t *nsjconf);
+bool netInitNs(struct nsjconf_t *nsjconf);
 
 #endif				/* _NET_H */
