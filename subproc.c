@@ -61,9 +61,6 @@ static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int 
 	if (doneChar != subprocDoneChar) {
 		exit(1);
 	}
-	if (containPrepareEnv(nsjconf) == false) {
-		exit(1);
-	}
 	if (containInitMountNs(nsjconf) == false) {
 		exit(1);
 	}
@@ -79,6 +76,9 @@ static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int 
 	/* */
 	/* As non-root */
 	if (containSetLimits(nsjconf) == false) {
+		exit(1);
+	}
+	if (containPrepareEnv(nsjconf) == false) {
 		exit(1);
 	}
 	if (containMakeFdsCOE() == false) {
@@ -98,8 +98,8 @@ static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int 
 	}
 
 	LOG_D("Trying to execve('%s')", nsjconf->argv[0]);
-	for (int i = 0; nsjconf->argv[i]; i++) {
-		LOG_D(" Arg[%d]: '%s'", i, nsjconf->argv[i]);
+	for (size_t i = 0; nsjconf->argv[i]; i++) {
+		LOG_D(" Arg[%zu]: '%s'", i, nsjconf->argv[i]);
 	}
 	execv(nsjconf->argv[0], &nsjconf->argv[0]);
 
@@ -237,7 +237,7 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 		return;
 	}
 
-	unsigned int flags = 0UL;
+	unsigned long flags = 0UL;
 	flags |= (nsjconf->clone_newnet ? CLONE_NEWNET : 0);
 	flags |= (nsjconf->clone_newuser ? CLONE_NEWUSER : 0);
 	flags |= (nsjconf->clone_newns ? CLONE_NEWNS : 0);
@@ -251,16 +251,16 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 			      "[ENOMEM with clone/fork/vfork]. Disabling it");
 			flags &= ~(CLONE_NEWPID);
 		}
-		LOG_D("Entering namespace with flags: %#x", flags);
+		LOG_D("Entering namespace with flags: %#lx", flags);
 		if (unshare(flags) == -1) {
-			PLOG_E("unshare(%#x)", flags);
+			PLOG_E("unshare(%#lx)", flags);
 			_exit(EXIT_FAILURE);
 		}
 		subprocNewProc(nsjconf, fd_in, fd_out, fd_err, -1);
 	}
 
 	flags |= SIGCHLD;
-	LOG_D("Creating new process with clone flags: %#x", flags);
+	LOG_D("Creating new process with clone flags: %#lx", flags);
 
 	int sv[2];
 	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, sv) == -1) {
@@ -275,7 +275,7 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 	}
 	close(sv[0]);
 	if (pid == -1) {
-		PLOG_E("clone(flags=%#x) failed. You probably need root privileges if your system "
+		PLOG_E("clone(flags=%#lx) failed. You probably need root privileges if your system "
 		       "doesn't support CLONE_NEWUSER. Alternatively, you might want to recompile your "
 		       "kernel with support for namespaces or check the setting of the "
 		       "kernel.unprivileged_userns_clone sysctl", flags);
