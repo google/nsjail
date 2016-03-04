@@ -136,14 +136,16 @@ static void nsjailListenMode(struct nsjconf_t *nsjconf)
 
 static int nsjailStandaloneMode(struct nsjconf_t *nsjconf)
 {
-	int child_status = 0;
 	subprocRunChild(nsjconf, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
 	for (;;) {
+		int child_status = subprocReap(nsjconf);
+
 		if (subprocCount(nsjconf) == 0) {
 			if (nsjconf->mode == MODE_STANDALONE_ONCE) {
 				return child_status;
 			}
 			subprocRunChild(nsjconf, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
+			continue;
 		}
 		if (nsjailShowProc == true) {
 			nsjailShowProc = false;
@@ -154,11 +156,10 @@ static int nsjailStandaloneMode(struct nsjconf_t *nsjconf)
 			logStop(nsjailSigFatal);
 			return -1;
 		}
+
 		pause();
-		child_status = subprocReap(nsjconf);
 	}
 	// not reached
-	return child_status;
 }
 
 int main(int argc, char *argv[])
