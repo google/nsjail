@@ -56,10 +56,6 @@ static bool userSetGroups(pid_t pid)
 
 static bool userUidGidMap(struct nsjconf_t *nsjconf, pid_t pid)
 {
-	if (nsjconf->clone_newuser == false) {
-		return true;
-	}
-
 	char fname[PATH_MAX];
 	char map[128];
 
