@@ -26,7 +26,8 @@ CFLAGS += -O2 -g -ggdb -c -std=gnu11 \
 
 LDFLAGS += -Wl,-z,now -Wl,-z,relro -pie -Wa,--noexecstack
 
-COMPILER_CLANG = $(shell $(CC) -v 2>&1 | grep version | head -n1 | egrep -o clang)
+COMPILER_CLANG = $(shell $(CC) -v 2>&1 | grep "clang version" | grep -o "clang")
+
 ifeq ($(COMPILER_CLANG),clang)
 	CFLAGS += -fblocks
 	LDFLAGS += -lBlocksRuntime

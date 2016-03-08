@@ -115,6 +115,7 @@ static void nsjailListenMode(struct nsjconf_t *nsjconf)
 	if (listenfd == -1) {
 		return;
 	}
+	defer(close(listenfd));
 	for (;;) {
 		if (nsjailSigFatal > 0) {
 			subprocKillAll(nsjconf);
