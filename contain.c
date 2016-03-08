@@ -48,17 +48,17 @@
 #include "util.h"
 #include "uts.h"
 
-bool containInitNetNs(struct nsjconf_t * nsjconf)
+static bool containInitNetNs(struct nsjconf_t *nsjconf)
 {
 	return netInitNsFromChild(nsjconf);
 }
 
-bool containInitUtsNs(struct nsjconf_t * nsjconf)
+static bool containInitUtsNs(struct nsjconf_t *nsjconf)
 {
 	return utsInitNs(nsjconf);
 }
 
-bool containDropPrivs(struct nsjconf_t * nsjconf)
+static bool containDropPrivs(struct nsjconf_t *nsjconf)
 {
 	/*
 	 * Best effort because of /proc/self/setgroups
@@ -114,7 +114,7 @@ bool containDropPrivs(struct nsjconf_t * nsjconf)
 	return true;
 }
 
-bool containPrepareEnv(struct nsjconf_t * nsjconf)
+static bool containPrepareEnv(struct nsjconf_t *nsjconf)
 {
 	if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0) == -1) {
 		PLOG_E("prctl(PR_SET_PDEATHSIG, SIGKILL)");
@@ -134,12 +134,12 @@ bool containPrepareEnv(struct nsjconf_t * nsjconf)
 	return true;
 }
 
-bool containInitMountNs(struct nsjconf_t * nsjconf)
+static bool containInitMountNs(struct nsjconf_t *nsjconf)
 {
 	return mountInitNs(nsjconf);
 }
 
-bool containSetLimits(struct nsjconf_t * nsjconf)
+static bool containSetLimits(struct nsjconf_t *nsjconf)
 {
 	struct rlimit64 rl;
 	rl.rlim_cur = rl.rlim_max = nsjconf->rl_as;
@@ -240,7 +240,7 @@ static bool containMakeFdsCOEProc(void)
 	return true;
 }
 
-bool containMakeFdsCOE(void)
+static bool containMakeFdsCOE(void)
 {
 	if (containMakeFdsCOEProc() == true) {
 		return true;
@@ -279,6 +279,34 @@ bool containSetupFD(struct nsjconf_t * nsjconf, int fd_in, int fd_out, int fd_er
 	}
 	if (dup2(fd_err, STDERR_FILENO) == -1) {
 		PLOG_E("dup2(%d, STDERR_FILENO)", fd_err);
+		return false;
+	}
+	return true;
+}
+
+bool containContain(struct nsjconf_t * nsjconf)
+{
+	if (containInitMountNs(nsjconf) == false) {
+		return false;
+	}
+	if (containInitNetNs(nsjconf) == false) {
+		return false;
+	}
+	if (containInitUtsNs(nsjconf) == false) {
+		return false;
+	}
+	if (containDropPrivs(nsjconf) == false) {
+		return false;
+	}
+	/* */
+	/* As non-root */
+	if (containSetLimits(nsjconf) == false) {
+		return false;
+	}
+	if (containPrepareEnv(nsjconf) == false) {
+		return false;
+	}
+	if (containMakeFdsCOE() == false) {
 		return false;
 	}
 	return true;

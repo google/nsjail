@@ -61,34 +61,9 @@ static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int 
 	if (doneChar != subprocDoneChar) {
 		exit(1);
 	}
-	if (containInitMountNs(nsjconf) == false) {
+	if (containContain(nsjconf) == false) {
 		exit(1);
 	}
-	if (containInitNetNs(nsjconf) == false) {
-		exit(1);
-	}
-	if (containInitUtsNs(nsjconf) == false) {
-		exit(1);
-	}
-	if (containDropPrivs(nsjconf) == false) {
-		exit(1);
-	}
-	/* */
-	/* As non-root */
-	if (containSetLimits(nsjconf) == false) {
-		exit(1);
-	}
-	if (containPrepareEnv(nsjconf) == false) {
-		exit(1);
-	}
-	if (containMakeFdsCOE() == false) {
-		exit(1);
-	}
-	/* Should be the last one in the sequence */
-	if (sandboxApply(nsjconf) == false) {
-		exit(1);
-	}
-
 	if (nsjconf->keep_env == false) {
 		clearenv();
 	}
@@ -100,6 +75,11 @@ static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int 
 	LOG_D("Trying to execve('%s')", nsjconf->argv[0]);
 	for (size_t i = 0; nsjconf->argv[i]; i++) {
 		LOG_D(" Arg[%zu]: '%s'", i, nsjconf->argv[i]);
+	}
+
+	/* Should be the last one in the sequence */
+	if (sandboxApply(nsjconf) == false) {
+		exit(1);
 	}
 	execv(nsjconf->argv[0], &nsjconf->argv[0]);
 
