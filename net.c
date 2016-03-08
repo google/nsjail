@@ -74,7 +74,7 @@ bool netInitNsFromParent(struct nsjconf_t * nsjconf, int pid)
 	}
 	rtnl_link_put(rmv);
 
-	_block struct nl_cache *link_cache;
+	__block struct nl_cache *link_cache;
 	if ((err = rtnl_link_alloc_cache(sk, AF_UNSPEC, &link_cache)) < 0) {
 		LOG_E("rtnl_link_alloc_cache(): %s", nl_geterror(err));
 		return false;

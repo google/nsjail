@@ -31,7 +31,8 @@
 
 #define ARRAYSIZE(array) (sizeof(array) / sizeof(*array))
 
-#define _STRMERGE(a, b) a##b
+#define __STRMERGE(a, b) a##b
+#define _STRMERGE(a, b) __STRMERGE(a, b)
 
 #ifdef __clang__
 static void __attribute__ ((unused)) _clang_cleanup_func(void (^*dfunc) (void))
