@@ -327,7 +327,7 @@ static bool netIfaceUp(const char *ifacename)
 		PLOG_E("socket(AF_INET, SOCK_STREAM, IPPROTO_IP)");
 		return false;
 	}
-        defer(close(sock));
+	defer(close(sock));
 
 	struct ifreq ifr;
 	memset(&ifr, '\0', sizeof(ifr));
