@@ -18,12 +18,19 @@
 #
 
 CC ?= gcc
-CFLAGS += -O2 -g -ggdb -c -std=c11 \
+
+CFLAGS += -O2 -g -ggdb -c -std=gnu11 \
 	-D_GNU_SOURCE \
-	-fstack-protector-all -Wformat -Wformat=2 -Wformat-security -fPIE -Wa,--noexecstack \
+	-fstack-protector-all -Wformat -Wformat=2 -Wformat-security -fPIE \
 	-Wall -Wextra -Werror
 
-LDFLAGS += -Wl,-z,now -Wl,-z,relro -pie
+LDFLAGS += -Wl,-z,now -Wl,-z,relro -pie -Wa,--noexecstack
+
+COMPILER_CLANG = $(shell $(CC) -v 2>&1 | grep version | head -n1 | egrep -o clang)
+ifeq ($(COMPILER_CLANG),clang)
+	CFLAGS += -fblocks
+	LDFLAGS += -lBlocksRuntime
+endif
 
 SRCS = nsjail.c cmdline.c contain.c log.c net.c mount.c user.c subproc.c sandbox.c util.c uts.c seccomp/bpf-helper.c
 OBJS = $(SRCS:.c=.o)
