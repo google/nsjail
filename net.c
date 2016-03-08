@@ -57,32 +57,33 @@ bool netInitNsFromParent(struct nsjconf_t * nsjconf, int pid)
 		return true;
 	}
 
-	struct nl_sock *sk;
-	struct nl_cache *link_cache;
 	int err, master_index;
-	bool ret = false;
 
-	sk = nl_socket_alloc();
+	struct nl_sock *sk = nl_socket_alloc();
+	defer(nl_socket_free(sk));
+
 	if ((err = nl_connect(sk, NETLINK_ROUTE)) < 0) {
 		LOG_E("Unable to connect socket: %s", nl_geterror(err));
-		goto out_sock;
+		return false;
 	}
 
-	struct rtnl_link *rmv = rtnl_link_macvlan_alloc();
-
+	__block struct rtnl_link *rmv = rtnl_link_macvlan_alloc();
 	if (rmv == NULL) {
 		LOG_E("rtnl_link_macvlan_alloc(): %s", nl_geterror(err));
-		goto out_sock;
+		return false;
 	}
+	rtnl_link_put(rmv);
 
+	_block struct nl_cache *link_cache;
 	if ((err = rtnl_link_alloc_cache(sk, AF_UNSPEC, &link_cache)) < 0) {
 		LOG_E("rtnl_link_alloc_cache(): %s", nl_geterror(err));
-		goto out_link;
+		return false;
 	}
+	defer(nl_cache_free(link_cache));
 
 	if (!(master_index = rtnl_link_name2i(link_cache, nsjconf->iface))) {
 		LOG_E("rtnl_link_name2i(): Did not find '%s' interface", nsjconf->iface);
-		goto out_cache;
+		return false;
 	}
 
 	rtnl_link_set_name(rmv, IFACE_NAME);
@@ -91,17 +92,10 @@ bool netInitNsFromParent(struct nsjconf_t * nsjconf, int pid)
 
 	if ((err = rtnl_link_add(sk, rmv, NLM_F_CREATE)) < 0) {
 		LOG_E("rtnl_link_add(): %s", nl_geterror(err));
-		goto out_cache;
+		return false;
 	}
 
-	ret = true;
- out_cache:
-	nl_cache_free(link_cache);
- out_link:
-	rtnl_link_put(rmv);
- out_sock:
-	nl_socket_free(sk);
-	return ret;
+	return true;
 }
 #else				// defined(NSJAIL_NL3_WITH_MACVLAN)
 static bool netSystemSbinIp(struct nsjconf_t *nsjconf, char *const *argv)

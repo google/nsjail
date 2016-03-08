@@ -247,6 +247,8 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 		PLOG_E("socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC) failed");
 		return;
 	}
+	__block int subproc_sock = sv[1];
+	defer(close(subproc_sock));
 
 	pid_t pid = syscall(__NR_clone, (uintptr_t) flags, NULL, NULL, NULL, (uintptr_t) 0);
 	if (pid == 0) {
@@ -259,13 +261,11 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 		       "doesn't support CLONE_NEWUSER. Alternatively, you might want to recompile your "
 		       "kernel with support for namespaces or check the setting of the "
 		       "kernel.unprivileged_userns_clone sysctl", flags);
-		close(sv[1]);
 		return;
 	}
 	subprocAdd(nsjconf, pid, fd_in);
 
 	if (subprocInitParent(nsjconf, pid, sv[1]) == false) {
-		close(sv[1]);
 		return;
 	}
 
@@ -279,5 +279,4 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 		log_buf[sz] = '\0';
 		logDirectlyToFD(log_buf);
 	}
-	close(sv[1]);
 }
