@@ -1,6 +1,6 @@
 #
 #   nsjail - Makefile
-#      -----------------------------------------
+#   -----------------------------------------
 #
 #   Copyright 2014 Google Inc. All Rights Reserved.
 #
@@ -24,16 +24,20 @@ CFLAGS += -O2 -g -ggdb -c -std=gnu11 \
 	-fstack-protector-all -Wformat -Wformat=2 -Wformat-security -fPIE \
 	-Wall -Wextra -Werror
 
-LDFLAGS += -Wl,-z,now -Wl,-z,relro -pie -Wa,--noexecstack
+LDFLAGS += -Wl,-z,now -Wl,-z,relro -pie
 
 COMPILER_CLANG = $(shell $(CC) -v 2>&1 | grep "clang version" | grep -o "clang")
+COMPILER_GCC = $(shell $(CC) -v 2>&1 | grep "gcc version" | grep -o "gcc")
 
 ifeq ($(COMPILER_CLANG),clang)
 	CFLAGS += -fblocks
 	LDFLAGS += -lBlocksRuntime
 endif
+ifeq ($(COMPILER_CLANG),gcc)
+	LDFLAGS += -Wa,--noexecstack
+endif
 
-SRCS = nsjail.c cmdline.c contain.c log.c net.c mount.c user.c subproc.c sandbox.c util.c uts.c seccomp/bpf-helper.c
+SRCS = nsjail.c cmdline.c contain.c log.c mount.c net.c sandbox.c subproc.c user.c util.c uts.c seccomp/bpf-helper.c
 OBJS = $(SRCS:.c=.o)
 BIN = nsjail
 

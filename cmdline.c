@@ -350,7 +350,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"tmpfs_size", required_argument, NULL, 0x0602}, "Number of bytes to allocate for tmpfsmounts (default: 4194304)"},
 		{{"disable_proc", no_argument, NULL, 0x0603}, "Disable mounting /proc in the jail"},
 		{{"iface_no_lo", no_argument, NULL, 0x700}, "Don't bring up the 'lo' interface"},
-		{{"iface", required_argument, NULL, 'I'}, "Interface which will be cloned (MACVTAP) and put inside the subprocess' namespace as 'vs'"},
+		{{"iface", required_argument, NULL, 'I'}, "Interface which will be cloned (MACVLAN) and put inside the subprocess' namespace as 'vs'"},
 		{{"iface_vs_ip", required_argument, NULL, 0x701}, "IP of the 'vs' interface"},
 		{{"iface_vs_nm", required_argument, NULL, 0x702}, "Netmask of the 'vs' interface"},
 		{{"iface_vs_gw", required_argument, NULL, 0x703}, "Default GW for the 'vs' interface"},
