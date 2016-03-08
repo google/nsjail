@@ -238,10 +238,12 @@ int netGetRecvSocket(const char *bindhost, int port)
 		.sin6_scope_id = 0,
 	};
 	if (bind(sockfd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
+		close(sockfd);
 		PLOG_E("bind(host:[%s], port:%d)", bindhost, port);
 		return -1;
 	}
 	if (listen(sockfd, SOMAXCONN) == -1) {
+		close(sockfd);
 		PLOG_E("listen(%d)", SOMAXCONN);
 		return -1;
 	}

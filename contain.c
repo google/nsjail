@@ -204,12 +204,12 @@ static bool containMakeFdsCOEProc(void)
 		PLOG_D("opendir('/proc/self/fd')");
 		return false;
 	}
+	defer(closedir(dir));
 	for (;;) {
 		errno = 0;
 		struct dirent *entry = readdir(dir);
 		if (entry == NULL && errno != 0) {
 			PLOG_D("readdir('/proc/self/fd')");
-			closedir(dir);
 			return false;
 		}
 		if (entry == NULL) {
@@ -236,7 +236,6 @@ static bool containMakeFdsCOEProc(void)
 			LOG_D("Set fd '%d' flag to FD_CLOEXEC", fd);
 		}
 	}
-	closedir(dir);
 	return true;
 }
 
