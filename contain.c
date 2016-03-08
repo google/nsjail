@@ -84,6 +84,15 @@ bool containDropPrivs(struct nsjconf_t * nsjconf)
 	}
 
 	if (nsjconf->keep_caps == false) {
+		for (unsigned long i = 0; i < 128UL; i++) {
+			/*
+			 * Number of capabilities differs between kernels, so
+			 * wait for the first one which returns EINVAL
+			 */
+			if (prctl(PR_CAPBSET_DROP, i, 0UL, 0UL, 0UL) == -1 && errno == EINVAL) {
+				break;
+			}
+		}
 		if (prctl(PR_SET_KEEPCAPS, 0, 0, 0, 0) == -1) {
 			PLOG_E("prctl(PR_SET_KEEPCAPS, 0)");
 			return false;
