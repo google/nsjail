@@ -75,7 +75,7 @@ bool netInitNsFromParent(struct nsjconf_t * nsjconf, int pid)
 		LOG_E("rtnl_link_macvlan_alloc(): %s", nl_geterror(err));
 		return false;
 	}
-	rtnl_link_put(rmv);
+	defer(rtnl_link_put(rmv));
 
 	__block struct nl_cache *link_cache;
 	if ((err = rtnl_link_alloc_cache(sk, AF_UNSPEC, &link_cache)) < 0) {
