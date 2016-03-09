@@ -24,16 +24,13 @@ CFLAGS += -O2 -g -ggdb -c -std=gnu11 \
 	-fstack-protector-all -Wformat -Wformat=2 -Wformat-security -fPIE \
 	-Wall -Wextra -Werror
 
-LDFLAGS += -Wl,-z,now -Wl,-z,relro -pie
+LDFLAGS += -Wl,-z,now -Wl,-z,relro -pie -Wl,-z,noexecstack
 
 COMPILER = $(shell $(CC) -v 2>&1 | grep -E '(gcc|clang) version' | grep -oE '(clang|gcc)')
 
 ifeq ($(COMPILER),clang)
 	CFLAGS += -fblocks
 	LDFLAGS += -lBlocksRuntime
-endif
-ifeq ($(COMPILER),gcc)
-	LDFLAGS += -Wa,--noexecstack
 endif
 
 SRCS = nsjail.c cmdline.c contain.c log.c mount.c net.c sandbox.c subproc.c user.c util.c uts.c seccomp/bpf-helper.c
