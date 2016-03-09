@@ -33,7 +33,7 @@ ifeq ($(COMPILER_CLANG),clang)
 	CFLAGS += -fblocks
 	LDFLAGS += -lBlocksRuntime
 endif
-ifeq ($(COMPILER_CLANG),gcc)
+ifeq ($(COMPILER_GCC),gcc)
 	LDFLAGS += -Wa,--noexecstack
 endif
 
