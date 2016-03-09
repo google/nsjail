@@ -26,14 +26,13 @@ CFLAGS += -O2 -g -ggdb -c -std=gnu11 \
 
 LDFLAGS += -Wl,-z,now -Wl,-z,relro -pie
 
-COMPILER_CLANG = $(shell $(CC) -v 2>&1 | grep "clang version" | grep -o "clang")
-COMPILER_GCC = $(shell $(CC) -v 2>&1 | grep "gcc version" | grep -o "gcc")
+COMPILER = $(shell $(CC) -v 2>&1 | grep -E '(gcc|clang) version' | grep -oE '(clang|gcc)')
 
-ifeq ($(COMPILER_CLANG),clang)
+ifeq ($(COMPILER),clang)
 	CFLAGS += -fblocks
 	LDFLAGS += -lBlocksRuntime
 endif
-ifeq ($(COMPILER_GCC),gcc)
+ifeq ($(COMPILER),gcc)
 	LDFLAGS += -Wa,--noexecstack
 endif
 
