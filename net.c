@@ -57,11 +57,14 @@ bool netInitNsFromParent(struct nsjconf_t * nsjconf, int pid)
 		return true;
 	}
 
-	int err, master_index;
-
-	struct nl_sock *sk = nl_socket_alloc();
+	__block struct nl_sock *sk = nl_socket_alloc();
+	if (sk == NULL) {
+		LOG_E("Could not allocate socket with nl_socket_alloc()");
+		return false;
+	}
 	defer(nl_socket_free(sk));
 
+	int err;
 	if ((err = nl_connect(sk, NETLINK_ROUTE)) < 0) {
 		LOG_E("Unable to connect socket: %s", nl_geterror(err));
 		return false;
@@ -81,7 +84,8 @@ bool netInitNsFromParent(struct nsjconf_t * nsjconf, int pid)
 	}
 	defer(nl_cache_free(link_cache));
 
-	if (!(master_index = rtnl_link_name2i(link_cache, nsjconf->iface))) {
+	int master_index = rtnl_link_name2i(link_cache, nsjconf->iface);
+	if (master_index == 0) {
 		LOG_E("rtnl_link_name2i(): Did not find '%s' interface", nsjconf->iface);
 		return false;
 	}
