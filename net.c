@@ -57,7 +57,7 @@ bool netInitNsFromParent(struct nsjconf_t * nsjconf, int pid)
 		return true;
 	}
 
-	__block struct nl_sock *sk = nl_socket_alloc();
+	struct nl_sock *sk = nl_socket_alloc();
 	if (sk == NULL) {
 		LOG_E("Could not allocate socket with nl_socket_alloc()");
 		return false;
@@ -70,14 +70,14 @@ bool netInitNsFromParent(struct nsjconf_t * nsjconf, int pid)
 		return false;
 	}
 
-	__block struct rtnl_link *rmv = rtnl_link_macvlan_alloc();
+	struct rtnl_link *rmv = rtnl_link_macvlan_alloc();
 	if (rmv == NULL) {
 		LOG_E("rtnl_link_macvlan_alloc(): %s", nl_geterror(err));
 		return false;
 	}
 	defer(rtnl_link_put(rmv));
 
-	__block struct nl_cache *link_cache;
+	struct nl_cache *link_cache;
 	if ((err = rtnl_link_alloc_cache(sk, AF_UNSPEC, &link_cache)) < 0) {
 		LOG_E("rtnl_link_alloc_cache(): %s", nl_geterror(err));
 		return false;
@@ -322,7 +322,7 @@ void netConnToText(int fd, bool remote, char *buf, size_t s, struct sockaddr_in6
 
 static bool netIfaceUp(const char *ifacename)
 {
-	__block int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+	int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
 	if (sock == -1) {
 		PLOG_E("socket(AF_INET, SOCK_STREAM, IPPROTO_IP)");
 		return false;
@@ -355,7 +355,7 @@ static bool netConfigureVs(struct nsjconf_t *nsjconf)
 	snprintf(ifr.ifr_name, IF_NAMESIZE, "%s", IFACE_NAME);
 	struct in_addr addr;
 
-	__block int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+	int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
 	if (sock == -1) {
 		PLOG_E("socket(AF_INET, SOCK_STREAM, IPPROTO_IP)");
 		return false;

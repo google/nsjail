@@ -247,7 +247,7 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 		PLOG_E("socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC) failed");
 		return;
 	}
-	__block int subproc_sock = sv[1];
+	int subproc_sock = sv[1];
 	defer(close(subproc_sock));
 
 	pid_t pid = syscall(__NR_clone, (uintptr_t) flags, NULL, NULL, NULL, (uintptr_t) 0);
