@@ -19,23 +19,26 @@
 
 CC ?= gcc
 
-CFLAGS += -O2 -g -ggdb -c -std=gnu11 \
+CFLAGS += -O2 -c -std=gnu11 \
 	-D_GNU_SOURCE \
 	-fstack-protector-all -Wformat -Wformat=2 -Wformat-security -fPIE \
 	-Wall -Wextra -Werror
 
 LDFLAGS += -Wl,-z,now -Wl,-z,relro -pie -Wl,-z,noexecstack
 
-COMPILER = $(shell $(CC) -v 2>&1 | grep -E '(gcc|clang) version' | grep -oE '(clang|gcc)')
+SRCS = nsjail.c cmdline.c contain.c log.c mount.c net.c sandbox.c subproc.c user.c util.c uts.c seccomp/bpf-helper.c
+OBJS = $(SRCS:.c=.o)
+BIN = nsjail
 
+ifdef DEBUG
+	CFLAGS += -g -ggdb -gdwarf-4
+endif
+
+COMPILER = $(shell $(CC) -v 2>&1 | grep -E '(gcc|clang) version' | grep -oE '(clang|gcc)')
 ifeq ($(COMPILER),clang)
 	CFLAGS += -fblocks
 	LDFLAGS += -lBlocksRuntime
 endif
-
-SRCS = nsjail.c cmdline.c contain.c log.c mount.c net.c sandbox.c subproc.c user.c util.c uts.c seccomp/bpf-helper.c
-OBJS = $(SRCS:.c=.o)
-BIN = nsjail
 
 ifeq ("$(wildcard /usr/include/libnl3/netlink/route/link/macvlan.h)","/usr/include/libnl3/netlink/route/link/macvlan.h")
 	CFLAGS += -DNSJAIL_NL3_WITH_MACVLAN -I/usr/include/libnl3
