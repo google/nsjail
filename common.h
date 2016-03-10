@@ -38,7 +38,7 @@
 #ifdef __clang__
 static void __attribute__ ((unused)) _clang_cleanup_func(void (^*dfunc) (void))
 {
-	(*dfunc) ();
+    (*dfunc) ();
 }
 
 #define DEFER(a) void (^_STRMERGE(__defer_f_, __COUNTER__))(void) __attribute__((cleanup(_clang_cleanup_func))) __attribute__((unused)) = ^{ a; }
