@@ -248,7 +248,7 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 		return;
 	}
 	int subproc_sock = sv[1];
-	defer(close(subproc_sock));
+	DEFER(close(subproc_sock));
 
 	pid_t pid = syscall(__NR_clone, (uintptr_t) flags, NULL, NULL, NULL, (uintptr_t) 0);
 	if (pid == 0) {

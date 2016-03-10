@@ -62,7 +62,7 @@ bool netInitNsFromParent(struct nsjconf_t * nsjconf, int pid)
 		LOG_E("Could not allocate socket with nl_socket_alloc()");
 		return false;
 	}
-	defer(nl_socket_free(sk));
+	DEFER(nl_socket_free(sk));
 
 	int err;
 	if ((err = nl_connect(sk, NETLINK_ROUTE)) < 0) {
@@ -75,14 +75,14 @@ bool netInitNsFromParent(struct nsjconf_t * nsjconf, int pid)
 		LOG_E("rtnl_link_macvlan_alloc(): %s", nl_geterror(err));
 		return false;
 	}
-	defer(rtnl_link_put(rmv));
+	DEFER(rtnl_link_put(rmv));
 
 	struct nl_cache *link_cache;
 	if ((err = rtnl_link_alloc_cache(sk, AF_UNSPEC, &link_cache)) < 0) {
 		LOG_E("rtnl_link_alloc_cache(): %s", nl_geterror(err));
 		return false;
 	}
-	defer(nl_cache_free(link_cache));
+	DEFER(nl_cache_free(link_cache));
 
 	int master_index = rtnl_link_name2i(link_cache, nsjconf->iface);
 	if (master_index == 0) {
@@ -327,7 +327,7 @@ static bool netIfaceUp(const char *ifacename)
 		PLOG_E("socket(AF_INET, SOCK_STREAM, IPPROTO_IP)");
 		return false;
 	}
-	defer(close(sock));
+	DEFER(close(sock));
 
 	struct ifreq ifr;
 	memset(&ifr, '\0', sizeof(ifr));
@@ -360,7 +360,7 @@ static bool netConfigureVs(struct nsjconf_t *nsjconf)
 		PLOG_E("socket(AF_INET, SOCK_STREAM, IPPROTO_IP)");
 		return false;
 	}
-	defer(close(sock));
+	DEFER(close(sock));
 
 	if (inet_pton(AF_INET, nsjconf->iface_vs_ip, &addr) != 1) {
 		PLOG_E("Cannot convert '%s' into an IPv4 address", nsjconf->iface_vs_ip);
