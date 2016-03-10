@@ -31,19 +31,22 @@
 
 #define ARRAYSIZE(array) (sizeof(array) / sizeof(*array))
 
+/* Go-style defer implementation */
 #define __STRMERGE(a, b) a##b
 #define _STRMERGE(a, b) __STRMERGE(a, b)
 
 #ifdef __clang__
 static void __attribute__ ((unused)) _clang_cleanup_func(void (^*dfunc) (void))
 {
-	(*dfunc) ();
+    (*dfunc) ();
 }
 
-#define defer(a) void (^_STRMERGE(__df_, __COUNTER__))(void) __attribute__((cleanup(_clang_cleanup_func))) __attribute__((unused)) = ^{ a; }
+#define defer(a) void (^_STRMERGE(__defer_f_, __COUNTER__))(void) __attribute__((cleanup(_clang_cleanup_func))) __attribute__((unused)) = ^{ a; }
 #else
 #define __block
-#define defer(a) void _STRMERGE(_cleanup_func_, __LINE__)(void *_STRMERGE(_cleanup_unused_, __LINE__) __attribute__((unused))) { a; } ; int _STRMERGE(_cleanup_var_, __LINE__) __attribute__((cleanup(_STRMERGE(_cleanup_func_, __LINE__)))) __attribute__((unused))
+#define _defer(a, count) void _STRMERGE(__defer_f_, count)(void *_defer_arg __attribute__((unused))) { a; } ; \
+    int _STRMERGE(_defer_var_, count) __attribute__((cleanup(_STRMERGE(__defer_f_, count)))) __attribute__((unused))
+#define defer(a) _defer(a, __COUNTER__)
 #endif
 
 struct pids_t {
