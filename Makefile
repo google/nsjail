@@ -57,7 +57,7 @@ clean:
 	$(RM) core Makefile.bak $(OBJS) $(BIN)
 
 depend:
-	makedepend -Y. -- $(CFLAGS) -- $(SRCS)
+	makedepend -Y. -- -- $(SRCS)
 
 indent:
 	indent -linux -l100 -lc100 *.c *.h seccomp/*.c seccomp/*.h; rm -f *~ seccomp/*~
