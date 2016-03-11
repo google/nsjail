@@ -19,8 +19,8 @@
 
 */
 
-#ifndef _NET_H
-#define _NET_H
+#ifndef NS_NET_H
+#define NS_NET_H
 
 #include <stdbool.h>
 #include <stddef.h>

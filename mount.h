@@ -19,8 +19,8 @@
 
 */
 
-#ifndef _MOUNT_H
-#define _MOUNT_H
+#ifndef NS_MOUNT_H
+#define NS_MOUNT_H
 
 #include <stdbool.h>
 
@@ -28,4 +28,4 @@
 
 bool mountInitNs(struct nsjconf_t *nsjconf);
 
-#endif				/* _MOUNT_H */
+#endif				/* NS_MOUNT_H */

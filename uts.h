@@ -19,8 +19,8 @@
 
 */
 
-#ifndef _UTS_H
-#define _UTS_H
+#ifndef NS_UTS_H
+#define NS_UTS_H
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -29,4 +29,4 @@
 
 bool utsInitNs(struct nsjconf_t *nsjconf);
 
-#endif				/* _UTS_H */
+#endif				/* NS_UTS_H */

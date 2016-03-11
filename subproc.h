@@ -19,8 +19,8 @@
 
 */
 
-#ifndef _PROC_H
-#define _PROC_H
+#ifndef NS_PROC_H
+#define NS_PROC_H
 
 #include "common.h"
 
@@ -32,4 +32,4 @@ void subprocKillAll(struct nsjconf_t *nsjconf);
 /* Returns the exit code of the first failing subprocess, or 0 if none fail */
 int subprocReap(struct nsjconf_t *nsjconf);
 
-#endif				/* _PROC_H */
+#endif				/* NS_PROC_H */

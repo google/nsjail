@@ -19,8 +19,8 @@
 
 */
 
-#ifndef _COMMON_H
-#define _COMMON_H
+#ifndef NS_COMMON_H
+#define NS_COMMON_H
 
 #include <limits.h>
 #include <netinet/ip6.h>
@@ -38,7 +38,7 @@
 #ifdef __clang__
 static void __attribute__ ((unused)) _clang_cleanup_func(void (^*dfunc) (void))
 {
-    (*dfunc) ();
+	(*dfunc) ();
 }
 
 #define DEFER(a) void (^_STRMERGE(__defer_f_, __COUNTER__))(void) __attribute__((cleanup(_clang_cleanup_func))) __attribute__((unused)) = ^{ a; }
@@ -126,4 +126,4 @@ struct nsjconf_t {
 	 TAILQ_HEAD(mountptslist, mounts_t) mountpts;
 };
 
-#endif				/* _COMMON_H */
+#endif				/* NS_COMMON_H */

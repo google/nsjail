@@ -19,8 +19,8 @@
 
 */
 
-#ifndef _SANDBOX_H
-#define _SANDBOX_H
+#ifndef NS_SANDBOX_H
+#define NS_SANDBOX_H
 
 #include <stdbool.h>
 
@@ -28,4 +28,4 @@
 
 bool sandboxApply(struct nsjconf_t *nsjconf);
 
-#endif				/* _SANDBOX_H */
+#endif				/* NS_SANDBOX_H */

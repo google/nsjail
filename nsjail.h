@@ -20,8 +20,8 @@
 
 */
 
-#ifndef _NSJAIL_H
-#define _NSJAIL_H
+#ifndef NS_NSJAIL_H
+#define NS_NSJAIL_H
 
 #include "common.h"
 

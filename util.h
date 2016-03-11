@@ -19,8 +19,8 @@
 
 */
 
-#ifndef _UTIL_H
-#define _UTIL_H
+#ifndef NS_UTIL_H
+#define NS_UTIL_H
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -32,4 +32,4 @@ ssize_t utilWriteToFd(int fd, const void *buf, size_t len);
 ssize_t utilReadFromFd(int fd, void *buf, size_t len);
 bool utilWriteBufToFile(char *filename, const void *buf, size_t len, int open_flags);
 
-#endif				/* _UTIL_H */
+#endif				/* NS_UTIL_H */

@@ -69,7 +69,21 @@ cmdline.o: cmdline.h common.h log.h util.h
 contain.o: contain.h common.h log.h mount.h net.h util.h uts.h
 log.o: log.h common.h
 mount.o: mount.h common.h log.h
-net.o: net.h common.h log.h
+net.o: net.h common.h log.h /usr/include/libnl3/netlink/route/link.h
+net.o: /usr/include/libnl3/netlink/netlink.h
+net.o: /usr/include/libnl3/netlink/netlink-compat.h
+net.o: /usr/include/libnl3/netlink/version.h
+net.o: /usr/include/libnl3/netlink/errno.h
+net.o: /usr/include/libnl3/netlink/types.h
+net.o: /usr/include/libnl3/netlink/handlers.h
+net.o: /usr/include/libnl3/netlink/netlink-kernel.h
+net.o: /usr/include/libnl3/netlink/socket.h
+net.o: /usr/include/libnl3/netlink/object.h
+net.o: /usr/include/libnl3/netlink/utils.h /usr/include/libnl3/netlink/list.h
+net.o: /usr/include/libnl3/netlink/cache.h /usr/include/libnl3/netlink/msg.h
+net.o: /usr/include/libnl3/netlink/attr.h /usr/include/libnl3/netlink/addr.h
+net.o: /usr/include/libnl3/netlink/data.h
+net.o: /usr/include/libnl3/netlink/route/link/macvlan.h
 sandbox.o: sandbox.h common.h log.h seccomp/bpf-helper.h
 subproc.o: subproc.h common.h contain.h log.h net.h sandbox.h user.h util.h
 user.o: user.h common.h log.h util.h

@@ -19,8 +19,8 @@
 
 */
 
-#ifndef _CONTAIN_H
-#define _CONTAIN_H
+#ifndef NS_CONTAIN_H
+#define NS_CONTAIN_H
 
 #include <stdbool.h>
 
@@ -29,4 +29,4 @@
 bool containSetupFD(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_err, int fd_log);
 bool containContain(struct nsjconf_t *nsjconf);
 
-#endif				/* _CONTAIN_H */
+#endif				/* NS_CONTAIN_H */

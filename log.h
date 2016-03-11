@@ -19,8 +19,8 @@
 
 */
 
-#ifndef _LOG_H
-#define _LOG_H
+#ifndef NS_LOG_H
+#define NS_LOG_H
 
 #include <getopt.h>
 #include <stdbool.h>
@@ -59,4 +59,4 @@ void logStop(int sig);
 void logRedirectLogFD(int fd);
 void logDirectlyToFD(const char *msg);
 
-#endif				/* _LOG_H */
+#endif				/* NS_LOG_H */

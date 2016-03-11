@@ -19,8 +19,8 @@
 
 */
 
-#ifndef _CMDLINE_H
-#define _CMDLINE_H
+#ifndef NS_CMDLINE_H
+#define NS_CMDLINE_H
 
 #include <sys/time.h>
 #include <sys/resource.h>

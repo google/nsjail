@@ -19,8 +19,8 @@
 
 */
 
-#ifndef _USER_H
-#define _USER_H
+#ifndef NS_USER_H
+#define NS_USER_H
 
 #include <stdbool.h>
 
@@ -28,4 +28,4 @@
 
 bool userInitNsFromParent(struct nsjconf_t *nsjconf, pid_t pid);
 
-#endif				/* _USER_H */
+#endif				/* NS_USER_H */
