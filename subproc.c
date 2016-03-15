@@ -274,9 +274,5 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 	LOG_I("PID: %d about to execute '%s' for %s", pid, nsjconf->argv[0], cs_addr);
 
 	char log_buf[4096];
-	ssize_t sz;
-	while ((sz = read(sv[1], log_buf, sizeof(log_buf) - 1)) > 0) {
-		log_buf[sz] = '\0';
-		logDirectlyToFD(log_buf);
-	}
+	while (read(sv[1], log_buf, sizeof(log_buf)) > 0 || errno == EINTR) ;
 }

@@ -128,13 +128,3 @@ void logStop(int sig)
 {
 	LOG_I("Server stops due to fatal signal (%d) caught. Exiting", sig);
 }
-
-void logRedirectLogFD(int fd)
-{
-	log_fd = fd;
-}
-
-void logDirectlyToFD(const char *msg)
-{
-	dprintf(log_fd, "%s", msg);
-}
