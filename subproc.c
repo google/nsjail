@@ -51,7 +51,7 @@ const char subprocDoneChar = 'D';
 
 static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_err, int pipefd)
 {
-	if (containSetupFD(nsjconf, fd_in, fd_out, fd_err, pipefd) == false) {
+	if (containSetupFD(nsjconf, fd_in, fd_out, fd_err) == false) {
 		exit(1);
 	}
 	char doneChar;
