@@ -174,7 +174,6 @@ bool mountInitNs(struct nsjconf_t * nsjconf)
 		PLOG_E("pivot_root('%s', '%s')", destdir, pivotrootdir);
 		return false;
 	}
-
 	if (umount2("/pivot_root", MNT_DETACH) == -1) {
 		PLOG_E("umount2('/pivot_root', MNT_DETACH)");
 		return false;
@@ -194,6 +193,13 @@ bool mountInitNs(struct nsjconf_t * nsjconf)
 			return false;
 		}
 	}
+
+        /*
+         * Remove the tmpfs from /tmp is we are mounting / as root
+         */
+        if (0 == strcmp(nsjconf->chroot, "/")) {
+          umount2(destdir, MNT_DETACH);
+        }
 
 	return true;
 }
