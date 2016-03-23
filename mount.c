@@ -194,12 +194,14 @@ bool mountInitNs(struct nsjconf_t * nsjconf)
 		}
 	}
 
-        /*
-         * Remove the tmpfs from /tmp is we are mounting / as root
-         */
-        if (0 == strcmp(nsjconf->chroot, "/")) {
-          umount2(destdir, MNT_DETACH);
-        }
+	/*
+	 * Remove the tmpfs from /tmp is we are mounting / as root
+	 */
+	if (0 == strcmp(nsjconf->chroot, "/")) {
+		if (umount2(destdir, MNT_DETACH) == -1) {
+			PLOG_W("umount2('%s', MNT_DETACH) failed", destdir);
+		}
+	}
 
 	return true;
 }
