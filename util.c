@@ -82,7 +82,9 @@ bool utilWriteBufToFile(char *filename, const void *buf, size_t len, int open_fl
 		PLOG_E("Couldn't open '%s' for R/O", filename);
 		return false;
 	}
-	DEFER(close(fd));
+	defer {
+		close(fd);
+	};
 
 	if (utilWriteToFd(fd, buf, len) == false) {
 		PLOG_E("Couldn't write '%zu' bytes to file '%s' (fd='%d')", len, filename, fd);

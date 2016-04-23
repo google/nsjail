@@ -204,7 +204,9 @@ static bool containMakeFdsCOEProc(void)
 		PLOG_D("opendir('/proc/self/fd')");
 		return false;
 	}
-	DEFER(closedir(dir));
+	defer {
+		closedir(dir);
+	};
 	for (;;) {
 		errno = 0;
 		struct dirent *entry = readdir(dir);
