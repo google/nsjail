@@ -31,7 +31,6 @@
 #include "common.h"
 #include "log.h"
 
-#if defined(__x86_64__) || defined(__i386__)
 #include "seccomp/bpf-helper.h"
 
 /*
@@ -40,6 +39,7 @@
  */
 static bool sandboxPrepareAndCommit(void)
 {
+#if defined(__x86_64__) || defined(__i386__)
 	struct bpf_labels l = {.count = 0 };
 	struct sock_filter filter[] = {
 		LOAD_ARCH,
@@ -84,22 +84,17 @@ static bool sandboxPrepareAndCommit(void)
 		PLOG_W("prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER) failed");
 		return false;
 	}
+#endif				/* defined(__x86_64__) || defined(__i386__) */
 	return true;
 }
-#endif				/* defined(__x86_64__) || defined(__i386__) */
 
 bool sandboxApply(struct nsjconf_t * nsjconf)
 {
 	if (nsjconf->apply_sandbox == false) {
 		return true;
 	}
-#if defined(__x86_64__) || defined(__i386__)
 	if (sandboxPrepareAndCommit() == false) {
 		return false;
 	}
-#else				/* defined(__x86_64__) || defined(__i386__) */
-	LOG_W
-	    ("There's no seccomp-bpf implementation ready for the current CPU architecture. Sandbox not enabled");
-#endif				/* defined(__x86_64__) || defined(__i386__) */
 	return true;
 }
