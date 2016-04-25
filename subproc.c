@@ -275,6 +275,6 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 	netConnToText(fd_in, true /* remote */ , cs_addr, sizeof(cs_addr), NULL);
 	LOG_I("PID: %d about to execute '%s' for %s", pid, nsjconf->argv[0], cs_addr);
 
-	char log_buf[4096];
-	while (read(sv[1], log_buf, sizeof(log_buf)) > 0 || errno == EINTR) ;
+	char buf[1024];
+	utilReadFromFd(sv[1], &buf, sizeof(buf));
 }
