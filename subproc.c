@@ -247,15 +247,14 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 		PLOG_E("socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC) failed");
 		return;
 	}
-	int subproc_sock = sv[1];
-	defer {
-		close(subproc_sock);
-	};
 
 	pid_t pid = syscall(__NR_clone, (uintptr_t) flags, NULL, NULL, NULL, (uintptr_t) 0);
 	if (pid == 0) {
 		close(sv[1]);
 		subprocNewProc(nsjconf, fd_in, fd_out, fd_err, sv[0]);
+	}
+	defer {
+		close(sv[1]);
 	}
 	close(sv[0]);
 	if (pid == -1) {
@@ -274,7 +273,4 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 	char cs_addr[64];
 	netConnToText(fd_in, true /* remote */ , cs_addr, sizeof(cs_addr), NULL);
 	LOG_I("PID: %d about to execute '%s' for %s", pid, nsjconf->argv[0], cs_addr);
-
-	char buf[1024];
-	utilReadFromFd(sv[1], &buf, sizeof(buf));
 }
