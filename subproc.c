@@ -139,24 +139,44 @@ void subprocDisplay(struct nsjconf_t *nsjconf)
 	}
 }
 
+static void subprocSeccompViolation(siginfo_t * si)
+{
+	LOG_W("PID %d commited syscall/seccomp violation and exited with SIGSYS", si->si_pid);
+}
+
 int subprocReap(struct nsjconf_t *nsjconf)
 {
 	int status;
 	int rv = 0;
-	pid_t pid;
-	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-		if (WIFEXITED(status)) {
-			subprocRemove(nsjconf, pid);
-			LOG_I("PID: %d exited with status: %d, (PIDs left: %d)", pid,
-			      WEXITSTATUS(status), subprocCount(nsjconf));
-			if (rv == 0) {
-				rv = WEXITSTATUS(status);
-			}
+	siginfo_t si;
+
+	for (;;) {
+		si.si_pid = 0;
+		if (waitid(P_ALL, 0, &si, WNOHANG | WNOWAIT | WEXITED) == -1) {
+			break;
 		}
-		if (WIFSIGNALED(status)) {
-			subprocRemove(nsjconf, pid);
-			LOG_I("PID: %d terminated with signal: %d, (PIDs left: %d)", pid,
-			      WTERMSIG(status), subprocCount(nsjconf));
+		if (si.si_pid == 0) {
+			break;
+		}
+		if (si.si_status == SIGSYS) {
+			subprocSeccompViolation(&si);
+		}
+
+		if (waitpid(si.si_pid, &status, WNOHANG) == si.si_pid) {
+			if (WIFEXITED(status)) {
+				subprocRemove(nsjconf, si.si_pid);
+				LOG_I("PID: %d exited with status: %d, (PIDs left: %d)", si.si_pid,
+				      WEXITSTATUS(status), subprocCount(nsjconf));
+				if (rv == 0) {
+					rv = WEXITSTATUS(status);
+				}
+			}
+			if (WIFSIGNALED(status)) {
+				subprocRemove(nsjconf, si.si_pid);
+				LOG_I("PID: %d terminated with signal: %d, (PIDs left: %d)",
+				      si.si_pid, WTERMSIG(status), subprocCount(nsjconf));
+				rv = 100 + WTERMSIG(status);
+			}
 		}
 	}
 
@@ -166,7 +186,7 @@ int subprocReap(struct nsjconf_t *nsjconf)
 		if (nsjconf->tlimit == 0) {
 			continue;
 		}
-		pid = p->pid;
+		pid_t pid = p->pid;
 		time_t diff = now - p->start;
 		if (diff >= nsjconf->tlimit) {
 			LOG_I("PID: %d run time >= time limit (%ld >= %ld) (%s). Killing it", pid,
