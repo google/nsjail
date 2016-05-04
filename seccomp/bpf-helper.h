@@ -45,6 +45,8 @@ void seccomp_bpf_print(struct sock_filter *filter, size_t count);
 	BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_ALLOW)
 #define DENY \
 	BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_KILL)
+#define KILL \
+	BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_KILL)
 #define ERRNO(val) \
 	BPF_STMT(BPF_RET+BPF_K, SECCOMP_RET_ERRNO | (val & SECCOMP_RET_DATA))
 
