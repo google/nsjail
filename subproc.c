@@ -198,9 +198,6 @@ int subprocReap(struct nsjconf_t *nsjconf)
 			PLOG_D("Sent SIGCONT to PID: %d", pid);
 			kill(pid, SIGKILL);
 			PLOG_D("Sent SIGKILL to PID: %d", pid);
-			if (rv == 0) {
-				rv = -1;
-			}
 		}
 	}
 	return rv;
