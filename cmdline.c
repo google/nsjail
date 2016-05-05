@@ -59,7 +59,7 @@ static void cmdlineHelp(const char *pname, struct custom_option *opts)
 	LOG_HELP_BOLD("Usage: %s [options] -- path_to_command [args]", pname);
 	LOG_HELP_BOLD("Options:");
 	for (int i = 0; opts[i].opt.name; i++) {
-		if (isprint(opts[i].opt.val)) {
+		if (opts[i].opt.val < 0x80) {
 			LOG_HELP_BOLD(" --%s%s%c %s", opts[i].opt.name, "|-", opts[i].opt.val,
 				      opts[i].opt.has_arg == required_argument ? "VALUE" : "");
 		} else {
