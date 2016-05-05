@@ -162,7 +162,7 @@ int subprocReap(struct nsjconf_t *nsjconf)
 			subprocSeccompViolation(&si);
 		}
 
-		if (waitpid(si.si_pid, &status, WNOHANG) == si.si_pid) {
+		if (wait4(si.si_pid, &status, WNOHANG, NULL) == si.si_pid) {
 			if (WIFEXITED(status)) {
 				subprocRemove(nsjconf, si.si_pid);
 				LOG_I("PID: %d exited with status: %d, (PIDs left: %d)", si.si_pid,
