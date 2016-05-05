@@ -54,12 +54,20 @@ static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int 
 	if (containSetupFD(nsjconf, fd_in, fd_out, fd_err) == false) {
 		exit(1);
 	}
-	char doneChar;
-	if (utilReadFromFd(pipefd, &doneChar, sizeof(doneChar)) != sizeof(doneChar)) {
-		exit(1);
-	}
-	if (doneChar != subprocDoneChar) {
-		exit(1);
+
+	if (pipefd == -1) {
+		if (userInitNsFromParent(nsjconf, syscall(__NR_getpid)) == false) {
+			LOG_E("Couldn't initialize user namespaces");
+			exit(1);
+		}
+	} else {
+		char doneChar;
+		if (utilReadFromFd(pipefd, &doneChar, sizeof(doneChar)) != sizeof(doneChar)) {
+			exit(1);
+		}
+		if (doneChar != subprocDoneChar) {
+			exit(1);
+		}
 	}
 	if (containContain(nsjconf) == false) {
 		exit(1);
