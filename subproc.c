@@ -167,8 +167,9 @@ int subprocReap(struct nsjconf_t *nsjconf)
 				subprocRemove(nsjconf, si.si_pid);
 				LOG_I("PID: %d exited with status: %d, (PIDs left: %d)", si.si_pid,
 				      WEXITSTATUS(status), subprocCount(nsjconf));
-				if (rv == 0) {
-					rv = WEXITSTATUS(status);
+				rv = WEXITSTATUS(status) % 100;
+				if (rv == 0 && WEXITSTATUS(status) != 0) {
+					rv = 1;
 				}
 			}
 			if (WIFSIGNALED(status)) {
