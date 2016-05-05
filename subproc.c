@@ -158,7 +158,7 @@ int subprocReap(struct nsjconf_t *nsjconf)
 		if (si.si_pid == 0) {
 			break;
 		}
-		if (si.si_status == SIGSYS) {
+		if (si.si_code == CLD_KILLED && si.si_status == SIGSYS) {
 			subprocSeccompViolation(&si);
 		}
 
