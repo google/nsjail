@@ -52,7 +52,7 @@ static bool sandboxPrepareAndCommit(void)
 #define __NR_syslog_32 103
 #define __NR_uselib_32 86
 		JEQ32(__NR_syslog_32, ERRNO(ENOENT)),
-		JEQ32(__NR_uselib_32, ERRNO(ENOENT)),
+		JEQ32(__NR_uselib_32, KILL),
 		ALLOW,
 
 		/* X86_64 */
@@ -61,7 +61,7 @@ static bool sandboxPrepareAndCommit(void)
 #define __NR_syslog_64 103
 #define __NR_uselib_64 134
 		JEQ32(__NR_syslog_64, ERRNO(ENOENT)),
-		JEQ32(__NR_uselib_64, ERRNO(ENOENT)),
+		JEQ32(__NR_uselib_64, KILL),
 		ALLOW,
 	};
 
