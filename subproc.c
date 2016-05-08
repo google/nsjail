@@ -183,12 +183,15 @@ static void subprocSeccompViolation(struct nsjconf_t *nsjconf, siginfo_t * si)
 
 	int sc;
 	unsigned long arg1, arg2, arg3, arg4, arg5, arg6, sp, pc;
-	if (sscanf(buf, "%d %lx %lx %lx %lx %lx %lx %lx %lx", &sc, &arg1, &arg2, &arg3, &arg4, &arg5, &arg6, &sp, &pc) != 9) {
+	if (sscanf
+	    (buf, "%d %lx %lx %lx %lx %lx %lx %lx %lx", &sc, &arg1, &arg2, &arg3, &arg4, &arg5,
+	     &arg6, &sp, &pc) != 9) {
 		return;
 	}
 
 	LOG_W
-	    ("Syscall number: %d, Arguments: %lx, %lx, %lx, %lx, %lx, %lx, SP: %lx, PC: %lx", sc, arg1, arg2, arg3, arg4, arg5, arg6, sp, pc);
+	    ("Syscall number: %d, Arguments: %lx, %lx, %lx, %lx, %lx, %lx, SP: %lx, PC: %lx", sc,
+	     arg1, arg2, arg3, arg4, arg5, arg6, sp, pc);
 }
 
 int subprocReap(struct nsjconf_t *nsjconf)
