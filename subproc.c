@@ -190,7 +190,7 @@ static void subprocSeccompViolation(struct nsjconf_t *nsjconf, siginfo_t * si)
 	}
 
 	LOG_W
-	    ("Syscall number: %d, Arguments: %lx, %lx, %lx, %lx, %lx, %lx, SP: %lx, PC: %lx", sc,
+	    ("Syscall number: %d, Arguments: %#lx, %#lx, %#lx, %#lx, %#lx, %#lx, SP: %#lx, PC: %#lx", sc,
 	     arg1, arg2, arg3, arg4, arg5, arg6, sp, pc);
 }
 
