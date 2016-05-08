@@ -56,6 +56,7 @@ struct pids_t {
 	time_t start;
 	char remote_txt[64];
 	struct sockaddr_in6 remote_addr;
+	int pid_syscall_fd;
 	 TAILQ_ENTRY(pids_t) pointers;
 };
 

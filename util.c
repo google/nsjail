@@ -57,6 +57,19 @@ ssize_t utilReadFromFd(int fd, void *buf, size_t len)
 	return readSz;
 }
 
+ssize_t utilReadFromFile(const char *fname, void *buf, size_t len)
+{
+	int fd = open(fname, O_RDONLY);
+	if (fd == -1) {
+		LOG_E("open('%s', O_RDONLY)", fname);
+		return -1;
+	}
+	defer {
+		close(fd);
+	}
+	return utilReadFromFd(fd, buf, len);
+}
+
 ssize_t utilWriteToFd(int fd, const void *buf, size_t len)
 {
 	const uint8_t *charbuf = (const uint8_t *)buf;

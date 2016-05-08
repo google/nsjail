@@ -103,6 +103,11 @@ static void subprocAdd(struct nsjconf_t *nsjconf, pid_t pid, int sock)
 	p->start = time(NULL);
 	netConnToText(sock, true /* remote */ , p->remote_txt, sizeof(p->remote_txt),
 		      &p->remote_addr);
+
+	char fname[PATH_MAX];
+	snprintf(fname, sizeof(fname), "/proc/%d/syscall", (int)pid);
+	p->pid_syscall_fd = open(fname, O_RDONLY);
+
 	TAILQ_INSERT_HEAD(&nsjconf->pids, p, pointers);
 
 	LOG_D("Added pid '%d' with start time '%u' to the queue for IP: '%s'", pid,
@@ -116,6 +121,7 @@ static void subprocRemove(struct nsjconf_t *nsjconf, pid_t pid)
 		if (p->pid == pid) {
 			LOG_D("Removing pid '%d' from the queue (IP:'%s', start time:'%u')", p->pid,
 			      p->remote_txt, (unsigned int)p->start);
+			close(p->pid_syscall_fd);
 			TAILQ_REMOVE(&nsjconf->pids, p, pointers);
 			free(p);
 			return;
@@ -147,9 +153,37 @@ void subprocDisplay(struct nsjconf_t *nsjconf)
 	}
 }
 
-static void subprocSeccompViolation(siginfo_t * si)
+static struct pids_t *subprocGetPidElem(struct nsjconf_t *nsjconf, pid_t pid)
+{
+	struct pids_t *p;
+	TAILQ_FOREACH(p, &nsjconf->pids, pointers) {
+		if (p->pid == pid) {
+			return p;
+		}
+	}
+	return NULL;
+}
+
+static void subprocSeccompViolation(struct nsjconf_t *nsjconf, siginfo_t * si)
 {
 	LOG_W("PID %d commited syscall/seccomp violation and exited with SIGSYS", si->si_pid);
+
+	struct pids_t *p = subprocGetPidElem(nsjconf, si->si_pid);
+	if (p == NULL) {
+		LOG_E("Couldn't find pid element in the subproc list for PID: %d", (int)si->si_pid);
+		return;
+	}
+
+	char buf[4096];
+	ssize_t rdsize = utilReadFromFd(p->pid_syscall_fd, buf, sizeof(buf) - 1);
+	if (rdsize < 1) {
+		return;
+	}
+	buf[rdsize - 1] = '\0';
+
+	LOG_W
+	    ("Contents of /proc/%d/syscall (the syscall number goes first, arguments follow): '%s'",
+	     si->si_pid, buf);
 }
 
 int subprocReap(struct nsjconf_t *nsjconf)
@@ -167,7 +201,7 @@ int subprocReap(struct nsjconf_t *nsjconf)
 			break;
 		}
 		if (si.si_code == CLD_KILLED && si.si_status == SIGSYS) {
-			subprocSeccompViolation(&si);
+			subprocSeccompViolation(nsjconf, &si);
 		}
 
 		if (wait4(si.si_pid, &status, WNOHANG, NULL) == si.si_pid) {
