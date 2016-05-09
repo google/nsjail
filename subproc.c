@@ -121,7 +121,7 @@ static void subprocRemove(struct nsjconf_t *nsjconf, pid_t pid)
 		if (p->pid == pid) {
 			LOG_D("Removing pid '%d' from the queue (IP:'%s', start time:'%u')", p->pid,
 			      p->remote_txt, (unsigned int)p->start);
-			close(p->pid_syscall_fd);
+			TEMP_FAILURE_RETRY(close(p->pid_syscall_fd));
 			TAILQ_REMOVE(&nsjconf->pids, p, pointers);
 			free(p);
 			return;
@@ -318,13 +318,13 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 
 	pid_t pid = syscall(__NR_clone, (uintptr_t) flags, NULL, NULL, NULL, (uintptr_t) 0);
 	if (pid == 0) {
-		close(sv[1]);
+		TEMP_FAILURE_RETRY(close(sv[1]));
 		subprocNewProc(nsjconf, fd_in, fd_out, fd_err, sv[0]);
 	}
 	defer {
-		close(sv[1]);
+		TEMP_FAILURE_RETRY(close(sv[1]));
 	}
-	close(sv[0]);
+	TEMP_FAILURE_RETRY(close(sv[0]));
 	if (pid == -1) {
 		PLOG_E("clone(flags=%#lx) failed. You probably need root privileges if your system "
 		       "doesn't support CLONE_NEWUSER. Alternatively, you might want to recompile your "

@@ -248,12 +248,12 @@ int netGetRecvSocket(const char *bindhost, int port)
 		.sin6_scope_id = 0,
 	};
 	if (bind(sockfd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
-		close(sockfd);
+		TEMP_FAILURE_RETRY(close(sockfd));
 		PLOG_E("bind(host:[%s], port:%d)", bindhost, port);
 		return -1;
 	}
 	if (listen(sockfd, SOMAXCONN) == -1) {
-		close(sockfd);
+		TEMP_FAILURE_RETRY(close(sockfd));
 		PLOG_E("listen(%d)", SOMAXCONN);
 		return -1;
 	}
@@ -269,7 +269,7 @@ int netAcceptConn(int listenfd)
 {
 	struct sockaddr_in6 cli_addr;
 	socklen_t socklen = sizeof(cli_addr);
-	int connfd = accept(listenfd, (struct sockaddr *)&cli_addr, &socklen);
+	int connfd = TEMP_FAILURE_RETRY(accept(listenfd, (struct sockaddr *)&cli_addr, &socklen));
 	if (connfd == -1) {
 		if (errno != EINTR) {
 			PLOG_E("accept(%d)", listenfd);
@@ -334,7 +334,7 @@ static bool netIfaceUp(const char *ifacename)
 		return false;
 	}
 	defer {
-		close(sock);
+		TEMP_FAILURE_RETRY(close(sock));
 	};
 
 	struct ifreq ifr;
@@ -369,7 +369,7 @@ static bool netConfigureVs(struct nsjconf_t *nsjconf)
 		return false;
 	}
 	defer {
-		close(sock);
+		TEMP_FAILURE_RETRY(close(sock));
 	};
 
 	if (inet_pton(AF_INET, nsjconf->iface_vs_ip, &addr) != 1) {
