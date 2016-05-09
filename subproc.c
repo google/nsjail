@@ -315,16 +315,18 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 		PLOG_E("socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC) failed");
 		return;
 	}
+	int child_fd = sv[0];
+	int parent_fd = sv[1];
 
 	pid_t pid = syscall(__NR_clone, (uintptr_t) flags, NULL, NULL, NULL, (uintptr_t) 0);
 	if (pid == 0) {
-		TEMP_FAILURE_RETRY(close(sv[1]));
-		subprocNewProc(nsjconf, fd_in, fd_out, fd_err, sv[0]);
+		TEMP_FAILURE_RETRY(close(parent_fd));
+		subprocNewProc(nsjconf, fd_in, fd_out, fd_err, child_fd);
 	}
 	defer {
-		TEMP_FAILURE_RETRY(close(sv[1]));
+		TEMP_FAILURE_RETRY(close(parent_fd));
 	}
-	TEMP_FAILURE_RETRY(close(sv[0]));
+	TEMP_FAILURE_RETRY(close(child_fd));
 	if (pid == -1) {
 		PLOG_E("clone(flags=%#lx) failed. You probably need root privileges if your system "
 		       "doesn't support CLONE_NEWUSER. Alternatively, you might want to recompile your "
@@ -334,7 +336,7 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 	}
 	subprocAdd(nsjconf, pid, fd_in);
 
-	if (subprocInitParent(nsjconf, pid, sv[1]) == false) {
+	if (subprocInitParent(nsjconf, pid, parent_fd) == false) {
 		return;
 	}
 
