@@ -186,11 +186,11 @@ static bool containMakeFdsCOENaive(void)
 	// (e.g. 32), which could be smaller than a maximum assigned number to file-descriptors
 	// in this process. Just use some reasonably sane value (e.g. 1024)
 	for (unsigned fd = (STDERR_FILENO + 1); fd < 1024; fd++) {
-		int flags = fcntl(fd, F_GETFD, 0);
+		int flags = TEMP_FAILURE_RETRY(fcntl(fd, F_GETFD, 0));
 		if (flags == -1) {
 			continue;
 		}
-		fcntl(fd, F_SETFD, flags | FD_CLOEXEC);
+		TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags | FD_CLOEXEC));
 		LOG_D("Set fd '%d' flag to FD_CLOEXEC", fd);
 	}
 	return true;
@@ -229,12 +229,12 @@ static bool containMakeFdsCOEProc(void)
 			continue;
 		}
 		if (fd > STDERR_FILENO) {
-			int flags = fcntl(fd, F_GETFD, 0);
+			int flags = TEMP_FAILURE_RETRY(fcntl(fd, F_GETFD, 0));
 			if (flags == -1) {
 				PLOG_D("fcntl(fd, F_GETFD, 0)");
 				return false;
 			}
-			fcntl(fd, F_SETFD, flags | FD_CLOEXEC);
+			TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags | FD_CLOEXEC));
 			LOG_D("Set fd '%d' flag to FD_CLOEXEC", fd);
 		}
 	}
