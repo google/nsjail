@@ -68,6 +68,15 @@ static void cmdlineHelp(const char *pname, struct custom_option *opts)
 		}
 		LOG_HELP("\t%s", opts[i].descr);
 	}
+	LOG_HELP_BOLD("\n Examples: ");
+	LOG_HELP(" Wait on a port 31337 for connections, and run /bin/sh");
+	LOG_HELP_BOLD("  nsjail -Ml --port 31337 --chroot / -- /bin/sh -i");
+	LOG_HELP(" Re-run echo command as a sub-process");
+	LOG_HELP_BOLD("  nsjail -Mr --chroot / -- /bin/echo \"ABC\"");
+	LOG_HELP(" Run echo command once only, as a sub-process");
+	LOG_HELP_BOLD("  nsjail -Mo --chroot / -- /bin/echo \"ABC\"");
+	LOG_HELP(" Execute echo command directly");
+	LOG_HELP_BOLD("  nsjail -Mo --chroot / --disable_proc -- /bin/echo \"ABC\"");
 }
 
 void cmdlineLogParams(struct nsjconf_t *nsjconf)
