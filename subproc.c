@@ -47,7 +47,7 @@
 #include "user.h"
 #include "util.h"
 
-const char subprocDoneChar = 'D';
+static const char subprocDoneChar = 'D';
 
 static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_err, int pipefd)
 {
@@ -106,7 +106,7 @@ static void subprocAdd(struct nsjconf_t *nsjconf, pid_t pid, int sock)
 
 	char fname[PATH_MAX];
 	snprintf(fname, sizeof(fname), "/proc/%d/syscall", (int)pid);
-	p->pid_syscall_fd = open(fname, O_RDONLY);
+	p->pid_syscall_fd = TEMP_FAILURE_RETRY(open(fname, O_RDONLY));
 
 	TAILQ_INSERT_HEAD(&nsjconf->pids, p, pointers);
 
@@ -190,8 +190,8 @@ static void subprocSeccompViolation(struct nsjconf_t *nsjconf, siginfo_t * si)
 	}
 
 	LOG_W
-	    ("Syscall number: %d, Arguments: %#lx, %#lx, %#lx, %#lx, %#lx, %#lx, SP: %#lx, PC: %#lx", sc,
-	     arg1, arg2, arg3, arg4, arg5, arg6, sp, pc);
+	    ("PID: %d, Syscall number: %d, Arguments: %#lx, %#lx, %#lx, %#lx, %#lx, %#lx, SP: %#lx, PC: %#lx",
+	     (int)si->si_pid, sc, arg1, arg2, arg3, arg4, arg5, arg6, sp, pc);
 }
 
 int subprocReap(struct nsjconf_t *nsjconf)

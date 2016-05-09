@@ -54,8 +54,7 @@ bool logInitLogFile(struct nsjconf_t *nsjconf, const char *logfile, bool is_verb
 	if (logfile == NULL) {
 		logfile = "/proc/self/fd/2";
 	}
-	log_fd = open(logfile, O_CREAT | O_RDWR | O_APPEND, 0640);
-	if (log_fd == -1) {
+	if (TEMP_FAILURE_RETRY(log_fd = open(logfile, O_CREAT | O_RDWR | O_APPEND, 0640)) == -1) {
 		log_fd = STDERR_FILENO;
 		PLOG_E("Couldn't open logfile open('%s')", logfile);
 		return false;

@@ -59,13 +59,14 @@ ssize_t utilReadFromFd(int fd, void *buf, size_t len)
 
 ssize_t utilReadFromFile(const char *fname, void *buf, size_t len)
 {
-	int fd = open(fname, O_RDONLY);
+	int fd;
+	TEMP_FAILURE_RETRY(fd = open(fname, O_RDONLY));
 	if (fd == -1) {
 		LOG_E("open('%s', O_RDONLY)", fname);
 		return -1;
 	}
 	defer {
-		close(fd);
+		TEMP_FAILURE_RETRY(close(fd));
 	}
 	return utilReadFromFd(fd, buf, len);
 }
@@ -90,13 +91,14 @@ ssize_t utilWriteToFd(int fd, const void *buf, size_t len)
 
 bool utilWriteBufToFile(char *filename, const void *buf, size_t len, int open_flags)
 {
-	int fd = open(filename, open_flags, 0644);
+	int fd;
+	TEMP_FAILURE_RETRY(fd = open(filename, open_flags, 0644));
 	if (fd == -1) {
 		PLOG_E("Couldn't open '%s' for R/O", filename);
 		return false;
 	}
 	defer {
-		close(fd);
+		TEMP_FAILURE_RETRY(close(fd));
 	};
 
 	if (utilWriteToFd(fd, buf, len) == false) {

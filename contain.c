@@ -259,21 +259,21 @@ bool containSetupFD(struct nsjconf_t * nsjconf, int fd_in, int fd_out, int fd_er
 		if (nsjconf->is_silent == false) {
 			return true;
 		}
-		if ((fd_in = fd_out = fd_err = open("/dev/null", O_RDWR)) == -1) {
+		if (TEMP_FAILURE_RETRY(fd_in = fd_out = fd_err = open("/dev/null", O_RDWR)) == -1) {
 			PLOG_E("open('/dev/null', O_RDWR)");
 			return false;
 		}
 	}
 	/* Set stdin/stdout/stderr to the net */
-	if (dup2(fd_in, STDIN_FILENO) == -1) {
+	if (TEMP_FAILURE_RETRY(dup2(fd_in, STDIN_FILENO)) == -1) {
 		PLOG_E("dup2(%d, STDIN_FILENO)", fd_in);
 		return false;
 	}
-	if (dup2(fd_out, STDOUT_FILENO) == -1) {
+	if (TEMP_FAILURE_RETRY(dup2(fd_out, STDOUT_FILENO)) == -1) {
 		PLOG_E("dup2(%d, STDOUT_FILENO)", fd_out);
 		return false;
 	}
-	if (dup2(fd_err, STDERR_FILENO) == -1) {
+	if (TEMP_FAILURE_RETRY(dup2(fd_err, STDERR_FILENO)) == -1) {
 		PLOG_E("dup2(%d, STDERR_FILENO)", fd_err);
 		return false;
 	}

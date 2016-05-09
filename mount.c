@@ -81,9 +81,9 @@ static bool mountMount(struct nsjconf_t *nsjconf, struct mounts_t *mpt, const ch
 	}
 
 	if (mountNotIsDir(mpt->src) == true) {
-		int fd = open(dst, O_CREAT | O_RDONLY, 0644);
+		int fd = TEMP_FAILURE_RETRY(open(dst, O_CREAT | O_RDONLY, 0644));
 		if (fd >= 0) {
-			close(fd);
+			TEMP_FAILURE_RETRY(close(fd));
 		} else {
 			PLOG_W("open('%s', O_CREAT|O_RDONLY, 0700)", dst);
 		}
@@ -105,7 +105,7 @@ static bool mountMount(struct nsjconf_t *nsjconf, struct mounts_t *mpt, const ch
 static bool mountRemountRO(struct mounts_t *mpt)
 {
 	struct statvfs vfs;
-	if (statvfs(mpt->dst, &vfs) == -1) {
+	if (TEMP_FAILURE_RETRY(statvfs(mpt->dst, &vfs)) == -1) {
 		PLOG_E("statvfs('%s')", mpt->dst);
 		return false;
 	}
