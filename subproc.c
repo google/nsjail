@@ -183,13 +183,13 @@ static void subprocSeccompViolation(struct nsjconf_t *nsjconf, siginfo_t * si)
 
 	uintptr_t sc, arg1, arg2, arg3, arg4, arg5, arg6, sp, pc;
 	if (sscanf
-	    (buf, "%tx %tx %tx %tx %tx %tx %tx %tx %tx", &sc, &arg1, &arg2, &arg3, &arg4, &arg5,
+	    (buf, "%td %tx %tx %tx %tx %tx %tx %tx %tx", &sc, &arg1, &arg2, &arg3, &arg4, &arg5,
 	     &arg6, &sp, &pc) != 9) {
 		return;
 	}
 
 	LOG_W
-	    ("PID: %d, Syscall number: %tx, Arguments: %#tx, %#tx, %#tx, %#tx, %#tx, %#tx, SP: %#tx, PC: %#tx",
+	    ("PID: %d, Syscall number: %td, Arguments: %#tx, %#tx, %#tx, %#tx, %#tx, %#tx, SP: %#tx, PC: %#tx",
 	     (int)si->si_pid, sc, arg1, arg2, arg3, arg4, arg5, arg6, sp, pc);
 }
 
