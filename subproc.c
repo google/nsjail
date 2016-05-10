@@ -166,7 +166,7 @@ static struct pids_t *subprocGetPidElem(struct nsjconf_t *nsjconf, pid_t pid)
 
 static void subprocSeccompViolation(struct nsjconf_t *nsjconf, siginfo_t * si)
 {
-	LOG_W("PID %d commited syscall/seccomp violation and exited with SIGSYS", si->si_pid);
+	LOG_W("PID: %d commited syscall/seccomp violation and exited with SIGSYS", si->si_pid);
 
 	struct pids_t *p = subprocGetPidElem(nsjconf, si->si_pid);
 	if (p == NULL) {
@@ -181,16 +181,15 @@ static void subprocSeccompViolation(struct nsjconf_t *nsjconf, siginfo_t * si)
 	}
 	buf[rdsize - 1] = '\0';
 
-	int sc;
-	unsigned long arg1, arg2, arg3, arg4, arg5, arg6, sp, pc;
+	uintptr_t sc, arg1, arg2, arg3, arg4, arg5, arg6, sp, pc;
 	if (sscanf
-	    (buf, "%d %lx %lx %lx %lx %lx %lx %lx %lx", &sc, &arg1, &arg2, &arg3, &arg4, &arg5,
+	    (buf, "%tx %tx %tx %tx %tx %tx %tx %tx %tx", &sc, &arg1, &arg2, &arg3, &arg4, &arg5,
 	     &arg6, &sp, &pc) != 9) {
 		return;
 	}
 
 	LOG_W
-	    ("PID: %d, Syscall number: %d, Arguments: %#lx, %#lx, %#lx, %#lx, %#lx, %#lx, SP: %#lx, PC: %#lx",
+	    ("PID: %d, Syscall number: %tx, Arguments: %#tx, %#tx, %#tx, %#tx, %#tx, %#tx, SP: %#tx, PC: %#tx",
 	     (int)si->si_pid, sc, arg1, arg2, arg3, arg4, arg5, arg6, sp, pc);
 }
 
