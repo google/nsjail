@@ -75,8 +75,8 @@ static void cmdlineHelp(const char *pname, struct custom_option *opts)
 	LOG_HELP_BOLD("  nsjail -Mr --chroot / -- /bin/echo \"ABC\"");
 	LOG_HELP(" Run echo command once only, as a sub-process");
 	LOG_HELP_BOLD("  nsjail -Mo --chroot / -- /bin/echo \"ABC\"");
-	LOG_HELP(" Execute echo command directly");
-	LOG_HELP_BOLD("  nsjail -Mo --chroot / --disable_proc -- /bin/echo \"ABC\"");
+	LOG_HELP(" Execute echo command directly, without a supervising process");
+	LOG_HELP_BOLD("  nsjail -Me --chroot / --disable_proc -- /bin/echo \"ABC\"");
 }
 
 void cmdlineLogParams(struct nsjconf_t *nsjconf)
