@@ -280,7 +280,7 @@ static bool subprocInitParent(struct nsjconf_t *nsjconf, pid_t pid, int pipefd)
 
 void subprocDummyInit()
 {
-	pid_t pid = syscall(__NR_clone, (uintptr_t) 0, NULL, NULL, NULL, (uintptr_t) 0);
+	pid_t pid = syscall(__NR_clone, (uintptr_t) CLONE_FS, NULL, NULL, NULL, (uintptr_t) 0);
 	if (pid == -1) {
 		LOG_F("Couldn't create a dummy init process");
 	}

@@ -23,6 +23,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <sched.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -31,6 +32,7 @@
 #include <sys/statvfs.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "log.h"
@@ -128,7 +130,7 @@ static bool mountRemountRO(struct mounts_t *mpt)
 	return true;
 }
 
-bool mountInitNs(struct nsjconf_t * nsjconf)
+static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 {
 	if (nsjconf->clone_newns == false) {
 		if (chroot(nsjconf->chroot) == -1) {
@@ -204,4 +206,32 @@ bool mountInitNs(struct nsjconf_t * nsjconf)
 	}
 
 	return true;
+}
+
+/*
+ * With mode MODE_STANDALONE_EXECVE it's required to mount /proc inside a new process,
+ *  as the current process is still in the original PID namespace (man pid_namespaces)
+ */
+bool mountInitNs(struct nsjconf_t * nsjconf)
+{
+	if (nsjconf->mode != MODE_STANDALONE_EXECVE) {
+		return mountInitNsInternal(nsjconf);
+	}
+
+	pid_t pid =
+	    syscall(__NR_clone, (uintptr_t) CLONE_FS | SIGCHLD, NULL, NULL, NULL, (uintptr_t) 0);
+	if (pid == -1) {
+		return false;
+	}
+
+	if (pid == 0) {
+		exit(mountInitNsInternal(nsjconf) ? 0 : 1);
+	}
+
+	int status;
+	while (wait4(pid, &status, 0, NULL) != pid) ;
+	if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+		return true;
+	}
+	return false;
 }
