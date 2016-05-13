@@ -278,23 +278,6 @@ static bool subprocInitParent(struct nsjconf_t *nsjconf, pid_t pid, int pipefd)
 	return true;
 }
 
-void subprocDummyInit()
-{
-	pid_t pid = syscall(__NR_clone, (uintptr_t) CLONE_FS, NULL, NULL, NULL, (uintptr_t) 0);
-	if (pid == -1) {
-		LOG_F("Couldn't create a dummy init process");
-	}
-	if (pid > 0) {
-		return;
-	}
-	if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0) == -1) {
-		LOG_W("(prctl(PR_SET_PDEATHSIG, SIGKILL) failed");
-	}
-	for (;;) {
-		pause();
-	}
-}
-
 void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_err)
 {
 	if (netLimitConns(nsjconf, fd_in) == false) {
@@ -314,11 +297,6 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 		if (unshare(flags) == -1) {
 			PLOG_E("unshare(%#lx)", flags);
 			_exit(EXIT_FAILURE);
-		}
-		if (nsjconf->clone_newpid) {
-			LOG_D
-			    ("CLONE_NEWPID requested. We must create a dummy init process, to avoid ENOMEM with clone/fork/vfork");
-			subprocDummyInit();
 		}
 		subprocNewProc(nsjconf, fd_in, fd_out, fd_err, -1);
 	}

@@ -45,8 +45,14 @@
 #include "log.h"
 #include "mount.h"
 #include "net.h"
+#include "pid.h"
 #include "util.h"
 #include "uts.h"
+
+static bool containInitPidNs(struct nsjconf_t *nsjconf)
+{
+	return pidInitNs(nsjconf);
+}
 
 static bool containInitNetNs(struct nsjconf_t *nsjconf)
 {
@@ -282,6 +288,9 @@ bool containSetupFD(struct nsjconf_t * nsjconf, int fd_in, int fd_out, int fd_er
 
 bool containContain(struct nsjconf_t * nsjconf)
 {
+	if (containInitPidNs(nsjconf) == false) {
+		return false;
+	}
 	if (containInitMountNs(nsjconf) == false) {
 		return false;
 	}
