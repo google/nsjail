@@ -21,8 +21,8 @@
 
 #include "pid.h"
 
-#include <signal.h>
 #include <sched.h>
+#include <signal.h>
 #include <sys/prctl.h>
 #include <sys/syscall.h>
 #include <unistd.h>
