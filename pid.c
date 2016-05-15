@@ -37,7 +37,7 @@ bool pidInitNs(struct nsjconf_t * nsjconf)
 
 	pid_t pid = syscall(__NR_clone, (uintptr_t) CLONE_FS, NULL, NULL, NULL, (uintptr_t) 0);
 	if (pid == -1) {
-		LOG_E("Couldn't create a dummy init process");
+		PLOG_E("Couldn't create a dummy init process");
 		return false;
 	}
 	if (pid > 0) {
