@@ -35,6 +35,8 @@ bool pidInitNs(struct nsjconf_t * nsjconf)
 		return true;
 	}
 
+	LOG_D("Creating a dummy 'init' process");
+
 	pid_t pid = syscall(__NR_clone, (uintptr_t) CLONE_FS, NULL, NULL, NULL, (uintptr_t) 0);
 	if (pid == -1) {
 		PLOG_E("Couldn't create a dummy init process");
@@ -44,7 +46,7 @@ bool pidInitNs(struct nsjconf_t * nsjconf)
 		return true;
 	}
 	if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0) == -1) {
-		LOG_W("(prctl(PR_SET_PDEATHSIG, SIGKILL) failed");
+		PLOG_W("(prctl(PR_SET_PDEATHSIG, SIGKILL) failed");
 	}
 	for (;;) {
 		pause();
