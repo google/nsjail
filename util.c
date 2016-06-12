@@ -67,7 +67,7 @@ ssize_t utilReadFromFile(const char *fname, void *buf, size_t len)
 	}
 	defer {
 		TEMP_FAILURE_RETRY(close(fd));
-	}
+	};
 	return utilReadFromFd(fd, buf, len);
 }
 

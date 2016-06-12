@@ -319,7 +319,7 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 	}
 	defer {
 		TEMP_FAILURE_RETRY(close(parent_fd));
-	}
+	};
 	TEMP_FAILURE_RETRY(close(child_fd));
 	if (pid == -1) {
 		PLOG_E("clone(flags=%#lx) failed. You probably need root privileges if your system "
