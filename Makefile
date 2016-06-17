@@ -66,10 +66,11 @@ indent:
 
 nsjail.o: nsjail.h common.h cmdline.h log.h net.h subproc.h
 cmdline.o: cmdline.h common.h log.h util.h
-contain.o: contain.h common.h log.h mount.h net.h util.h uts.h
+contain.o: contain.h common.h log.h mount.h net.h pid.h util.h uts.h
 log.o: log.h common.h
 mount.o: mount.h common.h log.h
 net.o: net.h common.h log.h
+pid.o: pid.h common.h log.h
 sandbox.o: sandbox.h common.h log.h seccomp/bpf-helper.h
 subproc.o: subproc.h common.h contain.h log.h net.h sandbox.h user.h util.h
 user.o: user.h common.h log.h util.h

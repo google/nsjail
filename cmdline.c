@@ -301,11 +301,23 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	TAILQ_INIT(&nsjconf->envs);
 	TAILQ_INIT(&nsjconf->pids);
 	TAILQ_INIT(&nsjconf->mountpts);
+	TAILQ_INIT(&nsjconf->open_fds);
 
 	char *user = NULL;
 	char *group = NULL;
 	const char *logfile = NULL;
 	static char cmdlineTmpfsSz[PATH_MAX] = "size=4194304";
+
+	struct fds_t *f;
+	f = utilMalloc(sizeof(struct fds_t));
+	f->fd = STDIN_FILENO;
+	TAILQ_INSERT_HEAD(&nsjconf->open_fds, f, pointers);
+	f = utilMalloc(sizeof(struct fds_t));
+	f->fd = STDOUT_FILENO;
+	TAILQ_INSERT_HEAD(&nsjconf->open_fds, f, pointers);
+	f = utilMalloc(sizeof(struct fds_t));
+	f->fd = STDERR_FILENO;
+	TAILQ_INSERT_HEAD(&nsjconf->open_fds, f, pointers);
 
         /*  *INDENT-OFF* */
 	struct custom_option custom_opts[] = {
@@ -335,6 +347,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"silent", no_argument, NULL, 0x0502}, "Redirect child's fd:0/1/2 to /dev/null"},
 		{{"disable_sandbox", no_argument, NULL, 0x0503}, "Don't enable the seccomp-bpf sandboxing"},
 		{{"skip_setsid", no_argument, NULL, 0x0504}, "Don't call setsid(), allows for terminal signal handling in the sandboxed process"},
+		{{"pass_fd", required_argument, NULL, 0x0505}, "Don't close this FD before executing child (can be specified multiple times (by default: 0/1/2 are kept open)"},
 		{{"rlimit_as", required_argument, NULL, 0x0201}, "RLIMIT_AS in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 512)"},
 		{{"rlimit_core", required_argument, NULL, 0x0202}, "RLIMIT_CORE in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 0)"},
 		{{"rlimit_cpu", required_argument, NULL, 0x0203}, "RLIMIT_CPU, 'max' for RLIM_INFINITY, 'def' for the current value (default: 600)"},
@@ -491,6 +504,14 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			break;
 		case 0x0504:
 			nsjconf->skip_setsid = true;
+			break;
+		case 0x0505:
+			{
+				struct fds_t *f;
+				f = utilMalloc(sizeof(struct fds_t));
+				f->fd = (int)strtol(optarg, NULL, 0);
+				TAILQ_INSERT_HEAD(&nsjconf->open_fds, f, pointers);
+			}
 			break;
 		case 0x0601:
 			nsjconf->is_root_rw = true;

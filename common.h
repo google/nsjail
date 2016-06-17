@@ -69,6 +69,11 @@ struct mounts_t {
 	 TAILQ_ENTRY(mounts_t) pointers;
 };
 
+struct fds_t {
+	int fd;
+	 TAILQ_ENTRY(fds_t) pointers;
+};
+
 enum mode_t {
 	MODE_LISTEN_TCP = 0,
 	MODE_STANDALONE_ONCE,
@@ -127,6 +132,7 @@ struct nsjconf_t {
 	 TAILQ_HEAD(envlist, charptr_t) envs;
 	 TAILQ_HEAD(pidslist, pids_t) pids;
 	 TAILQ_HEAD(mountptslist, mounts_t) mountpts;
+	 TAILQ_HEAD(fdslistt, fds_t) open_fds;
 };
 
 #endif				/* NS_COMMON_H */

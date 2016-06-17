@@ -186,23 +186,38 @@ static bool containSetLimits(struct nsjconf_t *nsjconf)
 	return true;
 }
 
-static bool containMakeFdsCOENaive(void)
+static bool containPassFd(struct nsjconf_t *nsjconf, int fd)
+{
+	struct fds_t *p;
+	TAILQ_FOREACH(p, &nsjconf->open_fds, pointers) {
+		if (p->fd == fd) {
+			LOG_D("FD=%d will be passed to the child process", fd);
+			return true;
+		}
+	}
+	return false;
+}
+
+static bool containMakeFdsCOENaive(struct nsjconf_t *nsjconf)
 {
 	// Don't use getrlimit(RLIMIT_NOFILE) here, as it can return an artifically small value
 	// (e.g. 32), which could be smaller than a maximum assigned number to file-descriptors
 	// in this process. Just use some reasonably sane value (e.g. 1024)
-	for (unsigned fd = (STDERR_FILENO + 1); fd < 1024; fd++) {
+	for (unsigned fd = 0; fd < 1024; fd++) {
 		int flags = TEMP_FAILURE_RETRY(fcntl(fd, F_GETFD, 0));
 		if (flags == -1) {
 			continue;
 		}
-		TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags | FD_CLOEXEC));
-		LOG_D("Set fd '%d' flag to FD_CLOEXEC", fd);
+		if (containPassFd(nsjconf, fd)) {
+			TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags & ~(FD_CLOEXEC)));
+		} else {
+			TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags | FD_CLOEXEC));
+		}
 	}
 	return true;
 }
 
-static bool containMakeFdsCOEProc(void)
+static bool containMakeFdsCOEProc(struct nsjconf_t *nsjconf)
 {
 	/* Make all fds above stderr close-on-exec */
 	DIR *dir = opendir("/proc/self/fd");
@@ -234,25 +249,26 @@ static bool containMakeFdsCOEProc(void)
 			LOG_W("Cannot convert /proc/self/fd/%s to a number", entry->d_name);
 			continue;
 		}
-		if (fd > STDERR_FILENO) {
-			int flags = TEMP_FAILURE_RETRY(fcntl(fd, F_GETFD, 0));
-			if (flags == -1) {
-				PLOG_D("fcntl(fd, F_GETFD, 0)");
-				return false;
-			}
+		int flags = TEMP_FAILURE_RETRY(fcntl(fd, F_GETFD, 0));
+		if (flags == -1) {
+			PLOG_D("fcntl(fd, F_GETFD, 0)");
+			return false;
+		}
+		if (containPassFd(nsjconf, fd)) {
+			TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags & ~(FD_CLOEXEC)));
+		} else {
 			TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags | FD_CLOEXEC));
-			LOG_D("Set fd '%d' flag to FD_CLOEXEC", fd);
 		}
 	}
 	return true;
 }
 
-static bool containMakeFdsCOE(void)
+static bool containMakeFdsCOE(struct nsjconf_t *nsjconf)
 {
-	if (containMakeFdsCOEProc() == true) {
+	if (containMakeFdsCOEProc(nsjconf) == true) {
 		return true;
 	}
-	if (containMakeFdsCOENaive() == true) {
+	if (containMakeFdsCOENaive(nsjconf) == true) {
 		return true;
 	}
 	LOG_E("Couldn't mark relevant file-descriptors as close-on-exec with any known method");
@@ -311,7 +327,7 @@ bool containContain(struct nsjconf_t * nsjconf)
 	if (containPrepareEnv(nsjconf) == false) {
 		return false;
 	}
-	if (containMakeFdsCOE() == false) {
+	if (containMakeFdsCOE(nsjconf) == false) {
 		return false;
 	}
 	return true;
