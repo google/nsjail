@@ -191,7 +191,6 @@ static bool containPassFd(struct nsjconf_t *nsjconf, int fd)
 	struct fds_t *p;
 	TAILQ_FOREACH(p, &nsjconf->open_fds, pointers) {
 		if (p->fd == fd) {
-			LOG_D("FD=%d will be passed to the child process", fd);
 			return true;
 		}
 	}
@@ -209,6 +208,7 @@ static bool containMakeFdsCOENaive(struct nsjconf_t *nsjconf)
 			continue;
 		}
 		if (containPassFd(nsjconf, fd)) {
+			LOG_D("FD=%d will be passed to the child process", fd);
 			TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags & ~(FD_CLOEXEC)));
 		} else {
 			TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags | FD_CLOEXEC));
@@ -255,8 +255,10 @@ static bool containMakeFdsCOEProc(struct nsjconf_t *nsjconf)
 			return false;
 		}
 		if (containPassFd(nsjconf, fd)) {
+			LOG_D("FD=%d will be passed to the child process", fd);
 			TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags & ~(FD_CLOEXEC)));
 		} else {
+			LOG_D("FD=%d will be closed before execve()", fd);
 			TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags | FD_CLOEXEC));
 		}
 	}
