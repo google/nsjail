@@ -39,8 +39,11 @@
 
 static bool mountIsDir(const char *path)
 {
-	if (path == NULL || strcmp(path, "none") == 0) {
-		return false;
+	/*
+	 *  If the source dir is NULL, we assume it's a dir (for /proc and tmpfs)
+	 */
+	if (path == NULL) {
+		return true;
 	}
 	struct stat st;
 	if (stat(path, &st) == -1) {
@@ -57,7 +60,7 @@ static bool mountIsDir(const char *path)
 // stat() failure
 static bool mountNotIsDir(const char *path)
 {
-	if (path == NULL || strcmp(path, "none") == 0) {
+	if (path == NULL) {
 		return false;
 	}
 	struct stat st;
@@ -91,7 +94,11 @@ static bool mountMount(struct nsjconf_t *nsjconf, struct mounts_t *mpt, const ch
 		}
 	}
 
-	if (mount(mpt->src, dst, mpt->fs_type, mpt->flags, mpt->options) == -1) {
+	/*
+	 * Initially mount it as RW, it will be remounted later on if needed
+	 */
+	unsigned long flags = mpt->flags & ~(MS_RDONLY);
+	if (mount(mpt->src, dst, mpt->fs_type, flags, mpt->options) == -1) {
 		if (errno == EACCES) {
 			PLOG_E
 			    ("mount('%s', '%s', type='%s') failed. Try fixing this problem by applying 'chmod o+x' to the '%s' directory and its ancestors",
@@ -146,7 +153,7 @@ static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 	}
 
 	const char *const destdir = "/tmp";
-	if (mount("none", destdir, "tmpfs", 0, NULL) == -1) {
+	if (mount(NULL, destdir, "tmpfs", 0, NULL) == -1) {
 		PLOG_E("mount('%s', 'tmpfs'", destdir);
 		return false;
 	}

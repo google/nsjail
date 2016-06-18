@@ -556,7 +556,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		case 'T':
 			{
 				struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
-				p->src = "/";
+				p->src = NULL;
 				p->dst = optarg;
 				p->flags = 0;
 				p->options = cmdlineTmpfsSz;
@@ -612,7 +612,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 
 	if (nsjconf->mount_proc == true) {
 		struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
-		p->src = "/proc";
+		p->src = NULL;
 		p->dst = "/proc";
 		p->flags = 0;
 		p->options = "";
@@ -629,6 +629,17 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		p->flags = MS_BIND | MS_REC;
 		p->options = "";
 		p->fs_type = "";
+		if (nsjconf->is_root_rw == false) {
+			p->flags |= MS_RDONLY;
+		}
+		TAILQ_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
+	} else {
+		struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
+		p->src = NULL;
+		p->dst = "/";
+		p->flags = 0;
+		p->options = "";
+		p->fs_type = "tmpfs";
 		if (nsjconf->is_root_rw == false) {
 			p->flags |= MS_RDONLY;
 		}
