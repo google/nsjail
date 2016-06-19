@@ -213,6 +213,7 @@ int subprocReap(struct nsjconf_t *nsjconf)
 		}
 
 		if (wait4(si.si_pid, &status, WNOHANG, NULL) == si.si_pid) {
+			cgroupFinishFromParent(nsjconf, si.si_pid);
 			if (WIFEXITED(status)) {
 				subprocRemove(nsjconf, si.si_pid);
 				LOG_I("PID: %d exited with status: %d, (PIDs left: %d)", si.si_pid,
@@ -228,7 +229,6 @@ int subprocReap(struct nsjconf_t *nsjconf)
 				      si.si_pid, WTERMSIG(status), subprocCount(nsjconf));
 				rv = 100 + WTERMSIG(status);
 			}
-			cgroupFinishFromParent(nsjconf, si.si_pid);
 		}
 	}
 
