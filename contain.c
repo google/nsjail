@@ -42,6 +42,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#include "cgroup.h"
 #include "log.h"
 #include "mount.h"
 #include "net.h"
@@ -62,6 +63,11 @@ static bool containInitNetNs(struct nsjconf_t *nsjconf)
 static bool containInitUtsNs(struct nsjconf_t *nsjconf)
 {
 	return utsInitNs(nsjconf);
+}
+
+static bool containInitCgroupNs(struct nsjconf_t *nsjconf)
+{
+	return cgroupInitNs(nsjconf);
 }
 
 static bool containDropPrivs(struct nsjconf_t *nsjconf)
@@ -316,6 +322,9 @@ bool containContain(struct nsjconf_t * nsjconf)
 		return false;
 	}
 	if (containInitUtsNs(nsjconf) == false) {
+		return false;
+	}
+	if (containInitCgroupNs(nsjconf) == false) {
 		return false;
 	}
 	if (containDropPrivs(nsjconf) == false) {

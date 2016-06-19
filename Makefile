@@ -26,7 +26,7 @@ CFLAGS += -O2 -c -std=gnu11 \
 
 LDFLAGS += -Wl,-z,now -Wl,-z,relro -pie -Wl,-z,noexecstack
 
-SRCS = nsjail.c cmdline.c contain.c log.c mount.c net.c pid.c sandbox.c subproc.c user.c util.c uts.c seccomp/bpf-helper.c
+SRCS = nsjail.c cmdline.c contain.c log.c cgroup.c mount.c net.c pid.c sandbox.c subproc.c user.c util.c uts.c seccomp/bpf-helper.c
 OBJS = $(SRCS:.c=.o)
 BIN = nsjail
 
@@ -66,8 +66,9 @@ indent:
 
 nsjail.o: nsjail.h common.h cmdline.h log.h net.h subproc.h
 cmdline.o: cmdline.h common.h log.h util.h
-contain.o: contain.h common.h log.h mount.h net.h pid.h util.h uts.h
+contain.o: contain.h common.h cgroup.h log.h mount.h net.h pid.h util.h uts.h
 log.o: log.h common.h
+cgroup.o: cgroup.h common.h
 mount.o: mount.h common.h log.h
 net.o: net.h common.h log.h
 pid.o: pid.h common.h log.h
