@@ -45,6 +45,8 @@ bool cgroupInitNs(struct nsjconf_t *nsjconf)
 		snprintf(mem_max_str, sizeof(mem_max_str), "%zu", nsjconf->cgroup_mem_max);
 		snprintf(fname, sizeof(fname), "%s/%s/memory.limit_in_bytes",
 			 nsjconf->cgroup_mem_mount, nsjconf->cgroup_mem_group);
+		LOG_D("Setting %s/%s/memory.limit_in_bytes to '%s'", nsjconf->cgroup_mem_mount,
+		      nsjconf->cgroup_mem_group, mem_max_str);
 		if (utilWriteBufToFile(fname, mem_max_str, strlen(mem_max_str), O_WRONLY) == false) {
 			LOG_E("Could not update memory cgroup max limit");
 			return false;
@@ -55,6 +57,8 @@ bool cgroupInitNs(struct nsjconf_t *nsjconf)
 	snprintf(pid_str, sizeof(pid_str), "%ld", syscall(__NR_getpid));
 	snprintf(fname, sizeof(fname), "%s/%s/tasks", nsjconf->cgroup_mem_mount,
 		 nsjconf->cgroup_mem_group);
+	LOG_D("Adding PID='%s' to %s/%s/tasks", pid_str, nsjconf->cgroup_mem_mount,
+	      nsjconf->cgroup_mem_group);
 	if (utilWriteBufToFile(fname, pid_str, strlen(pid_str), O_WRONLY) == false) {
 		LOG_E("Could not update memory cgroup task list");
 		return false;
