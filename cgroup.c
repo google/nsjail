@@ -56,7 +56,7 @@ bool cgroupInitNsFromParent(struct nsjconf_t *nsjconf, pid_t pid)
 		char mem_max_str[512];
 		snprintf(mem_max_str, sizeof(mem_max_str), "%zu", nsjconf->cgroup_mem_max);
 		snprintf(fname, sizeof(fname), "%s/memory.limit_in_bytes", mem_cgroup_path);
-		LOG_D("Setting '%s/memory.limit_in_bytes' to '%s'", mem_cgroup_path, mem_max_str);
+		LOG_D("Setting '%s' to '%s'", fname, mem_max_str);
 		if (utilWriteBufToFile(fname, mem_max_str, strlen(mem_max_str), O_WRONLY) == false) {
 			LOG_E("Could not update memory cgroup max limit");
 			return false;
@@ -64,7 +64,7 @@ bool cgroupInitNsFromParent(struct nsjconf_t *nsjconf, pid_t pid)
 	}
 
 	snprintf(fname, sizeof(fname), "%s/memory.oom_control", mem_cgroup_path);
-	LOG_D("Writting '1' '%s/memory.oom_control'", mem_cgroup_path);
+	LOG_D("Writting '1' '%s'", fname);
 	if (utilWriteBufToFile(fname, "1", strlen("1"), O_WRONLY) == false) {
 		LOG_E("Could not update memory cgroup oom control");
 		return false;
@@ -73,7 +73,7 @@ bool cgroupInitNsFromParent(struct nsjconf_t *nsjconf, pid_t pid)
 	char pid_str[512];
 	snprintf(pid_str, sizeof(pid_str), "%d", (int)pid);
 	snprintf(fname, sizeof(fname), "%s/tasks", mem_cgroup_path);
-	LOG_D("Adding PID='%s' to '%s/tasks'", pid_str, mem_cgroup_path);
+	LOG_D("Adding PID='%s' to '%s'", pid_str, fname);
 	if (utilWriteBufToFile(fname, pid_str, strlen(pid_str), O_WRONLY) == false) {
 		LOG_E("Could not update memory cgroup task list");
 		return false;
