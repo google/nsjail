@@ -63,9 +63,12 @@ bool cgroupInitNsFromParent(struct nsjconf_t *nsjconf, pid_t pid)
 		}
 	}
 
+	/*
+	 * Use OOM-killer instead of making processes hang/sleep
+	 */
 	snprintf(fname, sizeof(fname), "%s/memory.oom_control", mem_cgroup_path);
 	LOG_D("Writting '1' '%s'", fname);
-	if (utilWriteBufToFile(fname, "1", strlen("1"), O_WRONLY) == false) {
+	if (utilWriteBufToFile(fname, "0", strlen("0"), O_WRONLY) == false) {
 		LOG_E("Could not update memory cgroup oom control");
 		return false;
 	}
