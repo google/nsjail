@@ -291,6 +291,9 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		.max_conns_per_ip = 0,
 		.tmpfs_size = 4 * (1024 * 1024),
 		.mount_proc = true,
+		.cgroup_mem_mount = "/cgroup_memory",
+		.cgroup_mem_group = "NSJAIL",
+		.cgroup_mem_max = (size_t)0,
 		.iface_no_lo = false,
 		.iface = NULL,
 		.iface_vs_ip = "0.0.0.0",
@@ -373,6 +376,9 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"tmpfsmount", required_argument, NULL, 'T'}, "List of mountpoints to be mounted as RW/tmpfs inside the container. Can be specified multiple times. Supports 'dest' syntax"},
 		{{"tmpfs_size", required_argument, NULL, 0x0602}, "Number of bytes to allocate for tmpfsmounts (default: 4194304)"},
 		{{"disable_proc", no_argument, NULL, 0x0603}, "Disable mounting /proc in the jail"},
+		{{"cgroup_mem_mount", required_argument, NULL, 0x0801}, "Where to mount memory cgroup FS (default: '/cgroup_memory'"},
+		{{"cgroup_mem_group", required_argument, NULL, 0x0802}, "Which memory cgroup to use (default: 'NSJAIL')"},
+		{{"cgroup_mem_max", required_argument, NULL, 0x0803}, "Maximum number of bytes to use in the group"},
 		{{"iface_no_lo", no_argument, NULL, 0x700}, "Don't bring up the 'lo' interface"},
 		{{"iface", required_argument, NULL, 'I'}, "Interface which will be cloned (MACVLAN) and put inside the subprocess' namespace as 'vs'"},
 		{{"iface_vs_ip", required_argument, NULL, 0x701}, "IP of the 'vs' interface"},
@@ -608,6 +614,15 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		case 0x703:
 			nsjconf->iface_vs_gw = optarg;
 			break;
+		case 0x801:
+			nsjconf->cgroup_mem_mount = optarg;
+			break;
+		case 0x802:
+			nsjconf->cgroup_mem_group = optarg;
+			break;
+		case 0x803:
+			nsjconf->cgroup_mem_max = (size_t) strtoull(optarg, NULL, 0);
+			break;
 		default:
 			cmdlineUsage(argv[0], custom_opts);
 			return false;
@@ -615,6 +630,15 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		}
 	}
 
+	if (nsjconf->clone_newcgroup) {
+		struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
+		p->src = NULL;
+		p->dst = nsjconf->cgroup_mem_mount;
+		p->flags = 0;
+		p->options = "memory";
+		p->fs_type = "cgroup";
+		TAILQ_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
+	}
 	if (nsjconf->mount_proc == true) {
 		struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
 		p->src = NULL;

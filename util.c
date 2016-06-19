@@ -94,7 +94,7 @@ bool utilWriteBufToFile(char *filename, const void *buf, size_t len, int open_fl
 	int fd;
 	TEMP_FAILURE_RETRY(fd = open(filename, open_flags, 0644));
 	if (fd == -1) {
-		PLOG_E("Couldn't open '%s' for R/O", filename);
+		PLOG_E("Couldn't open '%s' for writing", filename);
 		return false;
 	}
 	defer {
