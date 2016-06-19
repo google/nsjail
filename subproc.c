@@ -61,6 +61,10 @@ static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int 
 			LOG_E("Couldn't initialize net user namespace");
 			exit(1);
 		}
+		if (cgroupInitNsFromParent(nsjconf, syscall(__NR_getpid)) == false) {
+			LOG_E("Couldn't initialize net user namespace");
+			exit(1);
+		}
 	} else {
 		char doneChar;
 		if (utilReadFromFd(pipefd, &doneChar, sizeof(doneChar)) != sizeof(doneChar)) {
