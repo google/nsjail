@@ -14,6 +14,7 @@ This is NOT an official Google product.
 3. Resource limits (wall-time/CPU time limits, VM/mem address space limits, etc.)
 4. Programmable seccomp-bpf syscall filters
 5. Cloned and separated Ethernet interfaces
+6. Cgroups for memory utilization control
 
 ### WHAT KIND OF USE-CASES ARE SUPPORTED?
 #### Isolation of network services (inetd-style)
@@ -244,7 +245,7 @@ Options:
 	Disable mounting /proc in the jail
  --cgroup_mem_mount VALUE
 	Where to mount memory cgroup FS (default: '/cgroup_memory'
- --cgroup_mem_group VALUE
+ --cgroup_mem_parent VALUE
 	Which memory cgroup to use (default: 'NSJAIL')
  --cgroup_mem_max VALUE
 	Maximum number of bytes to use in the group
