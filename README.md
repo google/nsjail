@@ -8,7 +8,7 @@ It can help, among others, with:
 
 This is NOT an official Google product.
 
-### WHAT KIND OF ISOLATION DOES THIS TOOL PROVIDE?
+### WHAT TYPE OF ISOLATION DOES THIS TOOL PROVIDE?
 1. Linux namespaces: UTS (hostname), MOUNT (chroot), PID (separate PID tree), IPC, NET (separate networking context), USER
 2. FS constraints: chroot(), pivot_root(), RO-remounting
 3. Resource limits (wall-time/CPU time limits, VM/mem address space limits, etc.)
@@ -16,7 +16,7 @@ This is NOT an official Google product.
 5. Cloned and separated Ethernet interfaces
 6. Cgroups for memory utilization control
 
-### WHAT KIND OF USE-CASES ARE SUPPORTED?
+### WHICH USE-CASES ARE SUPPORTED?
 #### Isolation of network services (inetd-style)
 
 + Server:
