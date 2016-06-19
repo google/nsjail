@@ -65,9 +65,9 @@ static bool containInitUtsNs(struct nsjconf_t *nsjconf)
 	return utsInitNs(nsjconf);
 }
 
-static bool containInitCgroupNs(struct nsjconf_t *nsjconf)
+static bool containInitCgroupNs(void)
 {
-	return cgroupInitNs(nsjconf);
+	return cgroupInitNs();
 }
 
 static bool containDropPrivs(struct nsjconf_t *nsjconf)
@@ -324,7 +324,7 @@ bool containContain(struct nsjconf_t * nsjconf)
 	if (containInitUtsNs(nsjconf) == false) {
 		return false;
 	}
-	if (containInitCgroupNs(nsjconf) == false) {
+	if (containInitCgroupNs() == false) {
 		return false;
 	}
 	if (containDropPrivs(nsjconf) == false) {

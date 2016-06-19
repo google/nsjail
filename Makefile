@@ -73,7 +73,8 @@ mount.o: mount.h common.h log.h
 net.o: net.h common.h log.h
 pid.o: pid.h common.h log.h
 sandbox.o: sandbox.h common.h log.h seccomp/bpf-helper.h
-subproc.o: subproc.h common.h contain.h log.h net.h sandbox.h user.h util.h
+subproc.o: subproc.h common.h cgroup.h contain.h log.h net.h sandbox.h user.h
+subproc.o: util.h
 user.o: user.h common.h log.h util.h
 util.o: util.h common.h log.h
 uts.o: uts.h common.h log.h

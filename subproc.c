@@ -40,6 +40,7 @@
 #include <unistd.h>
 
 #include "common.h"
+#include "cgroup.h"
 #include "contain.h"
 #include "log.h"
 #include "net.h"
@@ -57,7 +58,7 @@ static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int 
 
 	if (pipefd == -1) {
 		if (userInitNsFromParent(nsjconf, syscall(__NR_getpid)) == false) {
-			LOG_E("Couldn't initialize user namespaces");
+			LOG_E("Couldn't initialize net user namespace");
 			exit(1);
 		}
 	} else {
@@ -227,6 +228,7 @@ int subprocReap(struct nsjconf_t *nsjconf)
 				      si.si_pid, WTERMSIG(status), subprocCount(nsjconf));
 				rv = 100 + WTERMSIG(status);
 			}
+			cgroupFinishFromParent(nsjconf, si.si_pid);
 		}
 	}
 
@@ -265,6 +267,10 @@ static bool subprocInitParent(struct nsjconf_t *nsjconf, pid_t pid, int pipefd)
 	if (netInitNsFromParent(nsjconf, pid) == false) {
 		LOG_E("Couldn't create and put MACVTAP interface into NS of PID '%d'", pid);
 		return false;
+	}
+	if (cgroupInitNsFromParent(nsjconf, pid) == false) {
+		LOG_E("Couldn't initialize cgroup user namespace");
+		exit(1);
 	}
 	if (userInitNsFromParent(nsjconf, pid) == false) {
 		LOG_E("Couldn't initialize user namespaces for pid %d", pid);
