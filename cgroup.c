@@ -25,6 +25,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
@@ -61,6 +62,12 @@ bool cgroupInitNs(struct nsjconf_t *nsjconf)
 	      nsjconf->cgroup_mem_group);
 	if (utilWriteBufToFile(fname, pid_str, strlen(pid_str), O_WRONLY) == false) {
 		LOG_E("Could not update memory cgroup task list");
+		return false;
+	}
+
+	LOG_D("Unmounting '%s'", nsjconf->cgroup_mem_mount);
+	if (umount2(nsjconf->cgroup_mem_mount, MNT_DETACH) == -1) {
+		PLOG_E("Could not umount2('%s', MNT_DETACH)", nsjconf->cgroup_mem_mount);
 		return false;
 	}
 
