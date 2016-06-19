@@ -376,9 +376,9 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"tmpfsmount", required_argument, NULL, 'T'}, "List of mountpoints to be mounted as RW/tmpfs inside the container. Can be specified multiple times. Supports 'dest' syntax"},
 		{{"tmpfs_size", required_argument, NULL, 0x0602}, "Number of bytes to allocate for tmpfsmounts (default: 4194304)"},
 		{{"disable_proc", no_argument, NULL, 0x0603}, "Disable mounting /proc in the jail"},
-		{{"cgroup_mem_mount", required_argument, NULL, 0x0801}, "Where to mount memory cgroup FS (default: '/sys/fs/cgroup/memory'"},
-		{{"cgroup_mem_parent", required_argument, NULL, 0x0802}, "Which memory cgroup to use as parent (default: 'NSJAIL')"},
-		{{"cgroup_mem_max", required_argument, NULL, 0x0803}, "Maximum number of bytes to use in the group"},
+		{{"cgroup_mem_max", required_argument, NULL, 0x0801}, "Maximum number of bytes to use in the group"},
+		{{"cgroup_mem_mount", required_argument, NULL, 0x0802}, "Location of memory cgroup FS (default: '/sys/fs/cgroup/memory'"},
+		{{"cgroup_mem_parent", required_argument, NULL, 0x0803}, "Which memory cgroup to use as parent (default: 'NSJAIL')"},
 		{{"iface_no_lo", no_argument, NULL, 0x700}, "Don't bring up the 'lo' interface"},
 		{{"iface", required_argument, NULL, 'I'}, "Interface which will be cloned (MACVLAN) and put inside the subprocess' namespace as 'vs'"},
 		{{"iface_vs_ip", required_argument, NULL, 0x701}, "IP of the 'vs' interface"},
@@ -615,13 +615,13 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			nsjconf->iface_vs_gw = optarg;
 			break;
 		case 0x801:
-			nsjconf->cgroup_mem_mount = optarg;
+			nsjconf->cgroup_mem_max = (size_t) strtoull(optarg, NULL, 0);
 			break;
 		case 0x802:
-			nsjconf->cgroup_mem_parent = optarg;
+			nsjconf->cgroup_mem_mount = optarg;
 			break;
 		case 0x803:
-			nsjconf->cgroup_mem_max = (size_t) strtoull(optarg, NULL, 0);
+			nsjconf->cgroup_mem_parent = optarg;
 			break;
 		default:
 			cmdlineUsage(argv[0], custom_opts);

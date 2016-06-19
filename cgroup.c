@@ -38,7 +38,7 @@
 
 bool cgroupInitNsFromParent(struct nsjconf_t *nsjconf, pid_t pid)
 {
-	if (nsjconf->clone_newcgroup == false) {
+	if (nsjconf->cgroup_mem_max == (size_t) 0) {
 		return true;
 	}
 
@@ -84,7 +84,7 @@ bool cgroupInitNsFromParent(struct nsjconf_t *nsjconf, pid_t pid)
 
 void cgroupFinishFromParent(struct nsjconf_t *nsjconf, pid_t pid)
 {
-	if (nsjconf->clone_newcgroup == false) {
+	if (nsjconf->cgroup_mem_max == (size_t) 0) {
 		return;
 	}
 
