@@ -116,6 +116,25 @@ The document has moved
  / $
 ```
 
+#### Bash in a minimal file-system with uid==0 and access to /dev/urandom
+```
+$ ./nsjail -Mo --user 0 --group 99999 --chroot "" -R /bin/ -R /lib -R /lib64/ -R /usr/ -R /sbin/ -T /dev -R /dev/urandom --keep_caps -- /bin/bash -i
+bash-4.3# ls -l /
+total 40
+drwxr-xr-x   2 65534 65534 12288 Jun 17 23:27 bin
+drwxrwxrwt   2     0 99999    60 Jun 19 12:31 dev
+drwxr-xr-x  25 65534 65534  4096 Jun  9 18:29 lib
+drwxr-xr-x   2 65534 65534  4096 Apr 15 22:27 lib64
+dr-xr-xr-x 260 65534 65534     0 Jun 19 12:31 proc
+drwxr-xr-x   2 65534 65534 16384 Jun 11 21:03 sbin
+drwxr-xr-x  21 65534 65534  4096 Apr 24 16:13 usr
+bash-4.3# ls -l /dev/
+total 0
+crw-rw-rw- 1 65534 65534 1, 9 Jun  9 18:33 urandom
+bash-4.3# id
+uid=0 gid=99999 groups=99999,65534
+```
+
 ### MORE INFO?
 Type:
 ```
@@ -127,7 +146,7 @@ Usage: ./nsjail [options] -- path_to_command [args]
 Options:
  --help|-h 
 	Help plz..
- --mode|-M [val]
+ --mode|-M VALUE
 	Execution mode (default: l [MODE_LISTEN_TCP]):
 	l: Wait for connections on a TCP port (specified with --port) [MODE_LISTEN_TCP]
 	o: Immediately launch a single process on a console using clone/execve [MODE_STANDALONE_ONCE]
@@ -135,27 +154,27 @@ Options:
 	r: Immediately launch a single process on a console, keep doing it forever [MODE_STANDALONE_RERUN]
  --cmd 
 	Equivalent of -Mo (MODE_STANDALONE_ONCE), run command on a local console, once
- --chroot|-c [val]
+ --chroot|-c VALUE
 	Directory containing / of the jail (default: "/"). Skip mounting it if ""
  --rw 
 	Mount / as RW (default: RO)
- --user|-u [val]
+ --user|-u VALUE
 	Username/uid of processess inside the jail (default: your current uid). You can also use inside_ns_uid:outside_ns_uid convention here
- --group|-g [val]
+ --group|-g VALUE
 	Groupname/gid of processess inside the jail (default: your current gid). You can also use inside_ns_gid:global_ns_gid convention here
- --hostname|-H [val]
+ --hostname|-H VALUE
 	UTS name (hostname) of the jail (default: 'NSJAIL')
- --cwd|-D [val]
+ --cwd|-D VALUE
 	Directory in the namespace the process will run (default: '/')
- --port|-p [val]
+ --port|-p VALUE
 	TCP port to bind to (only in [MODE_LISTEN_TCP]) (default: 31337)
- --bindhost [val]
-	IP address port to bind to (only in [MODE_LISTEN_TCP]) (default: '::')
- --max_conns_per_ip|-i [val]
+ --bindhost VALUE
+	IP address port to bind to (only in [MODE_LISTEN_TCP]), '::ffff:127.0.0.1' for locahost (default: '::')
+ --max_conns_per_ip|-i VALUE
 	Maximum number of connections per one IP (default: 0 (unlimited))
- --log|-l [val]
+ --log|-l VALUE
 	Log file (default: /proc/self/fd/2)
- --time_limit|-t [val]
+ --time_limit|-t VALUE
 	Maximum time that a jail can exist, in seconds (default: 600)
  --daemon|-d 
 	Daemonize after start
@@ -163,7 +182,7 @@ Options:
 	Verbose output
  --keep_env|-e 
 	Should all environment variables be passed to the child?
- --env|-E [val]
+ --env|-E VALUE
 	Environment variable (can be used multiple times)
  --keep_caps 
 	Don't drop capabilities (DANGEROUS)
@@ -173,19 +192,21 @@ Options:
 	Don't enable the seccomp-bpf sandboxing
  --skip_setsid 
 	Don't call setsid(), allows for terminal signal handling in the sandboxed process
- --rlimit_as [val]
+ --pass_fd VALUE
+	Don't close this FD before executing child (can be specified multiple times), by default: 0/1/2 are kept open
+ --rlimit_as VALUE
 	RLIMIT_AS in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 512)
- --rlimit_core [val]
+ --rlimit_core VALUE
 	RLIMIT_CORE in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 0)
- --rlimit_cpu [val]
+ --rlimit_cpu VALUE
 	RLIMIT_CPU, 'max' for RLIM_INFINITY, 'def' for the current value (default: 600)
- --rlimit_fsize [val]
+ --rlimit_fsize VALUE
 	RLIMIT_FSIZE in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 1)
- --rlimit_nofile [val]
+ --rlimit_nofile VALUE
 	RLIMIT_NOFILE, 'max' for RLIM_INFINITY, 'def' for the current value (default: 32)
- --rlimit_nproc [val]
+ --rlimit_nproc VALUE
 	RLIMIT_NPROC, 'max' for RLIM_INFINITY, 'def' for the current value (default: 'def')
- --rlimit_stack [val]
+ --rlimit_stack VALUE
 	RLIMIT_STACK in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 'def')
  --persona_addr_compat_layout 
 	personality(ADDR_COMPAT_LAYOUT)
@@ -209,24 +230,41 @@ Options:
 	Don't use CLONE_NEWIPC
  --disable_clone_newuts 
 	Don't use CLONE_NEWUTS
- --bindmount_ro|-R [val]
+ --enable_clone_newcgroup 
+	Use CLONE_NEWCGROUP
+ --bindmount_ro|-R VALUE
 	List of mountpoints to be mounted --bind (ro) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'
- --bindmount|-B [val]
+ --bindmount|-B VALUE
 	List of mountpoints to be mounted --bind (rw) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'
- --tmpfsmount|-T [val]
+ --tmpfsmount|-T VALUE
 	List of mountpoints to be mounted as RW/tmpfs inside the container. Can be specified multiple times. Supports 'dest' syntax
- --tmpfs_size [val]
+ --tmpfs_size VALUE
 	Number of bytes to allocate for tmpfsmounts (default: 4194304)
  --disable_proc 
 	Disable mounting /proc in the jail
+ --cgroup_mem_mount VALUE
+	Where to mount memory cgroup FS (default: '/cgroup_memory'
+ --cgroup_mem_group VALUE
+	Which memory cgroup to use (default: 'NSJAIL')
+ --cgroup_mem_max VALUE
+	Maximum number of bytes to use in the group
  --iface_no_lo 
 	Don't bring up the 'lo' interface
- --iface|-I [val]
-	Interface which will be cloned (MACVTAP) and put inside the subprocess' namespace as 'vs'
- --iface_vs_ip [val]
+ --iface|-I VALUE
+	Interface which will be cloned (MACVLAN) and put inside the subprocess' namespace as 'vs'
+ --iface_vs_ip VALUE
 	IP of the 'vs' interface
- --iface_vs_nm [val]
+ --iface_vs_nm VALUE
 	Netmask of the 'vs' interface
- --iface_vs_gw [val]
+ --iface_vs_gw VALUE
 	Default GW for the 'vs' interface
+
+ Examples: 
+ Wait on a port 31337 for connections, and run /bin/sh
+  nsjail -Ml --port 31337 --chroot / -- /bin/sh -i
+ Re-run echo command as a sub-process
+  nsjail -Mr --chroot / -- /bin/echo "ABC"
+ Run echo command once only, as a sub-process
+  nsjail -Mo --chroot / -- /bin/echo "ABC"
+ Execute echo command directly, without a supervising proces
 ```
