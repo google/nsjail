@@ -103,7 +103,7 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	    ("Jail parameters: hostname:'%s', chroot:'%s', process:'%s', bind:[%s]:%d, "
 	     "max_conns_per_ip:%u, uid:(ns:%u, global:%u), gid:(ns:%u, global:%u), time_limit:%ld, personality:%#lx, daemonize:%s, "
 	     "clone_newnet:%s, clone_newuser:%s, clone_newns:%s, clone_newpid:%s, "
-	     "clone_newipc:%s, clonew_newuts:%s, apply_sandbox:%s, keep_caps:%s, "
+	     "clone_newipc:%s, clonew_newuts:%s, clone_newcgroup:%s, apply_sandbox:%s, keep_caps:%s, "
 	     "tmpfs_size:%zu",
 	     nsjconf->hostname, nsjconf->chroot, nsjconf->argv[0], nsjconf->bindhost, nsjconf->port,
 	     nsjconf->max_conns_per_ip, nsjconf->inside_uid, nsjconf->outside_uid,
@@ -111,8 +111,8 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	     logYesNo(nsjconf->daemonize), logYesNo(nsjconf->clone_newnet),
 	     logYesNo(nsjconf->clone_newuser), logYesNo(nsjconf->clone_newns),
 	     logYesNo(nsjconf->clone_newpid), logYesNo(nsjconf->clone_newipc),
-	     logYesNo(nsjconf->clone_newuts), logYesNo(nsjconf->apply_sandbox),
-	     logYesNo(nsjconf->keep_caps), nsjconf->tmpfs_size);
+	     logYesNo(nsjconf->clone_newuts), logYesNo(nsjconf->clone_newcgroup),
+	     logYesNo(nsjconf->apply_sandbox), logYesNo(nsjconf->keep_caps), nsjconf->tmpfs_size);
 
 	struct mounts_t *p;
 	TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
@@ -279,6 +279,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		.clone_newpid = true,
 		.clone_newipc = true,
 		.clone_newuts = true,
+		.clone_newcgroup = false,
 		.mode = MODE_LISTEN_TCP,
 		.is_root_rw = false,
 		.is_silent = false,
@@ -366,6 +367,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"disable_clone_newpid", no_argument, NULL, 0x0404}, "Don't use CLONE_NEWPID"},
 		{{"disable_clone_newipc", no_argument, NULL, 0x0405}, "Don't use CLONE_NEWIPC"},
 		{{"disable_clone_newuts", no_argument, NULL, 0x0406}, "Don't use CLONE_NEWUTS"},
+		{{"enable_clone_newcgroup", no_argument, NULL, 0x0407}, "Use CLONE_NEWCGROUP"},
 		{{"bindmount_ro", required_argument, NULL, 'R'}, "List of mountpoints to be mounted --bind (ro) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'"},
 		{{"bindmount", required_argument, NULL, 'B'}, "List of mountpoints to be mounted --bind (rw) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'"},
 		{{"tmpfsmount", required_argument, NULL, 'T'}, "List of mountpoints to be mounted as RW/tmpfs inside the container. Can be specified multiple times. Supports 'dest' syntax"},
@@ -489,6 +491,9 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			break;
 		case 0x0406:
 			nsjconf->clone_newuts = false;
+			break;
+		case 0x0407:
+			nsjconf->clone_newcgroup = true;
 			break;
 		case 0x0500:
 			nsjconf->mode = MODE_STANDALONE_ONCE;

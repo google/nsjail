@@ -112,6 +112,7 @@ struct nsjconf_t {
 	bool clone_newpid;
 	bool clone_newipc;
 	bool clone_newuts;
+	bool clone_newcgroup;
 	enum mode_t mode;
 	const char *chroot;
 	bool is_root_rw;

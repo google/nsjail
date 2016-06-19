@@ -283,7 +283,9 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 	if (netLimitConns(nsjconf, fd_in) == false) {
 		return;
 	}
-
+#ifndef CLONE_NEWCGROUP
+#define CLONE_NEWCGROUP 0x02000000
+#endif
 	unsigned long flags = 0UL;
 	flags |= (nsjconf->clone_newnet ? CLONE_NEWNET : 0);
 	flags |= (nsjconf->clone_newuser ? CLONE_NEWUSER : 0);
@@ -291,6 +293,7 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 	flags |= (nsjconf->clone_newpid ? CLONE_NEWPID : 0);
 	flags |= (nsjconf->clone_newipc ? CLONE_NEWIPC : 0);
 	flags |= (nsjconf->clone_newuts ? CLONE_NEWUTS : 0);
+	flags |= (nsjconf->clone_newcgroup ? CLONE_NEWCGROUP : 0);
 
 	if (nsjconf->mode == MODE_STANDALONE_EXECVE) {
 		LOG_D("Entering namespace with flags: %#lx", flags);

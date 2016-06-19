@@ -76,8 +76,8 @@ static bool mountNotIsDir(const char *path)
 
 static bool mountMount(struct nsjconf_t *nsjconf, struct mounts_t *mpt, const char *dst)
 {
-	LOG_D("Mounting '%s' on '%s' (type:'%s', flags:0x%tx)", mpt->src, dst, mpt->fs_type,
-	      mpt->flags);
+	LOG_D("Mounting '%s' on '%s' (type:'%s', flags:0x%tx, options:'%s')", mpt->src, dst,
+	      mpt->fs_type, mpt->flags, mpt->options);
 
 	if (mountIsDir(mpt->src) == true) {
 		if (mkdir(dst, 0711) == -1 && errno != EEXIST) {
