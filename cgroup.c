@@ -28,6 +28,7 @@
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -40,14 +41,27 @@ bool cgroupInitNs(struct nsjconf_t *nsjconf)
 		return true;
 	}
 
+	struct timeval tv;
+	if (gettimeofday(&tv, NULL) == -1) {
+		PLOG_E("gettimeofday() failed");
+		return false;
+	}
+
+	char mem_cgroup_path[PATH_MAX];
+	snprintf(mem_cgroup_path, sizeof(mem_cgroup_path), "%s/%s/NSJAIL.%lx.%lx",
+		 nsjconf->cgroup_mem_mount, nsjconf->cgroup_mem_parent, (unsigned long)tv.tv_sec,
+		 (unsigned long)tv.tv_usec);
+	if (mkdir(mem_cgroup_path, 0700) == -1) {
+		PLOG_E("mkdir('%s', 0711) failed", mem_cgroup_path);
+		return false;
+	}
+
 	char fname[PATH_MAX];
 	if (nsjconf->cgroup_mem_max != (size_t) 0) {
 		char mem_max_str[512];
 		snprintf(mem_max_str, sizeof(mem_max_str), "%zu", nsjconf->cgroup_mem_max);
-		snprintf(fname, sizeof(fname), "%s/%s/memory.limit_in_bytes",
-			 nsjconf->cgroup_mem_mount, nsjconf->cgroup_mem_group);
-		LOG_D("Setting %s/%s/memory.limit_in_bytes to '%s'", nsjconf->cgroup_mem_mount,
-		      nsjconf->cgroup_mem_group, mem_max_str);
+		snprintf(fname, sizeof(fname), "%s/memory.limit_in_bytes", mem_cgroup_path);
+		LOG_D("Setting %s/memory.limit_in_bytes to '%s'", mem_cgroup_path, mem_max_str);
 		if (utilWriteBufToFile(fname, mem_max_str, strlen(mem_max_str), O_WRONLY) == false) {
 			LOG_E("Could not update memory cgroup max limit");
 			return false;
@@ -56,10 +70,8 @@ bool cgroupInitNs(struct nsjconf_t *nsjconf)
 
 	char pid_str[512];
 	snprintf(pid_str, sizeof(pid_str), "%ld", syscall(__NR_getpid));
-	snprintf(fname, sizeof(fname), "%s/%s/tasks", nsjconf->cgroup_mem_mount,
-		 nsjconf->cgroup_mem_group);
-	LOG_D("Adding PID='%s' to %s/%s/tasks", pid_str, nsjconf->cgroup_mem_mount,
-	      nsjconf->cgroup_mem_group);
+	snprintf(fname, sizeof(fname), "%s/tasks", mem_cgroup_path);
+	LOG_D("Adding PID='%s' to %s/tasks", pid_str, mem_cgroup_path);
 	if (utilWriteBufToFile(fname, pid_str, strlen(pid_str), O_WRONLY) == false) {
 		LOG_E("Could not update memory cgroup task list");
 		return false;

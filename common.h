@@ -131,7 +131,7 @@ struct nsjconf_t {
 	const char *iface_vs_nm;
 	const char *iface_vs_gw;
 	const char *cgroup_mem_mount;
-	const char *cgroup_mem_group;
+	const char *cgroup_mem_parent;
 	size_t cgroup_mem_max;
 	 TAILQ_HEAD(envlist, charptr_t) envs;
 	 TAILQ_HEAD(pidslist, pids_t) pids;
