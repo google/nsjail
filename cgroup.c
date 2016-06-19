@@ -63,6 +63,13 @@ bool cgroupInitNsFromParent(struct nsjconf_t *nsjconf, pid_t pid)
 		}
 	}
 
+	snprintf(fname, sizeof(fname), "%s/memory.oom_control", mem_cgroup_path);
+	LOG_D("Writting '1' '%s/memory.oom_control'", mem_cgroup_path);
+	if (utilWriteBufToFile(fname, "1", strlen("1"), O_WRONLY) == false) {
+		LOG_E("Could not update memory cgroup oom control");
+		return false;
+	}
+
 	char pid_str[512];
 	snprintf(pid_str, sizeof(pid_str), "%d", (int)pid);
 	snprintf(fname, sizeof(fname), "%s/tasks", mem_cgroup_path);
