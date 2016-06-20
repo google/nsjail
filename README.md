@@ -243,12 +243,12 @@ Options:
 	Number of bytes to allocate for tmpfsmounts (default: 4194304)
  --disable_proc 
 	Disable mounting /proc in the jail
- --cgroup_mem_mount VALUE
-	Where to mount memory cgroup FS (default: '/cgroup_memory'
- --cgroup_mem_parent VALUE
-	Which memory cgroup to use (default: 'NSJAIL')
  --cgroup_mem_max VALUE
-	Maximum number of bytes to use in the group
+	Maximum number of bytes to use in the group (default: '0' - disabled)
+ --cgroup_mem_mount VALUE
+	Location of memory cgroup FS (default: '/sys/fs/cgroup/memory')
+ --cgroup_mem_parent VALUE
+	Which pre-existing memory cgroup to use as a parent (default: 'NSJAIL')
  --iface_no_lo 
 	Don't bring up the 'lo' interface
  --iface|-I VALUE
@@ -267,5 +267,6 @@ Options:
   nsjail -Mr --chroot / -- /bin/echo "ABC"
  Run echo command once only, as a sub-process
   nsjail -Mo --chroot / -- /bin/echo "ABC"
- Execute echo command directly, without a supervising proces
+ Execute echo command directly, without a supervising process
+  nsjail -Me --chroot / --disable_proc -- /bin/echo "ABC"
 ```
