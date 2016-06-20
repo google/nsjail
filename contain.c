@@ -215,9 +215,15 @@ static bool containMakeFdsCOENaive(struct nsjconf_t *nsjconf)
 		}
 		if (containPassFd(nsjconf, fd)) {
 			LOG_D("FD=%d will be passed to the child process", fd);
-			TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags & ~(FD_CLOEXEC)));
+			if (TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags & ~(FD_CLOEXEC))) == -1) {
+				PLOG_E("Could not set FD_CLOEXEC for FD=%d", fd);
+				return false;
+			}
 		} else {
-			TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags | FD_CLOEXEC));
+			if (TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags | FD_CLOEXEC)) == -1) {
+				PLOG_E("Could not set FD_CLOEXEC for FD=%d", fd);
+				return false;
+			}
 		}
 	}
 	return true;
@@ -262,10 +268,16 @@ static bool containMakeFdsCOEProc(struct nsjconf_t *nsjconf)
 		}
 		if (containPassFd(nsjconf, fd)) {
 			LOG_D("FD=%d will be passed to the child process", fd);
-			TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags & ~(FD_CLOEXEC)));
+			if (TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags & ~(FD_CLOEXEC))) == -1) {
+				PLOG_E("Could not clear FD_CLOEXEC for FD=%d", fd);
+				return false;
+			}
 		} else {
 			LOG_D("FD=%d will be closed before execve()", fd);
-			TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags | FD_CLOEXEC));
+			if (TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags | FD_CLOEXEC)) == -1) {
+				PLOG_E("Could not set FD_CLOEXEC for FD=%d", fd);
+				return false;
+			}
 		}
 	}
 	return true;
