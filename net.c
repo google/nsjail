@@ -269,7 +269,7 @@ int netAcceptConn(int listenfd)
 {
 	struct sockaddr_in6 cli_addr;
 	socklen_t socklen = sizeof(cli_addr);
-	int connfd = TEMP_FAILURE_RETRY(accept(listenfd, (struct sockaddr *)&cli_addr, &socklen));
+	int connfd = accept(listenfd, (struct sockaddr *)&cli_addr, &socklen);
 	if (connfd == -1) {
 		if (errno != EINTR) {
 			PLOG_E("accept(%d)", listenfd);
