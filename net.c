@@ -45,6 +45,8 @@
 
 #define IFACE_NAME "vs"
 
+extern char **environ;
+
 #if defined(NSJAIL_NL3_WITH_MACVLAN)
 #include <netlink/route/link.h>
 #include <netlink/route/link/macvlan.h>

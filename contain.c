@@ -79,11 +79,11 @@ static bool containDropPrivs(struct nsjconf_t *nsjconf)
 	if (setgroups(0, group_list) == -1) {
 		PLOG_D("setgroups(NULL) failed");
 	}
-	if (setresgid(nsjconf->inside_gid, nsjconf->inside_gid, nsjconf->inside_gid) == -1) {
+	if (syscall(__NR_setresgid, nsjconf->inside_gid, nsjconf->inside_gid, nsjconf->inside_gid) == -1) {
 		PLOG_E("setresgid(%u)", nsjconf->inside_gid);
 		return false;
 	}
-	if (setresuid(nsjconf->inside_uid, nsjconf->inside_uid, nsjconf->inside_uid) == -1) {
+	if (syscall(__NR_setresuid, nsjconf->inside_uid, nsjconf->inside_uid, nsjconf->inside_uid) == -1) {
 		PLOG_E("setresuid(%u)", nsjconf->inside_uid);
 		return false;
 	}

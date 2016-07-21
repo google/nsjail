@@ -21,6 +21,7 @@
 
 #include "pid.h"
 
+#include <linux/sched.h>
 #include <sched.h>
 #include <signal.h>
 #include <sys/prctl.h>
