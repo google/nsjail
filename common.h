@@ -74,7 +74,7 @@ struct fds_t {
 	 TAILQ_ENTRY(fds_t) pointers;
 };
 
-enum mode_t {
+enum ns_mode_t {
 	MODE_LISTEN_TCP = 0,
 	MODE_STANDALONE_ONCE,
 	MODE_STANDALONE_EXECVE,
@@ -113,7 +113,7 @@ struct nsjconf_t {
 	bool clone_newipc;
 	bool clone_newuts;
 	bool clone_newcgroup;
-	enum mode_t mode;
+	enum ns_mode_t mode;
 	const char *chroot;
 	bool is_root_rw;
 	bool is_silent;
