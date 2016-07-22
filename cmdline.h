@@ -27,7 +27,7 @@
 
 #include "common.h"
 
-rlim_t cmdlineParseRLimit(int res, const char *optarg, unsigned long mul);
+__rlim64_t cmdlineParseRLimit(int res, const char *optarg, unsigned long mul);
 void cmdlineLogParams(struct nsjconf_t *nsjconf);
 bool cmdlineParse(int argc, char *argv[], struct nsjconf_t *nsjconf);
 
