@@ -30,7 +30,7 @@
 
 #include "log.h"
 
-bool pidInitNs(struct nsjconf_t * nsjconf)
+bool pidInitNs(struct nsjconf_t *nsjconf)
 {
 	if (nsjconf->mode != MODE_STANDALONE_EXECVE) {
 		return true;

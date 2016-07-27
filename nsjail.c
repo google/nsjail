@@ -192,3 +192,8 @@ int main(int argc, char *argv[])
 	}
 	return 0;
 }
+
+/*
+ * To satisfy requirement for BlocksRuntime in clang -fblocks
+ */
+void *_NSConcreteStackBlock[32] = { 0 };

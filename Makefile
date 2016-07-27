@@ -37,7 +37,6 @@ endif
 COMPILER = $(shell $(CC) -v 2>&1 | grep -E '(gcc|clang) version' | grep -oE '(clang|gcc)')
 ifeq ($(COMPILER),clang)
 	CFLAGS += -fblocks
-	LDFLAGS += -lBlocksRuntime
 endif
 
 ifeq ("$(wildcard /usr/include/libnl3/netlink/route/link/macvlan.h)","/usr/include/libnl3/netlink/route/link/macvlan.h")

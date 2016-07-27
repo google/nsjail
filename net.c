@@ -50,7 +50,7 @@ extern char **environ;
 #if defined(NSJAIL_NL3_WITH_MACVLAN)
 #include <netlink/route/link.h>
 #include <netlink/route/link/macvlan.h>
-bool netInitNsFromParent(struct nsjconf_t * nsjconf, int pid)
+bool netInitNsFromParent(struct nsjconf_t *nsjconf, int pid)
 {
 	if (nsjconf->clone_newnet == false) {
 		return true;
