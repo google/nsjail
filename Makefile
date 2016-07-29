@@ -34,11 +34,6 @@ ifdef DEBUG
 	CFLAGS += -g -ggdb -gdwarf-4
 endif
 
-COMPILER = $(shell $(CC) -v 2>&1 | grep -E '(gcc|clang) version' | grep -oE '(clang|gcc)')
-ifeq ($(COMPILER),clang)
-	CFLAGS += -fblocks
-endif
-
 ifeq ("$(wildcard /usr/include/libnl3/netlink/route/link/macvlan.h)","/usr/include/libnl3/netlink/route/link/macvlan.h")
 	CFLAGS += -DNSJAIL_NL3_WITH_MACVLAN -I/usr/include/libnl3
 	LDFLAGS += -lnl-3 -lnl-route-3
