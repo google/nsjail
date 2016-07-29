@@ -64,37 +64,35 @@ bool netInitNsFromParent(struct nsjconf_t *nsjconf, int pid)
 		LOG_E("Could not allocate socket with nl_socket_alloc()");
 		return false;
 	}
-	defer {
-		nl_socket_free(sk);
-	};
 
 	int err;
 	if ((err = nl_connect(sk, NETLINK_ROUTE)) < 0) {
 		LOG_E("Unable to connect socket: %s", nl_geterror(err));
+		nl_socket_free(sk);
 		return false;
 	}
 
 	struct rtnl_link *rmv = rtnl_link_macvlan_alloc();
 	if (rmv == NULL) {
 		LOG_E("rtnl_link_macvlan_alloc(): %s", nl_geterror(err));
+		nl_socket_free(sk);
 		return false;
 	}
-	defer {
-		rtnl_link_put(rmv);
-	};
 
 	struct nl_cache *link_cache;
 	if ((err = rtnl_link_alloc_cache(sk, AF_UNSPEC, &link_cache)) < 0) {
 		LOG_E("rtnl_link_alloc_cache(): %s", nl_geterror(err));
+		rtnl_link_put(rmv);
+		nl_socket_free(sk);
 		return false;
 	}
-	defer {
-		nl_cache_free(link_cache);
-	};
 
 	int master_index = rtnl_link_name2i(link_cache, nsjconf->iface);
 	if (master_index == 0) {
 		LOG_E("rtnl_link_name2i(): Did not find '%s' interface", nsjconf->iface);
+		nl_cache_free(link_cache);
+		rtnl_link_put(rmv);
+		nl_socket_free(sk);
 		return false;
 	}
 
@@ -104,9 +102,15 @@ bool netInitNsFromParent(struct nsjconf_t *nsjconf, int pid)
 
 	if ((err = rtnl_link_add(sk, rmv, NLM_F_CREATE)) < 0) {
 		LOG_E("rtnl_link_add(): %s", nl_geterror(err));
+		nl_cache_free(link_cache);
+		rtnl_link_put(rmv);
+		nl_socket_free(sk);
 		return false;
 	}
 
+	nl_cache_free(link_cache);
+	rtnl_link_put(rmv);
+	nl_socket_free(sk);
 	return true;
 }
 #else				// defined(NSJAIL_NL3_WITH_MACVLAN)
@@ -250,12 +254,12 @@ int netGetRecvSocket(const char *bindhost, int port)
 		.sin6_scope_id = 0,
 	};
 	if (bind(sockfd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
-		TEMP_FAILURE_RETRY(close(sockfd));
+		close(sockfd);
 		PLOG_E("bind(host:[%s], port:%d)", bindhost, port);
 		return -1;
 	}
 	if (listen(sockfd, SOMAXCONN) == -1) {
-		TEMP_FAILURE_RETRY(close(sockfd));
+		close(sockfd);
 		PLOG_E("listen(%d)", SOMAXCONN);
 		return -1;
 	}
@@ -335,9 +339,6 @@ static bool netIfaceUp(const char *ifacename)
 		PLOG_E("socket(AF_INET, SOCK_STREAM, IPPROTO_IP)");
 		return false;
 	}
-	defer {
-		TEMP_FAILURE_RETRY(close(sock));
-	};
 
 	struct ifreq ifr;
 	memset(&ifr, '\0', sizeof(ifr));
@@ -345,6 +346,7 @@ static bool netIfaceUp(const char *ifacename)
 
 	if (ioctl(sock, SIOCGIFFLAGS, &ifr) == -1) {
 		PLOG_E("ioctl(iface='%s', SIOCGIFFLAGS, IFF_UP)", ifacename);
+		close(sock);
 		return false;
 	}
 
@@ -352,9 +354,11 @@ static bool netIfaceUp(const char *ifacename)
 
 	if (ioctl(sock, SIOCSIFFLAGS, &ifr) == -1) {
 		PLOG_E("ioctl(iface='%s', SIOCSIFFLAGS, IFF_UP)", ifacename);
+		close(sock);
 		return false;
 	}
 
+	close(sock);
 	return true;
 }
 
@@ -370,16 +374,15 @@ static bool netConfigureVs(struct nsjconf_t *nsjconf)
 		PLOG_E("socket(AF_INET, SOCK_STREAM, IPPROTO_IP)");
 		return false;
 	}
-	defer {
-		TEMP_FAILURE_RETRY(close(sock));
-	};
 
 	if (inet_pton(AF_INET, nsjconf->iface_vs_ip, &addr) != 1) {
 		PLOG_E("Cannot convert '%s' into an IPv4 address", nsjconf->iface_vs_ip);
+		close(sock);
 		return false;
 	}
 	if (addr.s_addr == INADDR_ANY) {
 		LOG_I("IPv4 address for interface '%s' not set", IFACE_NAME);
+		close(sock);
 		return true;
 	}
 
@@ -388,30 +391,36 @@ static bool netConfigureVs(struct nsjconf_t *nsjconf)
 	sa->sin_addr = addr;
 	if (ioctl(sock, SIOCSIFADDR, &ifr) == -1) {
 		PLOG_E("ioctl(iface='%s', SIOCSIFADDR, '%s')", IFACE_NAME, nsjconf->iface_vs_ip);
+		close(sock);
 		return false;
 	}
 
 	if (inet_pton(AF_INET, nsjconf->iface_vs_nm, &addr) != 1) {
 		PLOG_E("Cannot convert '%s' into a IPv4 netmask", nsjconf->iface_vs_nm);
+		close(sock);
 		return false;
 	}
 	sa->sin_family = AF_INET;
 	sa->sin_addr = addr;
 	if (ioctl(sock, SIOCSIFNETMASK, &ifr) == -1) {
 		PLOG_E("ioctl(iface='%s', SIOCSIFNETMASK, '%s')", IFACE_NAME, nsjconf->iface_vs_nm);
+		close(sock);
 		return false;
 	}
 
 	if (netIfaceUp(IFACE_NAME) == false) {
+		close(sock);
 		return false;
 	}
 
 	if (inet_pton(AF_INET, nsjconf->iface_vs_gw, &addr) != 1) {
 		PLOG_E("Cannot convert '%s' into a IPv4 GW address", nsjconf->iface_vs_gw);
+		close(sock);
 		return false;
 	}
 	if (addr.s_addr == INADDR_ANY) {
 		LOG_I("Gateway address for '%s' is not set", IFACE_NAME);
+		close(sock);
 		return true;
 	}
 
@@ -433,9 +442,11 @@ static bool netConfigureVs(struct nsjconf_t *nsjconf)
 
 	if (ioctl(sock, SIOCADDRT, &rt) == -1) {
 		PLOG_E("ioctl(SIOCADDRT, '%s')", nsjconf->iface_vs_gw);
+		close(sock);
 		return false;
 	}
 
+	close(sock);
 	return true;
 }
 

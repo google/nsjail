@@ -127,7 +127,7 @@ static void subprocRemove(struct nsjconf_t *nsjconf, pid_t pid)
 		if (p->pid == pid) {
 			LOG_D("Removing pid '%d' from the queue (IP:'%s', start time:'%u')", p->pid,
 			      p->remote_txt, (unsigned int)p->start);
-			TEMP_FAILURE_RETRY(close(p->pid_syscall_fd));
+			close(p->pid_syscall_fd);
 			TAILQ_REMOVE(&nsjconf->pids, p, pointers);
 			free(p);
 			return;
@@ -328,26 +328,26 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 
 	pid_t pid = syscall(__NR_clone, (uintptr_t) flags, NULL, NULL, NULL, (uintptr_t) 0);
 	if (pid == 0) {
-		TEMP_FAILURE_RETRY(close(parent_fd));
+		close(parent_fd);
 		subprocNewProc(nsjconf, fd_in, fd_out, fd_err, child_fd);
 	}
-	defer {
-		TEMP_FAILURE_RETRY(close(parent_fd));
-	};
-	TEMP_FAILURE_RETRY(close(child_fd));
+	close(child_fd);
 	if (pid == -1) {
 		PLOG_E("clone(flags=%#lx) failed. You probably need root privileges if your system "
 		       "doesn't support CLONE_NEWUSER. Alternatively, you might want to recompile your "
 		       "kernel with support for namespaces or check the setting of the "
 		       "kernel.unprivileged_userns_clone sysctl", flags);
+		close(parent_fd);
 		return;
 	}
 	subprocAdd(nsjconf, pid, fd_in);
 
 	if (subprocInitParent(nsjconf, pid, parent_fd) == false) {
+		close(parent_fd);
 		return;
 	}
 
+	close(parent_fd);
 	char cs_addr[64];
 	netConnToText(fd_in, true /* remote */ , cs_addr, sizeof(cs_addr), NULL);
 	LOG_I("PID: %d about to execute '%s' for %s", pid, nsjconf->argv[0], cs_addr);

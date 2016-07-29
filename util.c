@@ -65,10 +65,9 @@ ssize_t utilReadFromFile(const char *fname, void *buf, size_t len)
 		LOG_E("open('%s', O_RDONLY)", fname);
 		return -1;
 	}
-	defer {
-		TEMP_FAILURE_RETRY(close(fd));
-	};
-	return utilReadFromFd(fd, buf, len);
+	ssize_t ret = utilReadFromFd(fd, buf, len);
+	close(fd);
+	return ret;
 }
 
 ssize_t utilWriteToFd(int fd, const void *buf, size_t len)
@@ -97,17 +96,16 @@ bool utilWriteBufToFile(char *filename, const void *buf, size_t len, int open_fl
 		PLOG_E("Couldn't open '%s' for writing", filename);
 		return false;
 	}
-	defer {
-		TEMP_FAILURE_RETRY(close(fd));
-	};
 
 	if (utilWriteToFd(fd, buf, len) == false) {
 		PLOG_E("Couldn't write '%zu' bytes to file '%s' (fd='%d')", len, filename, fd);
+		close(fd);
 		unlink(filename);
 		return false;
 	}
 
 	LOG_D("Written '%zu' bytes to '%s'", len, filename);
 
+	close(fd);
 	return true;
 }

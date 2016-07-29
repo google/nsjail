@@ -239,14 +239,12 @@ static bool containMakeFdsCOEProc(struct nsjconf_t *nsjconf)
 		PLOG_D("opendir('/proc/self/fd')");
 		return false;
 	}
-	defer {
-		closedir(dir);
-	};
 	for (;;) {
 		errno = 0;
 		struct dirent *entry = readdir(dir);
 		if (entry == NULL && errno != 0) {
 			PLOG_D("readdir('/proc/self/fd')");
+			closedir(dir);
 			return false;
 		}
 		if (entry == NULL) {
@@ -266,22 +264,26 @@ static bool containMakeFdsCOEProc(struct nsjconf_t *nsjconf)
 		int flags = TEMP_FAILURE_RETRY(fcntl(fd, F_GETFD, 0));
 		if (flags == -1) {
 			PLOG_D("fcntl(fd, F_GETFD, 0)");
+			closedir(dir);
 			return false;
 		}
 		if (containPassFd(nsjconf, fd)) {
 			LOG_D("FD=%d will be passed to the child process", fd);
 			if (TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags & ~(FD_CLOEXEC))) == -1) {
 				PLOG_E("Could not clear FD_CLOEXEC for FD=%d", fd);
+				closedir(dir);
 				return false;
 			}
 		} else {
 			LOG_D("FD=%d will be closed before execve()", fd);
 			if (TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags | FD_CLOEXEC)) == -1) {
 				PLOG_E("Could not set FD_CLOEXEC for FD=%d", fd);
+				closedir(dir);
 				return false;
 			}
 		}
 	}
+	closedir(dir);
 	return true;
 }
 

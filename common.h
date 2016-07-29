@@ -31,6 +31,7 @@
 
 #define ARRAYSIZE(array) (sizeof(array) / sizeof(*array))
 
+#if 0				/* Works, but needs -fblocks and libBlocksRuntime with clang */
 /* Go-style defer implementation */
 #define __STRMERGE(a, b) a##b
 #define _STRMERGE(a, b) __STRMERGE(a, b)
@@ -49,6 +50,7 @@ static void __attribute__ ((unused)) __clang_cleanup_func(void (^*dfunc) (void))
     int _STRMERGE(__defer_var_, count) __attribute__((cleanup(_STRMERGE(__defer_f_, count)))) __attribute__((unused)); \
     void _STRMERGE(__defer_f_, count)(void *_defer_arg __attribute__((unused)))
 #define defer _DEFER(a, __COUNTER__)
+#endif
 #endif
 
 struct pids_t {
