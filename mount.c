@@ -41,9 +41,9 @@
 static bool mountIsDir(const char *path)
 {
 	/*
-	 *  If the source dir is empty, we assume it's a dir (for /proc and tmpfs)
+	 *  If the source dir is NULL, we assume it's a dir (for /proc and tmpfs)
 	 */
-	if (strcmp(path, "") == 0) {
+	if (path == NULL) {
 		return true;
 	}
 	struct stat st;
@@ -61,7 +61,7 @@ static bool mountIsDir(const char *path)
 // stat() failure
 static bool mountNotIsDir(const char *path)
 {
-	if (strcmp(path, "") == 0) {
+	if (path == NULL) {
 		return false;
 	}
 	struct stat st;
@@ -81,11 +81,11 @@ static bool mountMount(struct nsjconf_t *nsjconf, struct mounts_t *mpt, const ch
 	LOG_D("Mounting '%s' on '%s' (type:'%s', flags:0x%tx, options:'%s')", mpt->src, dst,
 	      mpt->fs_type, mpt->flags, mpt->options);
 
-	char src[PATH_MAX];
-	if (mpt->src == NULL) {
-		src[0] = '\0';
-	} else {
-		snprintf(src, sizeof(src), "%s/%s", oldroot, mpt->src);
+	char srcpath[PATH_MAX];
+	const char *src = NULL;
+	if (mpt->src != NULL) {
+		snprintf(srcpath, sizeof(srcpath), "%s/%s", oldroot, mpt->src);
+		src = srcpath;
 	}
 
 	if (mountIsDir(src) == true) {
