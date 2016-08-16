@@ -41,9 +41,9 @@
 static bool mountIsDir(const char *path)
 {
 	/*
-	 *  If the source dir is NULL, we assume it's a dir (for /proc and tmpfs)
+	 *  If the source dir is empty, we assume it's a dir (for /proc and tmpfs)
 	 */
-	if (path == NULL) {
+	if (strcmp(path, "") == 0) {
 		return true;
 	}
 	struct stat st;
@@ -61,7 +61,7 @@ static bool mountIsDir(const char *path)
 // stat() failure
 static bool mountNotIsDir(const char *path)
 {
-	if (path == NULL) {
+	if (strcmp(path, "") == 0) {
 		return false;
 	}
 	struct stat st;
@@ -75,18 +75,26 @@ static bool mountNotIsDir(const char *path)
 	return true;
 }
 
-static bool mountMount(struct nsjconf_t *nsjconf, struct mounts_t *mpt, const char *dst)
+static bool mountMount(struct nsjconf_t *nsjconf, struct mounts_t *mpt, const char *oldroot,
+		       const char *dst)
 {
 	LOG_D("Mounting '%s' on '%s' (type:'%s', flags:0x%tx, options:'%s')", mpt->src, dst,
 	      mpt->fs_type, mpt->flags, mpt->options);
 
-	if (mountIsDir(mpt->src) == true) {
+	char src[PATH_MAX];
+	if (mpt->src == NULL) {
+		src[0] = '\0';
+	} else {
+		snprintf(src, sizeof(src), "%s/%s", oldroot, mpt->src);
+	}
+
+	if (mountIsDir(src) == true) {
 		if (mkdir(dst, 0711) == -1 && errno != EEXIST) {
 			PLOG_W("mkdir('%s')", dst);
 		}
 	}
 
-	if (mountNotIsDir(mpt->src) == true) {
+	if (mountNotIsDir(src) == true) {
 		int fd = TEMP_FAILURE_RETRY(open(dst, O_CREAT | O_RDONLY, 0644));
 		if (fd >= 0) {
 			close(fd);
@@ -99,13 +107,13 @@ static bool mountMount(struct nsjconf_t *nsjconf, struct mounts_t *mpt, const ch
 	 * Initially mount it as RW, it will be remounted later on if needed
 	 */
 	unsigned long flags = mpt->flags & ~(MS_RDONLY);
-	if (mount(mpt->src, dst, mpt->fs_type, flags, mpt->options) == -1) {
+	if (mount(src, dst, mpt->fs_type, flags, mpt->options) == -1) {
 		if (errno == EACCES) {
 			PLOG_E
 			    ("mount('%s', '%s', type='%s') failed. Try fixing this problem by applying 'chmod o+x' to the '%s' directory and its ancestors",
-			     mpt->src, dst, mpt->fs_type, nsjconf->chroot);
+			     src, dst, mpt->fs_type, nsjconf->chroot);
 		} else {
-			PLOG_E("mount('%s', '%s', type='%s') failed", mpt->src, dst, mpt->fs_type);
+			PLOG_E("mount('%s', '%s', type='%s') failed", src, dst, mpt->fs_type);
 		}
 		return false;
 	}
@@ -158,8 +166,22 @@ static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 		PLOG_E("mount('%s', 'tmpfs'", destdir);
 		return false;
 	}
-	char newrootdir[PATH_MAX];
-	snprintf(newrootdir, sizeof(newrootdir), "%s/%s", destdir, "new_root");
+	char oldrootdir[PATH_MAX];
+	snprintf(oldrootdir, sizeof(oldrootdir), "%s/oldroot", destdir);
+	if (mkdir(oldrootdir, 0755) == -1) {
+		PLOG_E("mkdir('%s')", oldrootdir);
+		return false;
+	}
+	if (syscall(__NR_pivot_root, destdir, oldrootdir) == -1) {
+		PLOG_E("pivot_root('%s', '%s')", destdir, oldrootdir);
+		return false;
+	}
+	if (chdir("/") == -1) {
+		PLOG_E("chroot('/')");
+		return false;
+	}
+
+	const char *const newrootdir = "/new_root";
 	if (mkdir(newrootdir, 0755) == -1) {
 		PLOG_E("mkdir('%s')", newrootdir);
 		return false;
@@ -169,22 +191,12 @@ static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 	TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
 		char dst[PATH_MAX];
 		snprintf(dst, sizeof(dst), "%s/%s", newrootdir, p->dst);
-		if (mountMount(nsjconf, p, dst) == false) {
+		if (mountMount(nsjconf, p, "/oldroot", dst) == false) {
 			return false;
 		}
 	}
 
-	char pivotrootdir[PATH_MAX];
-	snprintf(pivotrootdir, sizeof(pivotrootdir), "%s/%s", destdir, "pivot_root");
-	if (mkdir(pivotrootdir, 0755) == -1) {
-		PLOG_E("mkdir('%s')", pivotrootdir);
-		return false;
-	}
-	if (syscall(__NR_pivot_root, destdir, pivotrootdir) == -1) {
-		PLOG_E("pivot_root('%s', '%s')", destdir, pivotrootdir);
-		return false;
-	}
-	if (umount2("/pivot_root", MNT_DETACH) == -1) {
+	if (umount2("/oldroot", MNT_DETACH) == -1) {
 		PLOG_E("umount2('/pivot_root', MNT_DETACH)");
 		return false;
 	}
@@ -201,15 +213,6 @@ static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 	TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
 		if (mountRemountRO(p) == false) {
 			return false;
-		}
-	}
-
-	/*
-	 * Remove the tmpfs from /tmp is we are mounting / as root
-	 */
-	if (0 == strcmp(nsjconf->chroot, "/")) {
-		if (umount2(destdir, MNT_DETACH) == -1) {
-			PLOG_W("umount2('%s', MNT_DETACH) failed", destdir);
 		}
 	}
 
