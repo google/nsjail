@@ -637,9 +637,6 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		p->flags = 0;
 		p->options = "";
 		p->fs_type = "proc";
-		if (nsjconf->is_root_rw == false) {
-			p->flags |= MS_RDONLY;
-		}
 		TAILQ_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
 	}
 	if (nsjconf->chroot != NULL) {
