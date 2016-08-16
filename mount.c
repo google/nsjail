@@ -167,7 +167,7 @@ static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 		return false;
 	}
 	char oldrootdir[PATH_MAX];
-	snprintf(oldrootdir, sizeof(oldrootdir), "%s/oldroot", destdir);
+	snprintf(oldrootdir, sizeof(oldrootdir), "%s/old_root", destdir);
 	if (mkdir(oldrootdir, 0755) == -1) {
 		PLOG_E("mkdir('%s')", oldrootdir);
 		return false;
@@ -177,7 +177,7 @@ static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 		return false;
 	}
 	if (chdir("/") == -1) {
-		PLOG_E("chroot('/')");
+		PLOG_E("chdir('/')");
 		return false;
 	}
 
@@ -191,17 +191,17 @@ static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 	TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
 		char dst[PATH_MAX];
 		snprintf(dst, sizeof(dst), "%s/%s", newrootdir, p->dst);
-		if (mountMount(nsjconf, p, "/oldroot", dst) == false) {
+		if (mountMount(nsjconf, p, "/old_root", dst) == false) {
 			return false;
 		}
 	}
 
-	if (umount2("/oldroot", MNT_DETACH) == -1) {
-		PLOG_E("umount2('/pivot_root', MNT_DETACH)");
+	if (umount2("/old_root", MNT_DETACH) == -1) {
+		PLOG_E("umount2('/old_root', MNT_DETACH)");
 		return false;
 	}
-	if (chroot("/new_root") == -1) {
-		PLOG_E("CHROOT('/new_root')");
+	if (chroot(newrootdir) == -1) {
+		PLOG_E("chroot('%s')", newrootdir);
 		return false;
 	}
 
