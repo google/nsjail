@@ -256,7 +256,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	(*nsjconf) = (const struct nsjconf_t) {
 		.hostname = "NSJAIL",
 		.cwd = "/",
-		.chroot = "/",
+		.chroot = NULL,
 		.argv = NULL,
 		.port = 31337,
 		.bindhost = "::",
@@ -332,7 +332,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			"\te: Immediately launch a single process on a console using execve [MODE_STANDALONE_EXECVE]\n"
 			"\tr: Immediately launch a single process on a console, keep doing it forever [MODE_STANDALONE_RERUN]"},
 		{{"cmd", no_argument, NULL, 0x500}, "Equivalent of -Mo (MODE_STANDALONE_ONCE), run command on a local console, once"},
-		{{"chroot", required_argument, NULL, 'c'}, "Directory containing / of the jail (default: \"/\"). Skip mounting it if \"\""},
+		{{"chroot", required_argument, NULL, 'c'}, "Directory containing / of the jail (default: none)"},
 		{{"rw", no_argument, NULL, 0x601}, "Mount / as RW (default: RO)"},
 		{{"user", required_argument, NULL, 'u'}, "Username/uid of processess inside the jail (default: your current uid). You can also use inside_ns_uid:outside_ns_uid convention here"},
 		{{"group", required_argument, NULL, 'g'}, "Groupname/gid of processess inside the jail (default: your current gid). You can also use inside_ns_gid:global_ns_gid convention here"},
@@ -642,7 +642,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		}
 		TAILQ_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
 	}
-	if (strcmp(nsjconf->chroot, "") != 0) {
+	if (nsjconf->chroot != NULL) {
 		struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
 		p->src = nsjconf->chroot;
 		p->dst = "/";
