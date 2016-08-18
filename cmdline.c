@@ -258,7 +258,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		.cwd = "/",
 		.chroot = NULL,
 		.argv = NULL,
-		.port = 31337,
+		.port = 0,
 		.bindhost = "::",
 		.daemonize = false,
 		.tlimit = 0,
@@ -280,7 +280,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		.clone_newipc = true,
 		.clone_newuts = true,
 		.clone_newcgroup = false,
-		.mode = MODE_LISTEN_TCP,
+		.mode = MODE_STANDALONE_ONCE,
 		.is_root_rw = false,
 		.is_silent = false,
 		.skip_setsid = false,
@@ -326,19 +326,18 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
         /*  *INDENT-OFF* */
 	struct custom_option custom_opts[] = {
 		{{"help", no_argument, NULL, 'h'}, "Help plz.."},
-		{{"mode", required_argument, NULL, 'M'}, "Execution mode (default: l [MODE_LISTEN_TCP]):\n"
+		{{"mode", required_argument, NULL, 'M'}, "Execution mode (default: o [MODE_STANDALONE_ONCE]):\n"
 			"\tl: Wait for connections on a TCP port (specified with --port) [MODE_LISTEN_TCP]\n"
 			"\to: Immediately launch a single process on a console using clone/execve [MODE_STANDALONE_ONCE]\n"
 			"\te: Immediately launch a single process on a console using execve [MODE_STANDALONE_EXECVE]\n"
 			"\tr: Immediately launch a single process on a console, keep doing it forever [MODE_STANDALONE_RERUN]"},
-		{{"cmd", no_argument, NULL, 0x500}, "Equivalent of -Mo (MODE_STANDALONE_ONCE), run command on a local console, once"},
 		{{"chroot", required_argument, NULL, 'c'}, "Directory containing / of the jail (default: none)"},
 		{{"rw", no_argument, NULL, 0x601}, "Mount / as RW (default: RO)"},
 		{{"user", required_argument, NULL, 'u'}, "Username/uid of processess inside the jail (default: your current uid). You can also use inside_ns_uid:outside_ns_uid convention here"},
 		{{"group", required_argument, NULL, 'g'}, "Groupname/gid of processess inside the jail (default: your current gid). You can also use inside_ns_gid:global_ns_gid convention here"},
 		{{"hostname", required_argument, NULL, 'H'}, "UTS name (hostname) of the jail (default: 'NSJAIL')"},
 		{{"cwd", required_argument, NULL, 'D'}, "Directory in the namespace the process will run (default: '/')"},
-		{{"port", required_argument, NULL, 'p'}, "TCP port to bind to (only in [MODE_LISTEN_TCP]) (default: 31337)"},
+		{{"port", required_argument, NULL, 'p'}, "TCP port to bind to (enables MODE_LISTEN_TCP) (default: 0)"},
 		{{"bindhost", required_argument, NULL, 0x604}, "IP address port to bind to (only in [MODE_LISTEN_TCP]), '::ffff:127.0.0.1' for locahost (default: '::')"},
 		{{"max_conns_per_ip", required_argument, NULL, 'i'}, "Maximum number of connections per one IP (default: 0 (unlimited))"},
 		{{"log", required_argument, NULL, 'l'}, "Log file (default: /proc/self/fd/2)"},
@@ -412,6 +411,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			break;
 		case 'p':
 			nsjconf->port = strtoul(optarg, NULL, 0);
+			nsjconf->mode = MODE_LISTEN_TCP;
 			break;
 		case 0x604:
 			nsjconf->bindhost = optarg;
@@ -500,9 +500,6 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			break;
 		case 0x0407:
 			nsjconf->clone_newcgroup = true;
-			break;
-		case 0x0500:
-			nsjconf->mode = MODE_STANDALONE_ONCE;
 			break;
 		case 0x0501:
 			nsjconf->keep_caps = true;
