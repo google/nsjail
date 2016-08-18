@@ -37,6 +37,7 @@
 #include <unistd.h>
 
 #include "log.h"
+#include "util.h"
 
 static bool mountIsDir(const char *path)
 {
@@ -89,12 +90,20 @@ static bool mountMount(struct nsjconf_t *nsjconf, struct mounts_t *mpt, const ch
 	}
 
 	if (mountIsDir(src) == true) {
+		if (utilCreateDirRecursively(dst) == false) {
+			LOG_W("Couldn't create upper directories for '%s'", dst);
+			return false;
+		}
 		if (mkdir(dst, 0711) == -1 && errno != EEXIST) {
 			PLOG_W("mkdir('%s')", dst);
 		}
 	}
 
 	if (mountNotIsDir(src) == true) {
+		if (utilCreateDirRecursively(dst) == false) {
+			LOG_W("Couldn't create upper directories for '%s'", dst);
+			return false;
+		}
 		int fd = TEMP_FAILURE_RETRY(open(dst, O_CREAT | O_RDONLY, 0644));
 		if (fd >= 0) {
 			close(fd);

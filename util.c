@@ -23,7 +23,9 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -88,7 +90,7 @@ ssize_t utilWriteToFd(int fd, const void *buf, size_t len)
 	return true;
 }
 
-bool utilWriteBufToFile(char *filename, const void *buf, size_t len, int open_flags)
+bool utilWriteBufToFile(const char *filename, const void *buf, size_t len, int open_flags)
 {
 	int fd;
 	TEMP_FAILURE_RETRY(fd = open(filename, open_flags, 0644));
@@ -108,4 +110,48 @@ bool utilWriteBufToFile(char *filename, const void *buf, size_t len, int open_fl
 
 	close(fd);
 	return true;
+}
+
+bool utilCreateDirRecursively(const char *dir)
+{
+	int prev_dir_fd = AT_FDCWD;
+	char path[PATH_MAX];
+	snprintf(path, sizeof(path), "%s", dir);
+
+	char *curr = path;
+	if (*curr == '/') {
+		prev_dir_fd = open("/", O_RDONLY | O_CLOEXEC);
+		if (prev_dir_fd == -1) {
+			PLOG_E("open('/', O_RDONLY | O_CLOEXEC)");
+			return false;
+		}
+	}
+
+	for (;;) {
+		while (*curr == '/') {
+			curr++;
+		}
+
+		char *next = strchr(curr, '/');
+		if (next == NULL) {
+			close(prev_dir_fd);
+			return true;
+		}
+		*next = '\0';
+
+		if (mkdirat(prev_dir_fd, curr, 0755) == -1 && errno != EEXIST) {
+			PLOG_E("mkdir('%s', 0755)", curr);
+			return false;
+		}
+
+		int dir_fd = openat(prev_dir_fd, curr, O_DIRECTORY | O_CLOEXEC);
+		if (dir_fd == -1) {
+			PLOG_E("openat('%d', '%s', O_DIRECTORY | O_CLOEXEC)", prev_dir_fd, curr);
+			close(prev_dir_fd);
+			return false;
+		}
+		close(prev_dir_fd);
+		prev_dir_fd = dir_fd;
+		curr = next + 1;
+	}
 }

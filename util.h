@@ -31,6 +31,7 @@ void *utilMalloc(size_t sz);
 ssize_t utilReadFromFd(int fd, void *buf, size_t len);
 ssize_t utilReadFromFile(const char *fname, void *buf, size_t len);
 ssize_t utilWriteToFd(int fd, const void *buf, size_t len);
-bool utilWriteBufToFile(char *filename, const void *buf, size_t len, int open_flags);
+bool utilWriteBufToFile(const char *filename, const void *buf, size_t len, int open_flags);
+bool utilCreateDirRecursively(const char *dir);
 
 #endif				/* NS_UTIL_H */
