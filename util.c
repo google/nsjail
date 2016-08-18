@@ -114,19 +114,20 @@ bool utilWriteBufToFile(const char *filename, const void *buf, size_t len, int o
 
 bool utilCreateDirRecursively(const char *dir)
 {
-	int prev_dir_fd = AT_FDCWD;
-	char path[PATH_MAX];
-	snprintf(path, sizeof(path), "%s", dir);
-
-	char *curr = path;
-	if (*curr == '/') {
-		prev_dir_fd = open("/", O_RDONLY | O_CLOEXEC);
-		if (prev_dir_fd == -1) {
-			PLOG_E("open('/', O_RDONLY | O_CLOEXEC)");
-			return false;
-		}
+	if (dir[0] != '/') {
+		LOG_W("The directory path must start with '/': '%s' provided", dir);
+		return false;
 	}
 
+	int prev_dir_fd = open("/", O_RDONLY | O_CLOEXEC);
+	if (prev_dir_fd == -1) {
+		PLOG_E("open('/', O_RDONLY | O_CLOEXEC)");
+		return false;
+	}
+
+	char path[PATH_MAX];
+	snprintf(path, sizeof(path), "%s", dir);
+	char *curr = path;
 	for (;;) {
 		while (*curr == '/') {
 			curr++;
@@ -141,6 +142,7 @@ bool utilCreateDirRecursively(const char *dir)
 
 		if (mkdirat(prev_dir_fd, curr, 0755) == -1 && errno != EEXIST) {
 			PLOG_E("mkdir('%s', 0755)", curr);
+			close(prev_dir_fd);
 			return false;
 		}
 
