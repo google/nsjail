@@ -104,11 +104,11 @@ static bool mountMount(struct nsjconf_t *nsjconf, struct mounts_t *mpt, const ch
 			LOG_W("Couldn't create upper directories for '%s'", dst);
 			return false;
 		}
-		int fd = TEMP_FAILURE_RETRY(open(dst, O_CREAT | O_RDONLY, 0644));
+		int fd = TEMP_FAILURE_RETRY(open(dst, O_CREAT | O_RDONLY | O_CLOEXEC, 0644));
 		if (fd >= 0) {
 			close(fd);
 		} else {
-			PLOG_W("open('%s', O_CREAT|O_RDONLY, 0700)", dst);
+			PLOG_W("open('%s', O_CREAT|O_RDONLY|O_CLOEXEC, 0700)", dst);
 		}
 	}
 

@@ -62,9 +62,9 @@ ssize_t utilReadFromFd(int fd, void *buf, size_t len)
 ssize_t utilReadFromFile(const char *fname, void *buf, size_t len)
 {
 	int fd;
-	TEMP_FAILURE_RETRY(fd = open(fname, O_RDONLY));
+	TEMP_FAILURE_RETRY(fd = open(fname, O_RDONLY | O_CLOEXEC));
 	if (fd == -1) {
-		LOG_E("open('%s', O_RDONLY)", fname);
+		LOG_E("open('%s', O_RDONLY|O_CLOEXEC)", fname);
 		return -1;
 	}
 	ssize_t ret = utilReadFromFd(fd, buf, len);

@@ -112,7 +112,7 @@ static void subprocAdd(struct nsjconf_t *nsjconf, pid_t pid, int sock)
 
 	char fname[PATH_MAX];
 	snprintf(fname, sizeof(fname), "/proc/%d/syscall", (int)pid);
-	p->pid_syscall_fd = TEMP_FAILURE_RETRY(open(fname, O_RDONLY));
+	p->pid_syscall_fd = TEMP_FAILURE_RETRY(open(fname, O_RDONLY | O_CLOEXEC));
 
 	TAILQ_INSERT_HEAD(&nsjconf->pids, p, pointers);
 
