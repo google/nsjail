@@ -34,6 +34,11 @@ ifdef DEBUG
 	CFLAGS += -g -ggdb -gdwarf-4
 endif
 
+ifneq ("$(wildcard kafel/include/kafel.h)","")
+	CFLAGS += -I./kafel/include/ -DUSE_KAFEL
+	LIBS += kafel/libkafel.a
+endif
+
 ifeq ("$(wildcard /usr/include/libnl3/netlink/route/link/macvlan.h)","/usr/include/libnl3/netlink/route/link/macvlan.h")
 	CFLAGS += -DNSJAIL_NL3_WITH_MACVLAN -I/usr/include/libnl3
 	LDFLAGS += -lnl-3 -lnl-route-3
@@ -44,11 +49,19 @@ endif
 
 all: $(BIN)
 
-$(BIN): $(OBJS)
-	$(CC) -o $(BIN) $(OBJS) $(LDFLAGS)
+$(BIN): $(OBJS) $(LIBS)
+	$(CC) -o $(BIN) $(OBJS) $(LIBS) $(LDFLAGS)
+
+ifneq ("$(wildcard kafel/Makefile)","")
+kafel/libkafel.a:
+	$(MAKE) -C kafel
+endif
 
 clean:
 	$(RM) core Makefile.bak $(OBJS) $(BIN)
+ifneq ("$(wildcard kafel/Makefile)","")
+	$(MAKE) -C kafel clean
+endif
 
 depend:
 	makedepend -Y. -- -- $(SRCS)

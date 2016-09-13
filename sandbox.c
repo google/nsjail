@@ -37,54 +37,59 @@
  * A demo policy, it disallows syslog and ptrace syscalls, both in 32 and 64
  * modes
  */
-static bool sandboxPrepareAndCommit(void)
+static bool sandboxPrepareAndCommit(struct nsjconf_t *nsjconf)
 {
 #if defined(__x86_64__) || defined(__i386__)
-	struct bpf_labels l = {.count = 0 };
-	struct sock_filter filter[] = {
-		LOAD_ARCH,
-		JEQ32(AUDIT_ARCH_I386, JUMP(&l, label_i386)),
-		JEQ32(AUDIT_ARCH_X86_64, JUMP(&l, label_x86_64)),
+	if (nsjconf->seccomp_fprog.filter == NULL) {
+		struct bpf_labels l = {.count = 0 };
+		struct sock_filter filter[] = {
+			LOAD_ARCH,
+			JEQ32(AUDIT_ARCH_I386, JUMP(&l, label_i386)),
+			JEQ32(AUDIT_ARCH_X86_64, JUMP(&l, label_x86_64)),
 
-		/* I386 */
-		LABEL(&l, label_i386),
-		LOAD_SYSCALL_NR,
+			/* I386 */
+			LABEL(&l, label_i386),
+			LOAD_SYSCALL_NR,
 #define __NR_syslog_32 103
 #define __NR_uselib_32 86
-		JEQ32(__NR_syslog_32, ERRNO(ENOENT)),
-		JEQ32(__NR_uselib_32, KILL),
-		ALLOW,
+			JEQ32(__NR_syslog_32, ERRNO(ENOENT)),
+			JEQ32(__NR_uselib_32, KILL),
+			ALLOW,
 
-		/* X86_64 */
-		LABEL(&l, label_x86_64),
-		LOAD_SYSCALL_NR,
+			/* X86_64 */
+			LABEL(&l, label_x86_64),
+			LOAD_SYSCALL_NR,
 #define __NR_syslog_64 103
 #define __NR_uselib_64 134
-		JEQ32(__NR_syslog_64, ERRNO(ENOENT)),
-		JEQ32(__NR_uselib_64, KILL),
-		ALLOW,
-	};
-
-	struct sock_fprog prog = {
-		.filter = filter,
-		.len = (unsigned short)(sizeof(filter) / sizeof(filter[0])),
-	};
-	if (bpf_resolve_jumps(&l, filter, sizeof(filter) / sizeof(*filter)) != 0) {
-		LOG_W("bpf_resolve_jumps() failed");
-		return false;
+			JEQ32(__NR_syslog_64, ERRNO(ENOENT)),
+			JEQ32(__NR_uselib_64, KILL),
+			ALLOW,
+		};
+		/*  *INDENT-OFF* */
+		nsjconf->seccomp_fprog = (struct sock_fprog) {
+			.filter = filter,
+			.len = (unsigned short)(sizeof(filter) / sizeof(filter[0])),
+		};
+		/*  *INDENT-ON* */
+		if (bpf_resolve_jumps(&l, filter, sizeof(filter) / sizeof(*filter)) != 0) {
+			LOG_W("bpf_resolve_jumps() failed");
+			return false;
+		}
 	}
+#endif				/* defined(__x86_64__) || defined(__i386__) */
+	if (nsjconf->seccomp_fprog.filter != NULL) {
 #ifndef PR_SET_NO_NEW_PRIVS
 #define PR_SET_NO_NEW_PRIVS 38
 #endif				/* PR_SET_NO_NEW_PRIVS */
-	if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)) {
-		PLOG_W("prctl(PR_SET_NO_NEW_PRIVS, 1) failed");
-		return false;
+		if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)) {
+			PLOG_W("prctl(PR_SET_NO_NEW_PRIVS, 1) failed");
+			return false;
+		}
+		if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &nsjconf->seccomp_fprog, 0, 0)) {
+			PLOG_W("prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER) failed");
+			return false;
+		}
 	}
-	if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog, 0, 0)) {
-		PLOG_W("prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER) failed");
-		return false;
-	}
-#endif				/* defined(__x86_64__) || defined(__i386__) */
 	return true;
 }
 
@@ -93,7 +98,7 @@ bool sandboxApply(struct nsjconf_t * nsjconf)
 	if (nsjconf->apply_sandbox == false) {
 		return true;
 	}
-	if (sandboxPrepareAndCommit() == false) {
+	if (sandboxPrepareAndCommit(nsjconf) == false) {
 		return false;
 	}
 	return true;
