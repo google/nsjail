@@ -190,10 +190,15 @@ static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 		return false;
 	}
 
-	const char *const newrootdir = "/new_root";
-	if (mkdir(newrootdir, 0755) == -1) {
-		PLOG_E("mkdir('%s')", newrootdir);
-		return false;
+	const char *newrootdir;
+	if (nsjconf->pivot_root_only == false) {
+		newrootdir = "/new_root";
+		if (mkdir(newrootdir, 0755) == -1) {
+			PLOG_E("mkdir('%s')", newrootdir);
+			return false;
+		}
+	} else {
+		newrootdir = "/";
 	}
 
 	struct mounts_t *p;
@@ -209,9 +214,11 @@ static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 		PLOG_E("umount2('/old_root', MNT_DETACH)");
 		return false;
 	}
-	if (chroot(newrootdir) == -1) {
-		PLOG_E("chroot('%s')", newrootdir);
-		return false;
+	if (nsjconf->pivot_root_only == false) {
+		if (chroot(newrootdir) == -1) {
+			PLOG_E("chroot('%s')", newrootdir);
+			return false;
+		}
 	}
 
 	if (chdir(nsjconf->cwd) == -1) {
