@@ -54,8 +54,7 @@ static bool userSetGroups(pid_t pid)
 	return true;
 }
 
-static bool userUidGidMap(struct nsjconf_t *nsjconf, pid_t pid)
-{
+static bool userUidMapSelf(struct nsjconf_t *nsjconf, pid_t pid) {
 	char fname[PATH_MAX];
 	char map[128];
 
@@ -68,6 +67,13 @@ static bool userUidGidMap(struct nsjconf_t *nsjconf, pid_t pid)
 		return false;
 	}
 
+	return true;
+}
+
+static bool userGidMapSelf(struct nsjconf_t *nsjconf, pid_t pid) {
+	char fname[PATH_MAX];
+	char map[128];
+
 	snprintf(fname, sizeof(fname), "/proc/%d/gid_map", pid);
 	snprintf(map, sizeof(map), "%lu %lu 1", (unsigned long)nsjconf->inside_gid,
 		 (unsigned long)nsjconf->outside_gid);
@@ -77,6 +83,101 @@ static bool userUidGidMap(struct nsjconf_t *nsjconf, pid_t pid)
 		return false;
 	}
 	return true;
+}
+
+// use /usr/bin/newgidmap for writing the uid and gid map
+static bool userGidMapExternal(struct nsjconf_t *nsjconf, pid_t pid) {
+	char cmd_buf[1024];
+	char *cmd_ptr = cmd_buf;
+	size_t len = sizeof(cmd_buf);
+	int write_size;
+
+	write_size = snprintf(cmd_ptr, len, "/usr/bin/newgidmap %lu %lu %lu 1",
+			(unsigned long)pid,
+			(unsigned long)nsjconf->inside_gid,
+			(unsigned long)nsjconf->outside_gid);
+	if (write_size <= 0 || (size_t) write_size > len) {
+		LOG_E("snprintf writing the new{u,g}idmap command failed");
+		return false;
+	}
+	cmd_ptr += write_size;
+	len -= write_size;
+
+	struct mapping_t *p;
+	TAILQ_FOREACH(p, &nsjconf->gid_mappings, pointers) {
+		write_size = snprintf(cmd_ptr, len, " %s %s %s",
+				p->inside_id, p->outside_id, p->count);
+	if (write_size <= 0 || (size_t) write_size > len) {
+			LOG_E("snprintf writing the new{u,g}idmap command failed");
+			return false;
+		}
+		cmd_ptr += write_size;
+		len -= write_size;
+	}
+
+	if (system(cmd_buf) != 0) {
+			LOG_E("system('%s') failed", cmd_buf);
+			while(1) ;
+			return false;
+	}
+
+	return true;
+}
+
+// use /usr/bin/newuidmap for writing the uid and gid map
+static bool userUidMapExternal(struct nsjconf_t *nsjconf, pid_t pid) {
+	char cmd_buf[1024];
+	char *cmd_ptr = cmd_buf;
+	size_t len = sizeof(cmd_buf);
+	int write_size;
+
+	write_size = snprintf(cmd_ptr, len, "/usr/bin/newuidmap %lu %lu %lu 1",
+			(unsigned long)pid,
+			(unsigned long)nsjconf->inside_uid,
+			(unsigned long)nsjconf->outside_uid);
+	if (write_size <= 0 || (size_t) write_size > len) {
+		LOG_E("snprintf writing the new{u,g}idmap command failed");
+		return false;
+	}
+	cmd_ptr += write_size;
+	len -= write_size;
+
+	struct mapping_t *p;
+	TAILQ_FOREACH(p, &nsjconf->uid_mappings, pointers) {
+		write_size = snprintf(cmd_ptr, len, " %s %s %s",
+				p->inside_id, p->outside_id, p->count);
+	if (write_size <= 0 || (size_t) write_size > len) {
+			LOG_E("snprintf writing the new{u,g}idmap command failed");
+			return false;
+		}
+		cmd_ptr += write_size;
+		len -= write_size;
+	}
+
+	if (system(cmd_buf) != 0) {
+			LOG_E("system('%s') failed", cmd_buf);
+			return false;
+	}
+
+	return true;
+}
+
+static bool userUidGidMap(struct nsjconf_t *nsjconf, pid_t pid)
+{
+	if (TAILQ_EMPTY(&nsjconf->gid_mappings)) {
+		if (!userGidMapSelf(nsjconf, pid)) {
+			return false;
+		}
+	} else {
+		if (!userGidMapExternal(nsjconf, pid)) {
+			return false;
+		}
+	}
+	if (TAILQ_EMPTY(&nsjconf->uid_mappings)) {
+		return userUidMapSelf(nsjconf, pid);
+	} else {
+		return userUidMapExternal(nsjconf, pid);
+	}
 }
 
 bool userInitNsFromParent(struct nsjconf_t * nsjconf, pid_t pid)
