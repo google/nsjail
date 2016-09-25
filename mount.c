@@ -219,6 +219,11 @@ static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 			PLOG_E("chroot('%s')", newrootdir);
 			return false;
 		}
+	} else {
+		if (rmdir("/old_root") == -1) {
+			PLOG_E("rmdir('/old_root')");
+			return false;
+		}
 	}
 
 	if (chdir(nsjconf->cwd) == -1) {
