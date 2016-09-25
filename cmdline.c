@@ -104,7 +104,7 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	     "max_conns_per_ip:%u, uid:(ns:%u, global:%u), gid:(ns:%u, global:%u), time_limit:%ld, personality:%#lx, daemonize:%s, "
 	     "clone_newnet:%s, clone_newuser:%s, clone_newns:%s, clone_newpid:%s, "
 	     "clone_newipc:%s, clonew_newuts:%s, clone_newcgroup:%s, apply_sandbox:%s, keep_caps:%s, "
-	     "tmpfs_size:%zu",
+	     "tmpfs_size:%zu, disable_no_new_privs:%s",
 	     nsjconf->hostname, nsjconf->chroot, nsjconf->argv[0], nsjconf->bindhost, nsjconf->port,
 	     nsjconf->max_conns_per_ip, nsjconf->inside_uid, nsjconf->outside_uid,
 	     nsjconf->inside_gid, nsjconf->outside_gid, nsjconf->tlimit, nsjconf->personality,
@@ -112,7 +112,8 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	     logYesNo(nsjconf->clone_newuser), logYesNo(nsjconf->clone_newns),
 	     logYesNo(nsjconf->clone_newpid), logYesNo(nsjconf->clone_newipc),
 	     logYesNo(nsjconf->clone_newuts), logYesNo(nsjconf->clone_newcgroup),
-	     logYesNo(nsjconf->apply_sandbox), logYesNo(nsjconf->keep_caps), nsjconf->tmpfs_size);
+	     logYesNo(nsjconf->apply_sandbox), logYesNo(nsjconf->keep_caps), nsjconf->tmpfs_size,
+	     logYesNo(nsjconf->disable_no_new_privs));
 
 	struct mounts_t *p;
 	TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
@@ -265,6 +266,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		.apply_sandbox = true,
 		.verbose = false,
 		.keep_caps = false,
+		.disable_no_new_privs = false,
 		.rl_as = 512 * (1024 * 1024),
 		.rl_core = 0,
 		.rl_cpu = 600,
@@ -351,6 +353,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"disable_sandbox", no_argument, NULL, 0x0503}, "Don't enable the seccomp-bpf sandboxing"},
 		{{"skip_setsid", no_argument, NULL, 0x0504}, "Don't call setsid(), allows for terminal signal handling in the sandboxed process"},
 		{{"pass_fd", required_argument, NULL, 0x0505}, "Don't close this FD before executing child (can be specified multiple times), by default: 0/1/2 are kept open"},
+		{{"disable_no_new_privs", no_argument, NULL, 0x0507}, "Don't set the prctl(NO_NEW_PRIVS, 1) (DANGEROUS)"},
 		{{"rlimit_as", required_argument, NULL, 0x0201}, "RLIMIT_AS in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 512)"},
 		{{"rlimit_core", required_argument, NULL, 0x0202}, "RLIMIT_CORE in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 0)"},
 		{{"rlimit_cpu", required_argument, NULL, 0x0203}, "RLIMIT_CPU, 'max' for RLIM_INFINITY, 'def' for the current value (default: 600)"},
@@ -520,6 +523,9 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				f->fd = (int)strtol(optarg, NULL, 0);
 				TAILQ_INSERT_HEAD(&nsjconf->open_fds, f, pointers);
 			}
+			break;
+		case 0x0507:
+			nsjconf->disable_no_new_privs = true;
 			break;
 		case 0x0601:
 			nsjconf->is_root_rw = true;
