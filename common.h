@@ -23,6 +23,7 @@
 #define NS_COMMON_H
 
 #include <limits.h>
+#include <linux/filter.h>
 #include <netinet/ip6.h>
 #include <stdbool.h>
 #include <sys/queue.h>
@@ -135,6 +136,7 @@ struct nsjconf_t {
 	const char *cgroup_mem_mount;
 	const char *cgroup_mem_parent;
 	size_t cgroup_mem_max;
+	struct sock_fprog seccomp_fprog;
 	 TAILQ_HEAD(envlist, charptr_t) envs;
 	 TAILQ_HEAD(pidslist, pids_t) pids;
 	 TAILQ_HEAD(mountptslist, mounts_t) mountpts;

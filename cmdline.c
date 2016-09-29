@@ -41,6 +41,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#if USE_KAFEL
+#include <kafel.h>
+#endif
+
 #include "log.h"
 #include "util.h"
 
@@ -294,6 +298,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		.cgroup_mem_mount = "/sys/fs/cgroup/memory",
 		.cgroup_mem_parent = "NSJAIL",
 		.cgroup_mem_max = (size_t)0,
+		.seccomp_fprog = {0, NULL},
 		.iface_no_lo = false,
 		.iface = NULL,
 		.iface_vs_ip = "0.0.0.0",
@@ -375,6 +380,9 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"tmpfsmount", required_argument, NULL, 'T'}, "List of mountpoints to be mounted as RW/tmpfs inside the container. Can be specified multiple times. Supports 'dest' syntax"},
 		{{"tmpfs_size", required_argument, NULL, 0x0602}, "Number of bytes to allocate for tmpfsmounts (default: 4194304)"},
 		{{"disable_proc", no_argument, NULL, 0x0603}, "Disable mounting /proc in the jail"},
+#if USE_KAFEL
+		{{"seccomp_policy", required_argument, NULL, 0x0901}, "Seccomp policy filename"},
+#endif
 		{{"cgroup_mem_max", required_argument, NULL, 0x0801}, "Maximum number of bytes to use in the group (default: '0' - disabled)"},
 		{{"cgroup_mem_mount", required_argument, NULL, 0x0802}, "Location of memory cgroup FS (default: '/sys/fs/cgroup/memory')"},
 		{{"cgroup_mem_parent", required_argument, NULL, 0x0803}, "Which pre-existing memory cgroup to use as a parent (default: 'NSJAIL')"},
@@ -620,6 +628,28 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		case 0x803:
 			nsjconf->cgroup_mem_parent = optarg;
 			break;
+#if USE_KAFEL
+		case 0x901:
+			{
+				FILE *f = fopen(optarg, "r");
+				if (f == NULL) {
+					LOG_E("Could not open policy file `%s'", optarg);
+					return false;
+				}
+				kafel_ctxt_t ctxt = kafel_ctxt_create();
+				kafel_set_input_file(ctxt, f);
+				if (kafel_compile(ctxt, &nsjconf->seccomp_fprog) != 0) {
+					fclose(f);
+					LOG_E("Could not compile policy: %s",
+					      kafel_error_msg(ctxt));
+					kafel_ctxt_destroy(&ctxt);
+					return false;
+				}
+				fclose(f);
+				kafel_ctxt_destroy(&ctxt);
+			}
+			break;
+#endif
 		default:
 			cmdlineUsage(argv[0], custom_opts);
 			return false;
