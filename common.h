@@ -105,6 +105,7 @@ struct nsjconf_t {
 	bool daemonize;
 	time_t tlimit;
 	bool apply_sandbox;
+	bool pivot_root_only;
 	bool verbose;
 	bool keep_env;
 	bool keep_caps;

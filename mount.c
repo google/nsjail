@@ -190,14 +190,25 @@ static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 		return false;
 	}
 
-	const char *const newrootdir = "/new_root";
-	if (mkdir(newrootdir, 0755) == -1) {
-		PLOG_E("mkdir('%s')", newrootdir);
-		return false;
+	const char *newrootdir;
+	if (nsjconf->pivot_root_only == false) {
+		newrootdir = "/new_root";
+		if (mkdir(newrootdir, 0755) == -1) {
+			PLOG_E("mkdir('%s')", newrootdir);
+			return false;
+		}
+	} else {
+		newrootdir = "/";
 	}
 
 	struct mounts_t *p;
 	TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
+		// The intention behind pivot_root_only is to allow creating
+		// nested usernamespaces. If we bind mount over /, the kernel
+		// will see the process as chrooted and deny CLONE_NEWUSER.
+		if (nsjconf->pivot_root_only && strcmp(p->dst, "/") == 0) {
+			continue;
+		}
 		char dst[PATH_MAX];
 		snprintf(dst, sizeof(dst), "%s/%s", newrootdir, p->dst);
 		if (mountMount(nsjconf, p, "/old_root", dst) == false) {
@@ -209,9 +220,16 @@ static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 		PLOG_E("umount2('/old_root', MNT_DETACH)");
 		return false;
 	}
-	if (chroot(newrootdir) == -1) {
-		PLOG_E("chroot('%s')", newrootdir);
-		return false;
+	if (nsjconf->pivot_root_only == false) {
+		if (chroot(newrootdir) == -1) {
+			PLOG_E("chroot('%s')", newrootdir);
+			return false;
+		}
+	} else {
+		if (rmdir("/old_root") == -1) {
+			PLOG_E("rmdir('/old_root')");
+			return false;
+		}
 	}
 
 	if (chdir(nsjconf->cwd) == -1) {
