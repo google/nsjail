@@ -381,7 +381,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"tmpfs_size", required_argument, NULL, 0x0602}, "Number of bytes to allocate for tmpfsmounts (default: 4194304)"},
 		{{"disable_proc", no_argument, NULL, 0x0603}, "Disable mounting /proc in the jail"},
 #if USE_KAFEL
-		{{"seccomp_policy", required_argument, NULL, 0x0901}, "Seccomp policy filename"},
+		{{"seccomp_policy", required_argument, NULL, 0x0901}, "Path to file containing seccomp-bpf policy (see kafel/)"},
 #endif
 		{{"cgroup_mem_max", required_argument, NULL, 0x0801}, "Maximum number of bytes to use in the group (default: '0' - disabled)"},
 		{{"cgroup_mem_mount", required_argument, NULL, 0x0802}, "Location of memory cgroup FS (default: '/sys/fs/cgroup/memory')"},
