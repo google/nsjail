@@ -119,10 +119,24 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	     logYesNo(nsjconf->apply_sandbox), logYesNo(nsjconf->keep_caps), nsjconf->tmpfs_size,
 	     logYesNo(nsjconf->disable_no_new_privs));
 
-	struct mounts_t *p;
-	TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
-		LOG_I("Mount point: src:'%s' dst:'%s' type:'%s' flags:0x%tx options:'%s'",
-		      p->src, p->dst, p->fs_type, p->flags, p->options);
+	{
+		struct mounts_t *p;
+		TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
+			LOG_I("Mount point: src:'%s' dst:'%s' type:'%s' flags:0x%tx options:'%s'",
+						p->src, p->dst, p->fs_type, p->flags, p->options);
+		}
+	}
+	{
+		struct mapping_t *p;
+		TAILQ_FOREACH(p, &nsjconf->uid_mappings, pointers) {
+			LOG_I("Uid mapping: inside_uid:'%s' outside_uid:'%s' count:'%s'",
+						p->inside_id, p->outside_id, p->count);
+		}
+
+		TAILQ_FOREACH(p, &nsjconf->gid_mappings, pointers) {
+			LOG_I("Gid mapping: inside_uid:'%s' outside_uid:'%s' count:'%s'",
+						p->inside_id, p->outside_id, p->count);
+		}
 	}
 }
 
@@ -313,6 +327,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	TAILQ_INIT(&nsjconf->pids);
 	TAILQ_INIT(&nsjconf->mountpts);
 	TAILQ_INIT(&nsjconf->open_fds);
+	TAILQ_INIT(&nsjconf->uid_mappings);
+	TAILQ_INIT(&nsjconf->gid_mappings);
 
 	char *user = NULL;
 	char *group = NULL;
@@ -378,6 +394,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"disable_clone_newipc", no_argument, NULL, 0x0405}, "Don't use CLONE_NEWIPC"},
 		{{"disable_clone_newuts", no_argument, NULL, 0x0406}, "Don't use CLONE_NEWUTS"},
 		{{"enable_clone_newcgroup", no_argument, NULL, 0x0407}, "Use CLONE_NEWCGROUP"},
+		{{"uid_mapping", required_argument, NULL, 'U'}, "Add a custom uid mapping of the form inside_uid:outside_uid:count. Setting this requires newuidmap to be present"},
+		{{"gid_mapping", required_argument, NULL, 'G'}, "Add a custom gid mapping of the form inside_gid:outside_gid:count. Setting this requires newuidmap to be present"},
 		{{"bindmount_ro", required_argument, NULL, 'R'}, "List of mountpoints to be mounted --bind (ro) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'"},
 		{{"bindmount", required_argument, NULL, 'B'}, "List of mountpoints to be mounted --bind (rw) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'"},
 		{{"tmpfsmount", required_argument, NULL, 'T'}, "List of mountpoints to be mounted as RW/tmpfs inside the container. Can be specified multiple times. Supports 'dest' syntax"},
@@ -405,7 +423,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 
 	int opt_index = 0;
 	for (;;) {
-		int c = getopt_long(argc, argv, "H:D:c:p:i:u:g:l:t:M:Ndveh?E:R:B:T:I:", opts,
+		int c = getopt_long(argc, argv, "H:D:c:p:i:u:g:l:t:M:Ndveh?E:R:B:T:I:U:G:", opts,
 				    &opt_index);
 		if (c == -1) {
 			break;
@@ -551,6 +569,21 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				struct charptr_t *p = utilMalloc(sizeof(struct charptr_t));
 				p->val = optarg;
 				TAILQ_INSERT_TAIL(&nsjconf->envs, p, pointers);
+			}
+			break;
+		case 'U':
+		case 'G':
+			{
+				struct mapping_t *p = utilMalloc(sizeof(struct mapping_t));
+				p->inside_id = optarg;
+				char *outside_id = cmdlineSplitStrByColon(optarg);
+				p->outside_id = outside_id;
+				p->count = cmdlineSplitStrByColon(outside_id);
+				if (c == 'U') {
+					TAILQ_INSERT_TAIL(&nsjconf->uid_mappings, p, pointers);
+				} else {
+					TAILQ_INSERT_TAIL(&nsjconf->gid_mappings, p, pointers);
+				}
 			}
 			break;
 		case 'R':
