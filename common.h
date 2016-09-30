@@ -101,6 +101,7 @@ struct nsjconf_t {
 	bool verbose;
 	bool keep_env;
 	bool keep_caps;
+	bool disable_no_new_privs;
 	__rlim64_t rl_as;
 	__rlim64_t rl_core;
 	__rlim64_t rl_cpu;
