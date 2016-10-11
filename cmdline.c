@@ -123,19 +123,19 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 		struct mounts_t *p;
 		TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
 			LOG_I("Mount point: src:'%s' dst:'%s' type:'%s' flags:0x%tx options:'%s'",
-						p->src, p->dst, p->fs_type, p->flags, p->options);
+			      p->src, p->dst, p->fs_type, p->flags, p->options);
 		}
 	}
 	{
 		struct mapping_t *p;
 		TAILQ_FOREACH(p, &nsjconf->uid_mappings, pointers) {
 			LOG_I("Uid mapping: inside_uid:'%s' outside_uid:'%s' count:'%s'",
-						p->inside_id, p->outside_id, p->count);
+			      p->inside_id, p->outside_id, p->count);
 		}
 
 		TAILQ_FOREACH(p, &nsjconf->gid_mappings, pointers) {
 			LOG_I("Gid mapping: inside_uid:'%s' outside_uid:'%s' count:'%s'",
-						p->inside_id, p->outside_id, p->count);
+			      p->inside_id, p->outside_id, p->count);
 		}
 	}
 }
