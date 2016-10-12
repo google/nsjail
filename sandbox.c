@@ -39,13 +39,19 @@
 static bool sandboxPrepareAndCommit(struct nsjconf_t *nsjconf __attribute__ ((unused)))
 {
 #if defined(USE_KAFEL)
-	if (nsjconf->kafel_file == NULL) {
+	if (nsjconf->kafel_file == NULL && nsjconf->kafel_string == NULL) {
 		return true;
 	}
-
 	struct sock_fprog seccomp_fprog;
+
 	kafel_ctxt_t ctxt = kafel_ctxt_create();
-	kafel_set_input_file(ctxt, nsjconf->kafel_file);
+
+	if (nsjconf->kafel_file != NULL) {
+		kafel_set_input_file(ctxt, nsjconf->kafel_file);
+	} else {
+		kafel_set_input_string(ctxt, nsjconf->kafel_string);
+	}
+
 	if (kafel_compile(ctxt, &seccomp_fprog) != 0) {
 		LOG_E("Could not compile policy: %s", kafel_error_msg(ctxt));
 		kafel_ctxt_destroy(&ctxt);

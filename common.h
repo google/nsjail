@@ -146,6 +146,7 @@ struct nsjconf_t {
 	size_t cgroup_mem_max;
 #if defined(USE_KAFEL)
 	FILE *kafel_file;
+	char *kafel_string;
 #endif				// defined(USE_KAFEL)
 	 TAILQ_HEAD(envlist, charptr_t) envs;
 	 TAILQ_HEAD(pidslist, pids_t) pids;

@@ -315,6 +315,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		.iface_vs_ip = "0.0.0.0",
 		.iface_vs_nm = "255.255.255.0",
 		.iface_vs_gw = "0.0.0.0",
+		.kafel_file = NULL,
+		.kafel_string = NULL,
 	};
 	/*  *INDENT-OFF* */
 
@@ -397,7 +399,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"tmpfs_size", required_argument, NULL, 0x0602}, "Number of bytes to allocate for tmpfsmounts (default: 4194304)"},
 		{{"disable_proc", no_argument, NULL, 0x0603}, "Disable mounting /proc in the jail"},
 #if USE_KAFEL
-		{{"seccomp_policy", required_argument, NULL, 0x0901}, "Path to file containing seccomp-bpf policy (see kafel/)"},
+		{{"seccomp_policy", required_argument, NULL, 'P'}, "Path to file containing seccomp-bpf policy (see kafel/)"},
+		{{"seccomp_string", required_argument, NULL, 0x0901}, "String with kafel seccomp-bpf policy (see kafel/)"},
 #endif
 		{{"cgroup_mem_max", required_argument, NULL, 0x0801}, "Maximum number of bytes to use in the group (default: '0' - disabled)"},
 		{{"cgroup_mem_mount", required_argument, NULL, 0x0802}, "Location of memory cgroup FS (default: '/sys/fs/cgroup/memory')"},
@@ -418,7 +421,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 
 	int opt_index = 0;
 	for (;;) {
-		int c = getopt_long(argc, argv, "H:D:c:p:i:u:g:l:t:M:Ndveh?E:R:B:T:I:U:G:", opts,
+		int c = getopt_long(argc, argv, "H:D:c:p:i:u:g:l:t:M:Ndveh?E:R:B:T:P:I:U:G:", opts,
 				    &opt_index);
 		if (c == -1) {
 			break;
@@ -663,10 +666,13 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			nsjconf->cgroup_mem_parent = optarg;
 			break;
 #if USE_KAFEL
-		case 0x901:
+		case 'P':
 			if ((nsjconf->kafel_file = fopen(optarg, "r")) == NULL) {
 				PLOG_F("Couldn't open '%s'", optarg);
 			}
+			break;
+		case 0x0901:
+			nsjconf->kafel_string = optarg;
 			break;
 #endif
 		default:
