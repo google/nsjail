@@ -28,6 +28,7 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 int subprocCount(struct nsjconf_t *nsjconf);
 void subprocDisplay(struct nsjconf_t *nsjconf);
 void subprocKillAll(struct nsjconf_t *nsjconf);
+int subprocSystem(const char **argv, char **env);
 
 /* Returns the exit code of the first failing subprocess, or 0 if none fail */
 int subprocReap(struct nsjconf_t *nsjconf);

@@ -42,6 +42,7 @@
 #include <unistd.h>
 
 #include "log.h"
+#include "subproc.h"
 
 #define IFACE_NAME "vs"
 
@@ -114,51 +115,15 @@ bool netInitNsFromParent(struct nsjconf_t *nsjconf, int pid)
 	return true;
 }
 #else				// defined(NSJAIL_NL3_WITH_MACVLAN)
-static bool netSystemSbinIp(struct nsjconf_t *nsjconf, char *const *argv)
+static bool netSystemSbinIp(struct nsjconf_t *nsjconf, const char *const *argv)
 {
-	if (nsjconf->clone_newnet == false) {
-		LOG_W
-		    ("CLONE_NEWNET not enabled. All changes would affect the global networking namespace");
-		return false;
+	if (subprocSystem(argv, environ) == 0) {
+		return true;
 	}
-
-	int pid = fork();
-	if (pid == -1) {
-		PLOG_E("fork()");
-		return false;
-	}
-	if (pid == 0) {
-		execve("/sbin/ip", argv, environ);
-		PLOG_E("execve('/sbin/ip'");
-		_exit(1);
-	}
-
-	for (;;) {
-		int status;
-		while (wait4(pid, &status, __WALL, NULL) != pid) ;
-		if (WIFEXITED(status)) {
-			if (WEXITSTATUS(status) == 0) {
-				return true;
-			}
-			LOG_W("'/sbin/ip' returned with exit status: %d", WEXITSTATUS(status));
-			return false;
-		}
-		if (WIFSIGNALED(status)) {
-			LOG_W("'/sbin/ip' killed with signal: %d", WTERMSIG(status));
-			return false;
-		}
-		if (WIFSTOPPED(status)) {
-			continue;
-		}
-		if (WIFCONTINUED(status)) {
-			continue;
-		}
-		LOG_W("Unknown exit status for '/sbin/ip' (pid=%d): %d", pid, status);
-		kill(pid, SIGKILL);
-	}
+	return false;
 }
 
-bool netInitNsFromParent(struct nsjconf_t *nsjconf, int pid)
+bool netInitNsFromParent(struct nsjconf_t * nsjconf, int pid)
 {
 	if (nsjconf->clone_newnet == false) {
 		return true;
@@ -171,7 +136,8 @@ bool netInitNsFromParent(struct nsjconf_t *nsjconf, int pid)
 	snprintf(pid_str, sizeof(pid_str), "%d", pid);
 
 	char *const argv_add[] =
-	    { "ip", "link", "add", "link", (char *)nsjconf->iface, "name", IFACE_NAME, "netns",
+	    { "/sbin/ip", "link", "add", "link", (char *)nsjconf->iface, "name", IFACE_NAME,
+		"netns",
 		pid_str, "type", "macvlan", "mode", "bridge", NULL
 	};
 	if (netSystemSbinIp(nsjconf, argv_add) == false) {

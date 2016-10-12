@@ -352,3 +352,68 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 	netConnToText(fd_in, true /* remote */ , cs_addr, sizeof(cs_addr), NULL);
 	LOG_I("PID: %d about to execute '%s' for %s", pid, nsjconf->argv[0], cs_addr);
 }
+
+int subprocSystem(const char **argv, char **env)
+{
+	bool exec_failed = false;
+
+	int sv[2];
+	if (pipe2(sv, O_CLOEXEC) == -1) {
+		PLOG_W("pipe2(sv, O_CLOEXEC");
+		return -1;
+	}
+
+	pid_t pid = fork();
+	if (pid == -1) {
+		PLOG_W("fork()");
+		close(sv[0]);
+		close(sv[1]);
+		return -1;
+	}
+
+	if (pid == 0) {
+		close(sv[0]);
+		execve(argv[0], (char *const *)argv, (char *const *)env);
+		PLOG_W("execve('%s')", argv[0]);
+		utilWriteToFd(sv[1], "A", 1);
+		exit(0);
+	}
+
+	close(sv[1]);
+	char buf[1];
+	if (utilReadFromFd(sv[0], buf, sizeof(buf)) > 0) {
+		exec_failed = true;
+		LOG_W("Couldn't execute '%s'", argv[0]);
+	}
+	close(sv[0]);
+
+	for (;;) {
+		int status;
+		int ret = wait4(pid, &status, __WALL, NULL);
+		if (ret == -1 && errno == EINTR) {
+			continue;
+		}
+		if (ret == -1) {
+			PLOG_W("wait4(pid=%d)", pid);
+			return -1;
+		}
+		if (WIFEXITED(status)) {
+			int exit_code = WEXITSTATUS(status);
+			LOG_D("PID %d exited with exit code: %d", pid, exit_code);
+			if (exec_failed == true) {
+				return -1;
+			} else if (exit_code == 0) {
+				return 0;
+			} else {
+				return 1;
+			}
+		}
+		if (WIFSIGNALED(status)) {
+			int exit_signal = WTERMSIG(status);
+			LOG_W("PID %d killed by a signal: %d (%s)", pid, exit_signal,
+			      strsignal(exit_signal));
+			return 2;
+		}
+		LOG_W("Unknown exit status: %d", status);
+	}
+}

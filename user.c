@@ -32,6 +32,7 @@
 #include <unistd.h>
 
 #include "log.h"
+#include "subproc.h"
 #include "util.h"
 
 static bool userSetGroups(pid_t pid)
@@ -87,79 +88,70 @@ static bool userGidMapSelf(struct nsjconf_t *nsjconf, pid_t pid)
 	return true;
 }
 
-// use /usr/bin/newgidmap for writing the uid and gid map
+/* Use /usr/bin/newgidmap for writing the gid map */
 static bool userGidMapExternal(struct nsjconf_t *nsjconf, pid_t pid)
 {
-	char cmd_buf[1024];
-	char *cmd_ptr = cmd_buf;
-	size_t len = sizeof(cmd_buf);
-	int write_size;
+	char pid_str[16];
+	char ins_gid_str[16];
+	char out_gid_str[16];
 
-	write_size = snprintf(cmd_ptr, len, "/usr/bin/newgidmap %lu %lu %lu 1",
-			      (unsigned long)pid,
-			      (unsigned long)nsjconf->inside_gid,
-			      (unsigned long)nsjconf->outside_gid);
-	if (write_size <= 0 || (size_t) write_size > len) {
-		LOG_E("snprintf writing the new{u,g}idmap command failed");
-		return false;
-	}
-	cmd_ptr += write_size;
-	len -= write_size;
+	snprintf(pid_str, sizeof(pid_str), "%lu", (unsigned long)pid);
+	snprintf(ins_gid_str, sizeof(ins_gid_str), "%lu", (unsigned long)nsjconf->inside_gid);
+	snprintf(out_gid_str, sizeof(out_gid_str), "%lu", (unsigned long)nsjconf->outside_gid);
+
+	const char *argv[1024] = { "/usr/bin/newgidmap", pid_str, ins_gid_str, out_gid_str, "1" };
+	size_t argv_idx = 5;
 
 	struct mapping_t *p;
 	TAILQ_FOREACH(p, &nsjconf->gid_mappings, pointers) {
-		write_size = snprintf(cmd_ptr, len, " %s %s %s",
-				      p->inside_id, p->outside_id, p->count);
-		if (write_size <= 0 || (size_t) write_size > len) {
-			LOG_E("snprintf writing the new{u,g}idmap command failed");
+		if ((argv_idx + 4) >= ARRAYSIZE(argv)) {
+			LOG_W("Number of arguments to '/usr/bin/newgidmap' too big");
 			return false;
 		}
-		cmd_ptr += write_size;
-		len -= write_size;
-	}
 
-	if (system(cmd_buf) != 0) {
-		LOG_E("system('%s') failed", cmd_buf);
-		while (1) ;
+		argv[argv_idx++] = p->inside_id;
+		argv[argv_idx++] = p->outside_id;
+		argv[argv_idx++] = p->count;
+	}
+	argv[argv_idx++] = NULL;
+
+	if (subprocSystem(argv, environ) != 0) {
+		LOG_E("'/usr/bin/newgidmap' failed");
 		return false;
 	}
 
 	return true;
 }
 
-// use /usr/bin/newuidmap for writing the uid and gid map
+/* Use /usr/bin/newuidmap for writing the uid map */
 static bool userUidMapExternal(struct nsjconf_t *nsjconf, pid_t pid)
 {
-	char cmd_buf[1024];
-	char *cmd_ptr = cmd_buf;
-	size_t len = sizeof(cmd_buf);
-	int write_size;
+	char pid_str[16];
+	char ins_uid_str[16];
+	char out_uid_str[16];
 
-	write_size = snprintf(cmd_ptr, len, "/usr/bin/newuidmap %lu %lu %lu 1",
-			      (unsigned long)pid,
-			      (unsigned long)nsjconf->inside_uid,
-			      (unsigned long)nsjconf->outside_uid);
-	if (write_size <= 0 || (size_t) write_size > len) {
-		LOG_E("snprintf writing the new{u,g}idmap command failed");
-		return false;
-	}
-	cmd_ptr += write_size;
-	len -= write_size;
+	snprintf(pid_str, sizeof(pid_str), "%lu", (unsigned long)pid);
+	snprintf(ins_uid_str, sizeof(ins_uid_str), "%lu", (unsigned long)nsjconf->inside_uid);
+	snprintf(out_uid_str, sizeof(out_uid_str), "%lu", (unsigned long)nsjconf->outside_uid);
+
+	const char *argv[1024] = { "/usr/bin/newuidmap", pid_str, ins_uid_str, out_uid_str, "1" };
+	size_t argv_idx = 5;
 
 	struct mapping_t *p;
 	TAILQ_FOREACH(p, &nsjconf->uid_mappings, pointers) {
-		write_size = snprintf(cmd_ptr, len, " %s %s %s",
-				      p->inside_id, p->outside_id, p->count);
-		if (write_size <= 0 || (size_t) write_size > len) {
-			LOG_E("snprintf writing the new{u,g}idmap command failed");
+		if ((argv_idx + 4) >= ARRAYSIZE(argv)) {
+			LOG_W("Number of arguments to '/usr/bin/newuidmap' too big");
 			return false;
 		}
-		cmd_ptr += write_size;
-		len -= write_size;
-	}
 
-	if (system(cmd_buf) != 0) {
-		LOG_E("system('%s') failed", cmd_buf);
+		argv[argv_idx++] = p->inside_id;
+		argv[argv_idx++] = p->outside_id;
+		argv[argv_idx++] = p->count;
+	}
+	argv[argv_idx++] = NULL;
+
+	if (subprocSystem(argv, environ) != 0) {
+		LOG_E("'/usr/bin/newuidmap' failed");
 		return false;
 	}
 
