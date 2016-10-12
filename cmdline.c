@@ -41,10 +41,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#if USE_KAFEL
-#include <kafel.h>
-#endif
-
 #include "log.h"
 #include "util.h"
 
@@ -107,7 +103,7 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	    ("Jail parameters: hostname:'%s', chroot:'%s', process:'%s', bind:[%s]:%d, "
 	     "max_conns_per_ip:%u, uid:(ns:%u, global:%u), gid:(ns:%u, global:%u), time_limit:%ld, personality:%#lx, daemonize:%s, "
 	     "clone_newnet:%s, clone_newuser:%s, clone_newns:%s, clone_newpid:%s, "
-	     "clone_newipc:%s, clonew_newuts:%s, clone_newcgroup:%s, apply_sandbox:%s, keep_caps:%s, "
+	     "clone_newipc:%s, clonew_newuts:%s, clone_newcgroup:%s, keep_caps:%s, "
 	     "tmpfs_size:%zu, disable_no_new_privs:%s, pivot_root_only:%s",
 	     nsjconf->hostname, nsjconf->chroot, nsjconf->argv[0], nsjconf->bindhost, nsjconf->port,
 	     nsjconf->max_conns_per_ip, nsjconf->inside_uid, nsjconf->outside_uid,
@@ -116,7 +112,7 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	     logYesNo(nsjconf->clone_newuser), logYesNo(nsjconf->clone_newns),
 	     logYesNo(nsjconf->clone_newpid), logYesNo(nsjconf->clone_newipc),
 	     logYesNo(nsjconf->clone_newuts), logYesNo(nsjconf->clone_newcgroup),
-	     logYesNo(nsjconf->apply_sandbox), logYesNo(nsjconf->keep_caps), nsjconf->tmpfs_size,
+	     logYesNo(nsjconf->keep_caps), nsjconf->tmpfs_size,
 	     logYesNo(nsjconf->disable_no_new_privs), logYesNo(nsjconf->pivot_root_only));
 
 	{
@@ -281,7 +277,6 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		.bindhost = "::",
 		.daemonize = false,
 		.tlimit = 0,
-		.apply_sandbox = true,
 		.pivot_root_only = false,
 		.verbose = false,
 		.keep_caps = false,
@@ -315,7 +310,6 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		.cgroup_mem_mount = "/sys/fs/cgroup/memory",
 		.cgroup_mem_parent = "NSJAIL",
 		.cgroup_mem_max = (size_t)0,
-		.seccomp_fprog = {0, NULL},
 		.iface_no_lo = false,
 		.iface = NULL,
 		.iface_vs_ip = "0.0.0.0",
@@ -372,7 +366,6 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"env", required_argument, NULL, 'E'}, "Environment variable (can be used multiple times)"},
 		{{"keep_caps", no_argument, NULL, 0x0501}, "Don't drop capabilities (DANGEROUS)"},
 		{{"silent", no_argument, NULL, 0x0502}, "Redirect child's fd:0/1/2 to /dev/null"},
-		{{"disable_sandbox", no_argument, NULL, 0x0503}, "Don't enable the seccomp-bpf sandboxing"},
 		{{"skip_setsid", no_argument, NULL, 0x0504}, "Don't call setsid(), allows for terminal signal handling in the sandboxed process"},
 		{{"pass_fd", required_argument, NULL, 0x0505}, "Don't close this FD before executing child (can be specified multiple times), by default: 0/1/2 are kept open"},
 		{{"pivot_root_only", no_argument, NULL, 0x0506}, "Only perform pivot_root, no chroot. This will enable nested namespaces"},
@@ -538,9 +531,6 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		case 0x0502:
 			nsjconf->is_silent = true;
 			break;
-		case 0x0503:
-			nsjconf->apply_sandbox = false;
-			break;
 		case 0x0504:
 			nsjconf->skip_setsid = true;
 			break;
@@ -674,23 +664,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			break;
 #if USE_KAFEL
 		case 0x901:
-			{
-				FILE *f = fopen(optarg, "r");
-				if (f == NULL) {
-					LOG_E("Could not open policy file `%s'", optarg);
-					return false;
-				}
-				kafel_ctxt_t ctxt = kafel_ctxt_create();
-				kafel_set_input_file(ctxt, f);
-				if (kafel_compile(ctxt, &nsjconf->seccomp_fprog) != 0) {
-					fclose(f);
-					LOG_E("Could not compile policy: %s",
-					      kafel_error_msg(ctxt));
-					kafel_ctxt_destroy(&ctxt);
-					return false;
-				}
-				fclose(f);
-				kafel_ctxt_destroy(&ctxt);
+			if ((nsjconf->kafel_file = fopen(optarg, "r")) == NULL) {
+				PLOG_F("Couldn't open '%s'", optarg);
 			}
 			break;
 #endif

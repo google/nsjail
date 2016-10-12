@@ -23,9 +23,9 @@
 #define NS_COMMON_H
 
 #include <limits.h>
-#include <linux/filter.h>
 #include <netinet/ip6.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <sys/queue.h>
 #include <sys/resource.h>
 #include <sys/types.h>
@@ -104,7 +104,6 @@ struct nsjconf_t {
 	const char *bindhost;
 	bool daemonize;
 	time_t tlimit;
-	bool apply_sandbox;
 	bool pivot_root_only;
 	bool verbose;
 	bool keep_env;
@@ -145,7 +144,9 @@ struct nsjconf_t {
 	const char *cgroup_mem_mount;
 	const char *cgroup_mem_parent;
 	size_t cgroup_mem_max;
-	struct sock_fprog seccomp_fprog;
+#if defined(USE_KAFEL)
+	FILE *kafel_file;
+#endif				// defined(USE_KAFEL)
 	 TAILQ_HEAD(envlist, charptr_t) envs;
 	 TAILQ_HEAD(pidslist, pids_t) pids;
 	 TAILQ_HEAD(mountptslist, mounts_t) mountpts;
