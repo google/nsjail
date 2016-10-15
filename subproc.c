@@ -27,6 +27,7 @@
 #include <linux/sched.h>
 #include <netinet/in.h>
 #include <sched.h>
+#include <setjmp.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -58,11 +59,11 @@ static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int 
 	}
 
 	if (pipefd == -1) {
-		if (userInitNsFromParent(nsjconf, syscall(__NR_getpid)) == false) {
+		if (userInitNsFromParent(nsjconf, getpid()) == false) {
 			LOG_E("Couldn't initialize net user namespace");
 			exit(1);
 		}
-		if (cgroupInitNsFromParent(nsjconf, syscall(__NR_getpid)) == false) {
+		if (cgroupInitNsFromParent(nsjconf, getpid()) == false) {
 			LOG_E("Couldn't initialize net user namespace");
 			exit(1);
 		}
@@ -289,6 +290,32 @@ static bool subprocInitParent(struct nsjconf_t *nsjconf, pid_t pid, int pipefd)
 	return true;
 }
 
+static uint8_t subprocCloneStack[PTHREAD_STACK_MIN * 2];
+
+static int subproccloneFunc(void *arg)
+{
+	jmp_buf *env_ptr = (jmp_buf *) arg;
+	longjmp(*env_ptr, 1);
+}
+
+// Avoid problem with caching of PID/TID in glibc
+pid_t subprocClone(uintptr_t flags)
+{
+	if (flags & CLONE_VM) {
+		LOG_E("Cannot use clone(flags & CLONE_VM)");
+		return -1;
+	}
+
+	jmp_buf env;
+	if (setjmp(env) == 0) {
+		void *stack_mid = &subprocCloneStack[sizeof(subprocCloneStack) / 2];
+		// Parent
+		return clone(subproccloneFunc, stack_mid, flags, &env, NULL, NULL);
+	}
+	// Child
+	return 0;
+}
+
 void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_err)
 {
 	if (netLimitConns(nsjconf, fd_in) == false) {
@@ -326,7 +353,7 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 	int child_fd = sv[0];
 	int parent_fd = sv[1];
 
-	pid_t pid = syscall(__NR_clone, (uintptr_t) flags, NULL, NULL, NULL, (uintptr_t) 0);
+	pid_t pid = subprocClone(flags);
 	if (pid == 0) {
 		close(parent_fd);
 		subprocNewProc(nsjconf, fd_in, fd_out, fd_err, child_fd);

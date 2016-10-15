@@ -29,6 +29,7 @@
 #include <unistd.h>
 
 #include "log.h"
+#include "subproc.h"
 
 bool pidInitNs(struct nsjconf_t *nsjconf)
 {
@@ -38,7 +39,7 @@ bool pidInitNs(struct nsjconf_t *nsjconf)
 
 	LOG_D("Creating a dummy 'init' process");
 
-	pid_t pid = syscall(__NR_clone, (uintptr_t) CLONE_FS, NULL, NULL, NULL, (uintptr_t) 0);
+	pid_t pid = subprocClone(CLONE_FS);
 	if (pid == -1) {
 		PLOG_E("Couldn't create a dummy init process");
 		return false;
