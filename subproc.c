@@ -292,7 +292,7 @@ static bool subprocInitParent(struct nsjconf_t *nsjconf, pid_t pid, int pipefd)
 
 static uint8_t subprocCloneStack[PTHREAD_STACK_MIN * 2];
 
-static int subproccloneFunc(void *arg)
+static int subprocCloneFunc(void *arg)
 {
 	jmp_buf *env_ptr = (jmp_buf *) arg;
 	longjmp(*env_ptr, 1);
@@ -310,7 +310,7 @@ pid_t subprocClone(uintptr_t flags)
 	if (setjmp(env) == 0) {
 		void *stack_mid = &subprocCloneStack[sizeof(subprocCloneStack) / 2];
 		// Parent
-		return clone(subproccloneFunc, stack_mid, flags, &env, NULL, NULL);
+		return clone(subprocCloneFunc, stack_mid, flags, &env, NULL, NULL);
 	}
 	// Child
 	return 0;
