@@ -249,8 +249,10 @@ int subprocReap(struct nsjconf_t *nsjconf)
 		if (diff >= nsjconf->tlimit) {
 			LOG_I("PID: %d run time >= time limit (%ld >= %ld) (%s). Killing it", pid,
 			      (long)diff, (long)nsjconf->tlimit, p->remote_txt);
-			/* Probably a kernel bug - some processes cannot be killed with KILL if
-			 * they're namespaced, and in a stopped state */
+			/*
+			 * Probably a kernel bug - some processes cannot be killed with KILL if
+			 * they're namespaced, and in a stopped state
+			 */
 			kill(pid, SIGCONT);
 			PLOG_D("Sent SIGCONT to PID: %d", pid);
 			kill(pid, SIGKILL);
