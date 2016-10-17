@@ -315,8 +315,10 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		.iface_vs_ip = "0.0.0.0",
 		.iface_vs_nm = "255.255.255.0",
 		.iface_vs_gw = "0.0.0.0",
+#if USE_KAFEL
 		.kafel_file = NULL,
 		.kafel_string = NULL,
+#endif    /* USE_KAFEL */
 	};
 	/*  *INDENT-OFF* */
 
