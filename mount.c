@@ -248,7 +248,7 @@ static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 
 /*
  * With mode MODE_STANDALONE_EXECVE it's required to mount /proc inside a new process,
- *  as the current process is still in the original PID namespace (man pid_namespaces)
+ * as the current process is still in the original PID namespace (man pid_namespaces)
  */
 bool mountInitNs(struct nsjconf_t * nsjconf)
 {

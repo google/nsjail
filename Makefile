@@ -76,13 +76,13 @@ cmdline.o: cmdline.h common.h log.h util.h
 contain.o: contain.h common.h cgroup.h log.h mount.h net.h pid.h util.h uts.h
 log.o: log.h common.h
 cgroup.o: cgroup.h common.h log.h util.h
-mount.o: mount.h common.h log.h
-net.o: net.h common.h log.h
-pid.o: pid.h common.h log.h
-sandbox.o: sandbox.h common.h log.h seccomp/bpf-helper.h
+mount.o: mount.h common.h log.h util.h
+net.o: net.h common.h log.h subproc.h
+pid.o: pid.h common.h log.h subproc.h
+sandbox.o: sandbox.h common.h log.h
 subproc.o: subproc.h common.h cgroup.h contain.h log.h net.h sandbox.h user.h
 subproc.o: util.h
-user.o: user.h common.h log.h util.h
+user.o: user.h common.h log.h subproc.h util.h
 util.o: util.h common.h log.h
 uts.o: uts.h common.h log.h
 seccomp/bpf-helper.o: seccomp/bpf-helper.h
