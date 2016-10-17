@@ -315,10 +315,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		.iface_vs_ip = "0.0.0.0",
 		.iface_vs_nm = "255.255.255.0",
 		.iface_vs_gw = "0.0.0.0",
-#if USE_KAFEL
 		.kafel_file = NULL,
 		.kafel_string = NULL,
-#endif    /* USE_KAFEL */
 	};
 	/*  *INDENT-OFF* */
 
@@ -400,10 +398,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"tmpfsmount", required_argument, NULL, 'T'}, "List of mountpoints to be mounted as RW/tmpfs inside the container. Can be specified multiple times. Supports 'dest' syntax"},
 		{{"tmpfs_size", required_argument, NULL, 0x0602}, "Number of bytes to allocate for tmpfsmounts (default: 4194304)"},
 		{{"disable_proc", no_argument, NULL, 0x0603}, "Disable mounting /proc in the jail"},
-#if USE_KAFEL
 		{{"seccomp_policy", required_argument, NULL, 'P'}, "Path to file containing seccomp-bpf policy (see kafel/)"},
 		{{"seccomp_string", required_argument, NULL, 0x0901}, "String with kafel seccomp-bpf policy (see kafel/)"},
-#endif
 		{{"cgroup_mem_max", required_argument, NULL, 0x0801}, "Maximum number of bytes to use in the group (default: '0' - disabled)"},
 		{{"cgroup_mem_mount", required_argument, NULL, 0x0802}, "Location of memory cgroup FS (default: '/sys/fs/cgroup/memory')"},
 		{{"cgroup_mem_parent", required_argument, NULL, 0x0803}, "Which pre-existing memory cgroup to use as a parent (default: 'NSJAIL')"},
@@ -667,7 +663,6 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		case 0x803:
 			nsjconf->cgroup_mem_parent = optarg;
 			break;
-#if USE_KAFEL
 		case 'P':
 			if ((nsjconf->kafel_file = fopen(optarg, "r")) == NULL) {
 				PLOG_F("Couldn't open '%s'", optarg);
@@ -676,7 +671,6 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		case 0x0901:
 			nsjconf->kafel_string = optarg;
 			break;
-#endif
 		default:
 			cmdlineUsage(argv[0], custom_opts);
 			return false;
@@ -716,6 +710,12 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		}
 		TAILQ_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
 	}
+
+#if !defined(USE_KAFEL)
+	if (nsjconf->kafel_file != NULL || nsjconf->kafel_string != NULL) {
+		LOG_F("Kafel policy specified but the kafel/ is not compiled in");
+	}
+#endif				/* !defined(USE_KAFEL) */
 
 	if (logInitLogFile(nsjconf, logfile, nsjconf->verbose) == false) {
 		return false;
