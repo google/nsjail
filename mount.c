@@ -37,6 +37,7 @@
 #include <unistd.h>
 
 #include "log.h"
+#include "subproc.h"
 #include "util.h"
 
 static bool mountIsDir(const char *path)
@@ -256,8 +257,7 @@ bool mountInitNs(struct nsjconf_t * nsjconf)
 		return mountInitNsInternal(nsjconf);
 	}
 
-	pid_t pid =
-	    syscall(__NR_clone, (uintptr_t) CLONE_FS | SIGCHLD, NULL, NULL, NULL, (uintptr_t) 0);
+	pid_t pid = subprocClone(CLONE_FS | SIGCHLD);
 	if (pid == -1) {
 		return false;
 	}
