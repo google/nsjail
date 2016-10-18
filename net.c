@@ -115,15 +115,8 @@ bool netInitNsFromParent(struct nsjconf_t *nsjconf, int pid)
 	return true;
 }
 #else				// defined(NSJAIL_NL3_WITH_MACVLAN)
-static bool netSystemSbinIp(struct nsjconf_t *nsjconf, const char *const *argv)
-{
-	if (subprocSystem(argv, environ) == 0) {
-		return true;
-	}
-	return false;
-}
 
-bool netInitNsFromParent(struct nsjconf_t * nsjconf, int pid)
+bool netInitNsFromParent(struct nsjconf_t *nsjconf, int pid)
 {
 	if (nsjconf->clone_newnet == false) {
 		return true;
@@ -135,12 +128,12 @@ bool netInitNsFromParent(struct nsjconf_t * nsjconf, int pid)
 	char pid_str[256];
 	snprintf(pid_str, sizeof(pid_str), "%d", pid);
 
-	char *const argv_add[] =
+	const char *argv[] =
 	    { "/sbin/ip", "link", "add", "link", (char *)nsjconf->iface, "name", IFACE_NAME,
 		"netns",
 		pid_str, "type", "macvlan", "mode", "bridge", NULL
 	};
-	if (netSystemSbinIp(nsjconf, argv_add) == false) {
+	if (subprocSystem(argv, environ) != 0) {
 		LOG_E("Couldn't create MACVTAP interface for '%s'", nsjconf->iface);
 		return false;
 	}
