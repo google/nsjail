@@ -79,15 +79,16 @@ void logLog(enum llevel_t ll, const char *fn, int ln, bool perr, const char *fmt
 		char *descr;
 		char *prefix;
 		bool print_funcline;
+		bool print_time;
 	};
 	struct ll_t logLevels[] = {
-		{"HR", "\033[0m", false},
-		{"HB", "\033[1m", false},
-		{"D", "\033[0;4m", true},
-		{"I", "\033[1m", false},
-		{"W", "\033[0;33m", true},
-		{"E", "\033[1;31m", true},
-		{"F", "\033[7;35m", true},
+		{"HR", "\033[0m", false, false},
+		{"HB", "\033[1m", false, false},
+		{"D", "\033[0;4m", true, true},
+		{"I", "\033[1m", false, true},
+		{"W", "\033[0;33m", true, true},
+		{"E", "\033[1;31m", true, true},
+		{"F", "\033[7;35m", true, true},
 	};
 
 	time_t ltstamp = time(NULL);
@@ -102,9 +103,11 @@ void logLog(enum llevel_t ll, const char *fn, int ln, bool perr, const char *fmt
 	if (log_fd_isatty) {
 		dprintf(log_fd, "%s", logLevels[ll].prefix);
 	}
+	if (logLevels[ll].print_time) {
+		dprintf(log_fd, "[%s] ", timestr);
+	}
 	if (logLevels[ll].print_funcline) {
-		dprintf(log_fd, "[%s][%s][%d] %s():%d ", timestr, logLevels[ll].descr,
-			(int)getpid(), fn, ln);
+		dprintf(log_fd, "[%s][%d] %s():%d ", logLevels[ll].descr, (int)getpid(), fn, ln);
 	}
 
 	va_list args;
