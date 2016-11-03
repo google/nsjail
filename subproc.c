@@ -293,11 +293,12 @@ static bool subprocInitParent(struct nsjconf_t *nsjconf, pid_t pid, int pipefd)
 }
 
 static uint8_t subprocCloneStack[PTHREAD_STACK_MIN * 2];
+static __thread jmp_buf env;
 
-static int subprocCloneFunc(void *arg)
+static int subprocCloneFunc(void *arg __attribute__ ((unused)))
 {
-	jmp_buf *env_ptr = (jmp_buf *) arg;
-	longjmp(*env_ptr, 1);
+	longjmp(env, 1);
+	return 0;
 }
 
 /*
@@ -312,7 +313,6 @@ pid_t subprocClone(uintptr_t flags)
 		return -1;
 	}
 
-	jmp_buf env;
 	if (setjmp(env) == 0) {
 		/*
 		 * Avoid the problem of the stack growing up/down under different CPU architectures, by using
@@ -320,7 +320,7 @@ pid_t subprocClone(uintptr_t flags)
 		 */
 		void *stack = &subprocCloneStack[sizeof(subprocCloneStack) / 2];
 		/* Parent */
-		return clone(subprocCloneFunc, stack, flags, &env, NULL, NULL);
+		return clone(subprocCloneFunc, stack, flags, NULL, NULL, NULL);
 	}
 	/* Child */
 	return 0;
