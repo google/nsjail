@@ -312,7 +312,7 @@ static bool netIfaceUp(const char *ifacename)
 	ifr.ifr_flags |= (IFF_UP | IFF_RUNNING);
 
 	if (ioctl(sock, SIOCSIFFLAGS, &ifr) == -1) {
-		PLOG_E("ioctl(iface='%s', SIOCSIFFLAGS, IFF_UP)", ifacename);
+		PLOG_E("ioctl(iface='%s', SIOCSIFFLAGS, IFF_UP|IFF_RUNNING)", ifacename);
 		close(sock);
 		return false;
 	}
