@@ -34,14 +34,20 @@ ifdef DEBUG
 	CFLAGS += -g -ggdb -gdwarf-4
 endif
 
+USE_KAFEL = yes
 ifneq ("$(wildcard kafel/include/kafel.h)","")
+ifeq ($(USE_KAFEL), yes)
 	CFLAGS += -I./kafel/include/ -DUSE_KAFEL
 	LIBS += kafel/libkafel.a
 endif
+endif
 
+USE_NL3 = yes
 ifeq ("$(wildcard /usr/include/libnl3/netlink/route/link/macvlan.h)","/usr/include/libnl3/netlink/route/link/macvlan.h")
+ifeq ($(USE_NL3), yes)
 	CFLAGS += -DNSJAIL_NL3_WITH_MACVLAN -I/usr/include/libnl3
 	LDFLAGS += -lnl-3 -lnl-route-3
+endif
 endif
 
 .c.o: %.c
