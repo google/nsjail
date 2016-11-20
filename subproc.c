@@ -314,6 +314,7 @@ pid_t subprocClone(uintptr_t flags)
 	}
 
 	if (setjmp(env) == 0) {
+		LOG_D("Cloning process with flags %#tx", flags);
 		/*
 		 * Avoid the problem of the stack growing up/down under different CPU architectures, by using
 		 * middle of the static stack buffer (which is temporary, and used only inside of subprocCloneFunc
