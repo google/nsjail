@@ -141,22 +141,22 @@ Type:
 ```
 ./nsjail --help'
 ```
+
 The commandline options are reasonably well-documented
+
 ```
 Usage: ./nsjail [options] -- path_to_command [args]
 Options:
  --help|-h 
 	Help plz..
  --mode|-M VALUE
-	Execution mode (default: l [MODE_LISTEN_TCP]):
+	Execution mode (default: o [MODE_STANDALONE_ONCE]):
 	l: Wait for connections on a TCP port (specified with --port) [MODE_LISTEN_TCP]
 	o: Immediately launch a single process on a console using clone/execve [MODE_STANDALONE_ONCE]
 	e: Immediately launch a single process on a console using execve [MODE_STANDALONE_EXECVE]
 	r: Immediately launch a single process on a console, keep doing it forever [MODE_STANDALONE_RERUN]
- --cmd 
-	Equivalent of -Mo (MODE_STANDALONE_ONCE), run command on a local console, once
  --chroot|-c VALUE
-	Directory containing / of the jail (default: "/"). Skip mounting it if's not used
+	Directory containing / of the jail (default: none)
  --rw 
 	Mount / as RW (default: RO)
  --user|-u VALUE
@@ -168,7 +168,7 @@ Options:
  --cwd|-D VALUE
 	Directory in the namespace the process will run (default: '/')
  --port|-p VALUE
-	TCP port to bind to (only in [MODE_LISTEN_TCP]) (default: 31337)
+	TCP port to bind to (enables MODE_LISTEN_TCP) (default: 0)
  --bindhost VALUE
 	IP address port to bind to (only in [MODE_LISTEN_TCP]), '::ffff:127.0.0.1' for locahost (default: '::')
  --max_conns_per_ip|-i VALUE
@@ -189,12 +189,14 @@ Options:
 	Don't drop capabilities (DANGEROUS)
  --silent 
 	Redirect child's fd:0/1/2 to /dev/null
- --disable_sandbox 
-	Don't enable the seccomp-bpf sandboxing
  --skip_setsid 
 	Don't call setsid(), allows for terminal signal handling in the sandboxed process
  --pass_fd VALUE
 	Don't close this FD before executing child (can be specified multiple times), by default: 0/1/2 are kept open
+ --pivot_root_only 
+	Only perform pivot_root, no chroot. This will enable nested namespaces
+ --disable_no_new_privs 
+	Don't set the prctl(NO_NEW_PRIVS, 1) (DANGEROUS)
  --rlimit_as VALUE
 	RLIMIT_AS in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 512)
  --rlimit_core VALUE
@@ -233,6 +235,10 @@ Options:
 	Don't use CLONE_NEWUTS
  --enable_clone_newcgroup 
 	Use CLONE_NEWCGROUP
+ --uid_mapping|-U VALUE
+	Add a custom uid mapping of the form inside_uid:outside_uid:count. Setting this requires newuidmap to be present
+ --gid_mapping|-G VALUE
+	Add a custom gid mapping of the form inside_gid:outside_gid:count. Setting this requires newuidmap to be present
  --bindmount_ro|-R VALUE
 	List of mountpoints to be mounted --bind (ro) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'
  --bindmount|-B VALUE
@@ -243,6 +249,10 @@ Options:
 	Number of bytes to allocate for tmpfsmounts (default: 4194304)
  --disable_proc 
 	Disable mounting /proc in the jail
+ --seccomp_policy|-P VALUE
+	Path to file containing seccomp-bpf policy (see kafel/)
+ --seccomp_string VALUE
+	String with kafel seccomp-bpf policy (see kafel/)
  --cgroup_mem_max VALUE
 	Maximum number of bytes to use in the group (default: '0' - disabled)
  --cgroup_mem_mount VALUE
