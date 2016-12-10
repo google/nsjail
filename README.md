@@ -137,12 +137,12 @@ uid=0 gid=99999 groups=99999,65534
 ```
 
 ### MORE INFO?
-Type:
+To see the options, simply type:
 ```
-./nsjail --help'
+./nsjail --help
 ```
 
-The commandline options are reasonably well-documented
+The commandline options should be reasonably well-documented
 
 ```
 Usage: ./nsjail [options] -- path_to_command [args]
