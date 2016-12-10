@@ -119,7 +119,7 @@ The document has moved
 
 #### Bash in a minimal file-system with uid==0 and access to /dev/urandom
 ```
-$ ./nsjail -Mo --user 0 --group 99999 --chroot "" -R /bin/ -R /lib -R /lib64/ -R /usr/ -R /sbin/ -T /dev -R /dev/urandom --keep_caps -- /bin/bash -i
+$ ./nsjail -Mo --user 0 --group 99999 -R /bin/ -R /lib -R /lib64/ -R /usr/ -R /sbin/ -T /dev -R /dev/urandom --keep_caps -- /bin/bash -i
 bash-4.3# ls -l /
 total 40
 drwxr-xr-x   2 65534 65534 12288 Jun 17 23:27 bin
@@ -156,7 +156,7 @@ Options:
  --cmd 
 	Equivalent of -Mo (MODE_STANDALONE_ONCE), run command on a local console, once
  --chroot|-c VALUE
-	Directory containing / of the jail (default: "/"). Skip mounting it if ""
+	Directory containing / of the jail (default: "/"). Skip mounting it if's not used
  --rw 
 	Mount / as RW (default: RO)
  --user|-u VALUE
