@@ -172,7 +172,7 @@ The document has moved
 <h4>
 <a id="bash-in-a-minimal-file-system-with-uid0-and-access-to-devurandom" class="anchor" href="#bash-in-a-minimal-file-system-with-uid0-and-access-to-devurandom" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Bash in a minimal file-system with uid==0 and access to /dev/urandom</h4>
 
-<pre><code>$ ./nsjail -Mo --user 0 --group 99999 --chroot "" -R /bin/ -R /lib -R /lib64/ -R /usr/ -R /sbin/ -T /dev -R /dev/urandom --keep_caps -- /bin/bash -i
+<pre><code>$ ./nsjail -Mo --user 0 --group 99999 -R /bin/ -R /lib -R /lib64/ -R /usr/ -R /sbin/ -T /dev -R /dev/urandom --keep_caps -- /bin/bash -i
 bash-4.3# ls -l /
 total 40
 drwxr-xr-x   2 65534 65534 12288 Jun 17 23:27 bin
@@ -192,27 +192,25 @@ uid=0 gid=99999 groups=99999,65534
 <h3>
 <a id="more-info" class="anchor" href="#more-info" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>MORE INFO?</h3>
 
-<p>Type:</p>
+<p>To see the options, simply type:</p>
 
-<pre><code>./nsjail --help'
+<pre><code>./nsjail --help
 </code></pre>
 
-<p>The commandline options are reasonably well-documented</p>
+<p>The commandline options should be reasonably well-documented</p>
 
 <pre><code>Usage: ./nsjail [options] -- path_to_command [args]
 Options:
  --help|-h 
     Help plz..
  --mode|-M VALUE
-    Execution mode (default: l [MODE_LISTEN_TCP]):
+    Execution mode (default: o [MODE_STANDALONE_ONCE]):
     l: Wait for connections on a TCP port (specified with --port) [MODE_LISTEN_TCP]
     o: Immediately launch a single process on a console using clone/execve [MODE_STANDALONE_ONCE]
     e: Immediately launch a single process on a console using execve [MODE_STANDALONE_EXECVE]
     r: Immediately launch a single process on a console, keep doing it forever [MODE_STANDALONE_RERUN]
- --cmd 
-    Equivalent of -Mo (MODE_STANDALONE_ONCE), run command on a local console, once
  --chroot|-c VALUE
-    Directory containing / of the jail (default: "/"). Skip mounting it if ""
+    Directory containing / of the jail (default: none)
  --rw 
     Mount / as RW (default: RO)
  --user|-u VALUE
@@ -224,7 +222,7 @@ Options:
  --cwd|-D VALUE
     Directory in the namespace the process will run (default: '/')
  --port|-p VALUE
-    TCP port to bind to (only in [MODE_LISTEN_TCP]) (default: 31337)
+    TCP port to bind to (enables MODE_LISTEN_TCP) (default: 0)
  --bindhost VALUE
     IP address port to bind to (only in [MODE_LISTEN_TCP]), '::ffff:127.0.0.1' for locahost (default: '::')
  --max_conns_per_ip|-i VALUE
@@ -245,12 +243,14 @@ Options:
     Don't drop capabilities (DANGEROUS)
  --silent 
     Redirect child's fd:0/1/2 to /dev/null
- --disable_sandbox 
-    Don't enable the seccomp-bpf sandboxing
  --skip_setsid 
     Don't call setsid(), allows for terminal signal handling in the sandboxed process
  --pass_fd VALUE
     Don't close this FD before executing child (can be specified multiple times), by default: 0/1/2 are kept open
+ --pivot_root_only 
+    Only perform pivot_root, no chroot. This will enable nested namespaces
+ --disable_no_new_privs 
+    Don't set the prctl(NO_NEW_PRIVS, 1) (DANGEROUS)
  --rlimit_as VALUE
     RLIMIT_AS in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 512)
  --rlimit_core VALUE
@@ -289,6 +289,10 @@ Options:
     Don't use CLONE_NEWUTS
  --enable_clone_newcgroup 
     Use CLONE_NEWCGROUP
+ --uid_mapping|-U VALUE
+    Add a custom uid mapping of the form inside_uid:outside_uid:count. Setting this requires newuidmap to be present
+ --gid_mapping|-G VALUE
+    Add a custom gid mapping of the form inside_gid:outside_gid:count. Setting this requires newuidmap to be present
  --bindmount_ro|-R VALUE
     List of mountpoints to be mounted --bind (ro) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'
  --bindmount|-B VALUE
@@ -299,12 +303,16 @@ Options:
     Number of bytes to allocate for tmpfsmounts (default: 4194304)
  --disable_proc 
     Disable mounting /proc in the jail
- --cgroup_mem_mount VALUE
-    Where to mount memory cgroup FS (default: '/cgroup_memory'
- --cgroup_mem_parent VALUE
-    Which memory cgroup to use (default: 'NSJAIL')
+ --seccomp_policy|-P VALUE
+    Path to file containing seccomp-bpf policy (see kafel/)
+ --seccomp_string VALUE
+    String with kafel seccomp-bpf policy (see kafel/)
  --cgroup_mem_max VALUE
-    Maximum number of bytes to use in the group
+    Maximum number of bytes to use in the group (default: '0' - disabled)
+ --cgroup_mem_mount VALUE
+    Location of memory cgroup FS (default: '/sys/fs/cgroup/memory')
+ --cgroup_mem_parent VALUE
+    Which pre-existing memory cgroup to use as a parent (default: 'NSJAIL')
  --iface_no_lo 
     Don't bring up the 'lo' interface
  --iface|-I VALUE
@@ -323,7 +331,8 @@ Options:
   nsjail -Mr --chroot / -- /bin/echo "ABC"
  Run echo command once only, as a sub-process
   nsjail -Mo --chroot / -- /bin/echo "ABC"
- Execute echo command directly, without a supervising proces
+ Execute echo command directly, without a supervising process
+  nsjail -Me --chroot / --disable_proc -- /bin/echo "ABC"
 </code></pre>
         </section>
 
