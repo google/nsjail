@@ -1,3 +1,14 @@
+- [WHAT IS IT?](#what-is-it-)
+- [WHAT TYPE OF ISOLATION DOES THIS TOOL PROVIDE?](#what-type-of-isolation-does-this-tool-provide-)
+- [WHICH USE-CASES ARE SUPPORTED?](#which-use-cases-are-supported-)
+  * [Isolation of network services (inetd-style)](#isolation-of-network-services--inetd-style-)
+  * [Isolation, with access to a private, cloned interface (requires euid==0)](#isolation--with-access-to-a-private--cloned-interface--requires-euid--0-)
+  * [Isolation of local processes](#isolation-of-local-processes)
+  * [Isolation of local processes (and re-running them)](#isolation-of-local-processes--and-re-running-them-)
+  * [Bash in a minimal file-system with uid==0 and access to /dev/urandom](#bash-in-a-minimal-file-system-with-uid--0-and-access-to--dev-urandom)
+  * [Even more contrained shell (with seccomp-bpf policies)](#even-more-contrained-shell--with-seccomp-bpf-policies-)
+- [MORE INFO?](#more-info-)
+
 ### WHAT IS IT?
 NsJail is a process isolation tool for Linux. It makes use of the the namespacing, resource control, and seccomp-bpf syscall filter subsystems of the Linux kernel.
 
