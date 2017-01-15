@@ -26,7 +26,7 @@ CFLAGS += -O2 -c -std=gnu11 \
 
 LDFLAGS += -Wl,-z,now -Wl,-z,relro -pie -Wl,-z,noexecstack
 
-SRCS = nsjail.c cmdline.c contain.c log.c cgroup.c mount.c net.c pid.c sandbox.c subproc.c user.c util.c uts.c seccomp/bpf-helper.c
+SRCS = nsjail.c cmdline.c contain.c log.c cgroup.c mount.c net.c pid.c sandbox.c subproc.c user.c util.c uts.c
 OBJS = $(SRCS:.c=.o)
 BIN = nsjail
 
@@ -73,7 +73,7 @@ depend:
 	makedepend -Y. -- -- $(SRCS)
 
 indent:
-	indent -linux -l100 -lc100 *.c *.h seccomp/*.c seccomp/*.h; rm -f *~ seccomp/*~
+	indent -linux -l100 -lc100 *.c *.h; rm -f *~
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 
@@ -91,4 +91,3 @@ subproc.o: util.h
 user.o: user.h common.h log.h subproc.h util.h
 util.o: util.h common.h log.h
 uts.o: uts.h common.h log.h
-seccomp/bpf-helper.o: seccomp/bpf-helper.h
