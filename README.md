@@ -136,6 +136,31 @@ bash-4.3# id
 uid=0 gid=99999 groups=99999,65534
 ```
 
+#### Even more contrained shell (with seccomp-bpf policies)
+```
+$ ./nsjail --chroot / --seccomp_string 'POLICY a { ALLOW { write, execve, brk, access, mmap, open, newfstat, close, read, mprotect, arch_prctl, munmap, getuid, getgid, getpid, rt_sigaction, geteuid, getppid, getcwd, getegid, ioctl, fcntl, newstat, clone, wait4, rt_sigreturn, exit_group } } USE a DEFAULT KILL' -- /bin/sh -i
+[2017-01-15T21:53:08+0100] Mode: STANDALONE_ONCE
+[2017-01-15T21:53:08+0100] Jail parameters: hostname:'NSJAIL', chroot:'/', process:'/bin/sh', bind:[::]:0, max_conns_per_ip:0, uid:(ns:1000, global:1000), gid:(ns:1000, global:1000), time_limit:0, personality:0, daemonize:false, clone_newnet:true, clone_newuser:true, clone_newns:true, clone_newpid:true, clone_newipc:true, clonew_newuts:true, clone_newcgroup:false, keep_caps:false, tmpfs_size:4194304, disable_no_new_privs:false, pivot_root_only:false
+[2017-01-15T21:53:08+0100] Mount point: src:'/' dst:'/' type:'' flags:0x5001 options:''
+[2017-01-15T21:53:08+0100] Mount point: src:'(null)' dst:'/proc' type:'proc' flags:0x0 options:''
+[2017-01-15T21:53:08+0100] PID: 18873 about to execute '/bin/sh' for [STANDALONE_MODE]
+/bin/sh: 0: can't access tty; job control turned off
+$ set
+IFS='
+'
+OPTIND='1'
+PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+PPID='0'
+PS1='$ '
+PS2='> '
+PS4='+ '
+PWD='/'
+$ id
+Bad system call
+$ exit
+[2017-01-15T21:53:17+0100] PID: 18873 exited with status: 159, (PIDs left: 0)
+```
+
 ### MORE INFO?
 To see the options, simply type:
 ```
