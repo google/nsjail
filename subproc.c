@@ -188,16 +188,21 @@ static void subprocSeccompViolation(struct nsjconf_t *nsjconf, siginfo_t * si)
 	}
 	buf[rdsize - 1] = '\0';
 
-	uintptr_t sc, arg1, arg2, arg3, arg4, arg5, arg6, sp, pc;
-	if (sscanf
-	    (buf, "%td %tx %tx %tx %tx %tx %tx %tx %tx", &sc, &arg1, &arg2, &arg3, &arg4, &arg5,
-	     &arg6, &sp, &pc) != 9) {
-		return;
+	uintptr_t arg1, arg2, arg3, arg4, arg5, arg6, sp, pc;
+	ptrdiff_t sc;
+	int ret =
+	    sscanf(buf, "%td %tx %tx %tx %tx %tx %tx %tx %tx", &sc, &arg1, &arg2, &arg3, &arg4,
+		   &arg5, &arg6, &sp, &pc);
+	if (ret == 9) {
+		LOG_W
+		    ("PID: %d, Syscall number: %td, Arguments: %#tx, %#tx, %#tx, %#tx, %#tx, %#tx, SP: %#tx, PC: %#tx",
+		     (int)si->si_pid, sc, arg1, arg2, arg3, arg4, arg5, arg6, sp, pc);
+	} else if (ret == 3) {
+		LOG_W("PID: %d, Syscall number: %td, Arguments: %#tx, %#tx", (int)si->si_pid, sc,
+		      arg1, arg2);
+	} else {
+		LOG_W("PID: %d, Syscall string '%s'", (int)si->si_pid, buf);
 	}
-
-	LOG_W
-	    ("PID: %d, Syscall number: %td, Arguments: %#tx, %#tx, %#tx, %#tx, %#tx, %#tx, SP: %#tx, PC: %#tx",
-	     (int)si->si_pid, sc, arg1, arg2, arg3, arg4, arg5, arg6, sp, pc);
 }
 
 int subprocReap(struct nsjconf_t *nsjconf)
