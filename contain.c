@@ -99,10 +99,40 @@ static bool containDropPrivs(struct nsjconf_t *nsjconf)
 		}
 	}
 
-	if (nsjconf->keep_caps == false) {
+	struct __user_cap_header_struct cap_hdr = {
+		.version = _LINUX_CAPABILITY_VERSION_3,
+		.pid = 0,
+	};
+	struct __user_cap_data_struct cap_data[_LINUX_CAPABILITY_U32S_3];
+	if (syscall(__NR_capget, &cap_hdr, &cap_data) == -1) {
+		PLOG_E("capget()");
+		return false;
+	}
+
+	if (nsjconf->keep_caps == true) {
+		for (size_t i = 0; i < _LINUX_CAPABILITY_U32S_3; i++) {
+			cap_data[i].inheritable = cap_data[i].permitted;
+		}
+		if (syscall(__NR_capset, &cap_hdr, &cap_data) == -1) {
+			PLOG_E("capset()");
+			return false;
+		}
+#if defined(PR_CAP_AMBIENT)
 		for (unsigned long i = 0; i < 128UL; i++) {
 			/*
-			 * Number of capabilities differs between kernels, so
+			 * Number of capabilities varies between kernels, so
+			 * wait for the first one which returns EINVAL
+			 */
+			if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, i, 0UL, 0UL, 0UL) == -1
+			    && errno == EINVAL) {
+				break;
+			}
+		}
+#endif				/* defined(PR_CAP_AMBIENT) */
+	} else {
+		for (unsigned long i = 0; i < 128UL; i++) {
+			/*
+			 * Number of capabilities varies between kernels, so
 			 * wait for the first one which returns EINVAL
 			 */
 			if (prctl(PR_CAPBSET_DROP, i, 0UL, 0UL, 0UL) == -1 && errno == EINVAL) {
@@ -113,15 +143,8 @@ static bool containDropPrivs(struct nsjconf_t *nsjconf)
 			PLOG_E("prctl(PR_SET_KEEPCAPS, 0)");
 			return false;
 		}
-		struct __user_cap_header_struct cap_hdr = {
-			.version = _LINUX_CAPABILITY_VERSION_3,
-			.pid = 0,
-		};
-		const struct __user_cap_data_struct cap_data[_LINUX_CAPABILITY_U32S_3] = {
-			[0 ... (_LINUX_CAPABILITY_U32S_3 - 1)].inheritable = 0U,
-			[0 ... (_LINUX_CAPABILITY_U32S_3 - 1)].effective = 0U,
-			[0 ... (_LINUX_CAPABILITY_U32S_3 - 1)].permitted = 0U,
-		};
+
+		memset(&cap_data, '\0', sizeof(cap_data));
 		if (syscall(__NR_capset, &cap_hdr, &cap_data) == -1) {
 			PLOG_E("capset()");
 			return false;
