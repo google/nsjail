@@ -112,6 +112,7 @@ static bool containDropPrivs(struct nsjconf_t *nsjconf)
 	if (nsjconf->keep_caps == true) {
 		for (size_t i = 0; i < _LINUX_CAPABILITY_U32S_3; i++) {
 			cap_data[i].inheritable = cap_data[i].permitted;
+			cap_data[i].effective = cap_data[i].permitted;
 		}
 		if (syscall(__NR_capset, &cap_hdr, &cap_data) == -1) {
 			PLOG_E("capset()");
