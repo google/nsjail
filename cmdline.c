@@ -348,9 +348,9 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"help", no_argument, NULL, 'h'}, "Help plz.."},
 		{{"mode", required_argument, NULL, 'M'}, "Execution mode (default: o [MODE_STANDALONE_ONCE]):\n"
 			"\tl: Wait for connections on a TCP port (specified with --port) [MODE_LISTEN_TCP]\n"
-			"\to: Immediately launch a single process on a console using clone/execve [MODE_STANDALONE_ONCE]\n"
-			"\te: Immediately launch a single process on a console using execve [MODE_STANDALONE_EXECVE]\n"
-			"\tr: Immediately launch a single process on a console, keep doing it forever [MODE_STANDALONE_RERUN]"},
+			"\to: Immediately launch a single process on the console using clone/execve [MODE_STANDALONE_ONCE]\n"
+			"\te: Immediately launch a single process on the console using execve [MODE_STANDALONE_EXECVE]\n"
+			"\tr: Immediately launch a single process on the console, keep doing it forever [MODE_STANDALONE_RERUN]"},
 		{{"chroot", required_argument, NULL, 'c'}, "Directory containing / of the jail (default: none)"},
 		{{"rw", no_argument, NULL, 0x601}, "Mount / as RW (default: RO)"},
 		{{"user", required_argument, NULL, 'u'}, "Username/uid of processess inside the jail (default: your current uid). You can also use inside_ns_uid:outside_ns_uid convention here"},
