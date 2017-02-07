@@ -196,15 +196,20 @@ bool userInitNsFromChild(struct nsjconf_t * nsjconf)
 	/*
 	 * Best effort because of /proc/self/setgroups
 	 */
+	LOG_D("setgroups(0, NULL)");
 	gid_t *group_list = NULL;
 	if (setgroups(0, group_list) == -1) {
 		PLOG_D("setgroups(NULL) failed");
 	}
+	LOG_D("setresgid(%d, %d, %d)", nsjconf->inside_gid, nsjconf->inside_gid,
+	      nsjconf->inside_gid);
 	if (syscall(__NR_setresgid, nsjconf->inside_gid, nsjconf->inside_gid, nsjconf->inside_gid)
 	    == -1) {
 		PLOG_E("setresgid(%u)", nsjconf->inside_gid);
 		return false;
 	}
+	LOG_D("setresuid(%d, %d, %d)", nsjconf->inside_uid, nsjconf->inside_uid,
+	      nsjconf->inside_uid);
 	if (syscall(__NR_setresuid, nsjconf->inside_uid, nsjconf->inside_uid, nsjconf->inside_uid)
 	    == -1) {
 		PLOG_E("setresuid(%u)", nsjconf->inside_uid);
