@@ -23,6 +23,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -156,4 +157,19 @@ bool utilCreateDirRecursively(const char *dir)
 		prev_dir_fd = dir_fd;
 		curr = next + 1;
 	}
+}
+
+int utilSSnPrintf(char *str, size_t size, const char *format, ...)
+{
+	char buf1[size];
+	char buf2[size];
+
+	snprintf(buf1, sizeof(buf1), "%s", str);
+
+	va_list args;
+	va_start(args, format);
+	vsnprintf(buf2, size, format, args);
+	va_end(args);
+
+	return snprintf(str, size, "%s%s", buf1, buf2);
 }

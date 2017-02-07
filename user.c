@@ -59,11 +59,16 @@ static bool userSetGroups(pid_t pid)
 static bool userUidMapSelf(struct nsjconf_t *nsjconf, pid_t pid)
 {
 	char fname[PATH_MAX];
-	char map[128];
-
 	snprintf(fname, sizeof(fname), "/proc/%d/uid_map", pid);
-	snprintf(map, sizeof(map), "%lu %lu 1", (unsigned long)nsjconf->inside_uid,
-		 (unsigned long)nsjconf->outside_uid);
+
+	char map[4096] = {[0] = '\0' };
+
+	struct idmap_t *p;
+	TAILQ_FOREACH(p, &nsjconf->uids, pointers) {
+		utilSSnPrintf(map, sizeof(map), "%lu %lu 1\n", (unsigned long)p->inside_id,
+			      (unsigned long)p->outside_id);
+	}
+
 	LOG_D("Writing '%s' to '%s'", map, fname);
 	if (utilWriteBufToFile(fname, map, strlen(map), O_WRONLY) == false) {
 		LOG_E("utilWriteBufToFile('%s', '%s') failed", fname, map);
@@ -76,36 +81,34 @@ static bool userUidMapSelf(struct nsjconf_t *nsjconf, pid_t pid)
 static bool userGidMapSelf(struct nsjconf_t *nsjconf, pid_t pid)
 {
 	char fname[PATH_MAX];
-	char map[128];
-
 	snprintf(fname, sizeof(fname), "/proc/%d/gid_map", pid);
-	snprintf(map, sizeof(map), "%lu %lu 1", (unsigned long)nsjconf->inside_gid,
-		 (unsigned long)nsjconf->outside_gid);
+
+	char map[4096] = {[0] = '\0' };
+
+	struct idmap_t *p;
+	TAILQ_FOREACH(p, &nsjconf->gids, pointers) {
+		utilSSnPrintf(map, sizeof(map), "%lu %lu 1\n", (unsigned long)p->inside_id,
+			      (unsigned long)p->outside_id);
+	}
+
 	LOG_D("Writing '%s' to '%s'", map, fname);
 	if (utilWriteBufToFile(fname, map, strlen(map), O_WRONLY) == false) {
 		LOG_E("utilWriteBufToFile('%s', '%s') failed", fname, map);
 		return false;
 	}
+
 	return true;
 }
 
 /* Use /usr/bin/newgidmap for writing the gid map */
-static bool userGidMapExternal(struct nsjconf_t *nsjconf, pid_t pid)
+static bool userGidMapExternal(struct nsjconf_t *nsjconf, pid_t pid UNUSED)
 {
-	char pid_str[16];
-	char ins_gid_str[16];
-	char out_gid_str[16];
-
-	snprintf(pid_str, sizeof(pid_str), "%lu", (unsigned long)pid);
-	snprintf(ins_gid_str, sizeof(ins_gid_str), "%lu", (unsigned long)nsjconf->inside_gid);
-	snprintf(out_gid_str, sizeof(out_gid_str), "%lu", (unsigned long)nsjconf->outside_gid);
-
-	const char *argv[1024] = { "/usr/bin/newgidmap", pid_str, ins_gid_str, out_gid_str, "1" };
-	size_t argv_idx = 5;
+	const char *argv[1024] = { "/usr/bin/newgidmap" };
+	size_t argv_idx = 1;
 
 	struct mapping_t *p;
 	TAILQ_FOREACH(p, &nsjconf->gid_mappings, pointers) {
-		if ((argv_idx + 4) >= ARRAYSIZE(argv)) {
+		if (argv_idx >= ARRAYSIZE(argv)) {
 			LOG_W("Number of arguments to '/usr/bin/newgidmap' too big");
 			return false;
 		}
@@ -125,22 +128,14 @@ static bool userGidMapExternal(struct nsjconf_t *nsjconf, pid_t pid)
 }
 
 /* Use /usr/bin/newuidmap for writing the uid map */
-static bool userUidMapExternal(struct nsjconf_t *nsjconf, pid_t pid)
+static bool userUidMapExternal(struct nsjconf_t *nsjconf, pid_t pid UNUSED)
 {
-	char pid_str[16];
-	char ins_uid_str[16];
-	char out_uid_str[16];
-
-	snprintf(pid_str, sizeof(pid_str), "%lu", (unsigned long)pid);
-	snprintf(ins_uid_str, sizeof(ins_uid_str), "%lu", (unsigned long)nsjconf->inside_uid);
-	snprintf(out_uid_str, sizeof(out_uid_str), "%lu", (unsigned long)nsjconf->outside_uid);
-
-	const char *argv[1024] = { "/usr/bin/newuidmap", pid_str, ins_uid_str, out_uid_str, "1" };
-	size_t argv_idx = 5;
+	const char *argv[1024] = { "/usr/bin/newuidmap" };
+	size_t argv_idx = 1;
 
 	struct mapping_t *p;
 	TAILQ_FOREACH(p, &nsjconf->uid_mappings, pointers) {
-		if ((argv_idx + 4) >= ARRAYSIZE(argv)) {
+		if (argv_idx >= ARRAYSIZE(argv)) {
 			LOG_W("Number of arguments to '/usr/bin/newuidmap' too big");
 			return false;
 		}
@@ -201,18 +196,22 @@ bool userInitNsFromChild(struct nsjconf_t * nsjconf)
 	if (setgroups(0, group_list) == -1) {
 		PLOG_D("setgroups(NULL) failed");
 	}
-	LOG_D("setresgid(%d, %d, %d)", nsjconf->inside_gid, nsjconf->inside_gid,
-	      nsjconf->inside_gid);
-	if (syscall(__NR_setresgid, nsjconf->inside_gid, nsjconf->inside_gid, nsjconf->inside_gid)
+	LOG_D("setresgid(%d, %d, %d)", TAILQ_FIRST(&nsjconf->gids)->inside_id,
+	      TAILQ_FIRST(&nsjconf->gids)->inside_id, TAILQ_FIRST(&nsjconf->gids)->inside_id);
+	if (syscall
+	    (__NR_setresgid, TAILQ_FIRST(&nsjconf->gids)->inside_id,
+	     TAILQ_FIRST(&nsjconf->gids)->inside_id, TAILQ_FIRST(&nsjconf->gids)->inside_id)
 	    == -1) {
-		PLOG_E("setresgid(%u)", nsjconf->inside_gid);
+		PLOG_E("setresgid(%u)", TAILQ_FIRST(&nsjconf->gids)->inside_id);
 		return false;
 	}
-	LOG_D("setresuid(%d, %d, %d)", nsjconf->inside_uid, nsjconf->inside_uid,
-	      nsjconf->inside_uid);
-	if (syscall(__NR_setresuid, nsjconf->inside_uid, nsjconf->inside_uid, nsjconf->inside_uid)
+	LOG_D("setresuid(%d, %d, %d)", TAILQ_FIRST(&nsjconf->uids)->inside_id,
+	      TAILQ_FIRST(&nsjconf->uids)->inside_id, TAILQ_FIRST(&nsjconf->uids)->inside_id);
+	if (syscall
+	    (__NR_setresuid, TAILQ_FIRST(&nsjconf->uids)->inside_id,
+	     TAILQ_FIRST(&nsjconf->uids)->inside_id, TAILQ_FIRST(&nsjconf->uids)->inside_id)
 	    == -1) {
-		PLOG_E("setresuid(%u)", nsjconf->inside_uid);
+		PLOG_E("setresuid(%u)", TAILQ_FIRST(&nsjconf->uids)->inside_id);
 		return false;
 	}
 

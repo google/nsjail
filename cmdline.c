@@ -101,13 +101,12 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 
 	LOG_I
 	    ("Jail parameters: hostname:'%s', chroot:'%s', process:'%s', bind:[%s]:%d, "
-	     "max_conns_per_ip:%u, uid:(ns:%u, global:%u), gid:(ns:%u, global:%u), time_limit:%ld, personality:%#lx, daemonize:%s, "
+	     "max_conns_per_ip:%u, time_limit:%ld, personality:%#lx, daemonize:%s, "
 	     "clone_newnet:%s, clone_newuser:%s, clone_newns:%s, clone_newpid:%s, "
 	     "clone_newipc:%s, clonew_newuts:%s, clone_newcgroup:%s, keep_caps:%s, "
 	     "tmpfs_size:%zu, disable_no_new_privs:%s, pivot_root_only:%s",
 	     nsjconf->hostname, nsjconf->chroot, nsjconf->argv[0], nsjconf->bindhost, nsjconf->port,
-	     nsjconf->max_conns_per_ip, nsjconf->inside_uid, nsjconf->outside_uid,
-	     nsjconf->inside_gid, nsjconf->outside_gid, nsjconf->tlimit, nsjconf->personality,
+	     nsjconf->max_conns_per_ip, nsjconf->tlimit, nsjconf->personality,
 	     logYesNo(nsjconf->daemonize), logYesNo(nsjconf->clone_newnet),
 	     logYesNo(nsjconf->clone_newuser), logYesNo(nsjconf->clone_newns),
 	     logYesNo(nsjconf->clone_newpid), logYesNo(nsjconf->clone_newipc),
@@ -123,14 +122,24 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 		}
 	}
 	{
+		struct idmap_t *p;
+		TAILQ_FOREACH(p, &nsjconf->uids, pointers) {
+			LOG_I("Uid map: inside_uid:%d outside_uid:%d", p->inside_id, p->outside_id);
+		}
+		TAILQ_FOREACH(p, &nsjconf->gids, pointers) {
+			LOG_I("Gid map: inside_gid:%d outside_gid:%d", p->inside_id, p->outside_id);
+		}
+	}
+
+	{
 		struct mapping_t *p;
 		TAILQ_FOREACH(p, &nsjconf->uid_mappings, pointers) {
-			LOG_I("Uid mapping: inside_uid:'%s' outside_uid:'%s' count:'%s'",
+			LOG_I("Newuid mapping: inside_uid:'%s' outside_uid:'%s' count:'%s'",
 			      p->inside_id, p->outside_id, p->count);
 		}
 
 		TAILQ_FOREACH(p, &nsjconf->gid_mappings, pointers) {
-			LOG_I("Gid mapping: inside_uid:'%s' outside_uid:'%s' count:'%s'",
+			LOG_I("Newgid mapping: inside_uid:'%s' outside_uid:'%s' count:'%s'",
 			      p->inside_id, p->outside_id, p->count);
 		}
 	}
@@ -204,30 +213,38 @@ static bool cmdlineParseUid(struct nsjconf_t *nsjconf, char *str)
 	}
 
 	char *second = cmdlineSplitStrByColon(str);
+	pid_t inside_uid;
+	pid_t outside_uid;
 
 	struct passwd *pw = getpwnam(str);
 	if (pw != NULL) {
-		nsjconf->inside_uid = pw->pw_uid;
+		inside_uid = pw->pw_uid;
 	} else if (cmdlineIsANumber(str)) {
-		nsjconf->inside_uid = (uid_t) strtoull(str, NULL, 0);
+		inside_uid = (uid_t) strtoull(str, NULL, 0);
 	} else {
 		LOG_E("No such user '%s'", str);
 		return false;
 	}
 
 	if (str == second) {
-		return true;
+		outside_uid = inside_uid;
+	} else {
+		pw = getpwnam(second);
+		if (pw != NULL) {
+			outside_uid = pw->pw_uid;
+		} else if (cmdlineIsANumber(second)) {
+			outside_uid = (uid_t) strtoull(second, NULL, 0);
+		} else {
+			LOG_E("No such user '%s'", second);
+			return false;
+		}
 	}
 
-	pw = getpwnam(second);
-	if (pw != NULL) {
-		nsjconf->outside_uid = pw->pw_uid;
-	} else if (cmdlineIsANumber(second)) {
-		nsjconf->outside_uid = (uid_t) strtoull(second, NULL, 0);
-	} else {
-		LOG_E("No such user '%s'", second);
-		return false;
-	}
+	struct idmap_t *p = utilMalloc(sizeof(struct idmap_t));
+	p->inside_id = inside_uid;
+	p->outside_id = outside_uid;
+	TAILQ_INSERT_TAIL(&nsjconf->uids, p, pointers);
+
 	return true;
 }
 
@@ -238,30 +255,39 @@ static bool cmdlineParseGid(struct nsjconf_t *nsjconf, char *str)
 	}
 
 	char *second = cmdlineSplitStrByColon(str);
+	gid_t inside_gid;
+	gid_t outside_gid;
 
 	struct group *gr = getgrnam(str);
 	if (gr != NULL) {
-		nsjconf->inside_gid = gr->gr_gid;
+		inside_gid = gr->gr_gid;
 	} else if (cmdlineIsANumber(str)) {
-		nsjconf->inside_gid = (gid_t) strtoull(str, NULL, 0);
+		inside_gid = (gid_t) strtoull(str, NULL, 0);
 	} else {
 		LOG_E("No such group '%s'", str);
 		return false;
 	}
 
 	if (str == second) {
-		return true;
+		outside_gid = inside_gid;
+	} else {
+
+		gr = getgrnam(second);
+		if (gr != NULL) {
+			outside_gid = gr->gr_gid;
+		} else if (cmdlineIsANumber(second)) {
+			outside_gid = (gid_t) strtoull(second, NULL, 0);
+		} else {
+			LOG_E("No such group '%s'", second);
+			return false;
+		}
 	}
 
-	gr = getgrnam(second);
-	if (gr != NULL) {
-		nsjconf->outside_gid = gr->gr_gid;
-	} else if (cmdlineIsANumber(second)) {
-		nsjconf->outside_gid = (gid_t) strtoull(second, NULL, 0);
-	} else {
-		LOG_E("No such group '%s'", second);
-		return false;
-	}
+	struct idmap_t *p = utilMalloc(sizeof(struct idmap_t));
+	p->inside_id = inside_gid;
+	p->outside_id = outside_gid;
+	TAILQ_INSERT_TAIL(&nsjconf->gids, p, pointers);
+
 	return true;
 }
 
@@ -300,10 +326,6 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		.is_root_rw = false,
 		.is_silent = false,
 		.skip_setsid = false,
-		.inside_uid = getuid(),
-		.inside_gid = getgid(),
-		.outside_uid = getuid(),
-		.outside_gid = getgid(),
 		.max_conns_per_ip = 0,
 		.tmpfs_size = 4 * (1024 * 1024),
 		.mount_proc = true,
@@ -320,6 +342,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	};
 	/*  *INDENT-OFF* */
 
+	TAILQ_INIT(&nsjconf->uids);
+	TAILQ_INIT(&nsjconf->gids);
 	TAILQ_INIT(&nsjconf->envs);
 	TAILQ_INIT(&nsjconf->pids);
 	TAILQ_INIT(&nsjconf->mountpts);
@@ -327,8 +351,6 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	TAILQ_INIT(&nsjconf->uid_mappings);
 	TAILQ_INIT(&nsjconf->gid_mappings);
 
-	char *user = NULL;
-	char *group = NULL;
 	const char *logfile = NULL;
 	static char cmdlineTmpfsSz[PATH_MAX] = "size=4194304";
 
@@ -353,8 +375,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			"\tr: Immediately launch a single process on the console, keep doing it forever [MODE_STANDALONE_RERUN]"},
 		{{"chroot", required_argument, NULL, 'c'}, "Directory containing / of the jail (default: none)"},
 		{{"rw", no_argument, NULL, 0x601}, "Mount / as RW (default: RO)"},
-		{{"user", required_argument, NULL, 'u'}, "Username/uid of processess inside the jail (default: your current uid). You can also use inside_ns_uid:outside_ns_uid convention here"},
-		{{"group", required_argument, NULL, 'g'}, "Groupname/gid of processess inside the jail (default: your current gid). You can also use inside_ns_gid:global_ns_gid convention here"},
+		{{"user", required_argument, NULL, 'u'}, "Username/uid of processess inside the jail (default: your current uid). You can also use inside_ns_uid:outside_ns_uid convention here. Can be specified multiple times"},
+		{{"group", required_argument, NULL, 'g'}, "Groupname/gid of processess inside the jail (default: your current gid). You can also use inside_ns_gid:global_ns_gid convention here. Can be specified multiple times"},
 		{{"hostname", required_argument, NULL, 'H'}, "UTS name (hostname) of the jail (default: 'NSJAIL')"},
 		{{"cwd", required_argument, NULL, 'D'}, "Directory in the namespace the process will run (default: '/')"},
 		{{"port", required_argument, NULL, 'p'}, "TCP port to bind to (enables MODE_LISTEN_TCP) (default: 0)"},
@@ -445,10 +467,14 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			nsjconf->max_conns_per_ip = strtoul(optarg, NULL, 0);
 			break;
 		case 'u':
-			user = optarg;
+			if (cmdlineParseUid(nsjconf, optarg) == false) {
+				LOG_F("cmdlineParseUid('%s')", optarg);
+			}
 			break;
 		case 'g':
-			group = optarg;
+			if (cmdlineParseGid(nsjconf, optarg) == false) {
+				LOG_F("cmdlineParseGid('%s')", optarg);
+			}
 			break;
 		case 'l':
 			logfile = optarg;
@@ -711,6 +737,18 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		TAILQ_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
 	}
 
+	if (TAILQ_EMPTY(&nsjconf->uids)) {
+		struct idmap_t *p = utilMalloc(sizeof(struct idmap_t));
+		p->inside_id = getuid();
+		p->outside_id = getuid();
+		TAILQ_INSERT_HEAD(&nsjconf->uids, p, pointers);
+	}
+	if (TAILQ_EMPTY(&nsjconf->gids)) {
+		struct idmap_t *p = utilMalloc(sizeof(struct idmap_t));
+		p->inside_id = getgid();
+		p->outside_id = getgid();
+		TAILQ_INSERT_HEAD(&nsjconf->gids, p, pointers);
+	}
 #if !defined(USE_KAFEL)
 	if (nsjconf->kafel_file != NULL || nsjconf->kafel_string != NULL) {
 		LOG_F("Kafel policy specified but the kafel/ is not compiled in");
@@ -718,13 +756,6 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 #endif				/* !defined(USE_KAFEL) */
 
 	if (logInitLogFile(nsjconf, logfile, nsjconf->verbose) == false) {
-		return false;
-	}
-
-	if (cmdlineParseUid(nsjconf, user) == false) {
-		return false;
-	}
-	if (cmdlineParseGid(nsjconf, group) == false) {
 		return false;
 	}
 

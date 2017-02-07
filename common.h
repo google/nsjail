@@ -31,6 +31,7 @@
 #include <sys/types.h>
 
 #define ARRAYSIZE(array) (sizeof(array) / sizeof(*array))
+#define UNUSED __attribute__((unused))
 
 #if 0				/* Works, but needs -fblocks and libBlocksRuntime with clang */
 /* Go-style defer implementation */
@@ -77,6 +78,12 @@ struct mapping_t {
 	const char *outside_id;
 	const char *count;
 	 TAILQ_ENTRY(mapping_t) pointers;
+};
+
+struct idmap_t {
+	pid_t inside_id;
+	pid_t outside_id;
+	 TAILQ_ENTRY(idmap_t) pointers;
 };
 
 struct fds_t {
@@ -129,10 +136,6 @@ struct nsjconf_t {
 	bool is_root_rw;
 	bool is_silent;
 	bool skip_setsid;
-	uid_t outside_uid;
-	gid_t outside_gid;
-	uid_t inside_uid;
-	gid_t inside_gid;
 	unsigned int max_conns_per_ip;
 	size_t tmpfs_size;
 	bool mount_proc;
@@ -146,6 +149,8 @@ struct nsjconf_t {
 	size_t cgroup_mem_max;
 	FILE *kafel_file;
 	char *kafel_string;
+	 TAILQ_HEAD(uidlist, idmap_t) uids;
+	 TAILQ_HEAD(gidlist, idmap_t) gids;
 	 TAILQ_HEAD(envlist, charptr_t) envs;
 	 TAILQ_HEAD(pidslist, pids_t) pids;
 	 TAILQ_HEAD(mountptslist, mounts_t) mountpts;
