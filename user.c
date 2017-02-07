@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 
 #include "log.h"
@@ -187,5 +188,28 @@ bool userInitNsFromParent(struct nsjconf_t * nsjconf, pid_t pid)
 	if (userUidGidMap(nsjconf, pid) == false) {
 		return false;
 	}
+	return true;
+}
+
+bool userInitNsFromChild(struct nsjconf_t * nsjconf)
+{
+	/*
+	 * Best effort because of /proc/self/setgroups
+	 */
+	gid_t *group_list = NULL;
+	if (setgroups(0, group_list) == -1) {
+		PLOG_D("setgroups(NULL) failed");
+	}
+	if (syscall(__NR_setresgid, nsjconf->inside_gid, nsjconf->inside_gid, nsjconf->inside_gid)
+	    == -1) {
+		PLOG_E("setresgid(%u)", nsjconf->inside_gid);
+		return false;
+	}
+	if (syscall(__NR_setresuid, nsjconf->inside_uid, nsjconf->inside_uid, nsjconf->inside_uid)
+	    == -1) {
+		PLOG_E("setresuid(%u)", nsjconf->inside_uid);
+		return false;
+	}
+
 	return true;
 }

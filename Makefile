@@ -79,7 +79,8 @@ indent:
 
 nsjail.o: nsjail.h common.h cmdline.h log.h net.h subproc.h
 cmdline.o: cmdline.h common.h log.h util.h
-contain.o: contain.h common.h cgroup.h log.h mount.h net.h pid.h util.h uts.h
+contain.o: contain.h common.h cgroup.h log.h mount.h net.h pid.h user.h
+contain.o: util.h uts.h
 log.o: log.h common.h
 cgroup.o: cgroup.h common.h log.h util.h
 mount.o: mount.h common.h log.h subproc.h util.h

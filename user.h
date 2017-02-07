@@ -28,4 +28,6 @@
 
 bool userInitNsFromParent(struct nsjconf_t *nsjconf, pid_t pid);
 
+bool userInitNsFromChild(struct nsjconf_t *nsjconf);
+
 #endif				/* NS_USER_H */

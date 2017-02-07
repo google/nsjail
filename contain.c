@@ -47,8 +47,14 @@
 #include "mount.h"
 #include "net.h"
 #include "pid.h"
+#include "user.h"
 #include "util.h"
 #include "uts.h"
+
+static bool containUserNs(struct nsjconf_t *nsjconf)
+{
+	return userInitNsFromChild(nsjconf);
+}
 
 static bool containInitPidNs(struct nsjconf_t *nsjconf)
 {
@@ -72,23 +78,6 @@ static bool containInitCgroupNs(void)
 
 static bool containDropPrivs(struct nsjconf_t *nsjconf)
 {
-	/*
-	 * Best effort because of /proc/self/setgroups
-	 */
-	gid_t *group_list = NULL;
-	if (setgroups(0, group_list) == -1) {
-		PLOG_D("setgroups(NULL) failed");
-	}
-	if (syscall(__NR_setresgid, nsjconf->inside_gid, nsjconf->inside_gid, nsjconf->inside_gid)
-	    == -1) {
-		PLOG_E("setresgid(%u)", nsjconf->inside_gid);
-		return false;
-	}
-	if (syscall(__NR_setresuid, nsjconf->inside_uid, nsjconf->inside_uid, nsjconf->inside_uid)
-	    == -1) {
-		PLOG_E("setresuid(%u)", nsjconf->inside_uid);
-		return false;
-	}
 #ifndef PR_SET_NO_NEW_PRIVS
 #define PR_SET_NO_NEW_PRIVS 38
 #endif
@@ -354,6 +343,9 @@ bool containSetupFD(struct nsjconf_t * nsjconf, int fd_in, int fd_out, int fd_er
 
 bool containContain(struct nsjconf_t * nsjconf)
 {
+	if (containUserNs(nsjconf) == false) {
+		return false;
+	}
 	if (containInitPidNs(nsjconf) == false) {
 		return false;
 	}
