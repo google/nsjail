@@ -227,7 +227,7 @@ static bool cmdlineParseUid(struct nsjconf_t *nsjconf, char *str)
 	}
 
 	if (str == second) {
-		outside_uid = inside_uid;
+		outside_uid = getuid();
 	} else {
 		pw = getpwnam(second);
 		if (pw != NULL) {
@@ -269,9 +269,8 @@ static bool cmdlineParseGid(struct nsjconf_t *nsjconf, char *str)
 	}
 
 	if (str == second) {
-		outside_gid = inside_gid;
+		outside_gid = getgid();
 	} else {
-
 		gr = getgrnam(second);
 		if (gr != NULL) {
 			outside_gid = gr->gr_gid;
