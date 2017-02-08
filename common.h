@@ -81,8 +81,8 @@ struct mapping_t {
 };
 
 struct idmap_t {
-	pid_t inside_id;
-	pid_t outside_id;
+	uid_t inside_id;
+	uid_t outside_id;
 	 TAILQ_ENTRY(idmap_t) pointers;
 };
 
