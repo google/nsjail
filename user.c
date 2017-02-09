@@ -65,15 +65,20 @@ static bool userUidMapSelf(struct nsjconf_t *nsjconf, pid_t pid)
 
 	struct idmap_t *p;
 	TAILQ_FOREACH(p, &nsjconf->uids, pointers) {
-		utilSSnPrintf(map, sizeof(map), "%lu %lu 1\n", (unsigned long)p->inside_id,
+		utilSSnPrintf(map, sizeof(map), "%lu %lu 2\n", (unsigned long)p->inside_id,
 			      (unsigned long)p->outside_id);
 	}
 
+	/*
 	LOG_D("Writing '%s' to '%s'", map, fname);
 	if (utilWriteBufToFile(fname, map, strlen(map), O_WRONLY) == false) {
 		LOG_E("utilWriteBufToFile('%s', '%s') failed", fname, map);
 		return false;
 	}
+	*/
+
+	utilWriteBufToFile(fname, "\0", 1, O_WRONLY);
+	PLOG_E("WRITE");
 
 	return true;
 }
@@ -103,8 +108,10 @@ static bool userGidMapSelf(struct nsjconf_t *nsjconf, pid_t pid)
 /* Use /usr/bin/newgidmap for writing the gid map */
 static bool userGidMapExternal(struct nsjconf_t *nsjconf, pid_t pid UNUSED)
 {
-	const char *argv[1024] = { "/usr/bin/newgidmap" };
-	size_t argv_idx = 1;
+	char pid_str[128];
+	snprintf(pid_str, sizeof(pid_str), "%d", (int)pid);
+	const char *argv[1024] = { "/usr/bin/newgidmap", pid_str };
+	size_t argv_idx = 2;
 
 	struct mapping_t *p;
 	TAILQ_FOREACH(p, &nsjconf->gid_mappings, pointers) {
@@ -130,8 +137,10 @@ static bool userGidMapExternal(struct nsjconf_t *nsjconf, pid_t pid UNUSED)
 /* Use /usr/bin/newuidmap for writing the uid map */
 static bool userUidMapExternal(struct nsjconf_t *nsjconf, pid_t pid UNUSED)
 {
-	const char *argv[1024] = { "/usr/bin/newuidmap" };
-	size_t argv_idx = 1;
+	char pid_str[128];
+	snprintf(pid_str, sizeof(pid_str), "%d", (int)pid);
+	const char *argv[1024] = { "/usr/bin/newuidmap", pid_str };
+	size_t argv_idx = 2;
 
 	struct mapping_t *p;
 	TAILQ_FOREACH(p, &nsjconf->uid_mappings, pointers) {
