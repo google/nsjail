@@ -69,16 +69,11 @@ static bool userUidMapSelf(struct nsjconf_t *nsjconf, pid_t pid)
 			      (unsigned long)p->outside_id);
 	}
 
-	/*
 	LOG_D("Writing '%s' to '%s'", map, fname);
 	if (utilWriteBufToFile(fname, map, strlen(map), O_WRONLY) == false) {
 		LOG_E("utilWriteBufToFile('%s', '%s') failed", fname, map);
 		return false;
 	}
-	*/
-
-	utilWriteBufToFile(fname, "\0", 1, O_WRONLY);
-	PLOG_E("WRITE");
 
 	return true;
 }
