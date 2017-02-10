@@ -65,7 +65,7 @@ static bool userUidMapSelf(struct nsjconf_t *nsjconf, pid_t pid)
 
 	struct idmap_t *p;
 	TAILQ_FOREACH(p, &nsjconf->uids, pointers) {
-		utilSSnPrintf(map, sizeof(map), "%lu %lu 2\n", (unsigned long)p->inside_id,
+		utilSSnPrintf(map, sizeof(map), "%lu %lu 1\n", (unsigned long)p->inside_id,
 			      (unsigned long)p->outside_id);
 	}
 
