@@ -173,7 +173,7 @@ static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 
 	const char *const destdir = "/tmp";
 	if (mount(NULL, destdir, "tmpfs", 0, NULL) == -1) {
-		PLOG_E("mount('%s', 'tmpfs'", destdir);
+		PLOG_E("mount('%s', 'tmpfs')", destdir);
 		return false;
 	}
 	char oldrootdir[PATH_MAX];
