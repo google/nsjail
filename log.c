@@ -52,7 +52,7 @@ bool logInitLogFile(struct nsjconf_t *nsjconf, const char *logfile, bool is_verb
 		logfile = _LOG_DEFAULT_FILE;
 	}
 	if (logfile == NULL) {
-		log_fd = STDERR_FILENO;
+		log_fd = fcntl(log_fd, F_DUPFD_CLOEXEC);
 	} else {
 		if (TEMP_FAILURE_RETRY(log_fd = open(logfile, O_CREAT | O_RDWR | O_APPEND, 0640)) ==
 		    -1) {

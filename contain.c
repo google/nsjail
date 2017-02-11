@@ -222,9 +222,11 @@ static bool containPassFd(struct nsjconf_t *nsjconf, int fd)
 
 static bool containMakeFdsCOENaive(struct nsjconf_t *nsjconf)
 {
-	// Don't use getrlimit(RLIMIT_NOFILE) here, as it can return an artifically small value
-	// (e.g. 32), which could be smaller than a maximum assigned number to file-descriptors
-	// in this process. Just use some reasonably sane value (e.g. 1024)
+	/*
+	 * Don't use getrlimit(RLIMIT_NOFILE) here, as it can return an artifically small value
+	 * (e.g. 32), which could be smaller than a maximum assigned number to file-descriptors
+	 * in this process. Just use some reasonably sane value (e.g. 1024)
+	 */
 	for (unsigned fd = 0; fd < 1024; fd++) {
 		int flags = TEMP_FAILURE_RETRY(fcntl(fd, F_GETFD, 0));
 		if (flags == -1) {

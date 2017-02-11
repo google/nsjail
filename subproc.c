@@ -87,7 +87,10 @@ static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int 
 		putenv(p->val);
 	}
 
-	LOG_D("Trying to execve('%s')", nsjconf->argv[0]);
+	char cs_addr[64];
+	netConnToText(fd_in, true /* remote */ , cs_addr, sizeof(cs_addr), NULL);
+	LOG_I("Executing '%s' for '%s'", nsjconf->argv[0], cs_addr);
+
 	for (size_t i = 0; nsjconf->argv[i]; i++) {
 		LOG_D(" Arg[%zu]: '%s'", i, nsjconf->argv[i]);
 	}
@@ -393,7 +396,6 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 	close(parent_fd);
 	char cs_addr[64];
 	netConnToText(fd_in, true /* remote */ , cs_addr, sizeof(cs_addr), NULL);
-	LOG_I("PID: %d about to execute '%s' for %s", pid, nsjconf->argv[0], cs_addr);
 }
 
 int subprocSystem(const char **argv, char **env)
