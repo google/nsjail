@@ -114,8 +114,8 @@ static bool containDropPrivs(struct nsjconf_t *nsjconf)
 			 * wait for the first one which returns EINVAL
 			 */
 			if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, i, 0UL, 0UL, 0UL) == -1
-			    && errno == EINVAL) {
-				break;
+			    && errno != EINVAL) {
+				PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %lu)", i);
 			}
 		}
 #endif				/* defined(PR_CAP_AMBIENT) */
@@ -125,8 +125,8 @@ static bool containDropPrivs(struct nsjconf_t *nsjconf)
 			 * Number of capabilities varies between kernels, so
 			 * wait for the first one which returns EINVAL
 			 */
-			if (prctl(PR_CAPBSET_DROP, i, 0UL, 0UL, 0UL) == -1 && errno == EINVAL) {
-				break;
+			if (prctl(PR_CAPBSET_DROP, i, 0UL, 0UL, 0UL) == -1 && errno != EINVAL) {
+				PLOG_W("prctl(PR_CAPBSET_DROP, %lu", i);
 			}
 		}
 		if (prctl(PR_SET_KEEPCAPS, 0, 0, 0, 0) == -1) {
