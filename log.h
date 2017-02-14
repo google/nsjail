@@ -52,7 +52,7 @@ enum llevel_t {
 	FATAL
 };
 
-bool logInitLogFile(struct nsjconf_t *nsjconf, const char *logfile, bool is_verbose);
+bool logInitLogFile(struct nsjconf_t *nsjconf, const char *logfile, enum llevel_t log_level);
 void logLog(enum llevel_t ll, const char *fn, int ln, bool perr, const char *fmt, ...)
     __attribute__ ((format(printf, 5, 6)));
 void logStop(int sig);

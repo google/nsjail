@@ -112,7 +112,6 @@ struct nsjconf_t {
 	bool daemonize;
 	time_t tlimit;
 	bool pivot_root_only;
-	bool verbose;
 	bool keep_env;
 	bool keep_caps;
 	bool disable_no_new_privs;

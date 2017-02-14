@@ -303,7 +303,6 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		.daemonize = false,
 		.tlimit = 0,
 		.pivot_root_only = false,
-		.verbose = false,
 		.keep_caps = false,
 		.disable_no_new_privs = false,
 		.rl_as = 512 * (1024 * 1024),
@@ -340,6 +339,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		.kafel_string = NULL,
 	};
 	/*  *INDENT-OFF* */
+	enum llevel_t log_level = INFO;
 
 	TAILQ_INIT(&nsjconf->uids);
 	TAILQ_INIT(&nsjconf->gids);
@@ -385,6 +385,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"time_limit", required_argument, NULL, 't'}, "Maximum time that a jail can exist, in seconds (default: 600)"},
 		{{"daemon", no_argument, NULL, 'd'}, "Daemonize after start"},
 		{{"verbose", no_argument, NULL, 'v'}, "Verbose output"},
+		{{"quiet", no_argument, NULL, 'q'}, "Only output warning and more important messages"},
 		{{"keep_env", no_argument, NULL, 'e'}, "Should all environment variables be passed to the child?"},
 		{{"env", required_argument, NULL, 'E'}, "Environment variable (can be used multiple times)"},
 		{{"keep_caps", no_argument, NULL, 0x0501}, "Don't drop capabilities (DANGEROUS)"},
@@ -440,7 +441,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 
 	int opt_index = 0;
 	for (;;) {
-		int c = getopt_long(argc, argv, "H:D:c:p:i:u:g:l:t:M:Ndveh?E:R:B:T:P:I:U:G:", opts,
+		int c = getopt_long(argc, argv, "H:D:c:p:i:u:g:l:t:M:Ndvqeh?E:R:B:T:P:I:U:G:", opts,
 				    &opt_index);
 		if (c == -1) {
 			break;
@@ -482,7 +483,10 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			nsjconf->daemonize = true;
 			break;
 		case 'v':
-			nsjconf->verbose = true;
+			log_level = DEBUG;
+			break;
+		case 'q':
+			log_level = WARNING;
 			break;
 		case 'e':
 			nsjconf->keep_env = true;
@@ -754,7 +758,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	}
 #endif				/* !defined(USE_KAFEL) */
 
-	if (logInitLogFile(nsjconf, logfile, nsjconf->verbose) == false) {
+	if (logInitLogFile(nsjconf, logfile, log_level) == false) {
 		return false;
 	}
 

@@ -36,7 +36,7 @@
 
 static __thread int log_fd = STDERR_FILENO;
 static __thread bool log_fd_isatty = true;
-static __thread bool log_verbose = false;
+static __thread enum llevel_t log_level = INFO;
 
 #define _LOG_DEFAULT_FILE "/var/log/nsjail.log"
 
@@ -44,10 +44,9 @@ static __thread bool log_verbose = false;
  * Log to stderr by default. Use a dup()d fd, because in the future we'll associate the
  * connection socket with fd (0, 1, 2).
  */
-bool logInitLogFile(struct nsjconf_t *nsjconf, const char *logfile, bool is_verbose)
+bool logInitLogFile(struct nsjconf_t *nsjconf, const char *logfile, enum llevel_t llevel)
 {
-	log_verbose = is_verbose;
-
+	log_level = llevel;
 	if (logfile == NULL && nsjconf->daemonize == true) {
 		logfile = _LOG_DEFAULT_FILE;
 	}
@@ -67,7 +66,7 @@ bool logInitLogFile(struct nsjconf_t *nsjconf, const char *logfile, bool is_verb
 
 void logLog(enum llevel_t ll, const char *fn, int ln, bool perr, const char *fmt, ...)
 {
-	if (ll == DEBUG && !log_verbose) {
+	if (ll < log_level) {
 		return;
 	}
 
