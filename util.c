@@ -147,7 +147,7 @@ bool utilCreateDirRecursively(const char *dir)
 			return false;
 		}
 
-		int dir_fd = openat(prev_dir_fd, curr, O_DIRECTORY | O_CLOEXEC);
+		int dir_fd = TEMP_FAILURE_RETRY(openat(prev_dir_fd, curr, O_DIRECTORY | O_CLOEXEC));
 		if (dir_fd == -1) {
 			PLOG_E("openat('%d', '%s', O_DIRECTORY | O_CLOEXEC)", prev_dir_fd, curr);
 			close(prev_dir_fd);
