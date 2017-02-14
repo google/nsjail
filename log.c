@@ -34,9 +34,9 @@
 #include <time.h>
 #include <unistd.h>
 
-static __thread int log_fd = STDERR_FILENO;
-static __thread bool log_fd_isatty = true;
-static __thread enum llevel_t log_level = INFO;
+static int log_fd = STDERR_FILENO;
+static bool log_fd_isatty = true;
+static enum llevel_t log_level = INFO;
 
 #define _LOG_DEFAULT_FILE "/var/log/nsjail.log"
 
