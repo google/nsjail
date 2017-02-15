@@ -81,13 +81,13 @@ void logLog(enum llevel_t ll, const char *fn, int ln, bool perr, const char *fmt
 		bool print_time;
 	};
 	struct ll_t logLevels[] = {
-		{"HR", "\033[0m", false, false},
-		{"HB", "\033[1m", false, false},
 		{"D", "\033[0;4m", true, true},
 		{"I", "\033[1m", false, true},
 		{"W", "\033[0;33m", true, true},
 		{"E", "\033[1;31m", true, true},
 		{"F", "\033[7;35m", true, true},
+		{"HR", "\033[0m", false, false},
+		{"HB", "\033[1m", false, false},
 	};
 
 	time_t ltstamp = time(NULL);

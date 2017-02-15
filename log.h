@@ -43,13 +43,13 @@
 #define PLOG_F(...) logLog(FATAL, __func__, __LINE__, true, __VA_ARGS__);
 
 enum llevel_t {
-	HELP = 0,
-	HELP_BOLD,
-	DEBUG,
+	DEBUG = 0,
 	INFO,
 	WARNING,
 	ERROR,
-	FATAL
+	FATAL,
+	HELP,
+	HELP_BOLD,
 };
 
 bool logInitLogFile(struct nsjconf_t *nsjconf, const char *logfile, enum llevel_t log_level);
