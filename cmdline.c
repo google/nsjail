@@ -54,7 +54,7 @@ static const char *logYesNo(bool yes)
 	return (yes ? "true" : "false");
 }
 
-static void cmdlineHelp(const char *pname, struct custom_option *opts)
+static void cmdlineUsage(const char *pname, struct custom_option *opts)
 {
 	LOG_HELP_BOLD("Usage: %s [options] -- path_to_command [args]", pname);
 	LOG_HELP_BOLD("Options:");
@@ -143,12 +143,6 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 			      p->inside_id, p->outside_id, p->count);
 		}
 	}
-}
-
-static void cmdlineUsage(const char *pname, struct custom_option *opts)
-{
-	cmdlineHelp(pname, opts);
-	exit(0);
 }
 
 static bool cmdlineIsANumber(const char *s)
@@ -495,8 +489,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			nsjconf->tlimit = strtol(optarg, NULL, 0);
 			break;
 		case 'h':	/* help */
-		case '?':	/* help */
 			cmdlineUsage(argv[0], custom_opts);
+			exit(0);
 			break;
 		case 0x0201:
 			nsjconf->rl_as = cmdlineParseRLimit(RLIMIT_AS, optarg, (1024 * 1024));
