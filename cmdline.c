@@ -324,6 +324,9 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		.cgroup_mem_mount = "/sys/fs/cgroup/memory",
 		.cgroup_mem_parent = "NSJAIL",
 		.cgroup_mem_max = (size_t)0,
+		.cgroup_pids_mount = "/sys/fs/cgroup/pids",
+		.cgroup_pids_parent = "NSJAIL",
+		.cgroup_pids_max = (size_t)0,
 		.iface_no_lo = false,
 		.iface = NULL,
 		.iface_vs_ip = "0.0.0.0",
@@ -419,6 +422,9 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		{{"cgroup_mem_max", required_argument, NULL, 0x0801}, "Maximum number of bytes to use in the group (default: '0' - disabled)"},
 		{{"cgroup_mem_mount", required_argument, NULL, 0x0802}, "Location of memory cgroup FS (default: '/sys/fs/cgroup/memory')"},
 		{{"cgroup_mem_parent", required_argument, NULL, 0x0803}, "Which pre-existing memory cgroup to use as a parent (default: 'NSJAIL')"},
+		{{"cgroup_pids_max", required_argument, NULL, 0x0811}, "Maximum number of pids in a cgroup (default: '0' - disabled)"},
+		{{"cgroup_pids_mount", required_argument, NULL, 0x0812}, "Location of pids cgroup FS (default: '/sys/fs/cgroup/pids')"},
+		{{"cgroup_pids_parent", required_argument, NULL, 0x0813}, "Which pre-existing pids cgroup to use as a parent (default: 'NSJAIL')"},
 		{{"iface_no_lo", no_argument, NULL, 0x700}, "Don't bring up the 'lo' interface"},
 		{{"iface", required_argument, NULL, 'I'}, "Interface which will be cloned (MACVLAN) and put inside the subprocess' namespace as 'vs'"},
 		{{"iface_vs_ip", required_argument, NULL, 0x701}, "IP of the 'vs' interface"},
@@ -685,6 +691,15 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			break;
 		case 0x803:
 			nsjconf->cgroup_mem_parent = optarg;
+			break;
+		case 0x811:
+			nsjconf->cgroup_pids_max = (size_t) strtoull(optarg, NULL, 0);
+			break;
+		case 0x812:
+			nsjconf->cgroup_pids_mount = optarg;
+			break;
+		case 0x813:
+			nsjconf->cgroup_pids_parent = optarg;
 			break;
 		case 'P':
 			if ((nsjconf->kafel_file = fopen(optarg, "r")) == NULL) {

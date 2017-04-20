@@ -146,6 +146,9 @@ struct nsjconf_t {
 	const char *cgroup_mem_mount;
 	const char *cgroup_mem_parent;
 	size_t cgroup_mem_max;
+	const char *cgroup_pids_mount;
+	const char *cgroup_pids_parent;
+	size_t cgroup_pids_max;
 	FILE *kafel_file;
 	char *kafel_string;
 	 TAILQ_HEAD(uidlist, idmap_t) uids;

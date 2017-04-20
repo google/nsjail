@@ -36,7 +36,7 @@
 #include "log.h"
 #include "util.h"
 
-bool cgroupInitNsFromParent(struct nsjconf_t *nsjconf, pid_t pid)
+static bool cgroupInitNsFromParentMem(struct nsjconf_t *nsjconf, pid_t pid)
 {
 	if (nsjconf->cgroup_mem_max == (size_t) 0) {
 		return true;
@@ -85,12 +85,62 @@ bool cgroupInitNsFromParent(struct nsjconf_t *nsjconf, pid_t pid)
 	return true;
 }
 
-void cgroupFinishFromParent(struct nsjconf_t *nsjconf, pid_t pid)
+static bool cgroupInitNsFromParentPids(struct nsjconf_t *nsjconf, pid_t pid)
+{
+	if (nsjconf->cgroup_pids_max == (size_t) 0) {
+		return true;
+	}
+
+	char pids_cgroup_path[PATH_MAX];
+	snprintf(pids_cgroup_path, sizeof(pids_cgroup_path), "%s/%s/NSJAIL.%d",
+		 nsjconf->cgroup_pids_mount, nsjconf->cgroup_pids_parent, (int)pid);
+	LOG_D("Create '%s' for PID=%d", pids_cgroup_path, (int)pid);
+	if (mkdir(pids_cgroup_path, 0700) == -1 && errno != EEXIST) {
+		PLOG_E("mkdir('%s', 0711) failed", pids_cgroup_path);
+		return false;
+	}
+
+	char fname[PATH_MAX];
+	if (nsjconf->cgroup_pids_max != (size_t) 0) {
+		char pids_max_str[512];
+		snprintf(pids_max_str, sizeof(pids_max_str), "%zu", nsjconf->cgroup_pids_max);
+		snprintf(fname, sizeof(fname), "%s/pids.max", pids_cgroup_path);
+		LOG_D("Setting '%s' to '%s'", fname, pids_max_str);
+		if (utilWriteBufToFile(fname, pids_max_str, strlen(pids_max_str), O_WRONLY) ==
+		    false) {
+			LOG_E("Could not update pids cgroup max limit");
+			return false;
+		}
+	}
+
+	char pid_str[512];
+	snprintf(pid_str, sizeof(pid_str), "%d", (int)pid);
+	snprintf(fname, sizeof(fname), "%s/tasks", pids_cgroup_path);
+	LOG_D("Adding PID='%s' to '%s'", pid_str, fname);
+	if (utilWriteBufToFile(fname, pid_str, strlen(pid_str), O_WRONLY) == false) {
+		LOG_E("Could not update pids cgroup task list");
+		return false;
+	}
+
+	return true;
+}
+
+bool cgroupInitNsFromParent(struct nsjconf_t * nsjconf, pid_t pid)
+{
+	if (cgroupInitNsFromParentMem(nsjconf, pid) == false) {
+		return false;
+	}
+	if (cgroupInitNsFromParentPids(nsjconf, pid) == false) {
+		return false;
+	}
+	return true;
+}
+
+void cgroupFinishFromParentMem(struct nsjconf_t *nsjconf, pid_t pid)
 {
 	if (nsjconf->cgroup_mem_max == (size_t) 0) {
 		return;
 	}
-
 	char mem_cgroup_path[PATH_MAX];
 	snprintf(mem_cgroup_path, sizeof(mem_cgroup_path), "%s/%s/NSJAIL.%d",
 		 nsjconf->cgroup_mem_mount, nsjconf->cgroup_mem_parent, (int)pid);
@@ -99,6 +149,27 @@ void cgroupFinishFromParent(struct nsjconf_t *nsjconf, pid_t pid)
 		PLOG_W("rmdir('%s') failed", mem_cgroup_path);
 	}
 	return;
+}
+
+void cgroupFinishFromParentPids(struct nsjconf_t *nsjconf, pid_t pid)
+{
+	if (nsjconf->cgroup_pids_max == (size_t) 0) {
+		return;
+	}
+	char pids_cgroup_path[PATH_MAX];
+	snprintf(pids_cgroup_path, sizeof(pids_cgroup_path), "%s/%s/NSJAIL.%d",
+		 nsjconf->cgroup_pids_mount, nsjconf->cgroup_pids_parent, (int)pid);
+	LOG_D("Remove '%s'", pids_cgroup_path);
+	if (rmdir(pids_cgroup_path) == -1) {
+		PLOG_W("rmdir('%s') failed", pids_cgroup_path);
+	}
+	return;
+}
+
+void cgroupFinishFromParent(struct nsjconf_t *nsjconf, pid_t pid)
+{
+	cgroupFinishFromParentMem(nsjconf, pid);
+	cgroupFinishFromParentPids(nsjconf, pid);
 }
 
 bool cgroupInitNs(void)
