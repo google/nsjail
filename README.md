@@ -8,6 +8,7 @@
   * [Bash in a minimal file-system with uid==0 and access to /dev/urandom](#bash-in-a-minimal-file-system-with-uid--0-and-access-to--dev-urandom)
   * [Even more contrained shell (with seccomp-bpf policies)](#even-more-contrained-shell--with-seccomp-bpf-policies-)
 - [MORE INFO?](#more-info-)
+- [LAUNCHING IN DOCKER](#launching-in-docker)
 
 ### WHAT IS IT?
 NsJail is a process isolation tool for Linux. It makes use of the the namespacing, resource control, and seccomp-bpf syscall filter subsystems of the Linux kernel.
@@ -316,3 +317,18 @@ Options:
  Execute echo command directly, without a supervising process
   nsjail -Me --chroot / --disable_proc -- /bin/echo "ABC"
 ```
+
+### LAUNCHING IN DOCKER
+
+To launch nsjail in a docker container clone the repository and build the docker image:
+```bash
+docker build . -t nsjail
+```
+
+This will build up an image containing njsail and kafel.
+
+From now you can either use it in another Dockerfile (`FROM nsjail`) or directly:
+```bash
+docker run --rm -it nsjail nsjail --user 99999 --group 99999 --disable_proc --chroot / --time_limit 30 /bin/bash
+```
+
