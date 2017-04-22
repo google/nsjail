@@ -370,7 +370,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			"\te: Immediately launch a single process on the console using execve [MODE_STANDALONE_EXECVE]\n"
 			"\tr: Immediately launch a single process on the console, keep doing it forever [MODE_STANDALONE_RERUN]"},
 		{{"chroot", required_argument, NULL, 'c'}, "Directory containing / of the jail (default: none)"},
-		{{"rw", no_argument, NULL, 0x601}, "Mount / as RW (default: RO)"},
+		{{"rw", no_argument, NULL, 0x601}, "Mount / and /proc as RW (default: RO)"},
 		{{"user", required_argument, NULL, 'u'}, "Username/uid of processess inside the jail (default: your current uid). You can also use inside_ns_uid:outside_ns_uid convention here. Can be specified multiple times"},
 		{{"group", required_argument, NULL, 'g'}, "Groupname/gid of processess inside the jail (default: your current gid). You can also use inside_ns_gid:global_ns_gid convention here. Can be specified multiple times"},
 		{{"hostname", required_argument, NULL, 'H'}, "UTS name (hostname) of the jail (default: 'NSJAIL')"},
@@ -721,6 +721,9 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		p->src = NULL;
 		p->dst = "/proc";
 		p->flags = 0;
+		if (nsjconf->is_root_rw == false) {
+			p->flags |= MS_RDONLY;
+		}
 		p->options = "";
 		p->fs_type = "proc";
 		TAILQ_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
