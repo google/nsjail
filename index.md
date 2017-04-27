@@ -1,15 +1,3 @@
-- [WHAT IS IT?](#what-is-it-)
-- [WHAT TYPE OF ISOLATION DOES THIS TOOL PROVIDE?](#what-type-of-isolation-does-this-tool-provide-)
-- [WHICH USE-CASES ARE SUPPORTED?](#which-use-cases-are-supported-)
-  * [Isolation of network services (inetd-style)](#isolation-of-network-services--inetd-style-)
-  * [Isolation, with access to a private, cloned interface (requires euid==0)](#isolation--with-access-to-a-private--cloned-interface--requires-euid--0-)
-  * [Isolation of local processes](#isolation-of-local-processes)
-  * [Isolation of local processes (and re-running them)](#isolation-of-local-processes--and-re-running-them-)
-  * [Bash in a minimal file-system with uid==0 and access to /dev/urandom](#bash-in-a-minimal-file-system-with-uid--0-and-access-to--dev-urandom)
-  * [Even more contrained shell (with seccomp-bpf policies)](#even-more-contrained-shell--with-seccomp-bpf-policies-)
-- [MORE INFO?](#more-info-)
-- [LAUNCHING IN DOCKER](#launching-in-docker)
-
 ### WHAT IS IT?
 NsJail is a process isolation tool for Linux. It makes use of the the namespacing, resource control, and seccomp-bpf syscall filter subsystems of the Linux kernel.
 
@@ -146,31 +134,6 @@ total 0
 crw-rw-rw- 1 65534 65534 1, 9 Jun  9 18:33 urandom
 bash-4.3# id
 uid=0 gid=99999 groups=99999,65534
-```
-
-#### Even more contrained shell (with seccomp-bpf policies)
-```
-$ ./nsjail --chroot / --seccomp_string 'POLICY a { ALLOW { write, execve, brk, access, mmap, open, newfstat, close, read, mprotect, arch_prctl, munmap, getuid, getgid, getpid, rt_sigaction, geteuid, getppid, getcwd, getegid, ioctl, fcntl, newstat, clone, wait4, rt_sigreturn, exit_group } } USE a DEFAULT KILL' -- /bin/sh -i
-[2017-01-15T21:53:08+0100] Mode: STANDALONE_ONCE
-[2017-01-15T21:53:08+0100] Jail parameters: hostname:'NSJAIL', chroot:'/', process:'/bin/sh', bind:[::]:0, max_conns_per_ip:0, uid:(ns:1000, global:1000), gid:(ns:1000, global:1000), time_limit:0, personality:0, daemonize:false, clone_newnet:true, clone_newuser:true, clone_newns:true, clone_newpid:true, clone_newipc:true, clonew_newuts:true, clone_newcgroup:false, keep_caps:false, tmpfs_size:4194304, disable_no_new_privs:false, pivot_root_only:false
-[2017-01-15T21:53:08+0100] Mount point: src:'/' dst:'/' type:'' flags:0x5001 options:''
-[2017-01-15T21:53:08+0100] Mount point: src:'(null)' dst:'/proc' type:'proc' flags:0x0 options:''
-[2017-01-15T21:53:08+0100] PID: 18873 about to execute '/bin/sh' for [STANDALONE_MODE]
-/bin/sh: 0: can't access tty; job control turned off
-$ set
-IFS='
-'
-OPTIND='1'
-PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
-PPID='0'
-PS1='$ '
-PS2='> '
-PS4='+ '
-PWD='/'
-$ id
-Bad system call
-$ exit
-[2017-01-15T21:53:17+0100] PID: 18873 exited with status: 159, (PIDs left: 0)
 ```
 
 ### MORE INFO?
@@ -317,18 +280,3 @@ Options:
  Execute echo command directly, without a supervising process
   nsjail -Me --chroot / --disable_proc -- /bin/echo "ABC"
 ```
-
-### LAUNCHING IN DOCKER
-
-To launch nsjail in a docker container clone the repository and build the docker image:
-```bash
-docker build . -t nsjail
-```
-
-This will build up an image containing njsail and kafel.
-
-From now you can either use it in another Dockerfile (`FROM nsjail`) or directly:
-```bash
-docker run --rm -it nsjail nsjail --user 99999 --group 99999 --disable_proc --chroot / --time_limit 30 /bin/bash
-```
-
