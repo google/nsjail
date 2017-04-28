@@ -19,15 +19,13 @@ This is NOT an official Google product.
 ### WHICH USE-CASES ARE SUPPORTED?
 #### Isolation of network services (inetd-style)
 
-##### Server:
-
-```
+##### Server
+<pre>
  $ ./nsjail -Ml --port 9000 --chroot /chroot/ --user 99999 --group 99999 -- /bin/sh -i
-```
+</pre>
 
-##### Client:
-
-```
+##### Client
+<pre>
  $ nc 127.0.0.1 9000
  / $ ifconfig
  / $ ifconfig -a
@@ -41,11 +39,10 @@ This is NOT an official Google product.
  1 99999    /bin/sh -i
  3 99999    {busybox} ps wuax
  / $
-
-```
+</pre>
 
 #### Isolation, with access to a private, cloned interface (requires euid==0)
-```
+<pre>
 $ sudo ./nsjail --user 9999 --group 9999 --iface eth0 --chroot /chroot/ -Mo --iface_vs_ip 192.168.0.44 --iface_vs_nm 255.255.255.0 --iface_vs_gw 192.168.0.1 -- /bin/sh -i
 / $ id
 uid=9999 gid=9999
@@ -79,10 +76,10 @@ The document has moved
 <A HREF="http://www.google.ch/?gfe_rd=cr&amp;ei=cEzWVrG2CeTI8ge88ofwDA">here</A>.
 </BODY></HTML>
 / $ 
-```
+</pre>
 
 #### Isolation of local processes
-```
+<pre>
  $ ./nsjail -Mo --chroot /chroot/ --user 99999 --group 99999 -- /bin/sh -i
  / $ ifconfig -a
  lo    Link encap:Local Loopback
@@ -98,10 +95,10 @@ The document has moved
  4 99999    {busybox} ps wuax
  / $exit
  $
-```
+ </pre>
 
 #### Isolation of local processes (and re-running them)
-```
+<pre>
  $ ./nsjail -Mr --chroot /chroot/ --user 99999 --group 99999 -- /bin/sh -i
  BusyBox v1.21.1 (Ubuntu 1:1.21.0-1ubuntu1) built-in shell (ash)
  Enter 'help' for a list of built-in commands.
@@ -117,10 +114,10 @@ The document has moved
  1 99999    /bin/sh -i
  2 99999    {busybox} ps wuax
  / $
-```
+ </pre>
 
 #### Bash in a minimal file-system with uid==0 and access to /dev/urandom
-```
+<pre>
 $ ./nsjail -Mo --user 0 --group 99999 -R /bin/ -R /lib -R /lib64/ -R /usr/ -R /sbin/ -T /dev -R /dev/urandom --keep_caps -- /bin/bash -i
 bash-4.3# ls -l /
 total 40
@@ -136,7 +133,7 @@ total 0
 crw-rw-rw- 1 65534 65534 1, 9 Jun  9 18:33 urandom
 bash-4.3# id
 uid=0 gid=99999 groups=99999,65534
-```
+</pre>
 
 ### MORE INFO?
 To see the options, simply type:
