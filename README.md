@@ -1,16 +1,17 @@
 - [What is it?](#what-is-it-)
-- [What forms of isolation does it provide?](#what-forms-of-isolation-does-this-tool-provide)
-- [Which use-cases are supported?](#which-use-cases-are-supported)
-  * [Isolation of network services (inetd-style)](#isolation-of-network-services--inetd-style)
-  * [Isolation, with access to a private, cloned interface (requires euid==0)](#isolation--with-access-to-a-private--cloned-interface--requires-euid--0)
+- [What forms of isolation does this tool provide?](#what-forms-of-isolation-does-this-tool-provide-)
+- [Which use-cases are supported?](#which-use-cases-are-supported-)
+  * [Isolation of network services (inetd-style)](#isolation-of-network-services--inetd-style-)
+  * [Isolation, with access to a private, cloned interface (requires euid==0)](#isolation--with-access-to-a-private--cloned-interface--requires-euid--0-)
   * [Isolation of local processes](#isolation-of-local-processes)
-  * [Isolation of local processes (and re-running them)](#isolation-of-local-processes--and-re-running-them)
+  * [Isolation of local processes (and re-running them)](#isolation-of-local-processes--and-re-running-them-)
   * [Bash in a minimal file-system with uid==0 and access to /dev/urandom](#bash-in-a-minimal-file-system-with-uid--0-and-access-to--dev-urandom)
-  * [Even more contrained shell (with seccomp-bpf policies)](#even-more-contrained-shell--with-seccomp-bpf-policies)
-- [More info?](#more-info)
+  * [Even more contrained shell (with seccomp-bpf policies)](#even-more-contrained-shell--with-seccomp-bpf-policies-)
+- [More info](#more-info)
 - [Launching in Docker](#launching-in-docker)
 
-### WHAT IS IT?
+
+### What is it?
 NsJail is a process isolation tool for Linux. It makes use of the the namespacing, resource control, and seccomp-bpf syscall filter subsystems of the Linux kernel.
 
 It can help among others, with:
@@ -23,7 +24,7 @@ Features:
   * Can use [kafel seccomp-bpf configuration language](https://github.com/google/kafel/) for syscall policy creation.
   * It's rock-solid.
 
-### WHAT FORMS OF ISOLATION DOES THIS TOOL PROVIDE?
+### What forms of isolation does this tool provide?
 1. Linux namespaces: UTS (hostname), MOUNT (chroot), PID (separate PID tree), IPC, NET (separate networking context), USER
 2. FS constraints: chroot(), pivot_root(), RO-remounting
 3. Resource limits (wall-time/CPU time limits, VM/mem address space limits, etc.)
@@ -31,7 +32,7 @@ Features:
 5. Cloned and separated Ethernet interfaces
 6. Cgroups for memory utilization control
 
-### WHICH USE-CASES ARE SUPPORTED?
+### Which use-cases are supported?
 #### Isolation of network services (inetd-style)
 
 This is NOT an official Google product.
@@ -178,13 +179,14 @@ $ exit
 [2017-01-15T21:53:17+0100] PID: 18873 exited with status: 159, (PIDs left: 0)
 </pre>
 
-### MORE INFO?
-To see the options, simply type:
+### More info
+To see the command-line options, simply type:
+
 <pre>
 ./nsjail --help
 </pre>
 
-The command-line options should be reasonably well-documented
+The options should be self-explanatory
 
 <pre>
 Usage: ./nsjail [options] -- path_to_command [args]
@@ -323,7 +325,7 @@ Options:
   nsjail -Me --chroot / --disable_proc -- /bin/echo "ABC"
 </pre>
 
-### LAUNCHING IN DOCKER
+### Launching in Docker
 
 To launch nsjail in a docker container clone the repository and build the docker image:
 <pre>
