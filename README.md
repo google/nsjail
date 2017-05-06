@@ -19,7 +19,7 @@ It can help among others, with:
   * Containing invasive syscall-level OS fuzzers
 
 Features:
-  * It offers three distinct operation modes. See [this section](#which-use-cases-are-supported-) for more info.
+  * It offers three distinct operation modes. See [this section](#which-use-cases-are-supported) for more info.
   * Can use [kafel seccomp-bpf configuration language](https://github.com/google/kafel/) for syscall policy creation.
   * It's rock-solid.
 
