@@ -1,8 +1,8 @@
-- [What is it?](#what-is-it-)
-- [What forms of isolation does this tool provide?](#what-forms-of-isolation-does-this-tool-provide-)
-- [Which use-cases are supported?](#which-use-cases-are-supported-)
-  * [Isolation of network services (inetd-style)](#isolation-of-network-services--inetd-style-)
-  * [Isolation, with access to a private, cloned interface (requires euid==0)](#isolation--with-access-to-a-private--cloned-interface--requires-euid--0-)
+- [What is it](#what-is-it)
+- [What forms of isolation does this tool provide](#what-forms-of-isolation-does-this-tool-provide)
+- [Which use-cases are supported](#which-use-cases-are-supported)
+  * [Isolation of network services (inetd style)](#isolation-of-network-services--inetd-style-)
+  * [Isolation, with access to a private, cloned interface (requires root/setuid)](#isolation--with-access-to-a-private--cloned-interface--requires-root-setuid-)
   * [Isolation of local processes](#isolation-of-local-processes)
   * [Isolation of local processes (and re-running them)](#isolation-of-local-processes--and-re-running-them-)
   * [Bash in a minimal file-system with uid==0 and access to /dev/urandom](#bash-in-a-minimal-file-system-with-uid--0-and-access-to--dev-urandom)
@@ -11,7 +11,7 @@
 - [Launching in Docker](#launching-in-docker)
 
 
-### What is it?
+### What is it
 NsJail is a process isolation tool for Linux. It makes use of the the namespacing, resource control, and seccomp-bpf syscall filter subsystems of the Linux kernel.
 
 It can help among others, with:
@@ -24,16 +24,16 @@ Features:
   * Can use [kafel seccomp-bpf configuration language](https://github.com/google/kafel/) for syscall policy creation.
   * It's rock-solid.
 
-### What forms of isolation does this tool provide?
+### What forms of isolation does this tool provide
 1. Linux namespaces: UTS (hostname), MOUNT (chroot), PID (separate PID tree), IPC, NET (separate networking context), USER
 2. FS constraints: chroot(), pivot_root(), RO-remounting
 3. Resource limits (wall-time/CPU time limits, VM/mem address space limits, etc.)
-4. Programmable seccomp-bpf syscall filters
+4. Programmable seccomp-bpf syscall filters (via the [kafel language](https://github.com/google/kafel/)
 5. Cloned and separated Ethernet interfaces
-6. Cgroups for memory utilization control
+6. Cgroups for memory and PID utilization control
 
-### Which use-cases are supported?
-#### Isolation of network services (inetd-style)
+### Which use-cases are supported
+#### Isolation of network services (inetd style)
 
 This is NOT an official Google product.
 
@@ -60,7 +60,7 @@ This is NOT an official Google product.
 
 </pre>
 
-#### Isolation, with access to a private, cloned interface (requires euid==0)
+#### Isolation, with access to a private, cloned interface (requires root/setuid)
 <pre>
 $ sudo ./nsjail --user 9999 --group 9999 --iface eth0 --chroot /chroot/ -Mo --iface_vs_ip 192.168.0.44 --iface_vs_nm 255.255.255.0 --iface_vs_gw 192.168.0.1 -- /bin/sh -i
 / $ id
