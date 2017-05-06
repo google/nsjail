@@ -37,12 +37,12 @@ Features:
 This is NOT an official Google product.
 
 + Server:
-```
+<pre>
  $ ./nsjail -Ml --port 9000 --chroot /chroot/ --user 99999 --group 99999 -- /bin/sh -i
-```
+</pre>
 
 + Client:
-```
+<pre>
  $ nc 127.0.0.1 9000
  / $ ifconfig
  / $ ifconfig -a
@@ -57,10 +57,10 @@ This is NOT an official Google product.
  3 99999    {busybox} ps wuax
  / $
 
-```
+</pre>
 
 #### Isolation, with access to a private, cloned interface (requires euid==0)
-```
+<pre>
 $ sudo ./nsjail --user 9999 --group 9999 --iface eth0 --chroot /chroot/ -Mo --iface_vs_ip 192.168.0.44 --iface_vs_nm 255.255.255.0 --iface_vs_gw 192.168.0.1 -- /bin/sh -i
 / $ id
 uid=9999 gid=9999
@@ -94,10 +94,10 @@ The document has moved
 <A HREF="http://www.google.ch/?gfe_rd=cr&amp;ei=cEzWVrG2CeTI8ge88ofwDA">here</A>.
 </BODY></HTML>
 / $ 
-```
+</pre>
 
 #### Isolation of local processes
-```
+<pre>
  $ ./nsjail -Mo --chroot /chroot/ --user 99999 --group 99999 -- /bin/sh -i
  / $ ifconfig -a
  lo    Link encap:Local Loopback
@@ -113,10 +113,10 @@ The document has moved
  4 99999    {busybox} ps wuax
  / $exit
  $
-```
+</pre>
 
 #### Isolation of local processes (and re-running them)
-```
+<pre>
  $ ./nsjail -Mr --chroot /chroot/ --user 99999 --group 99999 -- /bin/sh -i
  BusyBox v1.21.1 (Ubuntu 1:1.21.0-1ubuntu1) built-in shell (ash)
  Enter 'help' for a list of built-in commands.
@@ -132,10 +132,10 @@ The document has moved
  1 99999    /bin/sh -i
  2 99999    {busybox} ps wuax
  / $
-```
+</pre>
 
 #### Bash in a minimal file-system with uid==0 and access to /dev/urandom
-```
+<pre>
 $ ./nsjail -Mo --user 0 --group 99999 -R /bin/ -R /lib -R /lib64/ -R /usr/ -R /sbin/ -T /dev -R /dev/urandom --keep_caps -- /bin/bash -i
 bash-4.3# ls -l /
 total 40
@@ -151,10 +151,10 @@ total 0
 crw-rw-rw- 1 65534 65534 1, 9 Jun  9 18:33 urandom
 bash-4.3# id
 uid=0 gid=99999 groups=99999,65534
-```
+</pre>
 
 #### Even more contrained shell (with seccomp-bpf policies)
-```
+<pre>
 $ ./nsjail --chroot / --seccomp_string 'POLICY a { ALLOW { write, execve, brk, access, mmap, open, newfstat, close, read, mprotect, arch_prctl, munmap, getuid, getgid, getpid, rt_sigaction, geteuid, getppid, getcwd, getegid, ioctl, fcntl, newstat, clone, wait4, rt_sigreturn, exit_group } } USE a DEFAULT KILL' -- /bin/sh -i
 [2017-01-15T21:53:08+0100] Mode: STANDALONE_ONCE
 [2017-01-15T21:53:08+0100] Jail parameters: hostname:'NSJAIL', chroot:'/', process:'/bin/sh', bind:[::]:0, max_conns_per_ip:0, uid:(ns:1000, global:1000), gid:(ns:1000, global:1000), time_limit:0, personality:0, daemonize:false, clone_newnet:true, clone_newuser:true, clone_newns:true, clone_newpid:true, clone_newipc:true, clonew_newuts:true, clone_newcgroup:false, keep_caps:false, tmpfs_size:4194304, disable_no_new_privs:false, pivot_root_only:false
@@ -176,17 +176,17 @@ $ id
 Bad system call
 $ exit
 [2017-01-15T21:53:17+0100] PID: 18873 exited with status: 159, (PIDs left: 0)
-```
+</pre>
 
 ### MORE INFO?
 To see the options, simply type:
-```
+<pre>
 ./nsjail --help
-```
+</pre>
 
-The commandline options should be reasonably well-documented
+The command-line options should be reasonably well-documented
 
-```
+<pre>
 Usage: ./nsjail [options] -- path_to_command [args]
 Options:
  --help|-h 
@@ -321,19 +321,19 @@ Options:
   nsjail -Mo --chroot / -- /bin/echo "ABC"
  Execute echo command directly, without a supervising process
   nsjail -Me --chroot / --disable_proc -- /bin/echo "ABC"
-```
+</pre>
 
 ### LAUNCHING IN DOCKER
 
 To launch nsjail in a docker container clone the repository and build the docker image:
-```bash
+<pre>
 docker build . -t nsjail
-```
+<pre>
 
 This will build up an image containing njsail and kafel.
 
 From now you can either use it in another Dockerfile (`FROM nsjail`) or directly:
-```bash
+<pre>
 docker run --rm -it nsjail nsjail --user 99999 --group 99999 --disable_proc --chroot / --time_limit 30 /bin/bash
-```
+</pre>
 
