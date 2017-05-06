@@ -1,5 +1,5 @@
 - [What is it?](#what-is-it-)
-- [What forms of isolation does it provide?](#what-forms-of-isolation-does-this-tool-provide-)
+- [What forms of isolation does it provide?](#what-forms-of-isolation-does-this-tool-provide)
 - [Which use-cases are supported?](#which-use-cases-are-supported)
   * [Isolation of network services (inetd-style)](#isolation-of-network-services--inetd-style)
   * [Isolation, with access to a private, cloned interface (requires euid==0)](#isolation--with-access-to-a-private--cloned-interface--requires-euid--0)
