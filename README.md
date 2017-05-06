@@ -1,5 +1,5 @@
 - [What is it?](#what-is-it-)
-- [What form of isolation does it provide?](#what-type-of-isolation-does-this-tool-provide-)
+- [What forms of isolation does it provide?](#what-forms-of-isolation-does-this-tool-provide-)
 - [Which use-cases are supported?](#which-use-cases-are-supported)
   * [Isolation of network services (inetd-style)](#isolation-of-network-services--inetd-style)
   * [Isolation, with access to a private, cloned interface (requires euid==0)](#isolation--with-access-to-a-private--cloned-interface--requires-euid--0)
@@ -23,7 +23,7 @@ Features:
   * Can use [kafel seccomp-bpf configuration language](https://github.com/google/kafel/) for syscall policy creation.
   * It's rock-solid.
 
-### WHAT TYPE OF ISOLATION DOES THIS TOOL PROVIDE?
+### WHAT FORMS OF ISOLATION DOES THIS TOOL PROVIDE?
 1. Linux namespaces: UTS (hostname), MOUNT (chroot), PID (separate PID tree), IPC, NET (separate networking context), USER
 2. FS constraints: chroot(), pivot_root(), RO-remounting
 3. Resource limits (wall-time/CPU time limits, VM/mem address space limits, etc.)
