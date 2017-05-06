@@ -1,30 +1,48 @@
-### WHAT IS IT?
+- [What is it](#what-is-it)
+- [What forms of isolation does this tool provide](#what-forms-of-isolation-does-this-tool-provide)
+- [Which use-cases are supported](#which-use-cases-are-supported)
+  * [Isolation of network services (inetd style)](#isolation-of-network-services--inetd-style-)
+  * [Isolation, with access to a private, cloned interface (requires root/setuid)](#isolation--with-access-to-a-private--cloned-interface--requires-root-setuid-)
+  * [Isolation of local processes](#isolation-of-local-processes)
+  * [Isolation of local processes (and re-running them)](#isolation-of-local-processes--and-re-running-them-)
+  * [Bash in a minimal file-system with uid==0 and access to /dev/urandom](#bash-in-a-minimal-file-system-with-uid--0-and-access-to--dev-urandom)
+  * [Even more contrained shell (with seccomp-bpf policies)](#even-more-contrained-shell--with-seccomp-bpf-policies-)
+- [More info](#more-info)
+- [Launching in Docker](#launching-in-docker)
+
+
+### What is it
 NsJail is a process isolation tool for Linux. It makes use of the the namespacing, resource control, and seccomp-bpf syscall filter subsystems of the Linux kernel.
 
-It can help, among others, with:
+It can help among others, with:
   * Securing networking services (e.g. web, time, DNS), by isolating them from the rest of the OS
   * Hosting computer security challenges (so-called CTFs)
   * Containing invasive syscall-level OS fuzzers
 
-This is NOT an official Google product.
+Features:
+  * It offers three distinct operation modes. See [this section](#which-use-cases-are-supported) for more info.
+  * Can use [kafel seccomp-bpf configuration language](https://github.com/google/kafel/) for syscall policy creation.
+  * It's rock-solid.
 
-### WHAT TYPE OF ISOLATION DOES THIS TOOL PROVIDE?
+### What forms of isolation does this tool provide
 1. Linux namespaces: UTS (hostname), MOUNT (chroot), PID (separate PID tree), IPC, NET (separate networking context), USER
 2. FS constraints: chroot(), pivot_root(), RO-remounting
 3. Resource limits (wall-time/CPU time limits, VM/mem address space limits, etc.)
-4. Programmable seccomp-bpf syscall filters
+4. Programmable seccomp-bpf syscall filters (via the [kafel language](https://github.com/google/kafel/)
 5. Cloned and separated Ethernet interfaces
-6. Cgroups for memory utilization control
+6. Cgroups for memory and PID utilization control
 
-### WHICH USE-CASES ARE SUPPORTED?
-#### Isolation of network services (inetd-style)
+### Which use-cases are supported
+#### Isolation of network services (inetd style)
 
-##### Server
+This is NOT an official Google product.
+
++ Server:
 <pre>
  $ ./nsjail -Ml --port 9000 --chroot /chroot/ --user 99999 --group 99999 -- /bin/sh -i
 </pre>
 
-##### Client
++ Client:
 <pre>
  $ nc 127.0.0.1 9000
  / $ ifconfig
@@ -39,9 +57,10 @@ This is NOT an official Google product.
  1 99999    /bin/sh -i
  3 99999    {busybox} ps wuax
  / $
+
 </pre>
 
-#### Isolation, with access to a private, cloned interface (requires euid==0)
+#### Isolation, with access to a private, cloned interface (requires root/setuid)
 <pre>
 $ sudo ./nsjail --user 9999 --group 9999 --iface eth0 --chroot /chroot/ -Mo --iface_vs_ip 192.168.0.44 --iface_vs_nm 255.255.255.0 --iface_vs_gw 192.168.0.1 -- /bin/sh -i
 / $ id
@@ -95,7 +114,7 @@ The document has moved
  4 99999    {busybox} ps wuax
  / $exit
  $
- </pre>
+</pre>
 
 #### Isolation of local processes (and re-running them)
 <pre>
@@ -114,7 +133,7 @@ The document has moved
  1 99999    /bin/sh -i
  2 99999    {busybox} ps wuax
  / $
- </pre>
+</pre>
 
 #### Bash in a minimal file-system with uid==0 and access to /dev/urandom
 <pre>
@@ -135,15 +154,41 @@ bash-4.3# id
 uid=0 gid=99999 groups=99999,65534
 </pre>
 
-### MORE INFO?
-To see the options, simply type:
-```
+#### Even more contrained shell (with seccomp-bpf policies)
+<pre>
+$ ./nsjail --chroot / --seccomp_string 'POLICY a { ALLOW { write, execve, brk, access, mmap, open, newfstat, close, read, mprotect, arch_prctl, munmap, getuid, getgid, getpid, rt_sigaction, geteuid, getppid, getcwd, getegid, ioctl, fcntl, newstat, clone, wait4, rt_sigreturn, exit_group } } USE a DEFAULT KILL' -- /bin/sh -i
+[2017-01-15T21:53:08+0100] Mode: STANDALONE_ONCE
+[2017-01-15T21:53:08+0100] Jail parameters: hostname:'NSJAIL', chroot:'/', process:'/bin/sh', bind:[::]:0, max_conns_per_ip:0, uid:(ns:1000, global:1000), gid:(ns:1000, global:1000), time_limit:0, personality:0, daemonize:false, clone_newnet:true, clone_newuser:true, clone_newns:true, clone_newpid:true, clone_newipc:true, clonew_newuts:true, clone_newcgroup:false, keep_caps:false, tmpfs_size:4194304, disable_no_new_privs:false, pivot_root_only:false
+[2017-01-15T21:53:08+0100] Mount point: src:'/' dst:'/' type:'' flags:0x5001 options:''
+[2017-01-15T21:53:08+0100] Mount point: src:'(null)' dst:'/proc' type:'proc' flags:0x0 options:''
+[2017-01-15T21:53:08+0100] PID: 18873 about to execute '/bin/sh' for [STANDALONE_MODE]
+/bin/sh: 0: can't access tty; job control turned off
+$ set
+IFS='
+'
+OPTIND='1'
+PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+PPID='0'
+PS1='$ '
+PS2='> '
+PS4='+ '
+PWD='/'
+$ id
+Bad system call
+$ exit
+[2017-01-15T21:53:17+0100] PID: 18873 exited with status: 159, (PIDs left: 0)
+</pre>
+
+### More info
+To see the command-line options, simply type:
+
+<pre>
 ./nsjail --help
-```
+</pre>
 
-The commandline options should be reasonably well-documented
+The options should be self-explanatory
 
-```
+<pre>
 Usage: ./nsjail [options] -- path_to_command [args]
 Options:
  --help|-h 
@@ -278,4 +323,19 @@ Options:
   nsjail -Mo --chroot / -- /bin/echo "ABC"
  Execute echo command directly, without a supervising process
   nsjail -Me --chroot / --disable_proc -- /bin/echo "ABC"
-```
+</pre>
+
+### Launching in Docker
+
+To launch nsjail in a docker container clone the repository and build the docker image:
+<pre>
+docker build . -t nsjail
+</pre>
+
+This will build up an image containing njsail and kafel.
+
+From now you can either use it in another Dockerfile (`FROM nsjail`) or directly:
+<pre>
+docker run --rm -it nsjail nsjail --user 99999 --group 99999 --disable_proc --chroot / --time_limit 30 /bin/bash
+</pre>
+
