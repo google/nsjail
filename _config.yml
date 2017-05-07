@@ -1,5 +1,5 @@
 title: NsJail
-description: A light-weight process isolation tool, making use of Linux namespaces and seccomp-bpf
+description: A light-weight process isolation tool, making use of Linux namespaces, seccomp-bpf and cgroups
 google_analytics: 
 show_downloads: true
 theme: jekyll-theme-cayman
