@@ -1,11 +1,11 @@
 - [What is it](#what-is-it)
-- [What forms of isolation does this tool provide](#what-forms-of-isolation-does-this-tool-provide)
+- [What forms of isolation does it provide](#what-forms-of-isolation-does-it-provide)
 - [Which use-cases are supported](#which-use-cases-are-supported)
   * [Isolation of network services (inetd style)](#isolation-of-network-services--inetd-style-)
-  * [Isolation, with access to a private, cloned interface (requires root/setuid)](#isolation--with-access-to-a-private--cloned-interface--requires-root-setuid-)
+  * [Isolation with access to a private, cloned interface (requires root/setuid)](#isolation-with-access-to-a-private--cloned-interface--requires-root-setuid-)
   * [Isolation of local processes](#isolation-of-local-processes)
-  * [Isolation of local processes (and re-running them)](#isolation-of-local-processes--and-re-running-them-)
-  * [Bash in a minimal file-system with uid==0 and access to /dev/urandom](#bash-in-a-minimal-file-system-with-uid--0-and-access-to--dev-urandom)
+  * [Isolation of local processes (and re-running them, if necessary)](#isolation-of-local-processes--and-re-running-them--if-necessary-)
+  * [Bash in a minimal file-system with uid==0 and access to /dev/urandom only](#bash-in-a-minimal-file-system-with-uid--0-and-access-to--dev-urandom-only)
   * [Even more contrained shell (with seccomp-bpf policies)](#even-more-contrained-shell--with-seccomp-bpf-policies-)
 - [More info](#more-info)
 - [Launching in Docker](#launching-in-docker)
@@ -25,7 +25,7 @@ Features:
   * Uses [kafel seccomp-bpf configuration language](https://github.com/google/kafel/) for syscall policy creation.
   * It's rock-solid.
 
-### What forms of isolation does this tool provide
+### What forms of isolation does it provide
 1. Linux namespaces: UTS (hostname), MOUNT (chroot), PID (separate PID tree), IPC, NET (separate networking context), USER
 2. FS constraints: chroot(), pivot_root(), RO-remounting
 3. Resource limits (wall-time/CPU time limits, VM/mem address space limits, etc.)
@@ -59,7 +59,7 @@ Features:
 
 </pre>
 
-#### Isolation, with access to a private, cloned interface (requires root/setuid)
+#### Isolation with access to a private, cloned interface (requires root/setuid)
 <pre>
 $ sudo ./nsjail --user 9999 --group 9999 --iface eth0 --chroot /chroot/ -Mo --iface_vs_ip 192.168.0.44 --iface_vs_nm 255.255.255.0 --iface_vs_gw 192.168.0.1 -- /bin/sh -i
 / $ id
@@ -111,7 +111,7 @@ Date: Wed, 02 Mar 2016 02:14:08 GMT
  $
 </pre>
 
-#### Isolation of local processes (and re-running them)
+#### Isolation of local processes (and re-running them, if necessary)
 <pre>
  $ ./nsjail -Mr --chroot /chroot/ --user 99999 --group 99999 -- /bin/sh -i
  BusyBox v1.21.1 (Ubuntu 1:1.21.0-1ubuntu1) built-in shell (ash)
@@ -130,7 +130,7 @@ Date: Wed, 02 Mar 2016 02:14:08 GMT
  / $
 </pre>
 
-#### Bash in a minimal file-system with uid==0 and access to /dev/urandom
+#### Bash in a minimal file-system with uid==0 and access to /dev/urandom only
 <pre>
 $ ./nsjail -Mo --user 0 --group 99999 -R /bin/ -R /lib -R /lib64/ -R /usr/ -R /sbin/ -T /dev -R /dev/urandom --keep_caps -- /bin/bash -i
 bash-4.3# ls -l /
@@ -175,13 +175,12 @@ $ exit
 </pre>
 
 ### More info
-To see the command-line options, simply type:
+
+The options should be self-explanatory, and these are available with:
 
 <pre>
 ./nsjail --help
 </pre>
-
-The options should be self-explanatory
 
 <pre>
 Usage: ./nsjail [options] -- path_to_command [args]
@@ -191,17 +190,17 @@ Options:
  --mode|-M VALUE
 	Execution mode (default: o [MODE_STANDALONE_ONCE]):
 	l: Wait for connections on a TCP port (specified with --port) [MODE_LISTEN_TCP]
-	o: Immediately launch a single process on a console using clone/execve [MODE_STANDALONE_ONCE]
-	e: Immediately launch a single process on a console using execve [MODE_STANDALONE_EXECVE]
-	r: Immediately launch a single process on a console, keep doing it forever [MODE_STANDALONE_RERUN]
+	o: Immediately launch a single process on the console using clone/execve [MODE_STANDALONE_ONCE]
+	e: Immediately launch a single process on the console using execve [MODE_STANDALONE_EXECVE]
+	r: Immediately launch a single process on the console, keep doing it forever [MODE_STANDALONE_RERUN]
  --chroot|-c VALUE
 	Directory containing / of the jail (default: none)
  --rw 
-	Mount / as RW (default: RO)
+	Mount / and /proc as RW (default: RO)
  --user|-u VALUE
-	Username/uid of processess inside the jail (default: your current uid). You can also use inside_ns_uid:outside_ns_uid convention here
+	Username/uid of processess inside the jail (default: your current uid). You can also use inside_ns_uid:outside_ns_uid convention here. Can be specified multiple times
  --group|-g VALUE
-	Groupname/gid of processess inside the jail (default: your current gid). You can also use inside_ns_gid:global_ns_gid convention here
+	Groupname/gid of processess inside the jail (default: your current gid). You can also use inside_ns_gid:global_ns_gid convention here. Can be specified multiple times
  --hostname|-H VALUE
 	UTS name (hostname) of the jail (default: 'NSJAIL')
  --cwd|-D VALUE
@@ -220,6 +219,8 @@ Options:
 	Daemonize after start
  --verbose|-v 
 	Verbose output
+ --quiet|-q 
+	Only output warning and more important messages
  --keep_env|-e 
 	Should all environment variables be passed to the child?
  --env|-E VALUE
@@ -298,6 +299,12 @@ Options:
 	Location of memory cgroup FS (default: '/sys/fs/cgroup/memory')
  --cgroup_mem_parent VALUE
 	Which pre-existing memory cgroup to use as a parent (default: 'NSJAIL')
+ --cgroup_pids_max VALUE
+	Maximum number of pids in a cgroup (default: '0' - disabled)
+ --cgroup_pids_mount VALUE
+	Location of pids cgroup FS (default: '/sys/fs/cgroup/pids')
+ --cgroup_pids_parent VALUE
+	Which pre-existing pids cgroup to use as a parent (default: 'NSJAIL')
  --iface_no_lo 
 	Don't bring up the 'lo' interface
  --iface|-I VALUE
@@ -333,4 +340,3 @@ From now you can either use it in another Dockerfile (`FROM nsjail`) or directly
 <pre>
 docker run --rm -it nsjail nsjail --user 99999 --group 99999 --disable_proc --chroot / --time_limit 30 /bin/bash
 </pre>
-
