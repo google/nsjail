@@ -13,16 +13,16 @@
 This is NOT an official Google product.
 
 ### What is it
-NsJail is a process isolation tool for Linux. It makes use of the the namespacing, resource control, and seccomp-bpf syscall filter subsystems of the Linux kernel.
+NsJail is a process isolation tool for Linux. It utilizes Linux namespace subsystem, resource limits, and the seccomp-bpf syscall filters from the Linux kernel.
 
-It can help among others, with:
-  * Securing networking services (e.g. web, time, DNS), by isolating them from the rest of the OS
+It can help with (among other things):
+  * Isolating networking services (e.g. web, time, DNS), by isolating them from the rest of the OS
   * Hosting computer security challenges (so-called CTFs)
   * Containing invasive syscall-level OS fuzzers
 
 Features:
   * It offers three distinct operation modes. See [this section](#which-use-cases-are-supported) for more info.
-  * Can use [kafel seccomp-bpf configuration language](https://github.com/google/kafel/) for syscall policy creation.
+  * Uses [kafel seccomp-bpf configuration language](https://github.com/google/kafel/) for syscall policy creation.
   * It's rock-solid.
 
 ### What forms of isolation does this tool provide
@@ -87,12 +87,8 @@ Location: http://www.google.ch/?gfe_rd=cr&ei=cEzWVrG2CeTI8ge88ofwDA
 Content-Length: 258
 Date: Wed, 02 Mar 2016 02:14:08 GMT
 
-<HTML><HEAD><meta http-equiv="content-type" content="text/html;charset=utf-8">
-<TITLE>302 Moved</TITLE></HEAD><BODY>
-<H1>302 Moved</H1>
-The document has moved
-<A HREF="http://www.google.ch/?gfe_rd=cr&amp;ei=cEzWVrG2CeTI8ge88ofwDA">here</A>.
-</BODY></HTML>
+...
+...
 / $ 
 </pre>
 
