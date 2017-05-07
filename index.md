@@ -10,6 +10,7 @@
 - [More info](#more-info)
 - [Launching in Docker](#launching-in-docker)
 
+This is NOT an official Google product.
 
 ### What is it
 NsJail is a process isolation tool for Linux. It makes use of the the namespacing, resource control, and seccomp-bpf syscall filter subsystems of the Linux kernel.
@@ -28,14 +29,12 @@ Features:
 1. Linux namespaces: UTS (hostname), MOUNT (chroot), PID (separate PID tree), IPC, NET (separate networking context), USER
 2. FS constraints: chroot(), pivot_root(), RO-remounting
 3. Resource limits (wall-time/CPU time limits, VM/mem address space limits, etc.)
-4. Programmable seccomp-bpf syscall filters (via the [kafel language](https://github.com/google/kafel/)
+4. Programmable seccomp-bpf syscall filters (via the [kafel language](https://github.com/google/kafel/))
 5. Cloned and separated Ethernet interfaces
 6. Cgroups for memory and PID utilization control
 
 ### Which use-cases are supported
 #### Isolation of network services (inetd style)
-
-This is NOT an official Google product.
 
 + Server:
 <pre>
