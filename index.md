@@ -12,6 +12,7 @@
 
 This is NOT an official Google product.
 
+***
 ### What is it
 NsJail is a process isolation tool for Linux. It utilizes Linux namespace subsystem, resource limits, and the seccomp-bpf syscall filters from the Linux kernel.
 
@@ -21,10 +22,11 @@ It can help with (among other things):
   * Containing invasive syscall-level OS fuzzers
 
 Features:
-  * It offers three distinct operational modes. See [this section](#which-use-cases-are-supported) for more info.
-  * Uses [kafel seccomp-bpf configuration language](https://github.com/google/kafel/) for syscall policy creation.
-  * It's rock-solid.
+  - [x]  It offers three distinct operational modes. See [this section](#which-use-cases-are-supported) for more info.
+  - [x]  Uses [kafel seccomp-bpf configuration language](https://github.com/google/kafel/) for syscall policy creation.
+  - [x]  It's rock-solid.
 
+***
 ### What forms of isolation does it provide
 1. Linux namespaces: UTS (hostname), MOUNT (chroot), PID (separate PID tree), IPC, NET (separate networking context), USER
 2. FS constraints: chroot(), pivot_root(), RO-remounting
@@ -33,6 +35,7 @@ Features:
 5. Cloned and separated Ethernet interfaces
 6. Cgroups for memory and PID utilization control
 
+***
 ### Which use-cases are supported
 #### Isolation of network services (inetd style)
 
@@ -174,6 +177,7 @@ $ exit
 [2017-01-15T21:53:17+0100] PID: 18873 exited with status: 159, (PIDs left: 0)
 </pre>
 
+***
 ### More info
 
 The options should be self-explanatory, and these are available with:
@@ -327,6 +331,7 @@ Options:
   nsjail -Me --chroot / --disable_proc -- /bin/echo "ABC"
 </pre>
 
+***
 ### Launching in Docker
 
 To launch nsjail in a docker container clone the repository and build the docker image:
