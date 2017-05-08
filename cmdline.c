@@ -764,9 +764,6 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		p->outside_id = getgid();
 		TAILQ_INSERT_HEAD(&nsjconf->gids, p, pointers);
 	}
-	if (nsjconf->kafel_file != NULL || nsjconf->kafel_string != NULL) {
-		LOG_F("Kafel policy specified but the kafel/ is not compiled in");
-	}
 
 	if (logInitLogFile(nsjconf, logfile, log_level) == false) {
 		return false;
