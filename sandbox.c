@@ -26,8 +26,8 @@
 #include <sys/prctl.h>
 
 #include "common.h"
-#include "log.h"
 #include "kafel.h"
+#include "log.h"
 
 #ifndef PR_SET_NO_NEW_PRIVS
 #define PR_SET_NO_NEW_PRIVS 38
