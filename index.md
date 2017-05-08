@@ -17,23 +17,23 @@ This is NOT an official Google product.
 NsJail is a process isolation tool for Linux. It utilizes Linux namespace subsystem, resource limits, and the seccomp-bpf syscall filters from the Linux kernel.
 
 It can help with (among other things):
-  * Isolating networking services (e.g. web, time, DNS), by isolating them from the rest of the OS
-  * Hosting computer security challenges (so-called CTFs)
-  * Containing invasive syscall-level OS fuzzers
+  * Isolating __networking services__ (e.g. web, time, DNS), by isolating them from the rest of the OS
+  * Hosting computer security challenges (so-called __CTFs__)
+  * Containing invasive syscall-level OS __fuzzers__
 
 Features:
-  - [x]  It offers three distinct operational modes. See [this section](#which-use-cases-are-supported) for more info.
-  - [x]  Uses [kafel seccomp-bpf configuration language](https://github.com/google/kafel/) for syscall policy creation.
-  - [x]  It's rock-solid.
+  - [x]  It offers three __distinct operational modes__. See [this section](#which-use-cases-are-supported) for more info.
+  - [x]  Uses [kafel seccomp-bpf configuration language](https://github.com/google/kafel/) for __flexible syscall policy definitions__.
+  - [x]  It's __rock-solid__.
 
 ***
 ### What forms of isolation does it provide
-1. Linux namespaces: UTS (hostname), MOUNT (chroot), PID (separate PID tree), IPC, NET (separate networking context), USER
-2. FS constraints: chroot(), pivot_root(), RO-remounting
-3. Resource limits (wall-time/CPU time limits, VM/mem address space limits, etc.)
-4. Programmable seccomp-bpf syscall filters (via the [kafel language](https://github.com/google/kafel/))
-5. Cloned and separated Ethernet interfaces
-6. Cgroups for memory and PID utilization control
+1. Linux __namespaces__: UTS (hostname), MOUNT (chroot), PID (separate PID tree), IPC, NET (separate networking context), USER
+2. __FS constraints__: chroot(), pivot_root(), RO-remounting
+3. __Resource limits__ (wall-time/CPU time limits, VM/mem address space limits, etc.)
+4. Programmable seccomp-bpf __syscall filters__ (with the [kafel language](https://github.com/google/kafel/))
+5. Cloned and separated __Ethernet interfaces__
+6. __Cgroups__ for memory and PID utilization control
 
 ***
 ### Which use-cases are supported
