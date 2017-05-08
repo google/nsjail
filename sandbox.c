@@ -27,10 +27,7 @@
 
 #include "common.h"
 #include "log.h"
-
-#if defined(USE_KAFEL)
 #include "kafel.h"
-#endif				// defined(USE_KAFEL)
 
 #ifndef PR_SET_NO_NEW_PRIVS
 #define PR_SET_NO_NEW_PRIVS 38
@@ -38,7 +35,6 @@
 
 static bool sandboxPrepareAndCommit(struct nsjconf_t *nsjconf __attribute__ ((unused)))
 {
-#if defined(USE_KAFEL)
 	if (nsjconf->kafel_file == NULL && nsjconf->kafel_string == NULL) {
 		return true;
 	}
@@ -67,7 +63,6 @@ static bool sandboxPrepareAndCommit(struct nsjconf_t *nsjconf __attribute__ ((un
 		PLOG_W("prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER) failed");
 		return false;
 	}
-#endif				/* defined(USE_KAFEL) */
 	return true;
 }
 

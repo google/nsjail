@@ -23,24 +23,18 @@ CFLAGS += -O2 -c -std=gnu11 \
 	-D_GNU_SOURCE \
 	-fstack-protector-all -Wformat -Wformat=2 -Wformat-security -fPIE \
 	-Wno-format-nonliteral \
-	-Wall -Wextra -Werror
+	-Wall -Wextra -Werror \
+	-Ikafel/include
 
 LDFLAGS += -Wl,-z,now -Wl,-z,relro -pie -Wl,-z,noexecstack
 
 SRCS = nsjail.c cmdline.c contain.c log.c cgroup.c mount.c net.c pid.c sandbox.c subproc.c user.c util.c uts.c
 OBJS = $(SRCS:.c=.o)
 BIN = nsjail
+LIBS = kafel/libkafel.a
 
 ifdef DEBUG
 	CFLAGS += -g -ggdb -gdwarf-4
-endif
-
-USE_KAFEL ?= yes
-ifneq ("$(wildcard kafel/include/kafel.h)","")
-ifeq ($(USE_KAFEL), yes)
-	CFLAGS += -I./kafel/include/ -DUSE_KAFEL
-	LIBS += kafel/libkafel.a
-endif
 endif
 
 USE_NL3 ?= yes
@@ -59,19 +53,15 @@ all: $(BIN)
 $(BIN): $(OBJS) $(LIBS)
 	$(CC) -o $(BIN) $(OBJS) $(LIBS) $(LDFLAGS)
 
-ifneq ("$(wildcard kafel/Makefile)","")
 kafel/libkafel.a:
 	$(MAKE) -C kafel
-endif
 
 clean:
 	$(RM) core Makefile.bak $(OBJS) $(BIN)
-ifneq ("$(wildcard kafel/Makefile)","")
 	$(MAKE) -C kafel clean
-endif
 
 depend:
-	makedepend -Y. -- -- $(SRCS)
+	makedepend -Y -Ykafel/include -- -- $(SRCS)
 
 indent:
 	indent -linux -l100 -lc100 *.c *.h; rm -f *~
@@ -87,7 +77,7 @@ cgroup.o: cgroup.h common.h log.h util.h
 mount.o: mount.h common.h log.h subproc.h util.h
 net.o: net.h common.h log.h subproc.h
 pid.o: pid.h common.h log.h subproc.h
-sandbox.o: sandbox.h common.h log.h
+sandbox.o: sandbox.h common.h log.h kafel/include/kafel.h
 subproc.o: subproc.h common.h cgroup.h contain.h log.h net.h sandbox.h user.h
 subproc.o: util.h
 user.o: user.h common.h log.h subproc.h util.h
