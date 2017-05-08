@@ -77,7 +77,7 @@ cgroup.o: cgroup.h common.h log.h util.h
 mount.o: mount.h common.h log.h subproc.h util.h
 net.o: net.h common.h log.h subproc.h
 pid.o: pid.h common.h log.h subproc.h
-sandbox.o: sandbox.h common.h log.h kafel/include/kafel.h
+sandbox.o: sandbox.h common.h kafel/include/kafel.h log.h
 subproc.o: subproc.h common.h cgroup.h contain.h log.h net.h sandbox.h user.h
 subproc.o: util.h
 user.o: user.h common.h log.h subproc.h util.h
