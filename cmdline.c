@@ -120,18 +120,18 @@ struct custom_option custom_opts[] = {
     {{"cgroup_pids_parent", required_argument, NULL, 0x0813}, "Which pre-existing pids cgroup to use as a parent (default: 'NSJAIL')"},
     {{"iface_no_lo", no_argument, NULL, 0x700}, "Don't bring up the 'lo' interface"},
     {{"macvlan_iface", required_argument, NULL, 'I'}, "Interface which will be cloned (MACVLAN) and put inside the subprocess' namespace as 'vs'"},
-    {{"macvlan_vs_ip", required_argument, NULL, 0x701}, "IP of the 'vs' interface"},
-    {{"macvlan_vs_nm", required_argument, NULL, 0x702}, "Netmask of the 'vs' interface"},
-    {{"macvlan_vs_gw", required_argument, NULL, 0x703}, "Default GW for the 'vs' interface"},
+    {{"macvlan_vs_ip", required_argument, NULL, 0x701}, "IP of the 'vs' interface (e.g. \"192.168.0.1\")"},
+    {{"macvlan_vs_nm", required_argument, NULL, 0x702}, "Netmask of the 'vs' interface (e.g. \"255.255.255.0\")"},
+    {{"macvlan_vs_gw", required_argument, NULL, 0x703}, "Default GW for the 'vs' interface (e.g. \"192.168.0.1\")"},
 };
 
 struct custom_option deprecated_opts[] = {
     // Compatibilty flags for MACVLAN.
     // TODO(rswiecki): Remove this at some point.
     {{"iface", required_argument, NULL, 'I'}, "Interface which will be cloned (MACVLAN) and put inside the subprocess' namespace as 'vs'"},
-    {{"iface_vs_ip", required_argument, NULL, 0x701}, "IP of the 'vs' interface"},
-    {{"iface_vs_nm", required_argument, NULL, 0x702}, "Netmask of the 'vs' interface"},
-    {{"iface_vs_gw", required_argument, NULL, 0x703}, "Default GW for the 'vs' interface"},
+    {{"iface_vs_ip", required_argument, NULL, 0x701}, "IP of the 'vs' interface (e.g. \"192.168.0.1\")"},
+    {{"iface_vs_nm", required_argument, NULL, 0x702}, "Netmask of the 'vs' interface (e.g. \"255.255.255.0\")"},
+    {{"iface_vs_gw", required_argument, NULL, 0x703}, "Default GW for the 'vs' interface (e.g. \"192.168.0.1\")"},
 };
 /*  *INDENT-ON* */
 
