@@ -64,7 +64,7 @@ Features:
 
 #### Isolation with access to a private, cloned interface (requires root/setuid)
 <pre>
-$ sudo ./nsjail --user 9999 --group 9999 --iface eth0 --chroot /chroot/ -Mo --iface_vs_ip 192.168.0.44 --iface_vs_nm 255.255.255.0 --iface_vs_gw 192.168.0.1 -- /bin/sh -i
+$ sudo ./nsjail --user 9999 --group 9999 --macvlan_iface eth0 --chroot /chroot/ -Mo --macvlan_vs_ip 192.168.0.44 --macvlan_vs_nm 255.255.255.0 --macvlan_vs_gw 192.168.0.1 -- /bin/sh -i
 / $ id
 uid=9999 gid=9999
 / $ ip addr sh
@@ -311,13 +311,13 @@ Options:
 	Which pre-existing pids cgroup to use as a parent (default: 'NSJAIL')
  --iface_no_lo 
 	Don't bring up the 'lo' interface
- --iface|-I VALUE
+ --macvlan_iface|-I VALUE
 	Interface which will be cloned (MACVLAN) and put inside the subprocess' namespace as 'vs'
- --iface_vs_ip VALUE
+ --macvlan_vs_ip VALUE
 	IP of the 'vs' interface
- --iface_vs_nm VALUE
+ --macvlan_vs_nm VALUE
 	Netmask of the 'vs' interface
- --iface_vs_gw VALUE
+ --macvlan_vs_gw VALUE
 	Default GW for the 'vs' interface
 
  Examples: 
