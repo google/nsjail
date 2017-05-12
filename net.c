@@ -185,7 +185,9 @@ bool netLimitConns(struct nsjconf_t * nsjconf, int connsock)
 int netGetRecvSocket(const char *bindhost, int port)
 {
 	if (port < 1 || port > 65535) {
-		LOG_F("TCP port %d out of bounds (0 <= port <= 65535)", port);
+		LOG_F
+		    ("TCP port %d out of bounds (0 <= port <= 65535), specify one with --port <port>",
+		     port);
 	}
 
 	struct in6_addr in6a;
