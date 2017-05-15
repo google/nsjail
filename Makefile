@@ -45,13 +45,20 @@ ifeq ($(USE_NL3), yes)
 endif
 endif
 
+.PHONY: all clear depend indent kafel
+
 .c.o: %.c
 	$(CC) $(CFLAGS) $< -o $@
 
-all: $(BIN)
+all: kafel $(BIN)
 
 $(BIN): $(OBJS) $(LIBS)
 	$(CC) -o $(BIN) $(OBJS) $(LIBS) $(LDFLAGS)
+
+kafel:
+ifeq ("$(wildcard kafel/Makefile)","")
+	git submodule update --init
+endif
 
 kafel/libkafel.a:
 	$(MAKE) -C kafel
