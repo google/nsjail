@@ -248,10 +248,6 @@ int netAcceptConn(int listenfd)
 	netConnToText(connfd, false /* remote */ , ss_addr, sizeof(ss_addr), NULL);
 	LOG_I("New connection from: %s on: %s", cs_addr, ss_addr);
 
-	int so = 1;
-	if (setsockopt(connfd, SOL_TCP, TCP_CORK, &so, sizeof(so)) == -1) {
-		PLOG_W("setsockopt(%d, TCP_CORK)", connfd);
-	}
 	return connfd;
 }
 
