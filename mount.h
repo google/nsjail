@@ -26,6 +26,7 @@
 
 #include "common.h"
 
+void mountFlagsToStr(uintptr_t flags, char *str, size_t len);
 bool mountInitNs(struct nsjconf_t *nsjconf);
 
 #endif				/* NS_MOUNT_H */

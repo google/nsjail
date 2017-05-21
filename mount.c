@@ -40,6 +40,61 @@
 #include "subproc.h"
 #include "util.h"
 
+#define VALSTR(x) { x, #x }
+
+#if !defined(MS_LAZYTIME)
+#define MS_LAZYTIME (1<<25)
+#endif				/* if !defined(MS_LAZYTIME) */
+
+void mountFlagsToStr(uintptr_t flags, char *str, size_t len)
+{
+	str[0] = '\0';
+
+	/*  *INDENT-OFF* */
+	static struct {
+		uintptr_t flag;
+		const char *name;
+	} const mountFlags[] = {
+			VALSTR(MS_RDONLY),
+			VALSTR(MS_NOSUID),
+			VALSTR(MS_NODEV),
+			VALSTR(MS_NOEXEC),
+			VALSTR(MS_SYNCHRONOUS),
+			VALSTR(MS_REMOUNT),
+			VALSTR(MS_MANDLOCK),
+			VALSTR(MS_DIRSYNC),
+			VALSTR(MS_NOATIME),
+			VALSTR(MS_NODIRATIME),
+			VALSTR(MS_BIND),
+			VALSTR(MS_MOVE),
+			VALSTR(MS_REC),
+			VALSTR(MS_SILENT),
+			VALSTR(MS_POSIXACL),
+			VALSTR(MS_UNBINDABLE),
+			VALSTR(MS_PRIVATE),
+			VALSTR(MS_SLAVE),
+			VALSTR(MS_SHARED),
+			VALSTR(MS_RELATIME),
+			VALSTR(MS_KERNMOUNT),
+			VALSTR(MS_I_VERSION),
+			VALSTR(MS_STRICTATIME),
+			VALSTR(MS_LAZYTIME),
+	};
+	/*  *INDENT-ON* */
+
+	for (size_t i = 0; i < ARRAYSIZE(mountFlags); i++) {
+		if (flags & mountFlags[i].flag) {
+			utilSSnPrintf(str, len, "%s|", mountFlags[i].name);
+		}
+	}
+
+	uintptr_t knownFlagMask = 0U;
+	for (size_t i = 0; i < ARRAYSIZE(mountFlags); i++) {
+		knownFlagMask |= mountFlags[i].flag;
+	}
+	utilSSnPrintf(str, len, "0x%#tx", flags & ~(knownFlagMask));
+}
+
 static bool mountIsDir(const char *path)
 {
 	/*
@@ -80,8 +135,11 @@ static bool mountNotIsDir(const char *path)
 static bool mountMount(struct nsjconf_t *nsjconf, struct mounts_t *mpt, const char *oldroot,
 		       const char *dst)
 {
-	LOG_D("Mounting '%s' on '%s' (type:'%s', flags:0x%tx, options:'%s')", mpt->src, dst,
-	      mpt->fs_type, mpt->flags, mpt->options);
+	char flagstr[4096];
+	mountFlagsToStr(mpt->flags, flagstr, sizeof(flagstr));
+
+	LOG_D("Mounting '%s' on '%s' (type:'%s', flags:%s, options:'%s')", mpt->src, dst,
+	      mpt->fs_type, flagstr, mpt->options);
 
 	char srcpath[PATH_MAX];
 	const char *src = NULL;
