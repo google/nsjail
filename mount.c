@@ -46,9 +46,10 @@
 #define MS_LAZYTIME (1<<25)
 #endif				/* if !defined(MS_LAZYTIME) */
 
-void mountFlagsToStr(uintptr_t flags, char *str, size_t len)
+const char *mountFlagsToStr(uintptr_t flags)
 {
-	str[0] = '\0';
+	static __thread char mountFlagsStr[1024];
+	mountFlagsStr[0] = '\0';
 
 	/*  *INDENT-OFF* */
 	static struct {
@@ -84,7 +85,8 @@ void mountFlagsToStr(uintptr_t flags, char *str, size_t len)
 
 	for (size_t i = 0; i < ARRAYSIZE(mountFlags); i++) {
 		if (flags & mountFlags[i].flag) {
-			utilSSnPrintf(str, len, "%s|", mountFlags[i].name);
+			utilSSnPrintf(mountFlagsStr, sizeof(mountFlagsStr), "%s|",
+				      mountFlags[i].name);
 		}
 	}
 
@@ -92,7 +94,8 @@ void mountFlagsToStr(uintptr_t flags, char *str, size_t len)
 	for (size_t i = 0; i < ARRAYSIZE(mountFlags); i++) {
 		knownFlagMask |= mountFlags[i].flag;
 	}
-	utilSSnPrintf(str, len, "%#tx", flags & ~(knownFlagMask));
+	utilSSnPrintf(mountFlagsStr, sizeof(mountFlagsStr), "%#tx", flags & ~(knownFlagMask));
+	return mountFlagsStr;
 }
 
 static bool mountIsDir(const char *path)
@@ -135,11 +138,8 @@ static bool mountNotIsDir(const char *path)
 static bool mountMount(struct nsjconf_t *nsjconf, struct mounts_t *mpt, const char *oldroot,
 		       const char *dst)
 {
-	char flagstr[4096];
-	mountFlagsToStr(mpt->flags, flagstr, sizeof(flagstr));
-
 	LOG_D("Mounting '%s' on '%s' (type:'%s', flags:%s, options:'%s')", mpt->src, dst,
-	      mpt->fs_type, flagstr, mpt->options);
+	      mpt->fs_type, mountFlagsToStr(mpt->flags), mpt->options);
 
 	char srcpath[PATH_MAX];
 	const char *src = NULL;
@@ -197,9 +197,6 @@ static bool mountRemountRO(struct mounts_t *mpt)
 	}
 
 	if (mpt->flags & MS_RDONLY) {
-		char oldflagstr[4096];
-		mountFlagsToStr(vfs.f_flag, oldflagstr, sizeof(oldflagstr));
-
 		/*
 		 * It's fine to use 'flags | vfs.f_flag' here as per
 		 * /usr/include/x86_64-linux-gnu/bits/statvfs.h: 'Definitions for
@@ -207,14 +204,12 @@ static bool mountRemountRO(struct mounts_t *mpt)
 		 * kept in sync with the definitions in <sys/mount.h>'
 		 */
 		unsigned long new_flags = MS_REMOUNT | MS_RDONLY | vfs.f_flag;
-		char newflagstr[4096];
-		mountFlagsToStr(new_flags, newflagstr, sizeof(newflagstr));
 
-		LOG_D("Re-mounting R/O '%s' (old_flags:%s, new_flags:%s)", mpt->dst, oldflagstr,
-		      newflagstr);
+		LOG_D("Re-mounting R/O '%s' (old_flags:%s, new_flags:%s)", mpt->dst,
+		      mountFlagsToStr(vfs.f_flag), mountFlagsToStr(new_flags));
 
 		if (mount(mpt->dst, mpt->dst, NULL, new_flags, 0) == -1) {
-			PLOG_E("mount('%s', flags:%s)", mpt->dst, newflagstr);
+			PLOG_E("mount('%s', flags:%s)", mpt->dst, mountFlagsToStr(new_flags));
 			return false;
 		}
 	}

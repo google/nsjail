@@ -222,10 +222,8 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	{
 		struct mounts_t *p;
 		TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
-			char flagstr[4096];
-			mountFlagsToStr(p->flags, flagstr, sizeof(flagstr));
 			LOG_I("Mount point: src:'%s' dst:'%s' type:'%s' flags:%s options:'%s'",
-			      p->src, p->dst, p->fs_type, flagstr, p->options);
+			      p->src, p->dst, p->fs_type, mountFlagsToStr(p->flags), p->options);
 		}
 	}
 	{

@@ -60,28 +60,23 @@ static const char subprocDoneChar = 'D';
 
 extern const char *sys_sigabbrev[];
 
-static __thread char sname[32];
 static const char *subprocSigName(int signo)
 {
-	if (signo == 0) {
-		snprintf(sname, sizeof(sname), "SIG0");
-		return sname;
+	static __thread char sigName[1024];
+	if (signo >= SIGRTMIN && signo <= SIGRTMAX) {
+		snprintf(sigName, sizeof(sigName), "SIG%d-RTMIN+%d", signo, signo - SIGRTMIN);
+	} else if (signo >= 0 && signo <= NSIG) {
+		snprintf(sigName, sizeof(sigName), "SIG%s", sys_sigabbrev[signo]);
+	} else {
+		snprintf(sigName, sizeof(sigName), "UNKNOWN-%d", signo);
 	}
-	if (signo < 0 || signo > _NSIG) {
-		snprintf(sname, sizeof(sname), "UNKNOWN-%d", signo);
-		return sname;
-	}
-	if (signo > __SIGRTMIN) {
-		snprintf(sname, sizeof(sname), "SIG%d-RTMIN+%d", signo, signo - __SIGRTMIN);
-		return sname;
-	}
-	snprintf(sname, sizeof(sname), "SIG%s", sys_sigabbrev[signo]);
-	return sname;
+	return sigName;
 }
 
-static void subprocCloneFlagsToStr(uintptr_t flags, char *str, size_t len)
+static const char *subprocCloneFlagsToStr(uintptr_t flags)
 {
-	str[0] = '\0';
+	static __thread char cloneFlagName[1024];
+	cloneFlagName[0] = '\0';
 
 	/*  *INDENT-OFF* */
 	static struct {
@@ -116,7 +111,8 @@ static void subprocCloneFlagsToStr(uintptr_t flags, char *str, size_t len)
 
 	for (size_t i = 0; i < ARRAYSIZE(cloneFlags); i++) {
 		if (flags & cloneFlags[i].flag) {
-			utilSSnPrintf(str, len, "%s|", cloneFlags[i].name);
+			utilSSnPrintf(cloneFlagName, sizeof(cloneFlagName), "%s|",
+				      cloneFlags[i].name);
 		}
 	}
 
@@ -125,9 +121,11 @@ static void subprocCloneFlagsToStr(uintptr_t flags, char *str, size_t len)
 		knownFlagMask |= cloneFlags[i].flag;
 	}
 	if (flags & ~(knownFlagMask)) {
-		utilSSnPrintf(str, len, "%#tx|", flags & ~(knownFlagMask));
+		utilSSnPrintf(cloneFlagName, sizeof(cloneFlagName), "%#tx|",
+			      flags & ~(knownFlagMask));
 	}
-	utilSSnPrintf(str, len, "%s", subprocSigName(flags & CSIGNAL));
+	utilSSnPrintf(cloneFlagName, sizeof(cloneFlagName), "%s", subprocSigName(flags & CSIGNAL));
+	return cloneFlagName;
 }
 
 static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_err, int pipefd)
@@ -399,9 +397,7 @@ pid_t subprocClone(uintptr_t flags)
 	}
 
 	if (setjmp(env) == 0) {
-		char cloneflagstr[4096];
-		subprocCloneFlagsToStr(flags, cloneflagstr, sizeof(cloneflagstr));
-		LOG_D("Cloning process with flags:%s", cloneflagstr);
+		LOG_D("Cloning process with flags:%s", subprocCloneFlagsToStr(flags));
 		/*
 		 * Avoid the problem of the stack growing up/down under different CPU architectures, by using
 		 * middle of the static stack buffer (which is temporary, and used only inside of subprocCloneFunc
@@ -429,9 +425,7 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 	flags |= (nsjconf->clone_newcgroup ? CLONE_NEWCGROUP : 0);
 
 	if (nsjconf->mode == MODE_STANDALONE_EXECVE) {
-		char cloneflagstr[4096];
-		subprocCloneFlagsToStr(flags, cloneflagstr, sizeof(cloneflagstr));
-		LOG_D("Entering namespace with flags:%s", cloneflagstr);
+		LOG_D("Entering namespace with flags:%s", subprocCloneFlagsToStr(flags));
 		if (unshare(flags) == -1) {
 			PLOG_E("unshare(%#lx)", flags);
 			_exit(EXIT_FAILURE);
