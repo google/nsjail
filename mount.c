@@ -40,7 +40,7 @@
 #include "subproc.h"
 #include "util.h"
 
-#define VALSTR(x) { x, #x }
+#define VALSTR_STRUCT(x) { x, #x }
 
 #if !defined(MS_LAZYTIME)
 #define MS_LAZYTIME (1<<25)
@@ -55,30 +55,30 @@ void mountFlagsToStr(uintptr_t flags, char *str, size_t len)
 		uintptr_t flag;
 		const char *name;
 	} const mountFlags[] = {
-			VALSTR(MS_RDONLY),
-			VALSTR(MS_NOSUID),
-			VALSTR(MS_NODEV),
-			VALSTR(MS_NOEXEC),
-			VALSTR(MS_SYNCHRONOUS),
-			VALSTR(MS_REMOUNT),
-			VALSTR(MS_MANDLOCK),
-			VALSTR(MS_DIRSYNC),
-			VALSTR(MS_NOATIME),
-			VALSTR(MS_NODIRATIME),
-			VALSTR(MS_BIND),
-			VALSTR(MS_MOVE),
-			VALSTR(MS_REC),
-			VALSTR(MS_SILENT),
-			VALSTR(MS_POSIXACL),
-			VALSTR(MS_UNBINDABLE),
-			VALSTR(MS_PRIVATE),
-			VALSTR(MS_SLAVE),
-			VALSTR(MS_SHARED),
-			VALSTR(MS_RELATIME),
-			VALSTR(MS_KERNMOUNT),
-			VALSTR(MS_I_VERSION),
-			VALSTR(MS_STRICTATIME),
-			VALSTR(MS_LAZYTIME),
+			VALSTR_STRUCT(MS_RDONLY),
+			VALSTR_STRUCT(MS_NOSUID),
+			VALSTR_STRUCT(MS_NODEV),
+			VALSTR_STRUCT(MS_NOEXEC),
+			VALSTR_STRUCT(MS_SYNCHRONOUS),
+			VALSTR_STRUCT(MS_REMOUNT),
+			VALSTR_STRUCT(MS_MANDLOCK),
+			VALSTR_STRUCT(MS_DIRSYNC),
+			VALSTR_STRUCT(MS_NOATIME),
+			VALSTR_STRUCT(MS_NODIRATIME),
+			VALSTR_STRUCT(MS_BIND),
+			VALSTR_STRUCT(MS_MOVE),
+			VALSTR_STRUCT(MS_REC),
+			VALSTR_STRUCT(MS_SILENT),
+			VALSTR_STRUCT(MS_POSIXACL),
+			VALSTR_STRUCT(MS_UNBINDABLE),
+			VALSTR_STRUCT(MS_PRIVATE),
+			VALSTR_STRUCT(MS_SLAVE),
+			VALSTR_STRUCT(MS_SHARED),
+			VALSTR_STRUCT(MS_RELATIME),
+			VALSTR_STRUCT(MS_KERNMOUNT),
+			VALSTR_STRUCT(MS_I_VERSION),
+			VALSTR_STRUCT(MS_STRICTATIME),
+			VALSTR_STRUCT(MS_LAZYTIME),
 	};
 	/*  *INDENT-ON* */
 
@@ -92,7 +92,7 @@ void mountFlagsToStr(uintptr_t flags, char *str, size_t len)
 	for (size_t i = 0; i < ARRAYSIZE(mountFlags); i++) {
 		knownFlagMask |= mountFlags[i].flag;
 	}
-	utilSSnPrintf(str, len, "0x%#tx", flags & ~(knownFlagMask));
+	utilSSnPrintf(str, len, "%#tx", flags & ~(knownFlagMask));
 }
 
 static bool mountIsDir(const char *path)
@@ -197,17 +197,24 @@ static bool mountRemountRO(struct mounts_t *mpt)
 	}
 
 	if (mpt->flags & MS_RDONLY) {
-		LOG_D("Re-mounting RO '%s'", mpt->dst);
+		char oldflagstr[4096];
+		mountFlagsToStr(vfs.f_flag, oldflagstr, sizeof(oldflagstr));
+
 		/*
 		 * It's fine to use 'flags | vfs.f_flag' here as per
 		 * /usr/include/x86_64-linux-gnu/bits/statvfs.h: 'Definitions for
 		 * the flag in `f_flag'.  These definitions should be
 		 * kept in sync with the definitions in <sys/mount.h>'
 		 */
-		if (mount
-		    (mpt->dst, mpt->dst, NULL,
-		     MS_BIND | MS_REMOUNT | MS_RDONLY | vfs.f_flag, 0) == -1) {
-			PLOG_E("mount('%s', MS_REC|MS_BIND|MS_REMOUNT|MS_RDONLY)", mpt->dst);
+		unsigned long new_flags = MS_BIND | MS_REMOUNT | MS_RDONLY | vfs.f_flag;
+		char newflagstr[4096];
+		mountFlagsToStr(new_flags, newflagstr, sizeof(newflagstr));
+
+		LOG_D("Re-mounting RO '%s' (old_flags:%s, new_flags:%s)", mpt->dst, oldflagstr,
+		      newflagstr);
+
+		if (mount(mpt->dst, mpt->dst, NULL, new_flags, 0) == -1) {
+			PLOG_E("mount('%s', flags:%s)", mpt->dst, newflagstr);
 			return false;
 		}
 	}

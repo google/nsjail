@@ -52,6 +52,59 @@
 
 static const char subprocDoneChar = 'D';
 
+#define VALSTR_STRUCT(x) { x, #x }
+
+#if !defined(CLONE_NEWCGROUP)
+#define CLONE_NEWCGROUP 0x02000000
+#endif				/* !defined(CLONE_NEWCGROUP) */
+static void subprocCloneFlagsToStr(uintptr_t flags, char *str, size_t len)
+{
+	str[0] = '\0';
+
+	/*  *INDENT-OFF* */
+	static struct {
+		uintptr_t flag;
+		const char *name;
+	} const cloneFlags[] = {
+		VALSTR_STRUCT(CLONE_VM),
+		VALSTR_STRUCT(CLONE_FS),
+		VALSTR_STRUCT(CLONE_FILES),
+		VALSTR_STRUCT(CLONE_SIGHAND),
+		VALSTR_STRUCT(CLONE_PTRACE),
+		VALSTR_STRUCT(CLONE_VFORK),
+		VALSTR_STRUCT(CLONE_PARENT),
+		VALSTR_STRUCT(CLONE_THREAD),
+		VALSTR_STRUCT(CLONE_NEWNS),
+		VALSTR_STRUCT(CLONE_SYSVSEM),
+		VALSTR_STRUCT(CLONE_SETTLS),
+		VALSTR_STRUCT(CLONE_PARENT_SETTID),
+		VALSTR_STRUCT(CLONE_CHILD_CLEARTID),
+		VALSTR_STRUCT(CLONE_DETACHED),
+		VALSTR_STRUCT(CLONE_UNTRACED),
+		VALSTR_STRUCT(CLONE_CHILD_SETTID),
+		VALSTR_STRUCT(CLONE_NEWCGROUP),
+		VALSTR_STRUCT(CLONE_NEWUTS),
+		VALSTR_STRUCT(CLONE_NEWIPC),
+		VALSTR_STRUCT(CLONE_NEWUSER),
+		VALSTR_STRUCT(CLONE_NEWPID),
+		VALSTR_STRUCT(CLONE_NEWNET),
+		VALSTR_STRUCT(CLONE_IO),
+	};
+	/*  *INDENT-ON* */
+
+	for (size_t i = 0; i < ARRAYSIZE(cloneFlags); i++) {
+		if (flags & cloneFlags[i].flag) {
+			utilSSnPrintf(str, len, "%s|", cloneFlags[i].name);
+		}
+	}
+
+	uintptr_t knownFlagMask = 0U;
+	for (size_t i = 0; i < ARRAYSIZE(cloneFlags); i++) {
+		knownFlagMask |= cloneFlags[i].flag;
+	}
+	utilSSnPrintf(str, len, "%#tx", flags & ~(knownFlagMask));
+}
+
 static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_err, int pipefd)
 {
 	if (containSetupFD(nsjconf, fd_in, fd_out, fd_err) == false) {
@@ -321,7 +374,9 @@ pid_t subprocClone(uintptr_t flags)
 	}
 
 	if (setjmp(env) == 0) {
-		LOG_D("Cloning process with flags %#tx", flags);
+		char cloneflagstr[4096];
+		subprocCloneFlagsToStr(flags, cloneflagstr, sizeof(cloneflagstr));
+		LOG_D("Cloning process with flags:%s", cloneflagstr);
 		/*
 		 * Avoid the problem of the stack growing up/down under different CPU architectures, by using
 		 * middle of the static stack buffer (which is temporary, and used only inside of subprocCloneFunc
@@ -339,9 +394,6 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 	if (netLimitConns(nsjconf, fd_in) == false) {
 		return;
 	}
-#ifndef CLONE_NEWCGROUP
-#define CLONE_NEWCGROUP 0x02000000
-#endif
 	unsigned long flags = 0UL;
 	flags |= (nsjconf->clone_newnet ? CLONE_NEWNET : 0);
 	flags |= (nsjconf->clone_newuser ? CLONE_NEWUSER : 0);
@@ -352,7 +404,9 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 	flags |= (nsjconf->clone_newcgroup ? CLONE_NEWCGROUP : 0);
 
 	if (nsjconf->mode == MODE_STANDALONE_EXECVE) {
-		LOG_D("Entering namespace with flags: %#lx", flags);
+		char cloneflagstr[4096];
+		subprocCloneFlagsToStr(flags, cloneflagstr, sizeof(cloneflagstr));
+		LOG_D("Entering namespace with flags:%s", cloneflagstr);
 		if (unshare(flags) == -1) {
 			PLOG_E("unshare(%#lx)", flags);
 			_exit(EXIT_FAILURE);
