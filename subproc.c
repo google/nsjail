@@ -63,8 +63,8 @@ static void subprocCloneFlagsToStr(uintptr_t flags, char *str, size_t len)
 
 	/*  *INDENT-OFF* */
 	static struct {
-		uintptr_t flag;
-		const char *name;
+		const uintptr_t flag;
+		const char* const name;
 	} const cloneFlags[] = {
 		VALSTR_STRUCT(CLONE_VM),
 		VALSTR_STRUCT(CLONE_FS),

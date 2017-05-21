@@ -52,8 +52,8 @@ void mountFlagsToStr(uintptr_t flags, char *str, size_t len)
 
 	/*  *INDENT-OFF* */
 	static struct {
-		uintptr_t flag;
-		const char *name;
+		const uintptr_t flag;
+		const char* const name;
 	} const mountFlags[] = {
 			VALSTR_STRUCT(MS_RDONLY),
 			VALSTR_STRUCT(MS_NOSUID),
