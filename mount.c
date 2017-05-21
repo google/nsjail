@@ -206,7 +206,7 @@ static bool mountRemountRO(struct mounts_t *mpt)
 		 * the flag in `f_flag'.  These definitions should be
 		 * kept in sync with the definitions in <sys/mount.h>'
 		 */
-		unsigned long new_flags = MS_BIND | MS_REMOUNT | MS_RDONLY | vfs.f_flag;
+		unsigned long new_flags = MS_REMOUNT | MS_RDONLY | vfs.f_flag;
 		char newflagstr[4096];
 		mountFlagsToStr(new_flags, newflagstr, sizeof(newflagstr));
 
