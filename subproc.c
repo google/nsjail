@@ -63,9 +63,9 @@ extern const char *sys_sigabbrev[];
 static const char *subprocSigName(int signo)
 {
 	static __thread char sigName[1024];
-	if (signo >= SIGRTMIN && signo <= SIGRTMAX) {
-		snprintf(sigName, sizeof(sigName), "SIG%d-RTMIN+%d", signo, signo - SIGRTMIN);
-	} else if (signo >= 0 && signo <= NSIG) {
+	if (signo >= __SIGRTMIN && signo <= SIGRTMAX) {
+		snprintf(sigName, sizeof(sigName), "SIG%d=__RTMIN+%d", signo, signo - __SIGRTMIN);
+	} else if (signo >= 0 && signo <= SIGSYS) {
 		snprintf(sigName, sizeof(sigName), "SIG%s", sys_sigabbrev[signo]);
 	} else {
 		snprintf(sigName, sizeof(sigName), "UNKNOWN-%d", signo);
