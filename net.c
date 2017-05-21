@@ -59,6 +59,8 @@ bool netInitNsFromParent(struct nsjconf_t *nsjconf, int pid)
 		return true;
 	}
 
+	LOG_D("Putting iface:'%s' into namespace of PID:%d (with libnl3)", nsjconf->iface, pid);
+
 	struct nl_sock *sk = nl_socket_alloc();
 	if (sk == NULL) {
 		LOG_E("Could not allocate socket with nl_socket_alloc()");
@@ -123,6 +125,8 @@ bool netInitNsFromParent(struct nsjconf_t *nsjconf, int pid)
 	if (nsjconf->iface == NULL) {
 		return true;
 	}
+
+	LOG_D("Putting iface:'%s' into namespace of PID:%d (with /sbin/ip)", nsjconf->iface, pid);
 
 	char pid_str[256];
 	snprintf(pid_str, sizeof(pid_str), "%d", pid);
@@ -337,7 +341,7 @@ static bool netConfigureVs(struct nsjconf_t *nsjconf)
 		return false;
 	}
 	if (addr.s_addr == INADDR_ANY) {
-		LOG_I("IPv4 address for interface '%s' not set", IFACE_NAME);
+		LOG_D("IPv4 address for interface '%s' not set", IFACE_NAME);
 		close(sock);
 		return true;
 	}
@@ -375,7 +379,7 @@ static bool netConfigureVs(struct nsjconf_t *nsjconf)
 		return false;
 	}
 	if (addr.s_addr == INADDR_ANY) {
-		LOG_I("Gateway address for '%s' is not set", IFACE_NAME);
+		LOG_D("Gateway address for '%s' is not set", IFACE_NAME);
 		close(sock);
 		return true;
 	}
