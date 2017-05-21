@@ -210,7 +210,7 @@ static bool mountRemountRO(struct mounts_t *mpt)
 		char newflagstr[4096];
 		mountFlagsToStr(new_flags, newflagstr, sizeof(newflagstr));
 
-		LOG_D("Re-mounting RO '%s' (old_flags:%s, new_flags:%s)", mpt->dst, oldflagstr,
+		LOG_D("Re-mounting R/O '%s' (old_flags:%s, new_flags:%s)", mpt->dst, oldflagstr,
 		      newflagstr);
 
 		if (mount(mpt->dst, mpt->dst, NULL, new_flags, 0) == -1) {
