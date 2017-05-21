@@ -57,6 +57,28 @@ static const char subprocDoneChar = 'D';
 #if !defined(CLONE_NEWCGROUP)
 #define CLONE_NEWCGROUP 0x02000000
 #endif				/* !defined(CLONE_NEWCGROUP) */
+
+extern const char *sys_sigabbrev[];
+
+static __thread char sname[32];
+static const char *subprocSigName(int signo)
+{
+	if (signo == 0) {
+		snprintf(sname, sizeof(sname), "SIG0");
+		return sname;
+	}
+	if (signo < 0 || signo > _NSIG) {
+		snprintf(sname, sizeof(sname), "UNKNOWN-%d", signo);
+		return sname;
+	}
+	if (signo > __SIGRTMIN) {
+		snprintf(sname, sizeof(sname), "SIG%d-RTMIN+%d", signo, signo - __SIGRTMIN);
+		return sname;
+	}
+	snprintf(sname, sizeof(sname), "SIG%s", sys_sigabbrev[signo]);
+	return sname;
+}
+
 static void subprocCloneFlagsToStr(uintptr_t flags, char *str, size_t len)
 {
 	str[0] = '\0';
@@ -98,11 +120,14 @@ static void subprocCloneFlagsToStr(uintptr_t flags, char *str, size_t len)
 		}
 	}
 
-	uintptr_t knownFlagMask = 0U;
+	uintptr_t knownFlagMask = CSIGNAL;
 	for (size_t i = 0; i < ARRAYSIZE(cloneFlags); i++) {
 		knownFlagMask |= cloneFlags[i].flag;
 	}
-	utilSSnPrintf(str, len, "%#tx", flags & ~(knownFlagMask));
+	if (flags & ~(knownFlagMask)) {
+		utilSSnPrintf(str, len, "%#tx|", flags & ~(knownFlagMask));
+	}
+	utilSSnPrintf(str, len, "%s", subprocSigName(flags & CSIGNAL));
 }
 
 static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_err, int pipefd)
