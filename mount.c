@@ -117,8 +117,10 @@ static bool mountIsDir(const char *path)
 	return false;
 }
 
-// It's a not a simple reversal of containIsDir() as it returns also 'false' upon
-// stat() failure
+/*
+ * It's a not a simple reversal of containIsDir() as it returns also 'false' upon
+ * stat() failure
+ */
 static bool mountNotIsDir(const char *path)
 {
 	if (path == NULL) {
@@ -190,29 +192,31 @@ static bool mountMount(struct nsjconf_t *nsjconf, struct mounts_t *mpt, const ch
 
 static bool mountRemountRO(struct mounts_t *mpt)
 {
+	if (!(mpt->flags & MS_RDONLY)) {
+		return true;
+	}
+
 	struct statvfs vfs;
 	if (TEMP_FAILURE_RETRY(statvfs(mpt->dst, &vfs)) == -1) {
 		PLOG_E("statvfs('%s')", mpt->dst);
 		return false;
 	}
+	/*
+	 * It's fine to use 'flags | vfs.f_flag' here as per
+	 * /usr/include/x86_64-linux-gnu/bits/statvfs.h: 'Definitions for
+	 * the flag in `f_flag'.  These definitions should be
+	 * kept in sync with the definitions in <sys/mount.h>'
+	 */
+	unsigned long new_flags = MS_REMOUNT | MS_RDONLY | vfs.f_flag;
 
-	if (mpt->flags & MS_RDONLY) {
-		/*
-		 * It's fine to use 'flags | vfs.f_flag' here as per
-		 * /usr/include/x86_64-linux-gnu/bits/statvfs.h: 'Definitions for
-		 * the flag in `f_flag'.  These definitions should be
-		 * kept in sync with the definitions in <sys/mount.h>'
-		 */
-		unsigned long new_flags = MS_REMOUNT | MS_RDONLY | vfs.f_flag;
+	LOG_D("Re-mounting R/O '%s' (old_flags:%s, new_flags:%s)", mpt->dst,
+	      mountFlagsToStr(vfs.f_flag), mountFlagsToStr(new_flags));
 
-		LOG_D("Re-mounting R/O '%s' (old_flags:%s, new_flags:%s)", mpt->dst,
-		      mountFlagsToStr(vfs.f_flag), mountFlagsToStr(new_flags));
-
-		if (mount(mpt->dst, mpt->dst, NULL, new_flags, 0) == -1) {
-			PLOG_E("mount('%s', flags:%s)", mpt->dst, mountFlagsToStr(new_flags));
-			return false;
-		}
+	if (mount(mpt->dst, mpt->dst, NULL, new_flags, 0) == -1) {
+		PLOG_E("mount('%s', flags:%s)", mpt->dst, mountFlagsToStr(new_flags));
+		return false;
 	}
+
 	return true;
 }
 
@@ -264,9 +268,11 @@ static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 
 	struct mounts_t *p;
 	TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
-		// The intention behind pivot_root_only is to allow creating
-		// nested usernamespaces. If we bind mount over /, the kernel
-		// will see the process as chrooted and deny CLONE_NEWUSER.
+		/*
+		 * The intention behind pivot_root_only is to allow creating
+		 * nested usernamespaces. If we bind mount over /, the kernel
+		 * will see the process as chrooted and deny CLONE_NEWUSER.
+		 */
 		if (nsjconf->pivot_root_only && strcmp(p->dst, "/") == 0) {
 			continue;
 		}
