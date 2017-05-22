@@ -434,7 +434,7 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 	}
 
 	flags |= SIGCHLD;
-	LOG_D("Creating new process with clone flags: %#lx", flags);
+	LOG_D("Creating new process with clone flags:%s", subprocCloneFlagsToStr(flags));
 
 	int sv[2];
 	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, sv) == -1) {
@@ -451,10 +451,10 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 	}
 	close(child_fd);
 	if (pid == -1) {
-		PLOG_E("clone(flags=%#lx) failed. You probably need root privileges if your system "
+		PLOG_E("clone(flags=%s) failed. You probably need root privileges if your system "
 		       "doesn't support CLONE_NEWUSER. Alternatively, you might want to recompile your "
 		       "kernel with support for namespaces or check the setting of the "
-		       "kernel.unprivileged_userns_clone sysctl", flags);
+		       "kernel.unprivileged_userns_clone sysctl", subprocCloneFlagsToStr(flags));
 		close(parent_fd);
 		return;
 	}
