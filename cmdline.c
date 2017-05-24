@@ -229,9 +229,15 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 		struct idmap_t *p;
 		TAILQ_FOREACH(p, &nsjconf->uids, pointers) {
 			LOG_I("Uid map: inside_uid:%d outside_uid:%d", p->inside_id, p->outside_id);
+			if (p->outside_id == 0) {
+				LOG_W("Process will be UID/EUID=0 in the global user namespace");
+			}
 		}
 		TAILQ_FOREACH(p, &nsjconf->gids, pointers) {
 			LOG_I("Gid map: inside_gid:%d outside_gid:%d", p->inside_id, p->outside_id);
+			if (p->outside_id == 0) {
+				LOG_W("Process will be GID/EGID=0 in the global user namespace");
+			}
 		}
 	}
 
@@ -240,11 +246,17 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 		TAILQ_FOREACH(p, &nsjconf->uid_mappings, pointers) {
 			LOG_I("Newuid mapping: inside_uid:'%s' outside_uid:'%s' count:'%s'",
 			      p->inside_id, p->outside_id, p->count);
+			if (p->outside_id == 0) {
+				LOG_W("Process will be UID/EUID=0 in the global user namespace");
+			}
 		}
 
 		TAILQ_FOREACH(p, &nsjconf->gid_mappings, pointers) {
 			LOG_I("Newgid mapping: inside_uid:'%s' outside_uid:'%s' count:'%s'",
 			      p->inside_id, p->outside_id, p->count);
+			if (p->outside_id == 0) {
+				LOG_W("Process will be GID/EGID=0 in the global user namespace");
+			}
 		}
 	}
 }
