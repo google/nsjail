@@ -183,6 +183,8 @@ $ ./nsjail -Mo --user 99999 --group 99999 -R /lib/x86_64-linux-gnu/ -R /lib/x86_
 [2017-05-24T17:04:37+0200] Uid map: inside_uid:99999 outside_uid:69664
 [2017-05-24T17:04:37+0200] Gid map: inside_gid:99999 outside_gid:5000
 [2017-05-24T17:04:37+0200] Executing '/usr/bin/find' for '[STANDALONE_MODE]'
+/usr/bin/find: `/proc/tty/driver': Permission denied
+2289
 [2017-05-24T17:04:37+0200] PID: 129525 exited with status: 1, (PIDs left: 0)
 </pre>
 
