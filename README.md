@@ -136,20 +136,54 @@ Date: Wed, 02 Mar 2016 02:14:08 GMT
 #### Bash in a minimal file-system with uid==0 and access to /dev/urandom only
 <pre>
 $ ./nsjail -Mo --user 0 --group 99999 -R /bin/ -R /lib -R /lib64/ -R /usr/ -R /sbin/ -T /dev -R /dev/urandom --keep_caps -- /bin/bash -i
-bash-4.3# ls -l /
-total 40
-drwxr-xr-x   2 65534 65534 12288 Jun 17 23:27 bin
-drwxrwxrwt   2     0 99999    60 Jun 19 12:31 dev
-drwxr-xr-x  25 65534 65534  4096 Jun  9 18:29 lib
-drwxr-xr-x   2 65534 65534  4096 Apr 15 22:27 lib64
-dr-xr-xr-x 260 65534 65534     0 Jun 19 12:31 proc
-drwxr-xr-x   2 65534 65534 16384 Jun 11 21:03 sbin
-drwxr-xr-x  21 65534 65534  4096 Apr 24 16:13 usr
-bash-4.3# ls -l /dev/
-total 0
-crw-rw-rw- 1 65534 65534 1, 9 Jun  9 18:33 urandom
+[2017-05-24T17:08:02+0200] Mode: STANDALONE_ONCE
+[2017-05-24T17:08:02+0200] Jail parameters: hostname:'NSJAIL', chroot:'(null)', process:'/bin/bash', bind:[::]:0, max_conns_per_ip:0, time_limit:0, personality:0, daemonize:false, clone_newnet:true, clone_newuser:true, clone_newns:true, clone_newpid:true, clone_newipc:true, clonew_newuts:true, clone_newcgroup:false, keep_caps:true, tmpfs_size:4194304, disable_no_new_privs:false, pivot_root_only:false
+[2017-05-24T17:08:02+0200] Mount point: src:'none' dst:'/' type:'tmpfs' flags:MS_RDONLY|0 options:'' isDir:True
+[2017-05-24T17:08:02+0200] Mount point: src:'none' dst:'/proc' type:'proc' flags:MS_RDONLY|0 options:'' isDir:True
+[2017-05-24T17:08:02+0200] Mount point: src:'/bin/' dst:'/bin/' type:'' flags:MS_RDONLY|MS_BIND|MS_REC|0 options:'' isDir:True
+[2017-05-24T17:08:02+0200] Mount point: src:'/lib' dst:'/lib' type:'' flags:MS_RDONLY|MS_BIND|MS_REC|0 options:'' isDir:True
+[2017-05-24T17:08:02+0200] Mount point: src:'/lib64/' dst:'/lib64/' type:'' flags:MS_RDONLY|MS_BIND|MS_REC|0 options:'' isDir:True
+[2017-05-24T17:08:02+0200] Mount point: src:'/usr/' dst:'/usr/' type:'' flags:MS_RDONLY|MS_BIND|MS_REC|0 options:'' isDir:True
+[2017-05-24T17:08:02+0200] Mount point: src:'/sbin/' dst:'/sbin/' type:'' flags:MS_RDONLY|MS_BIND|MS_REC|0 options:'' isDir:True
+[2017-05-24T17:08:02+0200] Mount point: src:'none' dst:'/dev' type:'tmpfs' flags:0 options:'size=4194304' isDir:True
+[2017-05-24T17:08:02+0200] Mount point: src:'/dev/urandom' dst:'/dev/urandom' type:'' flags:MS_RDONLY|MS_BIND|MS_REC|0 options:'' isDir:False
+[2017-05-24T17:08:02+0200] Uid map: inside_uid:0 outside_uid:69664
+[2017-05-24T17:08:02+0200] Gid map: inside_gid:99999 outside_gid:5000
+[2017-05-24T17:08:02+0200] Executing '/bin/bash' for '[STANDALONE_MODE]'
+bash: cannot set terminal process group (-1): Inappropriate ioctl for device
+bash: no job control in this shell
+bash-4.3# ls -l
+total 28
+drwxr-xr-x   2 65534 65534  4096 May 15 14:04 bin
+drwxrwxrwt   2     0 99999    60 May 24 15:08 dev
+drwxr-xr-x  28 65534 65534  4096 May 15 14:10 lib
+drwxr-xr-x   2 65534 65534  4096 May 15 13:56 lib64
+dr-xr-xr-x 391 65534 65534     0 May 24 15:08 proc
+drwxr-xr-x   2 65534 65534 12288 May 15 14:16 sbin
+drwxr-xr-x  17 65534 65534  4096 May 15 13:58 usr
 bash-4.3# id
-uid=0 gid=99999 groups=99999,65534
+uid=0 gid=99999 groups=65534,99999
+bash-4.3# exit
+exit
+[2017-05-24T17:08:05+0200] PID: 129839 exited with status: 0, (PIDs left: 0)
+</pre>
+
+#### /usr/bin/find in a minimal file-system (only /usr/bin/find accessible from /usr/bin)
+<pre>
+$ ./nsjail -Mo --user 99999 --group 99999 -R /lib/x86_64-linux-gnu/ -R /lib/x86_64-linux-gnu -R /lib64 -R /usr/bin/find -R /dev/urandom --keep_caps -- /usr/bin/find / | wc -l
+[2017-05-24T17:04:37+0200] Mode: STANDALONE_ONCE
+[2017-05-24T17:04:37+0200] Jail parameters: hostname:'NSJAIL', chroot:'(null)', process:'/usr/bin/find', bind:[::]:0, max_conns_per_ip:0, time_limit:0, personality:0, daemonize:false, clone_newnet:true, clone_newuser:true, clone_newns:true, clone_newpid:true, clone_newipc:true, clonew_newuts:true, clone_newcgroup:false, keep_caps:true, tmpfs_size:4194304, disable_no_new_privs:false, pivot_root_only:false
+[2017-05-24T17:04:37+0200] Mount point: src:'none' dst:'/' type:'tmpfs' flags:MS_RDONLY|0 options:'' isDir:True
+[2017-05-24T17:04:37+0200] Mount point: src:'none' dst:'/proc' type:'proc' flags:MS_RDONLY|0 options:'' isDir:True
+[2017-05-24T17:04:37+0200] Mount point: src:'/lib/x86_64-linux-gnu/' dst:'/lib/x86_64-linux-gnu/' type:'' flags:MS_RDONLY|MS_BIND|MS_REC|0 options:'' isDir:True
+[2017-05-24T17:04:37+0200] Mount point: src:'/lib/x86_64-linux-gnu' dst:'/lib/x86_64-linux-gnu' type:'' flags:MS_RDONLY|MS_BIND|MS_REC|0 options:'' isDir:True
+[2017-05-24T17:04:37+0200] Mount point: src:'/lib64' dst:'/lib64' type:'' flags:MS_RDONLY|MS_BIND|MS_REC|0 options:'' isDir:True
+[2017-05-24T17:04:37+0200] Mount point: src:'/usr/bin/find' dst:'/usr/bin/find' type:'' flags:MS_RDONLY|MS_BIND|MS_REC|0 options:'' isDir:False
+[2017-05-24T17:04:37+0200] Mount point: src:'/dev/urandom' dst:'/dev/urandom' type:'' flags:MS_RDONLY|MS_BIND|MS_REC|0 options:'' isDir:False
+[2017-05-24T17:04:37+0200] Uid map: inside_uid:99999 outside_uid:69664
+[2017-05-24T17:04:37+0200] Gid map: inside_gid:99999 outside_gid:5000
+[2017-05-24T17:04:37+0200] Executing '/usr/bin/find' for '[STANDALONE_MODE]'
+[2017-05-24T17:04:37+0200] PID: 129525 exited with status: 1, (PIDs left: 0)
 </pre>
 
 #### Even more contrained shell (with seccomp-bpf policies)
