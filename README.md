@@ -188,6 +188,36 @@ $ ./nsjail -Mo --user 99999 --group 99999 -R /lib/x86_64-linux-gnu/ -R /lib/x86_
 [2017-05-24T17:04:37+0200] PID: 129525 exited with status: 1, (PIDs left: 0)
 </pre>
 
+#### Using /etc/subuid
+<pre>
+$ tail -n1 /etc/subuid
+user:10000000:1
+$ ./nsjail -R /lib -R /lib64/ -R /usr/lib -R /usr/bin/ -R /usr/sbin/ -R /bin/ -R /sbin/ -R /dev/null -U 0:10000000:1 -u 0 -R /tmp/ -T /tmp/ -- /bin/ls -l /usr/
+[2017-05-24T17:12:31+0200] Mode: STANDALONE_ONCE
+[2017-05-24T17:12:31+0200] Jail parameters: hostname:'NSJAIL', chroot:'(null)', process:'/bin/ls', bind:[::]:0, max_conns_per_ip:0, time_limit:0, personality:0, daemonize:false, clone_newnet:true, clone_newuser:true, clone_newns:true, clone_newpid:true, clone_newipc:true, clonew_newuts:true, clone_newcgroup:false, keep_caps:false, tmpfs_size:4194304, disable_no_new_privs:false, pivot_root_only:false
+[2017-05-24T17:12:31+0200] Mount point: src:'none' dst:'/' type:'tmpfs' flags:MS_RDONLY|0 options:'' isDir:True
+[2017-05-24T17:12:31+0200] Mount point: src:'none' dst:'/proc' type:'proc' flags:MS_RDONLY|0 options:'' isDir:True
+[2017-05-24T17:12:31+0200] Mount point: src:'/lib' dst:'/lib' type:'' flags:MS_RDONLY|MS_BIND|MS_REC|0 options:'' isDir:True
+[2017-05-24T17:12:31+0200] Mount point: src:'/lib64/' dst:'/lib64/' type:'' flags:MS_RDONLY|MS_BIND|MS_REC|0 options:'' isDir:True
+[2017-05-24T17:12:31+0200] Mount point: src:'/usr/lib' dst:'/usr/lib' type:'' flags:MS_RDONLY|MS_BIND|MS_REC|0 options:'' isDir:True
+[2017-05-24T17:12:31+0200] Mount point: src:'/usr/bin/' dst:'/usr/bin/' type:'' flags:MS_RDONLY|MS_BIND|MS_REC|0 options:'' isDir:True
+[2017-05-24T17:12:31+0200] Mount point: src:'/usr/sbin/' dst:'/usr/sbin/' type:'' flags:MS_RDONLY|MS_BIND|MS_REC|0 options:'' isDir:True
+[2017-05-24T17:12:31+0200] Mount point: src:'/bin/' dst:'/bin/' type:'' flags:MS_RDONLY|MS_BIND|MS_REC|0 options:'' isDir:True
+[2017-05-24T17:12:31+0200] Mount point: src:'/sbin/' dst:'/sbin/' type:'' flags:MS_RDONLY|MS_BIND|MS_REC|0 options:'' isDir:True
+[2017-05-24T17:12:31+0200] Mount point: src:'/dev/null' dst:'/dev/null' type:'' flags:MS_RDONLY|MS_BIND|MS_REC|0 options:'' isDir:False
+[2017-05-24T17:12:31+0200] Mount point: src:'/tmp/' dst:'/tmp/' type:'' flags:MS_RDONLY|MS_BIND|MS_REC|0 options:'' isDir:True
+[2017-05-24T17:12:31+0200] Mount point: src:'none' dst:'/tmp/' type:'tmpfs' flags:0 options:'size=4194304' isDir:True
+[2017-05-24T17:12:31+0200] Uid map: inside_uid:0 outside_uid:69664
+[2017-05-24T17:12:31+0200] Gid map: inside_gid:5000 outside_gid:5000
+[2017-05-24T17:12:31+0200] Newuid mapping: inside_uid:'0' outside_uid:'10000000' count:'1'
+[2017-05-24T17:12:31+0200] Executing '/bin/ls' for '[STANDALONE_MODE]'
+total 120
+drwxr-xr-x   5 65534 65534 77824 May 24 12:25 bin
+drwxr-xr-x 210 65534 65534 20480 May 22 16:11 lib
+drwxr-xr-x   4 65534 65534 20480 May 24 00:24 sbin
+[2017-05-24T17:12:31+0200] PID: 130841 exited with status: 0, (PIDs left: 0)
+</pre>
+
 #### Even more contrained shell (with seccomp-bpf policies)
 <pre>
 $ ./nsjail --chroot / --seccomp_string 'POLICY a { ALLOW { write, execve, brk, access, mmap, open, newfstat, close, read, mprotect, arch_prctl, munmap, getuid, getgid, getpid, rt_sigaction, geteuid, getppid, getcwd, getegid, ioctl, fcntl, newstat, clone, wait4, rt_sigreturn, exit_group } } USE a DEFAULT KILL' -- /bin/sh -i
