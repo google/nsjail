@@ -222,17 +222,25 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	{
 		struct mounts_t *p;
 		TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
-			LOG_I("Mount point: src:'%s' dst:'%s' type:'%s' flags:%s options:'%s'",
-			      p->src, p->dst, p->fs_type, mountFlagsToStr(p->flags), p->options);
+			LOG_I
+			    ("Mount point: src:'%s' dst:'%s' type:'%s' flags:%s options:'%s' isDir:%s",
+			     p->src, p->dst, p->fs_type, mountFlagsToStr(p->flags), p->options,
+			     p->isDir ? "True" : "False");
 		}
 	}
 	{
 		struct idmap_t *p;
 		TAILQ_FOREACH(p, &nsjconf->uids, pointers) {
 			LOG_I("Uid map: inside_uid:%d outside_uid:%d", p->inside_id, p->outside_id);
+			if (p->outside_id == 0) {
+				LOG_W("Process will be UID/EUID=0 in the global user namespace");
+			}
 		}
 		TAILQ_FOREACH(p, &nsjconf->gids, pointers) {
 			LOG_I("Gid map: inside_gid:%d outside_gid:%d", p->inside_id, p->outside_id);
+			if (p->outside_id == 0) {
+				LOG_W("Process will be GID/EGID=0 in the global user namespace");
+			}
 		}
 	}
 
@@ -241,11 +249,17 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 		TAILQ_FOREACH(p, &nsjconf->uid_mappings, pointers) {
 			LOG_I("Newuid mapping: inside_uid:'%s' outside_uid:'%s' count:'%s'",
 			      p->inside_id, p->outside_id, p->count);
+			if (p->outside_id == 0) {
+				LOG_W("Process will be UID/EUID=0 in the global user namespace");
+			}
 		}
 
 		TAILQ_FOREACH(p, &nsjconf->gid_mappings, pointers) {
 			LOG_I("Newgid mapping: inside_uid:'%s' outside_uid:'%s' count:'%s'",
 			      p->inside_id, p->outside_id, p->count);
+			if (p->outside_id == 0) {
+				LOG_W("Process will be GID/EGID=0 in the global user namespace");
+			}
 		}
 	}
 }
@@ -654,6 +668,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				p->flags = MS_BIND | MS_REC | MS_RDONLY;
 				p->options = "";
 				p->fs_type = "";
+				p->isDir = mountIsDir(optarg);
 				TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
 			} break;
 		case 'B':{
@@ -663,15 +678,17 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				p->flags = MS_BIND | MS_REC;
 				p->options = "";
 				p->fs_type = "";
+				p->isDir = mountIsDir(optarg);
 				TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
 			} break;
 		case 'T':{
 				struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
-				p->src = NULL;
+				p->src = "none";
 				p->dst = optarg;
 				p->flags = 0;
 				p->options = cmdlineTmpfsSz;
 				p->fs_type = "tmpfs";
+				p->isDir = true;
 				TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
 			} break;
 		case 'M':
@@ -748,7 +765,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 
 	if (nsjconf->mount_proc == true) {
 		struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
-		p->src = NULL;
+		p->src = "none";
 		p->dst = "/proc";
 		p->flags = 0;
 		if (nsjconf->is_root_rw == false) {
@@ -756,6 +773,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		}
 		p->options = "";
 		p->fs_type = "proc";
+		p->isDir = true;
 		TAILQ_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
 	}
 	if (nsjconf->chroot != NULL) {
@@ -765,17 +783,19 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		p->flags = MS_BIND | MS_REC;
 		p->options = "";
 		p->fs_type = "";
+		p->isDir = true;
 		if (nsjconf->is_root_rw == false) {
 			p->flags |= MS_RDONLY;
 		}
 		TAILQ_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
 	} else {
 		struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
-		p->src = NULL;
+		p->src = "none";
 		p->dst = "/";
 		p->flags = 0;
 		p->options = "";
 		p->fs_type = "tmpfs";
+		p->isDir = true;
 		if (nsjconf->is_root_rw == false) {
 			p->flags |= MS_RDONLY;
 		}

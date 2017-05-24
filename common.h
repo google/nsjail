@@ -70,6 +70,7 @@ struct mounts_t {
 	const char *fs_type;
 	const char *options;
 	uintptr_t flags;
+	bool isDir;
 	 TAILQ_ENTRY(mounts_t) pointers;
 };
 
