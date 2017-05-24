@@ -40,6 +40,64 @@
 #include "subproc.h"
 #include "util.h"
 
+#define VALSTR_STRUCT(x) { x, #x }
+
+#if !defined(MS_LAZYTIME)
+#define MS_LAZYTIME (1<<25)
+#endif				/* if !defined(MS_LAZYTIME) */
+
+const char *mountFlagsToStr(uintptr_t flags)
+{
+	static __thread char mountFlagsStr[1024];
+	mountFlagsStr[0] = '\0';
+
+	/*  *INDENT-OFF* */
+	static struct {
+		const uintptr_t flag;
+		const char* const name;
+	} const mountFlags[] = {
+			VALSTR_STRUCT(MS_RDONLY),
+			VALSTR_STRUCT(MS_NOSUID),
+			VALSTR_STRUCT(MS_NODEV),
+			VALSTR_STRUCT(MS_NOEXEC),
+			VALSTR_STRUCT(MS_SYNCHRONOUS),
+			VALSTR_STRUCT(MS_REMOUNT),
+			VALSTR_STRUCT(MS_MANDLOCK),
+			VALSTR_STRUCT(MS_DIRSYNC),
+			VALSTR_STRUCT(MS_NOATIME),
+			VALSTR_STRUCT(MS_NODIRATIME),
+			VALSTR_STRUCT(MS_BIND),
+			VALSTR_STRUCT(MS_MOVE),
+			VALSTR_STRUCT(MS_REC),
+			VALSTR_STRUCT(MS_SILENT),
+			VALSTR_STRUCT(MS_POSIXACL),
+			VALSTR_STRUCT(MS_UNBINDABLE),
+			VALSTR_STRUCT(MS_PRIVATE),
+			VALSTR_STRUCT(MS_SLAVE),
+			VALSTR_STRUCT(MS_SHARED),
+			VALSTR_STRUCT(MS_RELATIME),
+			VALSTR_STRUCT(MS_KERNMOUNT),
+			VALSTR_STRUCT(MS_I_VERSION),
+			VALSTR_STRUCT(MS_STRICTATIME),
+			VALSTR_STRUCT(MS_LAZYTIME),
+	};
+	/*  *INDENT-ON* */
+
+	for (size_t i = 0; i < ARRAYSIZE(mountFlags); i++) {
+		if (flags & mountFlags[i].flag) {
+			utilSSnPrintf(mountFlagsStr, sizeof(mountFlagsStr), "%s|",
+				      mountFlags[i].name);
+		}
+	}
+
+	uintptr_t knownFlagMask = 0U;
+	for (size_t i = 0; i < ARRAYSIZE(mountFlags); i++) {
+		knownFlagMask |= mountFlags[i].flag;
+	}
+	utilSSnPrintf(mountFlagsStr, sizeof(mountFlagsStr), "%#tx", flags & ~(knownFlagMask));
+	return mountFlagsStr;
+}
+
 static bool mountIsDir(const char *path)
 {
 	/*
@@ -59,8 +117,10 @@ static bool mountIsDir(const char *path)
 	return false;
 }
 
-// It's a not a simple reversal of containIsDir() as it returns also 'false' upon
-// stat() failure
+/*
+ * It's a not a simple reversal of containIsDir() as it returns also 'false' upon
+ * stat() failure
+ */
 static bool mountNotIsDir(const char *path)
 {
 	if (path == NULL) {
@@ -80,8 +140,8 @@ static bool mountNotIsDir(const char *path)
 static bool mountMount(struct nsjconf_t *nsjconf, struct mounts_t *mpt, const char *oldroot,
 		       const char *dst)
 {
-	LOG_D("Mounting '%s' on '%s' (type:'%s', flags:0x%tx, options:'%s')", mpt->src, dst,
-	      mpt->fs_type, mpt->flags, mpt->options);
+	LOG_D("Mounting '%s' on '%s' (type:'%s', flags:%s, options:'%s')", mpt->src, dst,
+	      mpt->fs_type, mountFlagsToStr(mpt->flags), mpt->options);
 
 	char srcpath[PATH_MAX];
 	const char *src = NULL;
@@ -132,27 +192,31 @@ static bool mountMount(struct nsjconf_t *nsjconf, struct mounts_t *mpt, const ch
 
 static bool mountRemountRO(struct mounts_t *mpt)
 {
+	if (!(mpt->flags & MS_RDONLY)) {
+		return true;
+	}
+
 	struct statvfs vfs;
 	if (TEMP_FAILURE_RETRY(statvfs(mpt->dst, &vfs)) == -1) {
 		PLOG_E("statvfs('%s')", mpt->dst);
 		return false;
 	}
+	/*
+	 * It's fine to use 'flags | vfs.f_flag' here as per
+	 * /usr/include/x86_64-linux-gnu/bits/statvfs.h: 'Definitions for
+	 * the flag in `f_flag'.  These definitions should be
+	 * kept in sync with the definitions in <sys/mount.h>'
+	 */
+	unsigned long new_flags = MS_REMOUNT | MS_RDONLY | vfs.f_flag;
 
-	if (mpt->flags & MS_RDONLY) {
-		LOG_D("Re-mounting RO '%s'", mpt->dst);
-		/*
-		 * It's fine to use 'flags | vfs.f_flag' here as per
-		 * /usr/include/x86_64-linux-gnu/bits/statvfs.h: 'Definitions for
-		 * the flag in `f_flag'.  These definitions should be
-		 * kept in sync with the definitions in <sys/mount.h>'
-		 */
-		if (mount
-		    (mpt->dst, mpt->dst, NULL,
-		     MS_BIND | MS_REMOUNT | MS_RDONLY | vfs.f_flag, 0) == -1) {
-			PLOG_E("mount('%s', MS_REC|MS_BIND|MS_REMOUNT|MS_RDONLY)", mpt->dst);
-			return false;
-		}
+	LOG_D("Re-mounting R/O '%s' (old_flags:%s, new_flags:%s)", mpt->dst,
+	      mountFlagsToStr(vfs.f_flag), mountFlagsToStr(new_flags));
+
+	if (mount(mpt->dst, mpt->dst, NULL, new_flags, 0) == -1) {
+		PLOG_E("mount('%s', flags:%s)", mpt->dst, mountFlagsToStr(new_flags));
+		return false;
 	}
+
 	return true;
 }
 
@@ -204,9 +268,11 @@ static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 
 	struct mounts_t *p;
 	TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
-		// The intention behind pivot_root_only is to allow creating
-		// nested usernamespaces. If we bind mount over /, the kernel
-		// will see the process as chrooted and deny CLONE_NEWUSER.
+		/*
+		 * The intention behind pivot_root_only is to allow creating
+		 * nested usernamespaces. If we bind mount over /, the kernel
+		 * will see the process as chrooted and deny CLONE_NEWUSER.
+		 */
 		if (nsjconf->pivot_root_only && strcmp(p->dst, "/") == 0) {
 			continue;
 		}

@@ -42,6 +42,7 @@
 #include <unistd.h>
 
 #include "log.h"
+#include "mount.h"
 #include "util.h"
 
 struct custom_option {
@@ -221,8 +222,8 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	{
 		struct mounts_t *p;
 		TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
-			LOG_I("Mount point: src:'%s' dst:'%s' type:'%s' flags:0x%tx options:'%s'",
-			      p->src, p->dst, p->fs_type, p->flags, p->options);
+			LOG_I("Mount point: src:'%s' dst:'%s' type:'%s' flags:%s options:'%s'",
+			      p->src, p->dst, p->fs_type, mountFlagsToStr(p->flags), p->options);
 		}
 	}
 	{

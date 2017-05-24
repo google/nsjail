@@ -33,6 +33,7 @@ void subprocDisplay(struct nsjconf_t *nsjconf);
 void subprocKillAll(struct nsjconf_t *nsjconf);
 int subprocSystem(const char **argv, char **env);
 pid_t subprocClone(uintptr_t flags);
+void subprocCloneFlags(struct nsjconf_t *nsjconf);
 
 /* Returns the exit code of the first failing subprocess, or 0 if none fail */
 int subprocReap(struct nsjconf_t *nsjconf);
