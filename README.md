@@ -6,6 +6,8 @@
   * [Isolation of local processes](#isolation-of-local-processes)
   * [Isolation of local processes (and re-running them, if necessary)](#isolation-of-local-processes-and-re-running-them-if-necessary)
   * [Bash in a minimal file-system with uid==0 and access to /dev/urandom only](#bash-in-a-minimal-file-system-with-uid0-and-access-to-devurandom-only)
+  * [/usr/bin/find in a minimal file-system (only /usr/bin/find accessible from /usr/bin)](#usrbinfind-in-a-minimal-file-system-only-usrbinfind-accessible-from-usrbin)
+  * [Using /etc/subuid](#using-etcsubuid)
   * [Even more contrained shell (with seccomp-bpf policies)](#even-more-contrained-shell-with-seccomp-bpf-policies)
 - [More info](#more-info)
 - [Launching in Docker](#launching-in-docker)
