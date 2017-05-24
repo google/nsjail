@@ -222,8 +222,10 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	{
 		struct mounts_t *p;
 		TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
-			LOG_I("Mount point: src:'%s' dst:'%s' type:'%s' flags:%s options:'%s'",
-			      p->src, p->dst, p->fs_type, mountFlagsToStr(p->flags), p->options);
+			LOG_I
+			    ("Mount point: src:'%s' dst:'%s' type:'%s' flags:%s options:'%s' isDir:%s",
+			     p->src, p->dst, p->fs_type, mountFlagsToStr(p->flags), p->options,
+			     p->isDir ? "True" : "False");
 		}
 	}
 	{
@@ -666,6 +668,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				p->flags = MS_BIND | MS_REC | MS_RDONLY;
 				p->options = "";
 				p->fs_type = "";
+				p->isDir = mountIsDir(optarg);
 				TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
 			} break;
 		case 'B':{
@@ -675,6 +678,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				p->flags = MS_BIND | MS_REC;
 				p->options = "";
 				p->fs_type = "";
+				p->isDir = mountIsDir(optarg);
 				TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
 			} break;
 		case 'T':{
@@ -684,6 +688,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				p->flags = 0;
 				p->options = cmdlineTmpfsSz;
 				p->fs_type = "tmpfs";
+				p->isDir = true;
 				TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
 			} break;
 		case 'M':
@@ -768,6 +773,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		}
 		p->options = "";
 		p->fs_type = "proc";
+		p->isDir = true;
 		TAILQ_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
 	}
 	if (nsjconf->chroot != NULL) {
@@ -777,6 +783,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		p->flags = MS_BIND | MS_REC;
 		p->options = "";
 		p->fs_type = "";
+		p->isDir = true;
 		if (nsjconf->is_root_rw == false) {
 			p->flags |= MS_RDONLY;
 		}
@@ -788,6 +795,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		p->flags = 0;
 		p->options = "";
 		p->fs_type = "tmpfs";
+		p->isDir = true;
 		if (nsjconf->is_root_rw == false) {
 			p->flags |= MS_RDONLY;
 		}

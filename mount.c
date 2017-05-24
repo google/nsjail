@@ -98,7 +98,7 @@ const char *mountFlagsToStr(uintptr_t flags)
 	return mountFlagsStr;
 }
 
-static bool mountIsDir(const char *path)
+bool mountIsDir(const char *path)
 {
 	/*
 	 *  If the source dir is NULL, we assume it's a dir (for /proc and tmpfs)
@@ -117,40 +117,19 @@ static bool mountIsDir(const char *path)
 	return false;
 }
 
-/*
- * It's a not a simple reversal of containIsDir() as it returns also 'false' upon
- * stat() failure
- */
-static bool mountNotIsDir(const char *path)
-{
-	if (path == NULL) {
-		return false;
-	}
-	struct stat st;
-	if (stat(path, &st) == -1) {
-		PLOG_E("stat('%s')", path);
-		return false;
-	}
-	if (S_ISDIR(st.st_mode)) {
-		return false;
-	}
-	return true;
-}
-
 static bool mountMount(struct nsjconf_t *nsjconf, struct mounts_t *mpt, const char *oldroot,
 		       const char *dst)
 {
-	LOG_D("Mounting '%s' on '%s' (type:'%s', flags:%s, options:'%s')", mpt->src, dst,
-	      mpt->fs_type, mountFlagsToStr(mpt->flags), mpt->options);
+	LOG_D("Mounting '%s' on '%s' (type:'%s', flags:%s, options:'%s', is_dir:%s)", mpt->src, dst,
+	      mpt->fs_type, mountFlagsToStr(mpt->flags), mpt->options,
+	      mpt->isDir ? "True" : "False");
 
-	char srcpath[PATH_MAX];
-	const char *src = NULL;
+	char srcpath[PATH_MAX] = { 0 };
 	if (mpt->src != NULL) {
 		snprintf(srcpath, sizeof(srcpath), "%s/%s", oldroot, mpt->src);
-		src = srcpath;
 	}
 
-	if (mountIsDir(src) == true) {
+	if (mpt->isDir == true) {
 		if (utilCreateDirRecursively(dst) == false) {
 			LOG_W("Couldn't create upper directories for '%s'", dst);
 			return false;
@@ -158,9 +137,7 @@ static bool mountMount(struct nsjconf_t *nsjconf, struct mounts_t *mpt, const ch
 		if (mkdir(dst, 0711) == -1 && errno != EEXIST) {
 			PLOG_W("mkdir('%s')", dst);
 		}
-	}
-
-	if (mountNotIsDir(src) == true) {
+	} else {
 		if (utilCreateDirRecursively(dst) == false) {
 			LOG_W("Couldn't create upper directories for '%s'", dst);
 			return false;
@@ -177,13 +154,13 @@ static bool mountMount(struct nsjconf_t *nsjconf, struct mounts_t *mpt, const ch
 	 * Initially mount it as RW, it will be remounted later on if needed
 	 */
 	unsigned long flags = mpt->flags & ~(MS_RDONLY);
-	if (mount(src, dst, mpt->fs_type, flags, mpt->options) == -1) {
+	if (mount(srcpath, dst, mpt->fs_type, flags, mpt->options) == -1) {
 		if (errno == EACCES) {
 			PLOG_E
 			    ("mount('%s', '%s', type='%s') failed. Try fixing this problem by applying 'chmod o+x' to the '%s' directory and its ancestors",
-			     src, dst, mpt->fs_type, nsjconf->chroot);
+			     srcpath, dst, mpt->fs_type, nsjconf->chroot);
 		} else {
-			PLOG_E("mount('%s', '%s', type='%s') failed", src, dst, mpt->fs_type);
+			PLOG_E("mount('%s', '%s', type='%s') failed", srcpath, dst, mpt->fs_type);
 		}
 		return false;
 	}
