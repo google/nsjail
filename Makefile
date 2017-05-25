@@ -50,6 +50,8 @@ USE_PROTOBUFC ?= yes
 ifeq ($(USE_PROTOBUFC), yes)
 PROTOBUFC_EXISTS := $(shell pkg-config --exists libprotobuf-c && echo yes)
 ifeq ($(PROTOBUFC_EXISTS), yes)
+	PROTO_DEPS = config.pb-c.h config.pb-c.c
+	SRCS += config.pb-c.c
 	CFLAGS += -DNSJAIL_WITH_PROTOBUFC $(shell pkg-config --cflags libprotobuf-c)
 	LDFLAGS += $(shell pkg-config --libs libprotobuf-c)
 endif
@@ -60,7 +62,7 @@ endif
 .c.o: %.c
 	$(CC) $(CFLAGS) $< -o $@
 
-all: kafel $(BIN)
+all: $(PROTO_DEPS) kafel $(BIN)
 
 $(BIN): $(OBJS) $(LIBS)
 	$(CC) -o $(BIN) $(OBJS) $(LIBS) $(LDFLAGS)
@@ -72,6 +74,9 @@ endif
 
 kafel/libkafel.a:
 	$(MAKE) -C kafel
+
+$(PROTO_DEPS): config.proto
+	protoc-c --c_out=. config.proto
 
 clean:
 	$(RM) core Makefile.bak $(OBJS) $(BIN)

@@ -1,0 +1,7 @@
+syntax = "proto3";
+
+package nsjail;
+
+message NsJailConfig {
+	bytes chroot = 1;
+}
