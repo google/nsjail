@@ -28,7 +28,7 @@ CFLAGS += -O2 -c -std=gnu11 \
 
 LDFLAGS += -Wl,-z,now -Wl,-z,relro -pie -Wl,-z,noexecstack
 
-SRCS = nsjail.c cmdline.c contain.c log.c cgroup.c mount.c net.c pid.c sandbox.c subproc.c user.c util.c uts.c
+SRCS = nsjail.c cmdline.c config.c contain.c log.c cgroup.c mount.c net.c pid.c sandbox.c subproc.c user.c util.c uts.c
 OBJS = $(SRCS:.c=.o)
 BIN = nsjail
 LIBS = kafel/libkafel.a
@@ -50,7 +50,7 @@ USE_PROTOBUFC ?= yes
 ifeq ($(USE_PROTOBUFC), yes)
 PROTOBUFC_EXISTS := $(shell pkg-config --exists libprotobuf-c && echo yes)
 ifeq ($(PROTOBUFC_EXISTS), yes)
-	CFLAGS += $(shell pkg-config --cflags libprotobuf-c)
+	CFLAGS += -DNSJAIL_WITH_PROTOBUFC $(shell pkg-config --cflags libprotobuf-c)
 	LDFLAGS += $(shell pkg-config --libs libprotobuf-c)
 endif
 endif

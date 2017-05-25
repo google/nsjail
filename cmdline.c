@@ -41,6 +41,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "config.h"
 #include "log.h"
 #include "mount.h"
 #include "util.h"
@@ -63,6 +64,7 @@ struct custom_option custom_opts[] = {
      "[MODE_STANDALONE_EXECVE]\n"
      "\tr: Immediately launch a single process on the console, keep doing it "
      "forever [MODE_STANDALONE_RERUN]"},
+    {{"config", required_argument, NULL, 'C'}, "Configuration file in the config.proto ProtoBuf format"},
     {{"chroot", required_argument, NULL, 'c'}, "Directory containing / of the jail (default: none)"},
     {{"rw", no_argument, NULL, 0x601}, "Mount / and /proc as RW (default: RO)"},
     {{"user", required_argument, NULL, 'u'}, "Username/uid of processess inside the jail (default: your current uid). You can also use inside_ns_uid:outside_ns_uid convention here. Can be specified multiple times"},
@@ -496,7 +498,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	int opt_index = 0;
 	for (;;) {
 		int c = getopt_long(argc, argv,
-				    "H:D:c:p:i:u:g:l:t:M:Ndvqeh?E:R:B:T:P:I:U:G:", opts,
+				    "H:D:C:c:p:i:u:g:l:t:M:Ndvqeh?E:R:B:T:P:I:U:G:", opts,
 				    &opt_index);
 		if (c == -1) {
 			break;
@@ -507,6 +509,11 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			break;
 		case 'D':
 			nsjconf->cwd = optarg;
+			break;
+		case 'C':
+			if (configParse(nsjconf, optarg) == false) {
+				LOG_F("Couldn't parse configuration from '%s' file", optarg);
+			}
 			break;
 		case 'c':
 			nsjconf->chroot = optarg;
