@@ -204,8 +204,8 @@ bool userInitNsFromChild(struct nsjconf_t * nsjconf)
 	      TAILQ_FIRST(&nsjconf->gids)->inside_id, TAILQ_FIRST(&nsjconf->gids)->inside_id);
 	if (syscall
 	    (__NR_setresgid, TAILQ_FIRST(&nsjconf->gids)->inside_id,
-	     TAILQ_FIRST(&nsjconf->gids)->inside_id, TAILQ_FIRST(&nsjconf->gids)->inside_id)
-	    == -1) {
+	     TAILQ_FIRST(&nsjconf->gids)->inside_id,
+	     TAILQ_FIRST(&nsjconf->gids)->inside_id) == -1) {
 		PLOG_E("setresgid(%u)", TAILQ_FIRST(&nsjconf->gids)->inside_id);
 		return false;
 	}
@@ -213,8 +213,8 @@ bool userInitNsFromChild(struct nsjconf_t * nsjconf)
 	      TAILQ_FIRST(&nsjconf->uids)->inside_id, TAILQ_FIRST(&nsjconf->uids)->inside_id);
 	if (syscall
 	    (__NR_setresuid, TAILQ_FIRST(&nsjconf->uids)->inside_id,
-	     TAILQ_FIRST(&nsjconf->uids)->inside_id, TAILQ_FIRST(&nsjconf->uids)->inside_id)
-	    == -1) {
+	     TAILQ_FIRST(&nsjconf->uids)->inside_id,
+	     TAILQ_FIRST(&nsjconf->uids)->inside_id) == -1) {
 		PLOG_E("setresuid(%u)", TAILQ_FIRST(&nsjconf->uids)->inside_id);
 		return false;
 	}
