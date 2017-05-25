@@ -38,10 +38,20 @@ ifdef DEBUG
 endif
 
 USE_NL3 ?= yes
-ifeq ("$(wildcard /usr/include/libnl3/netlink/route/link/macvlan.h)","/usr/include/libnl3/netlink/route/link/macvlan.h")
 ifeq ($(USE_NL3), yes)
-	CFLAGS += -DNSJAIL_NL3_WITH_MACVLAN -I/usr/include/libnl3
-	LDFLAGS += -lnl-3 -lnl-route-3
+NL3_EXISTS := $(shell pkg-config --exists libnl-route-3.0 && echo yes)
+ifeq ($(NL3_EXISTS), yes)
+	CFLAGS += -DNSJAIL_NL3_WITH_MACVLAN $(shell pkg-config --cflags libnl-route-3.0)
+	LDFLAGS += $(shell pkg-config --libs libnl-route-3.0)
+endif
+endif
+
+USE_PROTOBUFC ?= yes
+ifeq ($(USE_PROTOBUFC), yes)
+PROTOBUFC_EXISTS := $(shell pkg-config --exists libprotobuf-c && echo yes)
+ifeq ($(PROTOBUFC_EXISTS), yes)
+	CFLAGS += $(shell pkg-config --cflags libprotobuf-c)
+	LDFLAGS += $(shell pkg-config --libs libprotobuf-c)
 endif
 endif
 
