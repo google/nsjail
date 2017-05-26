@@ -35,29 +35,27 @@ typedef enum _Nsjail__LogLevel {
 
 struct _Nsjail__IdMap {
 	ProtobufCMessage base;
-	ProtobufCBinaryData inside_id;
-	ProtobufCBinaryData outside_id;
+	char *inside_id;
+	char *outside_id;
 	uint32_t count;
 };
 #define NSJAIL__ID_MAP__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&nsjail__id_map__descriptor) \
-    , {0,NULL}, {0,NULL}, 1u }
+    , NULL, NULL, 1u }
 
 struct _Nsjail__NsJailConfig {
 	ProtobufCMessage base;
 	Nsjail__Mode mode;
-	protobuf_c_boolean has_chroot_dir;
-	ProtobufCBinaryData chroot_dir;
+	char *chroot_dir;
 	protobuf_c_boolean is_root_rw;
-	ProtobufCBinaryData hostname;
-	ProtobufCBinaryData cwd;
+	char *hostname;
+	char *cwd;
 	uint32_t port;
-	ProtobufCBinaryData bindhost;
+	char *bindhost;
 	uint32_t max_conns_per_ip;
 	uint32_t time_limit;
 	protobuf_c_boolean daemon;
-	protobuf_c_boolean has_log_file;
-	ProtobufCBinaryData log_file;
+	char *log_file;
 	protobuf_c_boolean has_log_level;
 	Nsjail__LogLevel log_level;
 	protobuf_c_boolean keep_env;
@@ -97,12 +95,12 @@ struct _Nsjail__NsJailConfig {
 	size_t n_newgidmap;
 	Nsjail__IdMap **newgidmap;
 };
-extern uint8_t nsjail__ns_jail_config__hostname__default_value_data[];
-extern uint8_t nsjail__ns_jail_config__cwd__default_value_data[];
-extern uint8_t nsjail__ns_jail_config__bindhost__default_value_data[];
+extern char nsjail__ns_jail_config__hostname__default_value[];
+extern char nsjail__ns_jail_config__cwd__default_value[];
+extern char nsjail__ns_jail_config__bindhost__default_value[];
 #define NSJAIL__NS_JAIL_CONFIG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&nsjail__ns_jail_config__descriptor) \
-    , NSJAIL__MODE__ONCE, 0,{0,NULL}, 0, { 6, nsjail__ns_jail_config__hostname__default_value_data }, { 1, nsjail__ns_jail_config__cwd__default_value_data }, 0u, { 2, nsjail__ns_jail_config__bindhost__default_value_data }, 0u, 600u, 0, 0,{0,NULL}, 0,0, 0, 0, 0, 0,NULL, 0, 0, 512ull, 0ull, 600ull, 1ull, 32ull, 0,0, 0,0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0,NULL, 0,NULL, 0,NULL, 0,NULL }
+    , NSJAIL__MODE__ONCE, NULL, 0, nsjail__ns_jail_config__hostname__default_value, nsjail__ns_jail_config__cwd__default_value, 0u, nsjail__ns_jail_config__bindhost__default_value, 0u, 600u, 0, NULL, 0,0, 0, 0, 0, 0,NULL, 0, 0, 512ull, 0ull, 600ull, 1ull, 32ull, 0,0, 0,0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0,NULL, 0,NULL, 0,NULL, 0,NULL }
 
 /* Nsjail__IdMap methods */
 void nsjail__id_map__init(Nsjail__IdMap * message);

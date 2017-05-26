@@ -77,7 +77,7 @@ static const ProtobufCFieldDescriptor nsjail__id_map__field_descriptors[3] = {
 	 "inside_id",
 	 1,
 	 PROTOBUF_C_LABEL_REQUIRED,
-	 PROTOBUF_C_TYPE_BYTES,
+	 PROTOBUF_C_TYPE_STRING,
 	 0,			/* quantifier_offset */
 	 offsetof(Nsjail__IdMap, inside_id),
 	 NULL,
@@ -89,7 +89,7 @@ static const ProtobufCFieldDescriptor nsjail__id_map__field_descriptors[3] = {
 	 "outside_id",
 	 2,
 	 PROTOBUF_C_LABEL_REQUIRED,
-	 PROTOBUF_C_TYPE_BYTES,
+	 PROTOBUF_C_TYPE_STRING,
 	 0,			/* quantifier_offset */
 	 offsetof(Nsjail__IdMap, outside_id),
 	 NULL,
@@ -137,18 +137,12 @@ const ProtobufCMessageDescriptor nsjail__id_map__descriptor = {
 	NULL, NULL, NULL	/* reserved[123] */
 };
 
-uint8_t nsjail__ns_jail_config__hostname__default_value_data[] = "NSJAIL";
-uint8_t nsjail__ns_jail_config__cwd__default_value_data[] = "/";
-uint8_t nsjail__ns_jail_config__bindhost__default_value_data[] = "::";
+char nsjail__ns_jail_config__hostname__default_value[] = "NSJAIL";
+char nsjail__ns_jail_config__cwd__default_value[] = "/";
+char nsjail__ns_jail_config__bindhost__default_value[] = "::";
 static const Nsjail__Mode nsjail__ns_jail_config__mode__default_value = NSJAIL__MODE__ONCE;
 static const protobuf_c_boolean nsjail__ns_jail_config__is_root_rw__default_value = 0;
-static const ProtobufCBinaryData nsjail__ns_jail_config__hostname__default_value =
-    { 6, nsjail__ns_jail_config__hostname__default_value_data };
-static const ProtobufCBinaryData nsjail__ns_jail_config__cwd__default_value =
-    { 1, nsjail__ns_jail_config__cwd__default_value_data };
 static const uint32_t nsjail__ns_jail_config__port__default_value = 0u;
-static const ProtobufCBinaryData nsjail__ns_jail_config__bindhost__default_value =
-    { 2, nsjail__ns_jail_config__bindhost__default_value_data };
 static const uint32_t nsjail__ns_jail_config__max_conns_per_ip__default_value = 0u;
 static const uint32_t nsjail__ns_jail_config__time_limit__default_value = 600u;
 static const protobuf_c_boolean nsjail__ns_jail_config__daemon__default_value = 0;
@@ -194,8 +188,8 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 "chroot_dir",
 	 2,
 	 PROTOBUF_C_LABEL_OPTIONAL,
-	 PROTOBUF_C_TYPE_BYTES,
-	 offsetof(Nsjail__NsJailConfig, has_chroot_dir),
+	 PROTOBUF_C_TYPE_STRING,
+	 0,			/* quantifier_offset */
 	 offsetof(Nsjail__NsJailConfig, chroot_dir),
 	 NULL,
 	 NULL,
@@ -218,7 +212,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 "hostname",
 	 6,
 	 PROTOBUF_C_LABEL_REQUIRED,
-	 PROTOBUF_C_TYPE_BYTES,
+	 PROTOBUF_C_TYPE_STRING,
 	 0,			/* quantifier_offset */
 	 offsetof(Nsjail__NsJailConfig, hostname),
 	 NULL,
@@ -230,7 +224,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 "cwd",
 	 7,
 	 PROTOBUF_C_LABEL_REQUIRED,
-	 PROTOBUF_C_TYPE_BYTES,
+	 PROTOBUF_C_TYPE_STRING,
 	 0,			/* quantifier_offset */
 	 offsetof(Nsjail__NsJailConfig, cwd),
 	 NULL,
@@ -254,7 +248,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 "bindhost",
 	 9,
 	 PROTOBUF_C_LABEL_REQUIRED,
-	 PROTOBUF_C_TYPE_BYTES,
+	 PROTOBUF_C_TYPE_STRING,
 	 0,			/* quantifier_offset */
 	 offsetof(Nsjail__NsJailConfig, bindhost),
 	 NULL,
@@ -302,8 +296,8 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 "log_file",
 	 13,
 	 PROTOBUF_C_LABEL_OPTIONAL,
-	 PROTOBUF_C_TYPE_BYTES,
-	 offsetof(Nsjail__NsJailConfig, has_log_file),
+	 PROTOBUF_C_TYPE_STRING,
+	 0,			/* quantifier_offset */
 	 offsetof(Nsjail__NsJailConfig, log_file),
 	 NULL,
 	 NULL,

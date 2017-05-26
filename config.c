@@ -59,18 +59,18 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 		LOG_E("Uknown running mode: %d", njc->mode);
 		return false;
 	}
-	if (njc->has_chroot_dir) {
-		nsjconf->chroot = utilStrDupLen((char *)njc->chroot_dir.data, njc->chroot_dir.len);
+	if (njc->chroot_dir) {
+		nsjconf->chroot = utilStrDup(njc->chroot_dir);
 	}
-	nsjconf->hostname = utilStrDupLen((char *)njc->hostname.data, njc->hostname.len);
-	nsjconf->cwd = utilStrDupLen((char *)njc->cwd.data, njc->cwd.len);
-	nsjconf->bindhost = utilStrDupLen((char *)njc->bindhost.data, njc->bindhost.len);
+	nsjconf->hostname = utilStrDup(njc->hostname);
+	nsjconf->cwd = utilStrDup(njc->cwd);
+	nsjconf->bindhost = utilStrDup(njc->bindhost);
 	nsjconf->max_conns_per_ip = njc->max_conns_per_ip;
 	nsjconf->tlimit = njc->time_limit;
 	nsjconf->daemonize = njc->daemon;
 
-	if (njc->has_log_file) {
-		nsjconf->logfile = utilStrDupLen((char *)njc->log_file.data, njc->log_file.len);
+	if (njc->log_file) {
+		nsjconf->logfile = utilStrDup(njc->log_file);
 	}
 	if (njc->has_log_level) {
 		switch (njc->log_level) {
@@ -96,7 +96,7 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 
 	}
 
-	if (njc->has_log_file || njc->has_log_level) {
+	if (njc->log_file || njc->has_log_level) {
 		if (logInitLogFile(nsjconf) == false) {
 			return false;
 		}
@@ -152,57 +152,36 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 	nsjconf->clone_newcgroup = njc->clone_newcgroup;
 
 	for (size_t i = 0; i < njc->n_uidmap; i++) {
-		const char *i_id =
-		    utilStrDupLen((char *)njc->uidmap[i]->inside_id.data,
-				  njc->uidmap[i]->inside_id.len);
-		const char *o_id =
-		    utilStrDupLen((char *)njc->uidmap[i]->outside_id.data,
-				  njc->uidmap[i]->outside_id.len);
 		struct idmap_t *p =
-		    userParseId(i_id, o_id, njc->uidmap[i]->count, false /* is_gid */ );
+		    userParseId(njc->uidmap[i]->inside_id, njc->uidmap[i]->outside_id,
+				njc->uidmap[i]->count, false /* is_gid */ );
 		if (p == NULL) {
 			return false;
 		}
 		TAILQ_INSERT_TAIL(&nsjconf->uids, p, pointers);
 	}
 	for (size_t i = 0; i < njc->n_gidmap; i++) {
-		const char *i_id =
-		    utilStrDupLen((char *)njc->gidmap[i]->inside_id.data,
-				  njc->uidmap[i]->inside_id.len);
-		const char *o_id =
-		    utilStrDupLen((char *)njc->gidmap[i]->outside_id.data,
-				  njc->uidmap[i]->outside_id.len);
 		struct idmap_t *p =
-		    userParseId(i_id, o_id, njc->gidmap[i]->count, true /* is_gid */ );
+		    userParseId(njc->gidmap[i]->inside_id, njc->gidmap[i]->outside_id,
+				njc->gidmap[i]->count, true /* is_gid */ );
 		if (p == NULL) {
 			return false;
 		}
 		TAILQ_INSERT_TAIL(&nsjconf->gids, p, pointers);
 	}
 	for (size_t i = 0; i < njc->n_newuidmap; i++) {
-		const char *i_id =
-		    utilStrDupLen((char *)njc->newuidmap[i]->inside_id.data,
-				  njc->uidmap[i]->inside_id.len);
-		const char *o_id =
-		    utilStrDupLen((char *)njc->newuidmap[i]->outside_id.data,
-				  njc->uidmap[i]->outside_id.len);
 		struct idmap_t *p =
-		    userParseId(i_id, o_id, njc->newuidmap[i]->count, false /* is_gid */ );
+		    userParseId(njc->newuidmap[i]->inside_id, njc->newuidmap[i]->outside_id,
+				njc->newuidmap[i]->count, false /* is_gid */ );
 		if (p == NULL) {
 			return false;
 		}
 		TAILQ_INSERT_TAIL(&nsjconf->newuidmap, p, pointers);
 	}
-
 	for (size_t i = 0; i < njc->n_newgidmap; i++) {
-		const char *i_id =
-		    utilStrDupLen((char *)njc->newgidmap[i]->inside_id.data,
-				  njc->uidmap[i]->inside_id.len);
-		const char *o_id =
-		    utilStrDupLen((char *)njc->newgidmap[i]->outside_id.data,
-				  njc->uidmap[i]->outside_id.len);
 		struct idmap_t *p =
-		    userParseId(i_id, o_id, njc->newgidmap[i]->count, true /* is_gid */ );
+		    userParseId(njc->newgidmap[i]->inside_id, njc->newgidmap[i]->outside_id,
+				njc->newgidmap[i]->count, true /* is_gid */ );
 		if (p == NULL) {
 			return false;
 		}
