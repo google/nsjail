@@ -7,84 +7,74 @@
 #endif
 
 #include "config.pb-c.h"
-void   nsjail__ns_jail_config__init
-                     (Nsjail__NsJailConfig         *message)
-{
-  static Nsjail__NsJailConfig init_value = NSJAIL__NS_JAIL_CONFIG__INIT;
-  *message = init_value;
+void nsjail__ns_jail_config__init(Nsjail__NsJailConfig * message) {
+	static Nsjail__NsJailConfig init_value = NSJAIL__NS_JAIL_CONFIG__INIT;
+	*message = init_value;
 }
-size_t nsjail__ns_jail_config__get_packed_size
-                     (const Nsjail__NsJailConfig *message)
-{
-  assert(message->base.descriptor == &nsjail__ns_jail_config__descriptor);
-  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
+
+size_t nsjail__ns_jail_config__get_packed_size(const Nsjail__NsJailConfig * message) {
+	assert(message->base.descriptor == &nsjail__ns_jail_config__descriptor);
+	return protobuf_c_message_get_packed_size((const ProtobufCMessage *)(message));
 }
-size_t nsjail__ns_jail_config__pack
-                     (const Nsjail__NsJailConfig *message,
-                      uint8_t       *out)
-{
-  assert(message->base.descriptor == &nsjail__ns_jail_config__descriptor);
-  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
+
+size_t nsjail__ns_jail_config__pack(const Nsjail__NsJailConfig * message, uint8_t * out) {
+	assert(message->base.descriptor == &nsjail__ns_jail_config__descriptor);
+	return protobuf_c_message_pack((const ProtobufCMessage *)message, out);
 }
+
 size_t nsjail__ns_jail_config__pack_to_buffer
-                     (const Nsjail__NsJailConfig *message,
-                      ProtobufCBuffer *buffer)
-{
-  assert(message->base.descriptor == &nsjail__ns_jail_config__descriptor);
-  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
+    (const Nsjail__NsJailConfig * message, ProtobufCBuffer * buffer) {
+	assert(message->base.descriptor == &nsjail__ns_jail_config__descriptor);
+	return protobuf_c_message_pack_to_buffer((const ProtobufCMessage *)message, buffer);
 }
-Nsjail__NsJailConfig *
-       nsjail__ns_jail_config__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data)
-{
-  return (Nsjail__NsJailConfig *)
-     protobuf_c_message_unpack (&nsjail__ns_jail_config__descriptor,
-                                allocator, len, data);
+
+Nsjail__NsJailConfig *nsjail__ns_jail_config__unpack
+    (ProtobufCAllocator * allocator, size_t len, const uint8_t * data) {
+	return (Nsjail__NsJailConfig *)
+	    protobuf_c_message_unpack(&nsjail__ns_jail_config__descriptor, allocator, len, data);
 }
-void   nsjail__ns_jail_config__free_unpacked
-                     (Nsjail__NsJailConfig *message,
-                      ProtobufCAllocator *allocator)
-{
-  assert(message->base.descriptor == &nsjail__ns_jail_config__descriptor);
-  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
+
+void nsjail__ns_jail_config__free_unpacked
+    (Nsjail__NsJailConfig * message, ProtobufCAllocator * allocator) {
+	assert(message->base.descriptor == &nsjail__ns_jail_config__descriptor);
+	protobuf_c_message_free_unpacked((ProtobufCMessage *) message, allocator);
 }
-static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[1] =
-{
-  {
-    "chroot",
-    1,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_BYTES,
-    offsetof(Nsjail__NsJailConfig, has_chroot),
-    offsetof(Nsjail__NsJailConfig, chroot),
-    NULL,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
+
+static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[1] = {
+	{
+	 "chroot",
+	 1,
+	 PROTOBUF_C_LABEL_OPTIONAL,
+	 PROTOBUF_C_TYPE_BYTES,
+	 offsetof(Nsjail__NsJailConfig, has_chroot),
+	 offsetof(Nsjail__NsJailConfig, chroot),
+	 NULL,
+	 NULL,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
 };
+
 static const unsigned nsjail__ns_jail_config__field_indices_by_name[] = {
-  0,   /* field[0] = chroot */
+	0,			/* field[0] = chroot */
 };
-static const ProtobufCIntRange nsjail__ns_jail_config__number_ranges[1 + 1] =
-{
-  { 1, 0 },
-  { 0, 1 }
+
+static const ProtobufCIntRange nsjail__ns_jail_config__number_ranges[1 + 1] = {
+	{1, 0},
+	{0, 1}
 };
-const ProtobufCMessageDescriptor nsjail__ns_jail_config__descriptor =
-{
-  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "nsjail.NsJailConfig",
-  "NsJailConfig",
-  "Nsjail__NsJailConfig",
-  "nsjail",
-  sizeof(Nsjail__NsJailConfig),
-  1,
-  nsjail__ns_jail_config__field_descriptors,
-  nsjail__ns_jail_config__field_indices_by_name,
-  1,  nsjail__ns_jail_config__number_ranges,
-  (ProtobufCMessageInit) nsjail__ns_jail_config__init,
-  NULL,NULL,NULL    /* reserved[123] */
+
+const ProtobufCMessageDescriptor nsjail__ns_jail_config__descriptor = {
+	PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+	"nsjail.NsJailConfig",
+	"NsJailConfig",
+	"Nsjail__NsJailConfig",
+	"nsjail",
+	sizeof(Nsjail__NsJailConfig),
+	1,
+	nsjail__ns_jail_config__field_descriptors,
+	nsjail__ns_jail_config__field_indices_by_name,
+	1, nsjail__ns_jail_config__number_ranges,
+	(ProtobufCMessageInit) nsjail__ns_jail_config__init,
+	NULL, NULL, NULL	/* reserved[123] */
 };

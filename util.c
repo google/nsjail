@@ -42,6 +42,23 @@ void *utilMalloc(size_t sz)
 	return ret;
 }
 
+char *utilStrDup(const char *str)
+{
+	char *ret = strdup(str);
+	if (ret == NULL) {
+		LOG_E("Cannot allocate memory for strdup(sz=%zu)", strlen(str));
+	}
+	return ret;
+}
+
+char *utilStrDupLen(const char *str, size_t len)
+{
+	char *ret = utilMalloc(len + 1);
+	memcpy(ret, str, len);
+	ret[len] = '\0';
+	return ret;
+}
+
 ssize_t utilReadFromFd(int fd, void *buf, size_t len)
 {
 	uint8_t *charbuf = (uint8_t *) buf;
