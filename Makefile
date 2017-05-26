@@ -91,7 +91,8 @@ indent:
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 
 nsjail.o: nsjail.h common.h cmdline.h log.h net.h subproc.h
-cmdline.o: cmdline.h common.h log.h mount.h util.h
+cmdline.o: cmdline.h common.h config.h log.h mount.h util.h
+config.o: common.h config.h log.h util.h
 contain.o: contain.h common.h cgroup.h log.h mount.h net.h pid.h user.h
 contain.o: util.h uts.h
 log.o: log.h common.h
@@ -105,3 +106,4 @@ subproc.o: util.h
 user.o: user.h common.h log.h subproc.h util.h
 util.o: util.h common.h log.h
 uts.o: uts.h common.h log.h
+config.pb-c.o: config.pb-c.h
