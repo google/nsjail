@@ -1,2 +1,7 @@
-chroot: "/"
 mode: ONCE
+chroot: "/"
+is_root_rw: false
+hostname: "TEST-NS"
+cwd: "/lib"
+bindhost: "::1"
+max_conns_per_ip: 10

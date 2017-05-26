@@ -27,16 +27,22 @@ typedef enum _Nsjail__Mode {
 
 struct _Nsjail__NsJailConfig {
 	ProtobufCMessage base;
-	protobuf_c_boolean has_mode;
 	Nsjail__Mode mode;
 	protobuf_c_boolean has_chroot;
 	ProtobufCBinaryData chroot;
-	protobuf_c_boolean has_root_rw;
-	protobuf_c_boolean root_rw;
+	protobuf_c_boolean is_root_rw;
+	ProtobufCBinaryData hostname;
+	ProtobufCBinaryData cwd;
+	uint32_t port;
+	ProtobufCBinaryData bindhost;
+	uint32_t max_conns_per_ip;
 };
+extern uint8_t nsjail__ns_jail_config__hostname__default_value_data[];
+extern uint8_t nsjail__ns_jail_config__cwd__default_value_data[];
+extern uint8_t nsjail__ns_jail_config__bindhost__default_value_data[];
 #define NSJAIL__NS_JAIL_CONFIG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&nsjail__ns_jail_config__descriptor) \
-    , 0,0, 0,{0,NULL}, 0,0 }
+    , NSJAIL__MODE__ONCE, 0,{0,NULL}, 0, { 6, nsjail__ns_jail_config__hostname__default_value_data }, { 1, nsjail__ns_jail_config__cwd__default_value_data }, 0u, { 2, nsjail__ns_jail_config__bindhost__default_value_data }, 0u }
 
 /* Nsjail__NsJailConfig methods */
 void nsjail__ns_jail_config__init(Nsjail__NsJailConfig * message);

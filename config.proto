@@ -1,4 +1,4 @@
-syntax = "proto3";
+syntax = "proto2";
 
 package nsjail;
 
@@ -10,7 +10,12 @@ enum Mode {
 }
 
 message NsJailConfig {
-	Mode mode = 1;
-	bytes chroot = 2;
-	bool root_rw = 3;
+	required Mode mode = 1 [default = ONCE];
+	optional bytes chroot = 2;
+	required bool is_root_rw = 3 [default = false];
+	required bytes hostname = 6 [default="NSJAIL"];
+	required bytes cwd = 7 [default="/"];
+	required uint32 port = 8 [default=0];
+	required bytes bindhost = 9 [default="::"];
+	required uint32 max_conns_per_ip = 10 [default=0];
 }

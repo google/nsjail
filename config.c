@@ -39,29 +39,30 @@ bool configParse(struct nsjconf_t * nsjconf UNUSED, const char *file UNUSED)
 
 static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig * njc)
 {
-	if (njc->has_mode) {
-		switch (njc->mode) {
-		case NSJAIL__MODE__LISTEN:
-			nsjconf->mode = MODE_LISTEN_TCP;
-			break;
-		case NSJAIL__MODE__ONCE:
-			nsjconf->mode = MODE_STANDALONE_ONCE;
-			break;
-		case NSJAIL__MODE__RERUN:
-			nsjconf->mode = MODE_STANDALONE_RERUN;
-			break;
-		case NSJAIL__MODE__EXECVE:
-			nsjconf->mode = MODE_STANDALONE_EXECVE;
-			break;
-		default:
-			LOG_E("Uknown running mode: %d", njc->mode);
-			return false;
-		}
+	switch (njc->mode) {
+	case NSJAIL__MODE__LISTEN:
+		nsjconf->mode = MODE_LISTEN_TCP;
+		break;
+	case NSJAIL__MODE__ONCE:
+		nsjconf->mode = MODE_STANDALONE_ONCE;
+		break;
+	case NSJAIL__MODE__RERUN:
+		nsjconf->mode = MODE_STANDALONE_RERUN;
+		break;
+	case NSJAIL__MODE__EXECVE:
+		nsjconf->mode = MODE_STANDALONE_EXECVE;
+		break;
+	default:
+		LOG_E("Uknown running mode: %d", njc->mode);
+		return false;
 	}
-
 	if (njc->has_chroot) {
 		nsjconf->chroot = utilStrDupLen((char *)njc->chroot.data, njc->chroot.len);
 	}
+	nsjconf->hostname = utilStrDupLen((char *)njc->hostname.data, njc->hostname.len);
+	nsjconf->cwd = utilStrDupLen((char *)njc->cwd.data, njc->cwd.len);
+	nsjconf->bindhost = utilStrDupLen((char *)njc->bindhost.data, njc->bindhost.len);
+	nsjconf->max_conns_per_ip = njc->max_conns_per_ip;
 
 	return true;
 }
