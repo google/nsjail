@@ -21,6 +21,7 @@
 
 #include "util.h"
 
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
@@ -189,4 +190,14 @@ int utilSSnPrintf(char *str, size_t size, const char *format, ...)
 	va_end(args);
 
 	return snprintf(str, size, "%s%s", buf1, buf2);
+}
+
+bool utilIsANumber(const char *s)
+{
+	for (int i = 0; s[i]; s++) {
+		if (!isdigit(s[i]) && s[i] != 'x') {
+			return false;
+		}
+	}
+	return true;
 }

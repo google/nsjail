@@ -24,12 +24,14 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <grp.h>
+#include <pwd.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/syscall.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include "log.h"
@@ -65,8 +67,8 @@ static bool userUidMapSelf(struct nsjconf_t *nsjconf, pid_t pid)
 
 	struct idmap_t *p;
 	TAILQ_FOREACH(p, &nsjconf->uids, pointers) {
-		utilSSnPrintf(map, sizeof(map), "%lu %lu 1\n", (unsigned long)p->inside_id,
-			      (unsigned long)p->outside_id);
+		utilSSnPrintf(map, sizeof(map), "%lu %lu %zu\n", (unsigned long)p->inside_id,
+			      (unsigned long)p->outside_id, p->count);
 	}
 
 	LOG_D("Writing '%s' to '%s'", map, fname);
@@ -87,8 +89,8 @@ static bool userGidMapSelf(struct nsjconf_t *nsjconf, pid_t pid)
 
 	struct idmap_t *p;
 	TAILQ_FOREACH(p, &nsjconf->gids, pointers) {
-		utilSSnPrintf(map, sizeof(map), "%lu %lu 1\n", (unsigned long)p->inside_id,
-			      (unsigned long)p->outside_id);
+		utilSSnPrintf(map, sizeof(map), "%lu %lu %zu\n", (unsigned long)p->inside_id,
+			      (unsigned long)p->outside_id, p->count);
 	}
 
 	LOG_D("Writing '%s' to '%s'", map, fname);
@@ -103,23 +105,38 @@ static bool userGidMapSelf(struct nsjconf_t *nsjconf, pid_t pid)
 /* Use /usr/bin/newgidmap for writing the gid map */
 static bool userGidMapExternal(struct nsjconf_t *nsjconf, pid_t pid UNUSED)
 {
-	char pid_str[128];
-	snprintf(pid_str, sizeof(pid_str), "%d", (int)pid);
-	const char *argv[1024] = { "/usr/bin/newgidmap", pid_str };
-	size_t argv_idx = 2;
+	static size_t idx = 0;
 
-	struct mapping_t *p;
-	TAILQ_FOREACH(p, &nsjconf->gid_mappings, pointers) {
-		if (argv_idx >= ARRAYSIZE(argv)) {
+	const char *argv[1024];
+	char parms[1024][256];
+
+	argv[idx++] = "/usr/bin/newgidmap";
+
+	snprintf(parms[idx], sizeof(parms[idx]), "%u", (unsigned)pid);
+	argv[idx] = parms[idx];
+	idx++;
+
+	struct idmap_t *p;
+	TAILQ_FOREACH(p, &nsjconf->gid_newuidmap, pointers) {
+		if ((idx + 4) >= ARRAYSIZE(argv)) {
 			LOG_W("Number of arguments to '/usr/bin/newgidmap' too big");
 			return false;
 		}
 
-		argv[argv_idx++] = p->inside_id;
-		argv[argv_idx++] = p->outside_id;
-		argv[argv_idx++] = p->count;
+		snprintf(parms[idx], sizeof(parms[idx]), "%u", (unsigned)p->inside_id);
+		argv[idx] = parms[idx];
+		idx++;
+
+		snprintf(parms[idx], sizeof(parms[idx]), "%u", (unsigned)p->outside_id);
+		argv[idx] = parms[idx];
+		idx++;
+
+		snprintf(parms[idx], sizeof(parms[idx]), "%zu", p->count);
+		argv[idx] = parms[idx];
+		idx++;
 	}
-	argv[argv_idx++] = NULL;
+
+	argv[idx] = NULL;
 
 	if (subprocSystem(argv, environ) != 0) {
 		LOG_E("'/usr/bin/newgidmap' failed");
@@ -132,23 +149,38 @@ static bool userGidMapExternal(struct nsjconf_t *nsjconf, pid_t pid UNUSED)
 /* Use /usr/bin/newuidmap for writing the uid map */
 static bool userUidMapExternal(struct nsjconf_t *nsjconf, pid_t pid UNUSED)
 {
-	char pid_str[128];
-	snprintf(pid_str, sizeof(pid_str), "%d", (int)pid);
-	const char *argv[1024] = { "/usr/bin/newuidmap", pid_str };
-	size_t argv_idx = 2;
+	static size_t idx = 0;
 
-	struct mapping_t *p;
-	TAILQ_FOREACH(p, &nsjconf->uid_mappings, pointers) {
-		if (argv_idx >= ARRAYSIZE(argv)) {
+	const char *argv[1024];
+	char parms[1024][256];
+
+	argv[idx++] = "/usr/bin/newuidmap";
+
+	snprintf(parms[idx], sizeof(parms[idx]), "%u", (unsigned)pid);
+	argv[idx] = parms[idx];
+	idx++;
+
+	struct idmap_t *p;
+	TAILQ_FOREACH(p, &nsjconf->uid_newuidmap, pointers) {
+		if ((idx + 4) >= ARRAYSIZE(argv)) {
 			LOG_W("Number of arguments to '/usr/bin/newuidmap' too big");
 			return false;
 		}
 
-		argv[argv_idx++] = p->inside_id;
-		argv[argv_idx++] = p->outside_id;
-		argv[argv_idx++] = p->count;
+		snprintf(parms[idx], sizeof(parms[idx]), "%u", (unsigned)p->inside_id);
+		argv[idx] = parms[idx];
+		idx++;
+
+		snprintf(parms[idx], sizeof(parms[idx]), "%u", (unsigned)p->outside_id);
+		argv[idx] = parms[idx];
+		idx++;
+
+		snprintf(parms[idx], sizeof(parms[idx]), "%zu", p->count);
+		argv[idx] = parms[idx];
+		idx++;
 	}
-	argv[argv_idx++] = NULL;
+
+	argv[idx] = NULL;
 
 	if (subprocSystem(argv, environ) != 0) {
 		LOG_E("'/usr/bin/newuidmap' failed");
@@ -160,7 +192,7 @@ static bool userUidMapExternal(struct nsjconf_t *nsjconf, pid_t pid UNUSED)
 
 static bool userUidGidMap(struct nsjconf_t *nsjconf, pid_t pid)
 {
-	if (TAILQ_EMPTY(&nsjconf->gid_mappings)) {
+	if (TAILQ_EMPTY(&nsjconf->gid_newuidmap)) {
 		if (!userGidMapSelf(nsjconf, pid)) {
 			return false;
 		}
@@ -169,7 +201,7 @@ static bool userUidGidMap(struct nsjconf_t *nsjconf, pid_t pid)
 			return false;
 		}
 	}
-	if (TAILQ_EMPTY(&nsjconf->uid_mappings)) {
+	if (TAILQ_EMPTY(&nsjconf->gid_newuidmap)) {
 		return userUidMapSelf(nsjconf, pid);
 	} else {
 		return userUidMapExternal(nsjconf, pid);
@@ -220,4 +252,70 @@ bool userInitNsFromChild(struct nsjconf_t * nsjconf)
 	}
 
 	return true;
+}
+
+static uid_t cmdParseUid(const char *id)
+{
+	if (id == NULL || strlen(id) == 0) {
+		return getuid();
+	}
+	struct passwd *pw = getpwnam(id);
+	if (pw != NULL) {
+		return pw->pw_uid;
+	}
+	if (utilIsANumber(id)) {
+		return (uid_t) strtoull(id, NULL, 0);
+	}
+	return -1;
+}
+
+static gid_t cmdParseGid(const char *id)
+{
+	if (id == NULL || strlen(id) == 0) {
+		return getgid();
+	}
+	struct group *gr = getgrnam(id);
+	if (gr != NULL) {
+		return gr->gr_gid;
+	}
+	if (utilIsANumber(id)) {
+		return (gid_t) strtoull(id, NULL, 0);
+	}
+	return -1;
+}
+
+struct idmap_t *userParseId(const char *i_id, const char *o_id, size_t cnt, bool is_gid)
+{
+	uid_t inside_id;
+	uid_t outside_id;
+
+	if (is_gid) {
+		inside_id = cmdParseGid(i_id);
+		if (inside_id == (uid_t) - 1) {
+			LOG_E("Cannot parse '%s' as GID", i_id);
+			return NULL;
+		}
+		outside_id = cmdParseGid(o_id);
+		if (inside_id == (uid_t) - 1) {
+			LOG_E("Cannot parse '%s' as GID", o_id);
+			return NULL;
+		}
+	} else {
+		inside_id = cmdParseUid(i_id);
+		if (inside_id == (uid_t) - 1) {
+			LOG_E("Cannot parse '%s' as UID", i_id);
+			return NULL;
+		}
+		outside_id = cmdParseUid(o_id);
+		if (inside_id == (uid_t) - 1) {
+			LOG_E("Cannot parse '%s' as UID", o_id);
+			return NULL;
+		}
+	}
+
+	struct idmap_t *p = utilMalloc(sizeof(struct idmap_t));
+	p->inside_id = inside_id;
+	p->outside_id = outside_id;
+	p->count = cnt;
+	return p;
 }

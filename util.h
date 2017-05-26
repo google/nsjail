@@ -36,5 +36,6 @@ ssize_t utilWriteToFd(int fd, const void *buf, size_t len);
 bool utilWriteBufToFile(const char *filename, const void *buf, size_t len, int open_flags);
 bool utilCreateDirRecursively(const char *dir);
 int utilSSnPrintf(char *str, size_t size, const char *format, ...);
+bool utilIsANumber(const char *s);
 
 #endif				/* NS_UTIL_H */

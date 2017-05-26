@@ -74,16 +74,10 @@ struct mounts_t {
 	 TAILQ_ENTRY(mounts_t) pointers;
 };
 
-struct mapping_t {
-	const char *inside_id;
-	const char *outside_id;
-	const char *count;
-	 TAILQ_ENTRY(mapping_t) pointers;
-};
-
 struct idmap_t {
 	uid_t inside_id;
 	uid_t outside_id;
+	size_t count;
 	 TAILQ_ENTRY(idmap_t) pointers;
 };
 
@@ -164,14 +158,14 @@ struct nsjconf_t {
 	size_t cgroup_pids_max;
 	FILE *kafel_file;
 	char *kafel_string;
-	 TAILQ_HEAD(uidlist, idmap_t) uids;
-	 TAILQ_HEAD(gidlist, idmap_t) gids;
+	 TAILQ_HEAD(udmaplist, idmap_t) uids;
+	 TAILQ_HEAD(gdmaplist, idmap_t) gids;
+	 TAILQ_HEAD(newuidmaplist, idmap_t) uid_newuidmap;
+	 TAILQ_HEAD(newgidmaplist, idmap_t) gid_newuidmap;
 	 TAILQ_HEAD(envlist, charptr_t) envs;
 	 TAILQ_HEAD(pidslist, pids_t) pids;
 	 TAILQ_HEAD(mountptslist, mounts_t) mountpts;
 	 TAILQ_HEAD(fdslistt, fds_t) open_fds;
-	 TAILQ_HEAD(uidmaplistt, mapping_t) uid_mappings;
-	 TAILQ_HEAD(gidmaplistt, mapping_t) gid_mappings;
 };
 
 #endif				/* NS_COMMON_H */

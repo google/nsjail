@@ -45,6 +45,7 @@
 #include "log.h"
 #include "mount.h"
 #include "util.h"
+#include "user.h"
 
 struct custom_option {
 	struct option opt;
@@ -67,8 +68,8 @@ struct custom_option custom_opts[] = {
     {{"config", required_argument, NULL, 'C'}, "Configuration file in the config.proto ProtoBuf format"},
     {{"chroot", required_argument, NULL, 'c'}, "Directory containing / of the jail (default: none)"},
     {{"rw", no_argument, NULL, 0x601}, "Mount / and /proc as RW (default: RO)"},
-    {{"user", required_argument, NULL, 'u'}, "Username/uid of processess inside the jail (default: your current uid). You can also use inside_ns_uid:outside_ns_uid convention here. Can be specified multiple times"},
-    {{"group", required_argument, NULL, 'g'}, "Groupname/gid of processess inside the jail (default: your current gid). You can also use inside_ns_gid:global_ns_gid convention here. Can be specified multiple times"},
+    {{"user", required_argument, NULL, 'u'}, "Username/uid of processess inside the jail (default: your current uid). You can also use inside_ns_uid:outside_ns_uid:count convention here. Can be specified multiple times"},
+    {{"group", required_argument, NULL, 'g'}, "Groupname/gid of processess inside the jail (default: your current gid). You can also use inside_ns_gid:global_ns_gid:count convention here. Can be specified multiple times"},
     {{"hostname", required_argument, NULL, 'H'}, "UTS name (hostname) of the jail (default: 'NSJAIL')"},
     {{"cwd", required_argument, NULL, 'D'}, "Directory in the namespace the process will run (default: '/')"},
     {{"port", required_argument, NULL, 'p'}, "TCP port to bind to (enables MODE_LISTEN_TCP) (default: 0)"},
@@ -233,13 +234,15 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	{
 		struct idmap_t *p;
 		TAILQ_FOREACH(p, &nsjconf->uids, pointers) {
-			LOG_I("Uid map: inside_uid:%d outside_uid:%d", p->inside_id, p->outside_id);
+			LOG_I("Uid map: inside_uid:%d outside_uid:%d count:%zu", p->inside_id,
+			      p->outside_id, p->count);
 			if (p->outside_id == 0) {
 				LOG_W("Process will be UID/EUID=0 in the global user namespace");
 			}
 		}
 		TAILQ_FOREACH(p, &nsjconf->gids, pointers) {
-			LOG_I("Gid map: inside_gid:%d outside_gid:%d", p->inside_id, p->outside_id);
+			LOG_I("Gid map: inside_gid:%d outside_gid:%d count:%zu", p->inside_id,
+			      p->outside_id, p->count);
 			if (p->outside_id == 0) {
 				LOG_W("Process will be GID/EGID=0 in the global user namespace");
 			}
@@ -247,33 +250,23 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	}
 
 	{
-		struct mapping_t *p;
-		TAILQ_FOREACH(p, &nsjconf->uid_mappings, pointers) {
-			LOG_I("Newuid mapping: inside_uid:'%s' outside_uid:'%s' count:'%s'",
+		struct idmap_t *p;
+		TAILQ_FOREACH(p, &nsjconf->uid_newuidmap, pointers) {
+			LOG_I("Newuid mapping: inside_uid:%u outside_uid:%u count:%zu",
 			      p->inside_id, p->outside_id, p->count);
 			if (p->outside_id == 0) {
 				LOG_W("Process will be UID/EUID=0 in the global user namespace");
 			}
 		}
 
-		TAILQ_FOREACH(p, &nsjconf->gid_mappings, pointers) {
-			LOG_I("Newgid mapping: inside_uid:'%s' outside_uid:'%s' count:'%s'",
+		TAILQ_FOREACH(p, &nsjconf->gid_newuidmap, pointers) {
+			LOG_I("Newgid mapping: inside_uid:%u outside_uid:%u count:%zu",
 			      p->inside_id, p->outside_id, p->count);
 			if (p->outside_id == 0) {
 				LOG_W("Process will be GID/EGID=0 in the global user namespace");
 			}
 		}
 	}
-}
-
-static bool cmdlineIsANumber(const char *s)
-{
-	for (int i = 0; s[i]; s++) {
-		if (!isdigit(s[i]) && s[i] != 'x') {
-			return false;
-		}
-	}
-	return true;
 }
 
 __rlim64_t cmdlineParseRLimit(int res, const char *optarg, unsigned long mul)
@@ -288,7 +281,7 @@ __rlim64_t cmdlineParseRLimit(int res, const char *optarg, unsigned long mul)
 	if (strcasecmp(optarg, "def") == 0) {
 		return cur.rlim_cur;
 	}
-	if (cmdlineIsANumber(optarg) == false) {
+	if (utilIsANumber(optarg) == false) {
 		LOG_F("RLIMIT %d needs a numeric or 'max'/'def' value ('%s' provided)", res,
 		      optarg);
 	}
@@ -304,6 +297,10 @@ __rlim64_t cmdlineParseRLimit(int res, const char *optarg, unsigned long mul)
  * string. */
 static char *cmdlineSplitStrByColon(char *spec)
 {
+	if (spec == NULL) {
+		return NULL;
+	}
+
 	char *dest = spec;
 	while (*dest != ':' && *dest != '\0') {
 		dest++;
@@ -314,95 +311,11 @@ static char *cmdlineSplitStrByColon(char *spec)
 		*dest = '\0';
 		return dest + 1;
 	case '\0':
-		return spec;
+		return NULL;
 	default:
-		// not reached
-		return spec;
+		LOG_F("Impossible condition in cmdlineSplitStrByColon()");
+		return NULL;
 	}
-}
-
-static bool cmdlineParseUid(struct nsjconf_t *nsjconf, char *str)
-{
-	if (str == NULL) {
-		return true;
-	}
-
-	char *second = cmdlineSplitStrByColon(str);
-	pid_t inside_uid;
-	pid_t outside_uid;
-
-	struct passwd *pw = getpwnam(str);
-	if (pw != NULL) {
-		inside_uid = pw->pw_uid;
-	} else if (cmdlineIsANumber(str)) {
-		inside_uid = (uid_t) strtoull(str, NULL, 0);
-	} else {
-		LOG_E("No such user '%s'", str);
-		return false;
-	}
-
-	if (str == second) {
-		outside_uid = getuid();
-	} else {
-		pw = getpwnam(second);
-		if (pw != NULL) {
-			outside_uid = pw->pw_uid;
-		} else if (cmdlineIsANumber(second)) {
-			outside_uid = (uid_t) strtoull(second, NULL, 0);
-		} else {
-			LOG_E("No such user '%s'", second);
-			return false;
-		}
-	}
-
-	struct idmap_t *p = utilMalloc(sizeof(struct idmap_t));
-	p->inside_id = inside_uid;
-	p->outside_id = outside_uid;
-	TAILQ_INSERT_TAIL(&nsjconf->uids, p, pointers);
-
-	return true;
-}
-
-static bool cmdlineParseGid(struct nsjconf_t *nsjconf, char *str)
-{
-	if (str == NULL) {
-		return true;
-	}
-
-	char *second = cmdlineSplitStrByColon(str);
-	gid_t inside_gid;
-	gid_t outside_gid;
-
-	struct group *gr = getgrnam(str);
-	if (gr != NULL) {
-		inside_gid = gr->gr_gid;
-	} else if (cmdlineIsANumber(str)) {
-		inside_gid = (gid_t) strtoull(str, NULL, 0);
-	} else {
-		LOG_E("No such group '%s'", str);
-		return false;
-	}
-
-	if (str == second) {
-		outside_gid = getgid();
-	} else {
-		gr = getgrnam(second);
-		if (gr != NULL) {
-			outside_gid = gr->gr_gid;
-		} else if (cmdlineIsANumber(second)) {
-			outside_gid = (gid_t) strtoull(second, NULL, 0);
-		} else {
-			LOG_E("No such group '%s'", second);
-			return false;
-		}
-	}
-
-	struct idmap_t *p = utilMalloc(sizeof(struct idmap_t));
-	p->inside_id = inside_gid;
-	p->outside_id = outside_gid;
-	TAILQ_INSERT_TAIL(&nsjconf->gids, p, pointers);
-
-	return true;
 }
 
 bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
@@ -460,14 +373,14 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
   };
   /*  *INDENT-ON* */
 
-	TAILQ_INIT(&nsjconf->uids);
-	TAILQ_INIT(&nsjconf->gids);
-	TAILQ_INIT(&nsjconf->envs);
 	TAILQ_INIT(&nsjconf->pids);
 	TAILQ_INIT(&nsjconf->mountpts);
 	TAILQ_INIT(&nsjconf->open_fds);
-	TAILQ_INIT(&nsjconf->uid_mappings);
-	TAILQ_INIT(&nsjconf->gid_mappings);
+	TAILQ_INIT(&nsjconf->envs);
+	TAILQ_INIT(&nsjconf->uids);
+	TAILQ_INIT(&nsjconf->gids);
+	TAILQ_INIT(&nsjconf->uid_newuidmap);
+	TAILQ_INIT(&nsjconf->gid_newuidmap);
 
 	static char cmdlineTmpfsSz[PATH_MAX] = "size=4194304";
 
@@ -527,16 +440,6 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			break;
 		case 'i':
 			nsjconf->max_conns_per_ip = strtoul(optarg, NULL, 0);
-			break;
-		case 'u':
-			if (cmdlineParseUid(nsjconf, optarg) == false) {
-				LOG_F("cmdlineParseUid('%s')", optarg);
-			}
-			break;
-		case 'g':
-			if (cmdlineParseGid(nsjconf, optarg) == false) {
-				LOG_F("cmdlineParseGid('%s')", optarg);
-			}
 			break;
 		case 'l':
 			nsjconf->logfile = optarg;
@@ -663,17 +566,72 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				p->val = optarg;
 				TAILQ_INSERT_TAIL(&nsjconf->envs, p, pointers);
 			} break;
-		case 'U':
-		case 'G':{
-				struct mapping_t *p = utilMalloc(sizeof(struct mapping_t));
-				p->inside_id = optarg;
-				char *outside_id = cmdlineSplitStrByColon(optarg);
-				p->outside_id = outside_id;
-				p->count = cmdlineSplitStrByColon(outside_id);
-				if (c == 'U') {
-					TAILQ_INSERT_TAIL(&nsjconf->uid_mappings, p, pointers);
+		case 'u':{
+				char *i_id = optarg;
+				char *o_id = cmdlineSplitStrByColon(i_id);
+				char *cnt = cmdlineSplitStrByColon(o_id);
+				size_t count = (cnt == NULL
+						|| strlen(cnt) == 0) ? 1U : (size_t) strtoull(cnt,
+											      NULL,
+											      0);
+
+				struct idmap_t *p =
+				    userParseId(i_id, o_id, count, false /* is_gid */ );
+				if (p) {
+					TAILQ_INSERT_TAIL(&nsjconf->uids, p, pointers);
 				} else {
-					TAILQ_INSERT_TAIL(&nsjconf->gid_mappings, p, pointers);
+					return false;
+				}
+			}
+			break;
+		case 'g':{
+				char *i_id = optarg;
+				char *o_id = cmdlineSplitStrByColon(i_id);
+				char *cnt = cmdlineSplitStrByColon(o_id);
+				size_t count = (cnt == NULL
+						|| strlen(cnt) == 0) ? 1U : (size_t) strtoull(cnt,
+											      NULL,
+											      0);
+				struct idmap_t *p =
+				    userParseId(i_id, o_id, count, true /* is_gid */ );
+				if (p) {
+					TAILQ_INSERT_TAIL(&nsjconf->gids, p, pointers);
+				} else {
+					return false;
+				}
+			}
+			break;
+		case 'U':{
+				char *i_id = optarg;
+				char *o_id = cmdlineSplitStrByColon(i_id);
+				char *cnt = cmdlineSplitStrByColon(o_id);
+				size_t count = (cnt == NULL
+						|| strlen(cnt) == 0) ? 1U : (size_t) strtoull(cnt,
+											      NULL,
+											      0);
+				struct idmap_t *p =
+				    userParseId(i_id, o_id, count, false /* is_gid */ );
+				if (p) {
+					TAILQ_INSERT_TAIL(&nsjconf->uid_newuidmap, p, pointers);
+				} else {
+					return false;
+				}
+			}
+			break;
+		case 'G':{
+				char *i_id = optarg;
+				char *o_id = cmdlineSplitStrByColon(i_id);
+				char *cnt = cmdlineSplitStrByColon(o_id);
+				size_t count = (cnt == NULL
+						|| strlen(cnt) == 0) ? 1U : (size_t) strtoull(cnt,
+											      NULL,
+											      0);
+				struct idmap_t *p =
+				    userParseId(i_id, o_id, count, true /* is_gid */ );
+				if (p) {
+					TAILQ_INSERT_TAIL(&nsjconf->gid_newuidmap, p, pointers);
+				} else {
+					return false;
 				}
 			}
 			break;
@@ -822,12 +780,14 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		struct idmap_t *p = utilMalloc(sizeof(struct idmap_t));
 		p->inside_id = getuid();
 		p->outside_id = getuid();
+		p->count = 1U;
 		TAILQ_INSERT_HEAD(&nsjconf->uids, p, pointers);
 	}
 	if (TAILQ_EMPTY(&nsjconf->gids)) {
 		struct idmap_t *p = utilMalloc(sizeof(struct idmap_t));
 		p->inside_id = getgid();
 		p->outside_id = getgid();
+		p->count = 1U;
 		TAILQ_INSERT_HEAD(&nsjconf->gids, p, pointers);
 	}
 
