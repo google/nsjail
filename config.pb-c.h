@@ -39,9 +39,11 @@ struct _Nsjail__IdMap {
 	char *outside_id;
 	uint32_t count;
 };
+extern char nsjail__id_map__inside_id__default_value[];
+extern char nsjail__id_map__outside_id__default_value[];
 #define NSJAIL__ID_MAP__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&nsjail__id_map__descriptor) \
-    , NULL, NULL, 1u }
+    , nsjail__id_map__inside_id__default_value, nsjail__id_map__outside_id__default_value, 1u }
 
 struct _Nsjail__NsJailConfig {
 	ProtobufCMessage base;

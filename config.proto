@@ -18,8 +18,8 @@ enum LogLevel {
 }
 
 message IdMap {
-	required string inside_id = 1;
-	required string outside_id = 2;
+	required string inside_id = 1 [default = ""];
+	required string outside_id = 2 [default = ""];
 	required uint32 count = 3 [default = 1];
 }
 
