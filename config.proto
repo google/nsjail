@@ -17,15 +17,23 @@ enum LogLevel {
 	FATAL = 4;
 }
 
+message IdMap {
+	required uint32 inside_id = 1;
+	required int32 global_id = 2 [default = -1];
+	required uint32 count = 3 [default = 1];
+}
+
 message NsJailConfig {
 	required Mode mode = 1 [default = ONCE];
-	optional bytes chroot = 2;
+	optional bytes chroot_dir = 2;
 	required bool is_root_rw = 3 [default = false];
 	required bytes hostname = 6 [default = "NSJAIL"];
 	required bytes cwd = 7 [default = "/"];
+
 	required uint32 port = 8 [default = 0];
 	required bytes bindhost = 9 [default = "::"];
 	required uint32 max_conns_per_ip = 10 [default = 0];
+
 	required uint32 time_limit = 11 [default = 600];
 	required bool daemon = 12 [default = false];
 	optional bytes log_file = 13;
@@ -36,6 +44,7 @@ message NsJailConfig {
 	repeated int32 pass_fd = 18;
 	required bool pivot_root_only = 19 [ default = false];
 	required bool disable_no_new_privs = 20 [default = false];
+
 	required uint64 rlimit_as = 21 [default = 512];
 	required uint64 rlimit_core = 22 [default = 0];
 	required uint64 rlimit_cpu = 23 [default = 600];
@@ -43,5 +52,21 @@ message NsJailConfig {
 	required uint64 rlimit_nofile = 25 [default = 32];
 	optional uint64 rlimit_nproc = 26;
 	optional uint64 rlimit_stack = 27;
-	
+
+	required bool persona_addr_compat_layout = 28 [default = false];
+	required bool persona_mmap_page_zero = 29 [default = false];
+	required bool persona_read_implies_exec = 30 [default = false];
+	required bool persona_addr_limit_3gb = 31 [default = false];
+	required bool persona_addr_no_randomize = 32 [default = false];
+
+	required bool clone_newnet = 33 [default = true];
+	required bool clone_newuser = 34 [default = true];
+	required bool clone_newns = 35 [default = true];
+	required bool clone_newpid = 36 [default = true];
+	required bool clone_newipc = 37 [default = true];
+	required bool clone_newuts = 38 [default = true];
+	required bool clone_newcgroup = 39 [default = false];
+
+	repeated IdMap newuidmap = 40;
+	repeated IdMap newgidmap = 41;
 }

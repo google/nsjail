@@ -7,6 +7,42 @@
 #endif
 
 #include "config.pb-c.h"
+void nsjail__id_map__init(Nsjail__IdMap * message)
+{
+	static Nsjail__IdMap init_value = NSJAIL__ID_MAP__INIT;
+	*message = init_value;
+}
+
+size_t nsjail__id_map__get_packed_size(const Nsjail__IdMap * message)
+{
+	assert(message->base.descriptor == &nsjail__id_map__descriptor);
+	return protobuf_c_message_get_packed_size((const ProtobufCMessage *)(message));
+}
+
+size_t nsjail__id_map__pack(const Nsjail__IdMap * message, uint8_t * out)
+{
+	assert(message->base.descriptor == &nsjail__id_map__descriptor);
+	return protobuf_c_message_pack((const ProtobufCMessage *)message, out);
+}
+
+size_t nsjail__id_map__pack_to_buffer(const Nsjail__IdMap * message, ProtobufCBuffer * buffer)
+{
+	assert(message->base.descriptor == &nsjail__id_map__descriptor);
+	return protobuf_c_message_pack_to_buffer((const ProtobufCMessage *)message, buffer);
+}
+
+Nsjail__IdMap *nsjail__id_map__unpack
+    (ProtobufCAllocator * allocator, size_t len, const uint8_t * data) {
+	return (Nsjail__IdMap *)
+	    protobuf_c_message_unpack(&nsjail__id_map__descriptor, allocator, len, data);
+}
+
+void nsjail__id_map__free_unpacked(Nsjail__IdMap * message, ProtobufCAllocator * allocator)
+{
+	assert(message->base.descriptor == &nsjail__id_map__descriptor);
+	protobuf_c_message_free_unpacked((ProtobufCMessage *) message, allocator);
+}
+
 void nsjail__ns_jail_config__init(Nsjail__NsJailConfig * message)
 {
 	static Nsjail__NsJailConfig init_value = NSJAIL__NS_JAIL_CONFIG__INIT;
@@ -43,6 +79,73 @@ void nsjail__ns_jail_config__free_unpacked
 	protobuf_c_message_free_unpacked((ProtobufCMessage *) message, allocator);
 }
 
+static const int32_t nsjail__id_map__global_id__default_value = -1;
+static const uint32_t nsjail__id_map__count__default_value = 1u;
+static const ProtobufCFieldDescriptor nsjail__id_map__field_descriptors[3] = {
+	{
+	 "inside_id",
+	 1,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_UINT32,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__IdMap, inside_id),
+	 NULL,
+	 NULL,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "global_id",
+	 2,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_INT32,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__IdMap, global_id),
+	 NULL,
+	 &nsjail__id_map__global_id__default_value,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "count",
+	 3,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_UINT32,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__IdMap, count),
+	 NULL,
+	 &nsjail__id_map__count__default_value,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+};
+
+static const unsigned nsjail__id_map__field_indices_by_name[] = {
+	2,			/* field[2] = count */
+	1,			/* field[1] = global_id */
+	0,			/* field[0] = inside_id */
+};
+
+static const ProtobufCIntRange nsjail__id_map__number_ranges[1 + 1] = {
+	{1, 0},
+	{0, 3}
+};
+
+const ProtobufCMessageDescriptor nsjail__id_map__descriptor = {
+	PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+	"nsjail.IdMap",
+	"IdMap",
+	"Nsjail__IdMap",
+	"nsjail",
+	sizeof(Nsjail__IdMap),
+	3,
+	nsjail__id_map__field_descriptors,
+	nsjail__id_map__field_indices_by_name,
+	1, nsjail__id_map__number_ranges,
+	(ProtobufCMessageInit) nsjail__id_map__init,
+	NULL, NULL, NULL	/* reserved[123] */
+};
+
 uint8_t nsjail__ns_jail_config__hostname__default_value_data[] = "NSJAIL";
 uint8_t nsjail__ns_jail_config__cwd__default_value_data[] = "/";
 uint8_t nsjail__ns_jail_config__bindhost__default_value_data[] = "::";
@@ -68,7 +171,22 @@ static const uint64_t nsjail__ns_jail_config__rlimit_core__default_value = 0ull;
 static const uint64_t nsjail__ns_jail_config__rlimit_cpu__default_value = 600ull;
 static const uint64_t nsjail__ns_jail_config__rlimit_fsize__default_value = 1ull;
 static const uint64_t nsjail__ns_jail_config__rlimit_nofile__default_value = 32ull;
-static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[25] = {
+static const protobuf_c_boolean nsjail__ns_jail_config__persona_addr_compat_layout__default_value =
+    0;
+static const protobuf_c_boolean nsjail__ns_jail_config__persona_mmap_page_zero__default_value = 0;
+static const protobuf_c_boolean nsjail__ns_jail_config__persona_read_implies_exec__default_value =
+    0;
+static const protobuf_c_boolean nsjail__ns_jail_config__persona_addr_limit_3gb__default_value = 0;
+static const protobuf_c_boolean nsjail__ns_jail_config__persona_addr_no_randomize__default_value =
+    0;
+static const protobuf_c_boolean nsjail__ns_jail_config__clone_newnet__default_value = 1;
+static const protobuf_c_boolean nsjail__ns_jail_config__clone_newuser__default_value = 1;
+static const protobuf_c_boolean nsjail__ns_jail_config__clone_newns__default_value = 1;
+static const protobuf_c_boolean nsjail__ns_jail_config__clone_newpid__default_value = 1;
+static const protobuf_c_boolean nsjail__ns_jail_config__clone_newipc__default_value = 1;
+static const protobuf_c_boolean nsjail__ns_jail_config__clone_newuts__default_value = 1;
+static const protobuf_c_boolean nsjail__ns_jail_config__clone_newcgroup__default_value = 0;
+static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[39] = {
 	{
 	 "mode",
 	 1,
@@ -82,12 +200,12 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 0, NULL, NULL		/* reserved1,reserved2, etc */
 	 },
 	{
-	 "chroot",
+	 "chroot_dir",
 	 2,
 	 PROTOBUF_C_LABEL_OPTIONAL,
 	 PROTOBUF_C_TYPE_BYTES,
-	 offsetof(Nsjail__NsJailConfig, has_chroot),
-	 offsetof(Nsjail__NsJailConfig, chroot),
+	 offsetof(Nsjail__NsJailConfig, has_chroot_dir),
+	 offsetof(Nsjail__NsJailConfig, chroot_dir),
 	 NULL,
 	 NULL,
 	 0,			/* flags */
@@ -369,11 +487,186 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 0,			/* flags */
 	 0, NULL, NULL		/* reserved1,reserved2, etc */
 	 },
+	{
+	 "persona_addr_compat_layout",
+	 28,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_BOOL,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__NsJailConfig, persona_addr_compat_layout),
+	 NULL,
+	 &nsjail__ns_jail_config__persona_addr_compat_layout__default_value,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "persona_mmap_page_zero",
+	 29,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_BOOL,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__NsJailConfig, persona_mmap_page_zero),
+	 NULL,
+	 &nsjail__ns_jail_config__persona_mmap_page_zero__default_value,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "persona_read_implies_exec",
+	 30,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_BOOL,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__NsJailConfig, persona_read_implies_exec),
+	 NULL,
+	 &nsjail__ns_jail_config__persona_read_implies_exec__default_value,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "persona_addr_limit_3gb",
+	 31,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_BOOL,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__NsJailConfig, persona_addr_limit_3gb),
+	 NULL,
+	 &nsjail__ns_jail_config__persona_addr_limit_3gb__default_value,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "persona_addr_no_randomize",
+	 32,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_BOOL,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__NsJailConfig, persona_addr_no_randomize),
+	 NULL,
+	 &nsjail__ns_jail_config__persona_addr_no_randomize__default_value,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "clone_newnet",
+	 33,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_BOOL,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__NsJailConfig, clone_newnet),
+	 NULL,
+	 &nsjail__ns_jail_config__clone_newnet__default_value,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "clone_newuser",
+	 34,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_BOOL,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__NsJailConfig, clone_newuser),
+	 NULL,
+	 &nsjail__ns_jail_config__clone_newuser__default_value,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "clone_newns",
+	 35,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_BOOL,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__NsJailConfig, clone_newns),
+	 NULL,
+	 &nsjail__ns_jail_config__clone_newns__default_value,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "clone_newpid",
+	 36,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_BOOL,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__NsJailConfig, clone_newpid),
+	 NULL,
+	 &nsjail__ns_jail_config__clone_newpid__default_value,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "clone_newipc",
+	 37,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_BOOL,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__NsJailConfig, clone_newipc),
+	 NULL,
+	 &nsjail__ns_jail_config__clone_newipc__default_value,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "clone_newuts",
+	 38,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_BOOL,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__NsJailConfig, clone_newuts),
+	 NULL,
+	 &nsjail__ns_jail_config__clone_newuts__default_value,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "clone_newcgroup",
+	 39,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_BOOL,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__NsJailConfig, clone_newcgroup),
+	 NULL,
+	 &nsjail__ns_jail_config__clone_newcgroup__default_value,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "newuidmap",
+	 40,
+	 PROTOBUF_C_LABEL_REPEATED,
+	 PROTOBUF_C_TYPE_MESSAGE,
+	 offsetof(Nsjail__NsJailConfig, n_newuidmap),
+	 offsetof(Nsjail__NsJailConfig, newuidmap),
+	 &nsjail__id_map__descriptor,
+	 NULL,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "newgidmap",
+	 41,
+	 PROTOBUF_C_LABEL_REPEATED,
+	 PROTOBUF_C_TYPE_MESSAGE,
+	 offsetof(Nsjail__NsJailConfig, n_newgidmap),
+	 offsetof(Nsjail__NsJailConfig, newgidmap),
+	 &nsjail__id_map__descriptor,
+	 NULL,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
 };
 
 static const unsigned nsjail__ns_jail_config__field_indices_by_name[] = {
 	6,			/* field[6] = bindhost */
-	1,			/* field[1] = chroot */
+	1,			/* field[1] = chroot_dir */
+	36,			/* field[36] = clone_newcgroup */
+	34,			/* field[34] = clone_newipc */
+	30,			/* field[30] = clone_newnet */
+	32,			/* field[32] = clone_newns */
+	33,			/* field[33] = clone_newpid */
+	31,			/* field[31] = clone_newuser */
+	35,			/* field[35] = clone_newuts */
 	4,			/* field[4] = cwd */
 	9,			/* field[9] = daemon */
 	17,			/* field[17] = disable_no_new_privs */
@@ -384,7 +677,14 @@ static const unsigned nsjail__ns_jail_config__field_indices_by_name[] = {
 	11,			/* field[11] = log_level */
 	7,			/* field[7] = max_conns_per_ip */
 	0,			/* field[0] = mode */
+	38,			/* field[38] = newgidmap */
+	37,			/* field[37] = newuidmap */
 	15,			/* field[15] = pass_fd */
+	25,			/* field[25] = persona_addr_compat_layout */
+	28,			/* field[28] = persona_addr_limit_3gb */
+	29,			/* field[29] = persona_addr_no_randomize */
+	26,			/* field[26] = persona_mmap_page_zero */
+	27,			/* field[27] = persona_read_implies_exec */
 	16,			/* field[16] = pivot_root_only */
 	5,			/* field[5] = port */
 	18,			/* field[18] = rlimit_as */
@@ -402,7 +702,7 @@ static const unsigned nsjail__ns_jail_config__field_indices_by_name[] = {
 static const ProtobufCIntRange nsjail__ns_jail_config__number_ranges[2 + 1] = {
 	{1, 0},
 	{6, 3},
-	{0, 25}
+	{0, 39}
 };
 
 const ProtobufCMessageDescriptor nsjail__ns_jail_config__descriptor = {
@@ -412,7 +712,7 @@ const ProtobufCMessageDescriptor nsjail__ns_jail_config__descriptor = {
 	"Nsjail__NsJailConfig",
 	"nsjail",
 	sizeof(Nsjail__NsJailConfig),
-	25,
+	39,
 	nsjail__ns_jail_config__field_descriptors,
 	nsjail__ns_jail_config__field_indices_by_name,
 	2, nsjail__ns_jail_config__number_ranges,

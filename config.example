@@ -1,10 +1,13 @@
 mode: ONCE
-chroot: "/"
+chroot_dir: "/"
 is_root_rw: false
 hostname: "TEST-NS"
 cwd: "/lib"
+
 bindhost: "::1"
 max_conns_per_ip: 10
+port: 31337
+
 time_limit: 100
 daemon: false
 keep_env: true
@@ -14,9 +17,24 @@ pass_fd: 100
 pass_fd: 3
 pivot_root_only: false
 disable_no_new_privs: false
+
 rlimit_as: 128
 rlimit_core: 0
 rlimit_cpu: 10
 rlimit_fsize: 0
 rlimit_nofile: 5
 rlimit_stack: 1
+
+persona_addr_compat_layout: false
+persona_mmap_page_zero: false
+persona_read_implies_exec: false
+persona_addr_limit_3gb: false
+persona_addr_no_randomize: false
+
+clone_newnet: true
+clone_newuser: true
+clone_newns: true
+clone_newpid: true
+clone_newipc: true
+clone_newuts: true
+clone_newcgroup: true

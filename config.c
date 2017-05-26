@@ -20,11 +20,13 @@
 */
 
 #include "common.h"
+
+#include <stdio.h>
+#include <sys/personality.h>
+
 #include "config.h"
 #include "log.h"
 #include "util.h"
-
-#include <stdio.h>
 
 #if !defined(NSJAIL_WITH_PROTOBUF)
 bool configParse(struct nsjconf_t * nsjconf UNUSED, const char *file UNUSED)
@@ -56,8 +58,8 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 		LOG_E("Uknown running mode: %d", njc->mode);
 		return false;
 	}
-	if (njc->has_chroot) {
-		nsjconf->chroot = utilStrDupLen((char *)njc->chroot.data, njc->chroot.len);
+	if (njc->has_chroot_dir) {
+		nsjconf->chroot = utilStrDupLen((char *)njc->chroot_dir.data, njc->chroot_dir.len);
 	}
 	nsjconf->hostname = utilStrDupLen((char *)njc->hostname.data, njc->hostname.len);
 	nsjconf->cwd = utilStrDupLen((char *)njc->cwd.data, njc->cwd.len);
@@ -123,6 +125,36 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 	if (njc->has_rlimit_stack) {
 		nsjconf->rl_stack = njc->rlimit_stack * 1024ULL * 1024ULL;
 	}
+
+	if (njc->persona_addr_compat_layout) {
+		nsjconf->personality |= ADDR_COMPAT_LAYOUT;
+	}
+	if (njc->persona_mmap_page_zero) {
+		nsjconf->personality |= MMAP_PAGE_ZERO;
+	}
+	if (njc->persona_read_implies_exec) {
+		nsjconf->personality |= READ_IMPLIES_EXEC;
+	}
+	if (njc->persona_addr_limit_3gb) {
+		nsjconf->personality |= ADDR_LIMIT_3GB;
+	}
+	if (njc->persona_addr_no_randomize) {
+		nsjconf->personality |= ADDR_NO_RANDOMIZE;
+	}
+
+	nsjconf->clone_newnet = njc->clone_newnet;
+	nsjconf->clone_newuser = njc->clone_newuser;
+	nsjconf->clone_newns = njc->clone_newns;
+	nsjconf->clone_newpid = njc->clone_newpid;
+	nsjconf->clone_newipc = njc->clone_newipc;
+	nsjconf->clone_newuts = njc->clone_newuts;
+	nsjconf->clone_newcgroup = njc->clone_newcgroup;
+
+	/* TODO
+	   for (size_t i = 0; i < njc->n_uid_mappings; i++) {
+	   struct mapping_t *p = utilMalloc(sizeof(struct mapping_t));
+	   }
+	 */
 
 	return true;
 }
