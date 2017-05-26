@@ -160,8 +160,8 @@ struct nsjconf_t {
 	char *kafel_string;
 	 TAILQ_HEAD(udmaplist, idmap_t) uids;
 	 TAILQ_HEAD(gdmaplist, idmap_t) gids;
-	 TAILQ_HEAD(newuidmaplist, idmap_t) uid_newuidmap;
-	 TAILQ_HEAD(newgidmaplist, idmap_t) gid_newuidmap;
+	 TAILQ_HEAD(newuidmaplist, idmap_t) newuidmap;
+	 TAILQ_HEAD(newgidmaplist, idmap_t) newgidmap;
 	 TAILQ_HEAD(envlist, charptr_t) envs;
 	 TAILQ_HEAD(pidslist, pids_t) pids;
 	 TAILQ_HEAD(mountptslist, mounts_t) mountpts;

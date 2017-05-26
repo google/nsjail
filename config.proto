@@ -18,8 +18,8 @@ enum LogLevel {
 }
 
 message IdMap {
-	required uint32 inside_id = 1;
-	required int32 global_id = 2 [default = -1];
+	required bytes inside_id = 1;
+	required bytes outside_id = 2;
 	required uint32 count = 3 [default = 1];
 }
 
@@ -67,6 +67,8 @@ message NsJailConfig {
 	required bool clone_newuts = 38 [default = true];
 	required bool clone_newcgroup = 39 [default = false];
 
-	repeated IdMap newuidmap = 40;
-	repeated IdMap newgidmap = 41;
+	repeated IdMap uidmap = 40;
+	repeated IdMap gidmap = 41;
+	repeated IdMap newuidmap = 42;
+	repeated IdMap newgidmap = 43;
 }

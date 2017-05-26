@@ -103,7 +103,7 @@ indent:
 
 nsjail.o: nsjail.h common.h cmdline.h log.h net.h subproc.h
 cmdline.o: cmdline.h common.h config.h log.h mount.h util.h user.h
-config.o: common.h config.h log.h util.h
+config.o: common.h config.h log.h user.h util.h
 contain.o: contain.h common.h cgroup.h log.h mount.h net.h pid.h user.h
 contain.o: util.h uts.h
 log.o: log.h common.h

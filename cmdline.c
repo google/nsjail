@@ -251,7 +251,7 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 
 	{
 		struct idmap_t *p;
-		TAILQ_FOREACH(p, &nsjconf->uid_newuidmap, pointers) {
+		TAILQ_FOREACH(p, &nsjconf->newuidmap, pointers) {
 			LOG_I("Newuid mapping: inside_uid:%u outside_uid:%u count:%zu",
 			      p->inside_id, p->outside_id, p->count);
 			if (p->outside_id == 0) {
@@ -259,7 +259,7 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 			}
 		}
 
-		TAILQ_FOREACH(p, &nsjconf->gid_newuidmap, pointers) {
+		TAILQ_FOREACH(p, &nsjconf->newgidmap, pointers) {
 			LOG_I("Newgid mapping: inside_uid:%u outside_uid:%u count:%zu",
 			      p->inside_id, p->outside_id, p->count);
 			if (p->outside_id == 0) {
@@ -379,8 +379,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	TAILQ_INIT(&nsjconf->envs);
 	TAILQ_INIT(&nsjconf->uids);
 	TAILQ_INIT(&nsjconf->gids);
-	TAILQ_INIT(&nsjconf->uid_newuidmap);
-	TAILQ_INIT(&nsjconf->gid_newuidmap);
+	TAILQ_INIT(&nsjconf->newuidmap);
+	TAILQ_INIT(&nsjconf->newgidmap);
 
 	static char cmdlineTmpfsSz[PATH_MAX] = "size=4194304";
 
@@ -612,7 +612,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				struct idmap_t *p =
 				    userParseId(i_id, o_id, count, false /* is_gid */ );
 				if (p) {
-					TAILQ_INSERT_TAIL(&nsjconf->uid_newuidmap, p, pointers);
+					TAILQ_INSERT_TAIL(&nsjconf->newuidmap, p, pointers);
 				} else {
 					return false;
 				}
@@ -629,7 +629,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				struct idmap_t *p =
 				    userParseId(i_id, o_id, count, true /* is_gid */ );
 				if (p) {
-					TAILQ_INSERT_TAIL(&nsjconf->gid_newuidmap, p, pointers);
+					TAILQ_INSERT_TAIL(&nsjconf->newgidmap, p, pointers);
 				} else {
 					return false;
 				}

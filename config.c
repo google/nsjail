@@ -26,6 +26,7 @@
 
 #include "config.h"
 #include "log.h"
+#include "user.h"
 #include "util.h"
 
 #if !defined(NSJAIL_WITH_PROTOBUF)
@@ -150,11 +151,63 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 	nsjconf->clone_newuts = njc->clone_newuts;
 	nsjconf->clone_newcgroup = njc->clone_newcgroup;
 
-	/* TODO
-	   for (size_t i = 0; i < njc->n_uid_mappings; i++) {
-	   struct mapping_t *p = utilMalloc(sizeof(struct mapping_t));
-	   }
-	 */
+	for (size_t i = 0; i < njc->n_uidmap; i++) {
+		const char *i_id =
+		    utilStrDupLen((char *)njc->uidmap[i]->inside_id.data,
+				  njc->uidmap[i]->inside_id.len);
+		const char *o_id =
+		    utilStrDupLen((char *)njc->uidmap[i]->outside_id.data,
+				  njc->uidmap[i]->outside_id.len);
+		struct idmap_t *p =
+		    userParseId(i_id, o_id, njc->uidmap[i]->count, false /* is_gid */ );
+		if (p == NULL) {
+			return false;
+		}
+		TAILQ_INSERT_TAIL(&nsjconf->uids, p, pointers);
+	}
+	for (size_t i = 0; i < njc->n_gidmap; i++) {
+		const char *i_id =
+		    utilStrDupLen((char *)njc->gidmap[i]->inside_id.data,
+				  njc->uidmap[i]->inside_id.len);
+		const char *o_id =
+		    utilStrDupLen((char *)njc->gidmap[i]->outside_id.data,
+				  njc->uidmap[i]->outside_id.len);
+		struct idmap_t *p =
+		    userParseId(i_id, o_id, njc->gidmap[i]->count, true /* is_gid */ );
+		if (p == NULL) {
+			return false;
+		}
+		TAILQ_INSERT_TAIL(&nsjconf->gids, p, pointers);
+	}
+	for (size_t i = 0; i < njc->n_newuidmap; i++) {
+		const char *i_id =
+		    utilStrDupLen((char *)njc->newuidmap[i]->inside_id.data,
+				  njc->uidmap[i]->inside_id.len);
+		const char *o_id =
+		    utilStrDupLen((char *)njc->newuidmap[i]->outside_id.data,
+				  njc->uidmap[i]->outside_id.len);
+		struct idmap_t *p =
+		    userParseId(i_id, o_id, njc->newuidmap[i]->count, false /* is_gid */ );
+		if (p == NULL) {
+			return false;
+		}
+		TAILQ_INSERT_TAIL(&nsjconf->newuidmap, p, pointers);
+	}
+
+	for (size_t i = 0; i < njc->n_newgidmap; i++) {
+		const char *i_id =
+		    utilStrDupLen((char *)njc->newgidmap[i]->inside_id.data,
+				  njc->uidmap[i]->inside_id.len);
+		const char *o_id =
+		    utilStrDupLen((char *)njc->newgidmap[i]->outside_id.data,
+				  njc->uidmap[i]->outside_id.len);
+		struct idmap_t *p =
+		    userParseId(i_id, o_id, njc->newgidmap[i]->count, true /* is_gid */ );
+		if (p == NULL) {
+			return false;
+		}
+		TAILQ_INSERT_TAIL(&nsjconf->newgidmap, p, pointers);
+	}
 
 	return true;
 }

@@ -38,3 +38,15 @@ clone_newpid: true
 clone_newipc: true
 clone_newuts: true
 clone_newcgroup: true
+
+uidmap {
+	inside_id: "999999"
+	outside_id: ""
+	count: 1
+}
+
+gidmap {
+	inside_id: "999998"
+	outside_id: ""
+	count: 1
+}
