@@ -196,7 +196,7 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 				p->isDir = true;
 			}
 		}
-		TAILQ_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
+		TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
 	}
 
 	return true;
