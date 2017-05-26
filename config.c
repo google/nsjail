@@ -24,6 +24,8 @@
 #include "log.h"
 #include "util.h"
 
+#include <stdio.h>
+
 #if !defined(NSJAIL_WITH_PROTOBUF)
 bool configParse(struct nsjconf_t * nsjconf UNUSED, const char *file UNUSED)
 {
@@ -33,6 +35,7 @@ bool configParse(struct nsjconf_t * nsjconf UNUSED, const char *file UNUSED)
 #else				/* !defined(NSJAIL_WITH_PROTOBUF) */
 
 #include "config.pb-c.h"
+#include "protobuf-c-text.h"
 
 static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig * njc)
 {
@@ -45,28 +48,24 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 
 bool configParse(struct nsjconf_t * nsjconf, const char *file)
 {
-	uint8_t msg[1024 * 1024];
-
-	ssize_t rsz = utilReadFromFile(file, msg, sizeof(msg));
-	if (rsz < 0) {
-		return false;
-	}
-	if (rsz == 0) {
-		return false;
-	}
-	if (rsz == sizeof(msg)) {
-		LOG_W("Config file '%s' too big (>= %zu bytes)", file, sizeof(msg));
+	FILE *f = fopen(file, "rb");
+	if (f == NULL) {
+		PLOG_W("Couldn't open '%s' for reading", file);
 		return false;
 	}
 
-	Nsjail__NsJailConfig *njc = nsjail__ns_jail_config__unpack(NULL, rsz, msg);
+	ProtobufCTextError error;
+	Nsjail__NsJailConfig *njc =
+	    (Nsjail__NsJailConfig *) protobuf_c_text_from_file(&nsjail__ns_jail_config__descriptor,
+							       f, &error, NULL);
 	if (njc == NULL) {
-		LOG_E("Couldn't parse the config file");
+		LOG_W("Couldn't parse config from '%s': %s", file, error.error_txt);
+		fclose(f);
 		return false;
 	}
 
 	bool ret = configParseInternal(nsjconf, njc);
-	nsjail__ns_jail_config__free_unpacked(njc, NULL);
+	fclose(f);
 	return ret;
 }
 #endif				/* !defined(NSJAIL_WITH_PROTOBUF) */
