@@ -2,6 +2,15 @@ syntax = "proto3";
 
 package nsjail;
 
+enum Mode {
+	LISTEN = 0;
+	ONCE = 1;
+	RERUN = 2;
+	EXECVE = 3;
+}
+
 message NsJailConfig {
-	bytes chroot = 1;
+	Mode mode = 1;
+	bytes chroot = 2;
+	bool root_rw = 3;
 }

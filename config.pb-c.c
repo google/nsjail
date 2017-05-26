@@ -43,10 +43,22 @@ void nsjail__ns_jail_config__free_unpacked
 	protobuf_c_message_free_unpacked((ProtobufCMessage *) message, allocator);
 }
 
-static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[1] = {
+static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[3] = {
+	{
+	 "mode",
+	 1,
+	 PROTOBUF_C_LABEL_OPTIONAL,
+	 PROTOBUF_C_TYPE_ENUM,
+	 offsetof(Nsjail__NsJailConfig, has_mode),
+	 offsetof(Nsjail__NsJailConfig, mode),
+	 &nsjail__mode__descriptor,
+	 NULL,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
 	{
 	 "chroot",
-	 1,
+	 2,
 	 PROTOBUF_C_LABEL_OPTIONAL,
 	 PROTOBUF_C_TYPE_BYTES,
 	 offsetof(Nsjail__NsJailConfig, has_chroot),
@@ -56,15 +68,29 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 0,			/* flags */
 	 0, NULL, NULL		/* reserved1,reserved2, etc */
 	 },
+	{
+	 "root_rw",
+	 3,
+	 PROTOBUF_C_LABEL_OPTIONAL,
+	 PROTOBUF_C_TYPE_BOOL,
+	 offsetof(Nsjail__NsJailConfig, has_root_rw),
+	 offsetof(Nsjail__NsJailConfig, root_rw),
+	 NULL,
+	 NULL,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
 };
 
 static const unsigned nsjail__ns_jail_config__field_indices_by_name[] = {
-	0,			/* field[0] = chroot */
+	1,			/* field[1] = chroot */
+	0,			/* field[0] = mode */
+	2,			/* field[2] = root_rw */
 };
 
 static const ProtobufCIntRange nsjail__ns_jail_config__number_ranges[1 + 1] = {
 	{1, 0},
-	{0, 1}
+	{0, 3}
 };
 
 const ProtobufCMessageDescriptor nsjail__ns_jail_config__descriptor = {
@@ -74,10 +100,43 @@ const ProtobufCMessageDescriptor nsjail__ns_jail_config__descriptor = {
 	"Nsjail__NsJailConfig",
 	"nsjail",
 	sizeof(Nsjail__NsJailConfig),
-	1,
+	3,
 	nsjail__ns_jail_config__field_descriptors,
 	nsjail__ns_jail_config__field_indices_by_name,
 	1, nsjail__ns_jail_config__number_ranges,
 	(ProtobufCMessageInit) nsjail__ns_jail_config__init,
 	NULL, NULL, NULL	/* reserved[123] */
+};
+
+static const ProtobufCEnumValue nsjail__mode__enum_values_by_number[4] = {
+	{"LISTEN", "NSJAIL__MODE__LISTEN", 0},
+	{"ONCE", "NSJAIL__MODE__ONCE", 1},
+	{"RERUN", "NSJAIL__MODE__RERUN", 2},
+	{"EXECVE", "NSJAIL__MODE__EXECVE", 3},
+};
+
+static const ProtobufCIntRange nsjail__mode__value_ranges[] = {
+	{0, 0}, {0, 4}
+};
+
+static const ProtobufCEnumValueIndex nsjail__mode__enum_values_by_name[4] = {
+	{"EXECVE", 3},
+	{"LISTEN", 0},
+	{"ONCE", 1},
+	{"RERUN", 2},
+};
+
+const ProtobufCEnumDescriptor nsjail__mode__descriptor = {
+	PROTOBUF_C__ENUM_DESCRIPTOR_MAGIC,
+	"nsjail.Mode",
+	"Mode",
+	"Nsjail__Mode",
+	"nsjail",
+	4,
+	nsjail__mode__enum_values_by_number,
+	4,
+	nsjail__mode__enum_values_by_name,
+	1,
+	nsjail__mode__value_ranges,
+	NULL, NULL, NULL, NULL	/* reserved[1234] */
 };

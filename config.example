@@ -1,1 +1,2 @@
 chroot: "/"
+mode: ONCE

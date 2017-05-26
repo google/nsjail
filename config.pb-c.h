@@ -16,16 +16,27 @@ typedef struct _Nsjail__NsJailConfig Nsjail__NsJailConfig;
 
 /* --- enums --- */
 
+typedef enum _Nsjail__Mode {
+	NSJAIL__MODE__LISTEN = 0,
+	NSJAIL__MODE__ONCE = 1,
+	NSJAIL__MODE__RERUN = 2,
+	NSJAIL__MODE__EXECVE = 3 PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(NSJAIL__MODE)
+} Nsjail__Mode;
+
 /* --- messages --- */
 
 struct _Nsjail__NsJailConfig {
 	ProtobufCMessage base;
+	protobuf_c_boolean has_mode;
+	Nsjail__Mode mode;
 	protobuf_c_boolean has_chroot;
 	ProtobufCBinaryData chroot;
+	protobuf_c_boolean has_root_rw;
+	protobuf_c_boolean root_rw;
 };
 #define NSJAIL__NS_JAIL_CONFIG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&nsjail__ns_jail_config__descriptor) \
-    , 0,{0,NULL} }
+    , 0,0, 0,{0,NULL}, 0,0 }
 
 /* Nsjail__NsJailConfig methods */
 void nsjail__ns_jail_config__init(Nsjail__NsJailConfig * message);
@@ -46,6 +57,7 @@ typedef void (*Nsjail__NsJailConfig_Closure)
 
 /* --- descriptors --- */
 
+extern const ProtobufCEnumDescriptor nsjail__mode__descriptor;
 extern const ProtobufCMessageDescriptor nsjail__ns_jail_config__descriptor;
 
 PROTOBUF_C__END_DECLS
