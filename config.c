@@ -94,9 +94,6 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 	}
 
 	if (njc->has_log_file || njc->has_log_level) {
-		/*
-		 * We can set-up logging now
-		 */
 		if (logInitLogFile(nsjconf) == false) {
 			return false;
 		}
