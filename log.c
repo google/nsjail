@@ -46,12 +46,17 @@ static enum llevel_t log_level = INFO;
  */
 bool logInitLogFile(struct nsjconf_t *nsjconf)
 {
+	/* Close previous log_fd */
+	if (log_fd > STDERR_FILENO) {
+		close(log_fd);
+		log_fd = STDERR_FILENO;
+	}
 	log_level = nsjconf->loglevel;
 	if (nsjconf->logfile == NULL && nsjconf->daemonize == true) {
 		nsjconf->logfile = _LOG_DEFAULT_FILE;
 	}
 	if (nsjconf->logfile == NULL) {
-		log_fd = fcntl(log_fd, F_DUPFD_CLOEXEC);
+		log_fd = fcntl(log_fd, F_DUPFD_CLOEXEC, 0);
 	} else {
 		if (TEMP_FAILURE_RETRY
 		    (log_fd = open(nsjconf->logfile, O_CREAT | O_RDWR | O_APPEND, 0640)) == -1) {

@@ -26,10 +26,10 @@ message NsJailConfig {
 	required uint32 port = 8 [default = 0];
 	required bytes bindhost = 9 [default = "::"];
 	required uint32 max_conns_per_ip = 10 [default = 0];
-	optional bytes log = 11;
-	required uint32 time_limit = 12 [default = 600];
-	required bool daemon = 13 [default = false];
-	required LogLevel log_level = 14 [default = INFO];
+	required uint32 time_limit = 11 [default = 600];
+	required bool daemon = 12 [default = false];
+	optional bytes log_file = 13;
+	optional LogLevel log_level = 14;
 	required bool keep_env = 15 [default = false];
 	required bool silent = 16 [default = false];
 	required bool skip_setsid = 17 [default = false];

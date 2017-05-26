@@ -63,31 +63,57 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 	nsjconf->cwd = utilStrDupLen((char *)njc->cwd.data, njc->cwd.len);
 	nsjconf->bindhost = utilStrDupLen((char *)njc->bindhost.data, njc->bindhost.len);
 	nsjconf->max_conns_per_ip = njc->max_conns_per_ip;
-	if (njc->has_log) {
-		nsjconf->logfile = utilStrDupLen((char *)njc->log.data, njc->log.len);
-	}
 	nsjconf->tlimit = njc->time_limit;
 	nsjconf->daemonize = njc->daemon;
-	switch (njc->log_level) {
-	case NSJAIL__LOG_LEVEL__DEBUG:
-		nsjconf->loglevel = DEBUG;
-		break;
-	case NSJAIL__LOG_LEVEL__INFO:
-		nsjconf->loglevel = INFO;
-		break;
-	case NSJAIL__LOG_LEVEL__WARNING:
-		nsjconf->loglevel = WARNING;
-		break;
-	case NSJAIL__LOG_LEVEL__ERROR:
-		nsjconf->loglevel = ERROR;
-		break;
-	case NSJAIL__LOG_LEVEL__FATAL:
-		nsjconf->loglevel = FATAL;
-		break;
-	default:
-		LOG_E("Unknown log_level: %d", njc->log_level);
-		return false;
+
+	if (njc->has_log_file) {
+		nsjconf->logfile = utilStrDupLen((char *)njc->log_file.data, njc->log_file.len);
 	}
+	if (njc->has_log_level) {
+		switch (njc->log_level) {
+		case NSJAIL__LOG_LEVEL__DEBUG:
+			nsjconf->loglevel = DEBUG;
+			break;
+		case NSJAIL__LOG_LEVEL__INFO:
+			nsjconf->loglevel = INFO;
+			break;
+		case NSJAIL__LOG_LEVEL__WARNING:
+			nsjconf->loglevel = WARNING;
+			break;
+		case NSJAIL__LOG_LEVEL__ERROR:
+			nsjconf->loglevel = ERROR;
+			break;
+		case NSJAIL__LOG_LEVEL__FATAL:
+			nsjconf->loglevel = FATAL;
+			break;
+		default:
+			LOG_E("Unknown log_level: %d", njc->log_level);
+			return false;
+		}
+
+	}
+
+	if (njc->has_log_file || njc->has_log_level) {
+		/*
+		 * We can set-up logging now
+		 */
+		if (logInitLogFile(nsjconf) == false) {
+			return false;
+		}
+	}
+
+	nsjconf->keep_env = njc->keep_env;
+	nsjconf->is_silent = njc->silent;
+	nsjconf->skip_setsid = njc->skip_setsid;
+
+	for (size_t i = 0; i < njc->n_pass_fd; i++) {
+		struct fds_t *f = utilMalloc(sizeof(struct fds_t));
+		f->fd = njc->pass_fd[i];
+		TAILQ_INSERT_HEAD(&nsjconf->open_fds, f, pointers);
+	}
+
+	nsjconf->pivot_root_only = njc->pivot_root_only;
+	nsjconf->disable_no_new_privs = njc->disable_no_new_privs;
 
 	nsjconf->rl_as = njc->rlimit_as * 1024ULL * 1024ULL;
 	nsjconf->rl_core = njc->rlimit_core * 1024ULL * 1024ULL;
@@ -106,6 +132,8 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 
 bool configParse(struct nsjconf_t * nsjconf, const char *file)
 {
+	LOG_I("Parsing configuration from '%s'", file);
+
 	FILE *f = fopen(file, "rb");
 	if (f == NULL) {
 		PLOG_W("Couldn't open '%s' for reading", file);
@@ -123,6 +151,13 @@ bool configParse(struct nsjconf_t * nsjconf, const char *file)
 	}
 
 	bool ret = configParseInternal(nsjconf, njc);
+
+	char *config_str = protobuf_c_text_to_string((ProtobufCMessage *) njc, NULL);
+	if (config_str) {
+		LOG_D("Parsed config:\n%s", config_str);
+		free(config_str);
+	}
+
 	fclose(f);
 	return ret;
 }

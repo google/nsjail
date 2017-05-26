@@ -540,15 +540,24 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			break;
 		case 'l':
 			nsjconf->logfile = optarg;
+			if (logInitLogFile(nsjconf) == false) {
+				return false;
+			}
 			break;
 		case 'd':
 			nsjconf->daemonize = true;
 			break;
 		case 'v':
 			nsjconf->loglevel = DEBUG;
+			if (logInitLogFile(nsjconf) == false) {
+				return false;
+			}
 			break;
 		case 'q':
 			nsjconf->loglevel = WARNING;
+			if (logInitLogFile(nsjconf) == false) {
+				return false;
+			}
 			break;
 		case 'e':
 			nsjconf->keep_env = true;
