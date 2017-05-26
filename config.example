@@ -50,3 +50,30 @@ gidmap {
 	outside_id: ""
 	count: 1
 }
+
+mount {
+	src: ""
+	dst: "/tmp"
+	fstype: "tmpfs"
+	options: ""
+	is_ro: false
+	is_bind: false
+}
+
+mount {
+	src: ""
+	dst: "/dev"
+	fstype: "tmpfs"
+	options: ""
+	is_ro: false
+	is_bind: false
+}
+
+mount {
+	src: "/dev/null"
+	dst: "/dev/null"
+	fstype: ""
+	options: ""
+	is_ro: false
+	is_bind: true
+}

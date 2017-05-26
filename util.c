@@ -43,6 +43,13 @@ void *utilMalloc(size_t sz)
 	return ret;
 }
 
+void *utilCalloc(size_t sz)
+{
+	void *r = utilMalloc(sz);
+	memset(r, '\0', sz);
+	return r;
+}
+
 char *utilStrDup(const char *str)
 {
 	char *ret = strdup(str);

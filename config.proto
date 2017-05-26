@@ -24,6 +24,16 @@ message IdMap {
 	required bool use_newidmap = 4 [default = false];
 }
 
+message MountPt {
+	required string src = 1;
+	required string dst = 2;
+	required string fstype = 3;
+	required string options = 4 [default = ""];
+	required bool is_bind = 5 [default = false];
+	required bool is_ro = 6 [default = false];
+	optional bool is_dir = 7;
+}
+
 message NsJailConfig {
 	required Mode mode = 1 [default = ONCE];
 	optional string chroot_dir = 2;
@@ -70,4 +80,6 @@ message NsJailConfig {
 
 	repeated IdMap uidmap = 40;
 	repeated IdMap gidmap = 41;
+
+	repeated MountPt mount = 42;
 }

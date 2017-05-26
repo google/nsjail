@@ -22,10 +22,12 @@
 #include "common.h"
 
 #include <stdio.h>
+#include <sys/mount.h>
 #include <sys/personality.h>
 
 #include "config.h"
 #include "log.h"
+#include "mount.h"
 #include "user.h"
 #include "util.h"
 
@@ -175,6 +177,26 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 		} else {
 			TAILQ_INSERT_TAIL(&nsjconf->gids, p, pointers);
 		}
+	}
+
+	for (size_t i = 0; i < njc->n_mount; i++) {
+		struct mounts_t *p = utilCalloc(sizeof(struct mounts_t));
+		p->src = utilStrDup(njc->mount[i]->src);
+		p->dst = utilStrDup(njc->mount[i]->dst);
+		p->fs_type = utilStrDup(njc->mount[i]->fstype);
+		p->options = utilStrDup(njc->mount[i]->options);
+		p->flags |= (njc->mount[i]->is_ro ? MS_RDONLY : 0);
+		p->flags |= (njc->mount[i]->is_bind ? (MS_BIND | MS_REC) : 0);
+		if (njc->mount[i]->has_is_dir) {
+			p->isDir = njc->mount[i]->is_dir;
+		} else {
+			if (njc->mount[i]->is_bind) {
+				p->isDir = mountIsDir(njc->mount[i]->src);
+			} else {
+				p->isDir = true;
+			}
+		}
+		TAILQ_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
 	}
 
 	return true;

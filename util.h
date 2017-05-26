@@ -28,6 +28,7 @@
 #include "common.h"
 
 void *utilMalloc(size_t sz);
+void *utilCalloc(size_t sz);
 char *utilStrDup(const char *str);
 char *utilStrDupLen(const char *str, size_t len);
 ssize_t utilReadFromFd(int fd, void *buf, size_t len);
