@@ -82,4 +82,7 @@ message NsJailConfig {
 	repeated IdMap gidmap = 41;
 
 	repeated MountPt mount = 42;
+	required bool mount_proc = 43 [default = true];
+	optional string seccomp_policy_file = 44;
+	optional string seccomp_string = 45;
 }

@@ -351,7 +351,8 @@ static const protobuf_c_boolean nsjail__ns_jail_config__clone_newpid__default_va
 static const protobuf_c_boolean nsjail__ns_jail_config__clone_newipc__default_value = 1;
 static const protobuf_c_boolean nsjail__ns_jail_config__clone_newuts__default_value = 1;
 static const protobuf_c_boolean nsjail__ns_jail_config__clone_newcgroup__default_value = 0;
-static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[40] = {
+static const protobuf_c_boolean nsjail__ns_jail_config__mount_proc__default_value = 1;
+static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[43] = {
 	{
 	 "mode",
 	 1,
@@ -832,6 +833,42 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 0,			/* flags */
 	 0, NULL, NULL		/* reserved1,reserved2, etc */
 	 },
+	{
+	 "mount_proc",
+	 43,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_BOOL,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__NsJailConfig, mount_proc),
+	 NULL,
+	 &nsjail__ns_jail_config__mount_proc__default_value,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "seccomp_policy_file",
+	 44,
+	 PROTOBUF_C_LABEL_OPTIONAL,
+	 PROTOBUF_C_TYPE_STRING,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__NsJailConfig, seccomp_policy_file),
+	 NULL,
+	 NULL,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "seccomp_string",
+	 45,
+	 PROTOBUF_C_LABEL_OPTIONAL,
+	 PROTOBUF_C_TYPE_STRING,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__NsJailConfig, seccomp_string),
+	 NULL,
+	 NULL,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
 };
 
 static const unsigned nsjail__ns_jail_config__field_indices_by_name[] = {
@@ -856,6 +893,7 @@ static const unsigned nsjail__ns_jail_config__field_indices_by_name[] = {
 	7,			/* field[7] = max_conns_per_ip */
 	0,			/* field[0] = mode */
 	39,			/* field[39] = mount */
+	40,			/* field[40] = mount_proc */
 	15,			/* field[15] = pass_fd */
 	25,			/* field[25] = persona_addr_compat_layout */
 	28,			/* field[28] = persona_addr_limit_3gb */
@@ -871,6 +909,8 @@ static const unsigned nsjail__ns_jail_config__field_indices_by_name[] = {
 	22,			/* field[22] = rlimit_nofile */
 	23,			/* field[23] = rlimit_nproc */
 	24,			/* field[24] = rlimit_stack */
+	41,			/* field[41] = seccomp_policy_file */
+	42,			/* field[42] = seccomp_string */
 	13,			/* field[13] = silent */
 	14,			/* field[14] = skip_setsid */
 	8,			/* field[8] = time_limit */
@@ -880,7 +920,7 @@ static const unsigned nsjail__ns_jail_config__field_indices_by_name[] = {
 static const ProtobufCIntRange nsjail__ns_jail_config__number_ranges[2 + 1] = {
 	{1, 0},
 	{6, 3},
-	{0, 40}
+	{0, 43}
 };
 
 const ProtobufCMessageDescriptor nsjail__ns_jail_config__descriptor = {
@@ -890,7 +930,7 @@ const ProtobufCMessageDescriptor nsjail__ns_jail_config__descriptor = {
 	"Nsjail__NsJailConfig",
 	"nsjail",
 	sizeof(Nsjail__NsJailConfig),
-	40,
+	43,
 	nsjail__ns_jail_config__field_descriptors,
 	nsjail__ns_jail_config__field_indices_by_name,
 	2, nsjail__ns_jail_config__number_ranges,

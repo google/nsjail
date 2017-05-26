@@ -77,3 +77,11 @@ mount {
 	is_ro: false
 	is_bind: true
 }
+
+seccomp_string: "
+	POLICY example {
+		ERRNO(1337) { geteuid },
+		KILL { syslog }
+	}
+	USE example DEFAULT ALLOW
+"

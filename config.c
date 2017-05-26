@@ -199,6 +199,19 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 		TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
 	}
 
+	nsjconf->mount_proc = njc->mount_proc;
+
+	if (njc->seccomp_policy_file) {
+		if ((nsjconf->kafel_file = fopen(njc->seccomp_policy_file, "rb")) == NULL) {
+			PLOG_W("Couldn't open file with seccomp policy '%s'",
+			       njc->seccomp_policy_file);
+			return false;
+		}
+	}
+	if (njc->seccomp_string) {
+		nsjconf->kafel_string = utilStrDup(njc->seccomp_string);
+	}
+
 	return true;
 }
 

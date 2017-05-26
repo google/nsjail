@@ -112,13 +112,16 @@ struct _Nsjail__NsJailConfig {
 	Nsjail__IdMap **gidmap;
 	size_t n_mount;
 	Nsjail__MountPt **mount;
+	protobuf_c_boolean mount_proc;
+	char *seccomp_policy_file;
+	char *seccomp_string;
 };
 extern char nsjail__ns_jail_config__hostname__default_value[];
 extern char nsjail__ns_jail_config__cwd__default_value[];
 extern char nsjail__ns_jail_config__bindhost__default_value[];
 #define NSJAIL__NS_JAIL_CONFIG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&nsjail__ns_jail_config__descriptor) \
-    , NSJAIL__MODE__ONCE, NULL, 0, nsjail__ns_jail_config__hostname__default_value, nsjail__ns_jail_config__cwd__default_value, 0u, nsjail__ns_jail_config__bindhost__default_value, 0u, 600u, 0, NULL, 0,0, 0, 0, 0, 0,NULL, 0, 0, 512ull, 0ull, 600ull, 1ull, 32ull, 0,0, 0,0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0,NULL, 0,NULL, 0,NULL }
+    , NSJAIL__MODE__ONCE, NULL, 0, nsjail__ns_jail_config__hostname__default_value, nsjail__ns_jail_config__cwd__default_value, 0u, nsjail__ns_jail_config__bindhost__default_value, 0u, 600u, 0, NULL, 0,0, 0, 0, 0, 0,NULL, 0, 0, 512ull, 0ull, 600ull, 1ull, 32ull, 0,0, 0,0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0,NULL, 0,NULL, 0,NULL, 1, NULL, NULL }
 
 /* Nsjail__IdMap methods */
 void nsjail__id_map__init(Nsjail__IdMap * message);
