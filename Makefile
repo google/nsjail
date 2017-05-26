@@ -24,14 +24,15 @@ CFLAGS += -O2 -c -std=gnu11 \
 	-fstack-protector-all -Wformat -Wformat=2 -Wformat-security -fPIE \
 	-Wno-format-nonliteral \
 	-Wall -Wextra -Werror \
-	-Ikafel/include
+	-Ikafel/include \
+	-Iprotobuf-c-text/protobuf-c-text 
 
 LDFLAGS += -Wl,-z,now -Wl,-z,relro -pie -Wl,-z,noexecstack
 
+BIN = nsjail
+LIBS = kafel/libkafel.a protobuf-c-text/protobuf-c-text/.libs/libprotobuf-c-text.a
 SRCS = nsjail.c cmdline.c config.c contain.c log.c cgroup.c mount.c net.c pid.c sandbox.c subproc.c user.c util.c uts.c
 OBJS = $(SRCS:.c=.o)
-BIN = nsjail
-LIBS = kafel/libkafel.a
 
 ifdef DEBUG
 	CFLAGS += -g -ggdb -gdwarf-4
@@ -46,23 +47,23 @@ ifeq ($(NL3_EXISTS), yes)
 endif
 endif
 
-USE_PROTOBUFC ?= yes
-ifeq ($(USE_PROTOBUFC), yes)
-PROTOBUFC_EXISTS := $(shell pkg-config --exists libprotobuf-c && echo yes)
-ifeq ($(PROTOBUFC_EXISTS), yes)
+USE_PROTOBUF ?= yes
+ifeq ($(USE_PROTOBUF), yes)
+PROTOBUF_EXISTS := $(shell pkg-config --exists protobuf && echo yes)
+ifeq ($(PROTOBUF_EXISTS), yes)
 	PROTO_DEPS = config.pb-c.h config.pb-c.c
 	SRCS += config.pb-c.c
-	CFLAGS += -DNSJAIL_WITH_PROTOBUFC $(shell pkg-config --cflags libprotobuf-c)
+	CFLAGS += -DNSJAIL_WITH_PROTOBUF $(shell pkg-config --cflags libprotobuf-c)
 	LDFLAGS += $(shell pkg-config --libs libprotobuf-c)
 endif
 endif
 
-.PHONY: all clear depend indent kafel
+.PHONY: all clear depend indent kafel protobuf-c-text
 
 .c.o: %.c
 	$(CC) $(CFLAGS) $< -o $@
 
-all: $(PROTO_DEPS) kafel $(BIN)
+all: $(PROTO_DEPS) protobuf-c-text kafel $(BIN)
 
 $(BIN): $(OBJS) $(LIBS)
 	$(CC) -o $(BIN) $(OBJS) $(LIBS) $(LDFLAGS)
@@ -72,8 +73,17 @@ ifeq ("$(wildcard kafel/Makefile)","")
 	git submodule update --init
 endif
 
+protobuf-c-text:
+ifeq ("$(wildcard protobuf-c-text/configure)","")
+	git submodule update --init
+endif
+
 kafel/libkafel.a:
 	$(MAKE) -C kafel
+
+protobuf-c-text/protobuf-c-text/.libs/libprotobuf-c-text.a:
+	sh -c "cd protobuf-c-text; ./autogen.sh;"
+	$(MAKE) -C protobuf-c-text
 
 $(PROTO_DEPS): config.proto
 	protoc-c --c_out=. config.proto
@@ -106,4 +116,3 @@ subproc.o: util.h
 user.o: user.h common.h log.h subproc.h util.h
 util.o: util.h common.h log.h
 uts.o: uts.h common.h log.h
-config.pb-c.o: config.pb-c.h

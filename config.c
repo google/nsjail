@@ -24,13 +24,13 @@
 #include "log.h"
 #include "util.h"
 
-#if !defined(NSJAIL_WITH_PROTOBUFC)
+#if !defined(NSJAIL_WITH_PROTOBUF)
 bool configParse(struct nsjconf_t * nsjconf UNUSED, const char *file UNUSED)
 {
 	LOG_W("nsjail was not compiled with the protobuf-c library");
 	return false;
 }
-#else				/* !defined(NSJAIL_WITH_PROTOBUFC) */
+#else				/* !defined(NSJAIL_WITH_PROTOBUF) */
 
 #include "config.pb-c.h"
 
@@ -69,4 +69,4 @@ bool configParse(struct nsjconf_t * nsjconf, const char *file)
 	nsjail__ns_jail_config__free_unpacked(njc, NULL);
 	return ret;
 }
-#endif				/* !defined(NSJAIL_WITH_PROTOBUFC) */
+#endif				/* !defined(NSJAIL_WITH_PROTOBUF) */
