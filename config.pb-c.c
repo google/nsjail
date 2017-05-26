@@ -58,7 +58,19 @@ static const ProtobufCBinaryData nsjail__ns_jail_config__bindhost__default_value
 static const uint32_t nsjail__ns_jail_config__max_conns_per_ip__default_value = 0u;
 static const uint32_t nsjail__ns_jail_config__time_limit__default_value = 600u;
 static const protobuf_c_boolean nsjail__ns_jail_config__daemon__default_value = 0;
-static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[11] = {
+static const Nsjail__LogLevel nsjail__ns_jail_config__log_level__default_value =
+    NSJAIL__LOG_LEVEL__INFO;
+static const protobuf_c_boolean nsjail__ns_jail_config__keep_env__default_value = 0;
+static const protobuf_c_boolean nsjail__ns_jail_config__silent__default_value = 0;
+static const protobuf_c_boolean nsjail__ns_jail_config__skip_setsid__default_value = 0;
+static const protobuf_c_boolean nsjail__ns_jail_config__pivot_root_only__default_value = 0;
+static const protobuf_c_boolean nsjail__ns_jail_config__disable_no_new_privs__default_value = 0;
+static const uint64_t nsjail__ns_jail_config__rlimit_as__default_value = 512ull;
+static const uint64_t nsjail__ns_jail_config__rlimit_core__default_value = 0ull;
+static const uint64_t nsjail__ns_jail_config__rlimit_cpu__default_value = 600ull;
+static const uint64_t nsjail__ns_jail_config__rlimit_fsize__default_value = 1ull;
+static const uint64_t nsjail__ns_jail_config__rlimit_nofile__default_value = 32ull;
+static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[25] = {
 	{
 	 "mode",
 	 1,
@@ -191,6 +203,174 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 0,			/* flags */
 	 0, NULL, NULL		/* reserved1,reserved2, etc */
 	 },
+	{
+	 "log_level",
+	 14,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_ENUM,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__NsJailConfig, log_level),
+	 &nsjail__log_level__descriptor,
+	 &nsjail__ns_jail_config__log_level__default_value,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "keep_env",
+	 15,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_BOOL,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__NsJailConfig, keep_env),
+	 NULL,
+	 &nsjail__ns_jail_config__keep_env__default_value,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "silent",
+	 16,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_BOOL,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__NsJailConfig, silent),
+	 NULL,
+	 &nsjail__ns_jail_config__silent__default_value,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "skip_setsid",
+	 17,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_BOOL,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__NsJailConfig, skip_setsid),
+	 NULL,
+	 &nsjail__ns_jail_config__skip_setsid__default_value,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "pass_fd",
+	 18,
+	 PROTOBUF_C_LABEL_REPEATED,
+	 PROTOBUF_C_TYPE_INT32,
+	 offsetof(Nsjail__NsJailConfig, n_pass_fd),
+	 offsetof(Nsjail__NsJailConfig, pass_fd),
+	 NULL,
+	 NULL,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "pivot_root_only",
+	 19,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_BOOL,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__NsJailConfig, pivot_root_only),
+	 NULL,
+	 &nsjail__ns_jail_config__pivot_root_only__default_value,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "disable_no_new_privs",
+	 20,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_BOOL,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__NsJailConfig, disable_no_new_privs),
+	 NULL,
+	 &nsjail__ns_jail_config__disable_no_new_privs__default_value,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "rlimit_as",
+	 21,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_UINT64,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__NsJailConfig, rlimit_as),
+	 NULL,
+	 &nsjail__ns_jail_config__rlimit_as__default_value,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "rlimit_core",
+	 22,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_UINT64,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__NsJailConfig, rlimit_core),
+	 NULL,
+	 &nsjail__ns_jail_config__rlimit_core__default_value,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "rlimit_cpu",
+	 23,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_UINT64,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__NsJailConfig, rlimit_cpu),
+	 NULL,
+	 &nsjail__ns_jail_config__rlimit_cpu__default_value,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "rlimit_fsize",
+	 24,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_UINT64,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__NsJailConfig, rlimit_fsize),
+	 NULL,
+	 &nsjail__ns_jail_config__rlimit_fsize__default_value,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "rlimit_nofile",
+	 25,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_UINT64,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__NsJailConfig, rlimit_nofile),
+	 NULL,
+	 &nsjail__ns_jail_config__rlimit_nofile__default_value,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "rlimit_nproc",
+	 26,
+	 PROTOBUF_C_LABEL_OPTIONAL,
+	 PROTOBUF_C_TYPE_UINT64,
+	 offsetof(Nsjail__NsJailConfig, has_rlimit_nproc),
+	 offsetof(Nsjail__NsJailConfig, rlimit_nproc),
+	 NULL,
+	 NULL,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "rlimit_stack",
+	 27,
+	 PROTOBUF_C_LABEL_OPTIONAL,
+	 PROTOBUF_C_TYPE_UINT64,
+	 offsetof(Nsjail__NsJailConfig, has_rlimit_stack),
+	 offsetof(Nsjail__NsJailConfig, rlimit_stack),
+	 NULL,
+	 NULL,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
 };
 
 static const unsigned nsjail__ns_jail_config__field_indices_by_name[] = {
@@ -198,19 +378,33 @@ static const unsigned nsjail__ns_jail_config__field_indices_by_name[] = {
 	1,			/* field[1] = chroot */
 	4,			/* field[4] = cwd */
 	10,			/* field[10] = daemon */
+	17,			/* field[17] = disable_no_new_privs */
 	3,			/* field[3] = hostname */
 	2,			/* field[2] = is_root_rw */
+	12,			/* field[12] = keep_env */
 	8,			/* field[8] = log */
+	11,			/* field[11] = log_level */
 	7,			/* field[7] = max_conns_per_ip */
 	0,			/* field[0] = mode */
+	15,			/* field[15] = pass_fd */
+	16,			/* field[16] = pivot_root_only */
 	5,			/* field[5] = port */
+	18,			/* field[18] = rlimit_as */
+	19,			/* field[19] = rlimit_core */
+	20,			/* field[20] = rlimit_cpu */
+	21,			/* field[21] = rlimit_fsize */
+	22,			/* field[22] = rlimit_nofile */
+	23,			/* field[23] = rlimit_nproc */
+	24,			/* field[24] = rlimit_stack */
+	13,			/* field[13] = silent */
+	14,			/* field[14] = skip_setsid */
 	9,			/* field[9] = time_limit */
 };
 
 static const ProtobufCIntRange nsjail__ns_jail_config__number_ranges[2 + 1] = {
 	{1, 0},
 	{6, 3},
-	{0, 11}
+	{0, 25}
 };
 
 const ProtobufCMessageDescriptor nsjail__ns_jail_config__descriptor = {
@@ -220,7 +414,7 @@ const ProtobufCMessageDescriptor nsjail__ns_jail_config__descriptor = {
 	"Nsjail__NsJailConfig",
 	"nsjail",
 	sizeof(Nsjail__NsJailConfig),
-	11,
+	25,
 	nsjail__ns_jail_config__field_descriptors,
 	nsjail__ns_jail_config__field_indices_by_name,
 	2, nsjail__ns_jail_config__number_ranges,
@@ -258,5 +452,40 @@ const ProtobufCEnumDescriptor nsjail__mode__descriptor = {
 	nsjail__mode__enum_values_by_name,
 	1,
 	nsjail__mode__value_ranges,
+	NULL, NULL, NULL, NULL	/* reserved[1234] */
+};
+
+static const ProtobufCEnumValue nsjail__log_level__enum_values_by_number[5] = {
+	{"DEBUG", "NSJAIL__LOG_LEVEL__DEBUG", 0},
+	{"INFO", "NSJAIL__LOG_LEVEL__INFO", 1},
+	{"WARNING", "NSJAIL__LOG_LEVEL__WARNING", 2},
+	{"ERROR", "NSJAIL__LOG_LEVEL__ERROR", 3},
+	{"FATAL", "NSJAIL__LOG_LEVEL__FATAL", 4},
+};
+
+static const ProtobufCIntRange nsjail__log_level__value_ranges[] = {
+	{0, 0}, {0, 5}
+};
+
+static const ProtobufCEnumValueIndex nsjail__log_level__enum_values_by_name[5] = {
+	{"DEBUG", 0},
+	{"ERROR", 3},
+	{"FATAL", 4},
+	{"INFO", 1},
+	{"WARNING", 2},
+};
+
+const ProtobufCEnumDescriptor nsjail__log_level__descriptor = {
+	PROTOBUF_C__ENUM_DESCRIPTOR_MAGIC,
+	"nsjail.LogLevel",
+	"LogLevel",
+	"Nsjail__LogLevel",
+	"nsjail",
+	5,
+	nsjail__log_level__enum_values_by_number,
+	5,
+	nsjail__log_level__enum_values_by_name,
+	1,
+	nsjail__log_level__value_ranges,
 	NULL, NULL, NULL, NULL	/* reserved[1234] */
 };

@@ -9,6 +9,14 @@ enum Mode {
 	EXECVE = 3;
 }
 
+enum LogLevel {
+	DEBUG = 0;
+	INFO = 1;
+	WARNING = 2;
+	ERROR = 3;
+	FATAL = 4;
+}
+
 message NsJailConfig {
 	required Mode mode = 1 [default = ONCE];
 	optional bytes chroot = 2;
@@ -21,4 +29,19 @@ message NsJailConfig {
 	optional bytes log = 11;
 	required uint32 time_limit = 12 [default = 600];
 	required bool daemon = 13 [default = false];
+	required LogLevel log_level = 14 [default = INFO];
+	required bool keep_env = 15 [default = false];
+	required bool silent = 16 [default = false];
+	required bool skip_setsid = 17 [default = false];
+	repeated int32 pass_fd = 18;
+	required bool pivot_root_only = 19 [ default = false];
+	required bool disable_no_new_privs = 20 [default = false];
+	required uint64 rlimit_as = 21 [default = 512];
+	required uint64 rlimit_core = 22 [default = 0];
+	required uint64 rlimit_cpu = 23 [default = 600];
+	required uint64 rlimit_fsize = 24 [default = 1];
+	required uint64 rlimit_nofile = 25 [default = 32];
+	optional uint64 rlimit_nproc = 26;
+	optional uint64 rlimit_stack = 27;
+	
 }

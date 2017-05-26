@@ -22,6 +22,13 @@ typedef enum _Nsjail__Mode {
 	NSJAIL__MODE__RERUN = 2,
 	NSJAIL__MODE__EXECVE = 3 PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(NSJAIL__MODE)
 } Nsjail__Mode;
+typedef enum _Nsjail__LogLevel {
+	NSJAIL__LOG_LEVEL__DEBUG = 0,
+	NSJAIL__LOG_LEVEL__INFO = 1,
+	NSJAIL__LOG_LEVEL__WARNING = 2,
+	NSJAIL__LOG_LEVEL__ERROR = 3,
+	NSJAIL__LOG_LEVEL__FATAL = 4 PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(NSJAIL__LOG_LEVEL)
+} Nsjail__LogLevel;
 
 /* --- messages --- */
 
@@ -40,13 +47,30 @@ struct _Nsjail__NsJailConfig {
 	ProtobufCBinaryData log;
 	uint32_t time_limit;
 	protobuf_c_boolean daemon;
+	Nsjail__LogLevel log_level;
+	protobuf_c_boolean keep_env;
+	protobuf_c_boolean silent;
+	protobuf_c_boolean skip_setsid;
+	size_t n_pass_fd;
+	int32_t *pass_fd;
+	protobuf_c_boolean pivot_root_only;
+	protobuf_c_boolean disable_no_new_privs;
+	uint64_t rlimit_as;
+	uint64_t rlimit_core;
+	uint64_t rlimit_cpu;
+	uint64_t rlimit_fsize;
+	uint64_t rlimit_nofile;
+	protobuf_c_boolean has_rlimit_nproc;
+	uint64_t rlimit_nproc;
+	protobuf_c_boolean has_rlimit_stack;
+	uint64_t rlimit_stack;
 };
 extern uint8_t nsjail__ns_jail_config__hostname__default_value_data[];
 extern uint8_t nsjail__ns_jail_config__cwd__default_value_data[];
 extern uint8_t nsjail__ns_jail_config__bindhost__default_value_data[];
 #define NSJAIL__NS_JAIL_CONFIG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&nsjail__ns_jail_config__descriptor) \
-    , NSJAIL__MODE__ONCE, 0,{0,NULL}, 0, { 6, nsjail__ns_jail_config__hostname__default_value_data }, { 1, nsjail__ns_jail_config__cwd__default_value_data }, 0u, { 2, nsjail__ns_jail_config__bindhost__default_value_data }, 0u, 0,{0,NULL}, 600u, 0 }
+    , NSJAIL__MODE__ONCE, 0,{0,NULL}, 0, { 6, nsjail__ns_jail_config__hostname__default_value_data }, { 1, nsjail__ns_jail_config__cwd__default_value_data }, 0u, { 2, nsjail__ns_jail_config__bindhost__default_value_data }, 0u, 0,{0,NULL}, 600u, 0, NSJAIL__LOG_LEVEL__INFO, 0, 0, 0, 0,NULL, 0, 0, 512ull, 0ull, 600ull, 1ull, 32ull, 0,0, 0,0 }
 
 /* Nsjail__NsJailConfig methods */
 void nsjail__ns_jail_config__init(Nsjail__NsJailConfig * message);
@@ -68,6 +92,7 @@ typedef void (*Nsjail__NsJailConfig_Closure)
 /* --- descriptors --- */
 
 extern const ProtobufCEnumDescriptor nsjail__mode__descriptor;
+extern const ProtobufCEnumDescriptor nsjail__log_level__descriptor;
 extern const ProtobufCMessageDescriptor nsjail__ns_jail_config__descriptor;
 
 PROTOBUF_C__END_DECLS

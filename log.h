@@ -42,17 +42,7 @@
 #define PLOG_E(...) logLog(ERROR, __func__, __LINE__, true, __VA_ARGS__);
 #define PLOG_F(...) logLog(FATAL, __func__, __LINE__, true, __VA_ARGS__);
 
-enum llevel_t {
-	DEBUG = 0,
-	INFO,
-	WARNING,
-	ERROR,
-	FATAL,
-	HELP,
-	HELP_BOLD,
-};
-
-bool logInitLogFile(struct nsjconf_t *nsjconf, const char *logfile, enum llevel_t log_level);
+bool logInitLogFile(struct nsjconf_t *nsjconf);
 void logLog(enum llevel_t ll, const char *fn, int ln, bool perr, const char *fmt, ...)
     __attribute__ ((format(printf, 5, 6)));
 void logStop(int sig);

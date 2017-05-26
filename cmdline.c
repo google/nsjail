@@ -415,7 +415,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
       .argv = NULL,
       .port = 0,
       .bindhost = "::",
-	  .logfile = NULL,
+      .logfile = NULL,
+      .loglevel = INFO,
       .daemonize = false,
       .tlimit = 0,
       .pivot_root_only = false,
@@ -458,7 +459,6 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
       .kafel_string = NULL,
   };
   /*  *INDENT-ON* */
-	enum llevel_t log_level = INFO;
 
 	TAILQ_INIT(&nsjconf->uids);
 	TAILQ_INIT(&nsjconf->gids);
@@ -545,10 +545,10 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			nsjconf->daemonize = true;
 			break;
 		case 'v':
-			log_level = DEBUG;
+			nsjconf->loglevel = DEBUG;
 			break;
 		case 'q':
-			log_level = WARNING;
+			nsjconf->loglevel = WARNING;
 			break;
 		case 'e':
 			nsjconf->keep_env = true;
@@ -822,7 +822,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		TAILQ_INSERT_HEAD(&nsjconf->gids, p, pointers);
 	}
 
-	if (logInitLogFile(nsjconf, nsjconf->logfile, log_level) == false) {
+	if (logInitLogFile(nsjconf) == false) {
 		return false;
 	}
 

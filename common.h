@@ -104,6 +104,16 @@ struct charptr_t {
 	 TAILQ_ENTRY(charptr_t) pointers;
 };
 
+enum llevel_t {
+	DEBUG = 0,
+	INFO,
+	WARNING,
+	ERROR,
+	FATAL,
+	HELP,
+	HELP_BOLD,
+};
+
 struct nsjconf_t {
 	const char *hostname;
 	const char *cwd;
@@ -111,6 +121,7 @@ struct nsjconf_t {
 	int port;
 	const char *bindhost;
 	const char *logfile;
+	enum llevel_t loglevel;
 	bool daemonize;
 	time_t tlimit;
 	bool pivot_root_only;

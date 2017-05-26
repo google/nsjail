@@ -8,3 +8,7 @@ max_conns_per_ip: 10
 log: "/proc/self/fd/2"
 time_limit: 100
 daemon: false
+log_level: INFO
+keep_env: true
+silent: false
+skip_setsid: false

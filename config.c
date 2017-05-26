@@ -68,6 +68,38 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 	}
 	nsjconf->tlimit = njc->time_limit;
 	nsjconf->daemonize = njc->daemon;
+	switch (njc->log_level) {
+	case NSJAIL__LOG_LEVEL__DEBUG:
+		nsjconf->loglevel = DEBUG;
+		break;
+	case NSJAIL__LOG_LEVEL__INFO:
+		nsjconf->loglevel = INFO;
+		break;
+	case NSJAIL__LOG_LEVEL__WARNING:
+		nsjconf->loglevel = WARNING;
+		break;
+	case NSJAIL__LOG_LEVEL__ERROR:
+		nsjconf->loglevel = ERROR;
+		break;
+	case NSJAIL__LOG_LEVEL__FATAL:
+		nsjconf->loglevel = FATAL;
+		break;
+	default:
+		LOG_E("Unknown log_level: %d", njc->log_level);
+		return false;
+	}
+
+	nsjconf->rl_as = njc->rlimit_as * 1024ULL * 1024ULL;
+	nsjconf->rl_core = njc->rlimit_core * 1024ULL * 1024ULL;
+	nsjconf->rl_cpu = njc->rlimit_cpu;
+	nsjconf->rl_fsize = njc->rlimit_fsize * 1024ULL * 1024ULL;
+	nsjconf->rl_nofile = njc->rlimit_nofile;
+	if (njc->has_rlimit_nproc) {
+		nsjconf->rl_nproc = njc->rlimit_nproc;
+	}
+	if (njc->has_rlimit_stack) {
+		nsjconf->rl_stack = njc->rlimit_stack * 1024ULL * 1024ULL;
+	}
 
 	return true;
 }

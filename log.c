@@ -44,19 +44,19 @@ static enum llevel_t log_level = INFO;
  * Log to stderr by default. Use a dup()d fd, because in the future we'll associate the
  * connection socket with fd (0, 1, 2).
  */
-bool logInitLogFile(struct nsjconf_t *nsjconf, const char *logfile, enum llevel_t llevel)
+bool logInitLogFile(struct nsjconf_t *nsjconf)
 {
-	log_level = llevel;
-	if (logfile == NULL && nsjconf->daemonize == true) {
-		logfile = _LOG_DEFAULT_FILE;
+	log_level = nsjconf->loglevel;
+	if (nsjconf->logfile == NULL && nsjconf->daemonize == true) {
+		nsjconf->logfile = _LOG_DEFAULT_FILE;
 	}
-	if (logfile == NULL) {
+	if (nsjconf->logfile == NULL) {
 		log_fd = fcntl(log_fd, F_DUPFD_CLOEXEC);
 	} else {
-		if (TEMP_FAILURE_RETRY(log_fd = open(logfile, O_CREAT | O_RDWR | O_APPEND, 0640)) ==
-		    -1) {
+		if (TEMP_FAILURE_RETRY
+		    (log_fd = open(nsjconf->logfile, O_CREAT | O_RDWR | O_APPEND, 0640)) == -1) {
 			log_fd = STDERR_FILENO;
-			PLOG_E("Couldn't open logfile open('%s')", logfile);
+			PLOG_E("Couldn't open logfile open('%s')", nsjconf->logfile);
 			return false;
 		}
 	}
