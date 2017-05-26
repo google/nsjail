@@ -93,7 +93,6 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 			LOG_E("Unknown log_level: %d", njc->log_level);
 			return false;
 		}
-
 	}
 
 	if (njc->log_file || njc->has_log_level) {
