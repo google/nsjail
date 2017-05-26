@@ -7,17 +7,20 @@
 #endif
 
 #include "config.pb-c.h"
-void nsjail__ns_jail_config__init(Nsjail__NsJailConfig * message) {
+void nsjail__ns_jail_config__init(Nsjail__NsJailConfig * message)
+{
 	static Nsjail__NsJailConfig init_value = NSJAIL__NS_JAIL_CONFIG__INIT;
 	*message = init_value;
 }
 
-size_t nsjail__ns_jail_config__get_packed_size(const Nsjail__NsJailConfig * message) {
+size_t nsjail__ns_jail_config__get_packed_size(const Nsjail__NsJailConfig * message)
+{
 	assert(message->base.descriptor == &nsjail__ns_jail_config__descriptor);
 	return protobuf_c_message_get_packed_size((const ProtobufCMessage *)(message));
 }
 
-size_t nsjail__ns_jail_config__pack(const Nsjail__NsJailConfig * message, uint8_t * out) {
+size_t nsjail__ns_jail_config__pack(const Nsjail__NsJailConfig * message, uint8_t * out)
+{
 	assert(message->base.descriptor == &nsjail__ns_jail_config__descriptor);
 	return protobuf_c_message_pack((const ProtobufCMessage *)message, out);
 }
