@@ -74,7 +74,8 @@ void nsjail__ns_jail_config__free_unpacked
 char nsjail__id_map__inside_id__default_value[] = "";
 char nsjail__id_map__outside_id__default_value[] = "";
 static const uint32_t nsjail__id_map__count__default_value = 1u;
-static const ProtobufCFieldDescriptor nsjail__id_map__field_descriptors[3] = {
+static const protobuf_c_boolean nsjail__id_map__use_newidmap__default_value = 0;
+static const ProtobufCFieldDescriptor nsjail__id_map__field_descriptors[4] = {
 	{
 	 "inside_id",
 	 1,
@@ -111,17 +112,30 @@ static const ProtobufCFieldDescriptor nsjail__id_map__field_descriptors[3] = {
 	 0,			/* flags */
 	 0, NULL, NULL		/* reserved1,reserved2, etc */
 	 },
+	{
+	 "use_newidmap",
+	 4,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_BOOL,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__IdMap, use_newidmap),
+	 NULL,
+	 &nsjail__id_map__use_newidmap__default_value,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
 };
 
 static const unsigned nsjail__id_map__field_indices_by_name[] = {
 	2,			/* field[2] = count */
 	0,			/* field[0] = inside_id */
 	1,			/* field[1] = outside_id */
+	3,			/* field[3] = use_newidmap */
 };
 
 static const ProtobufCIntRange nsjail__id_map__number_ranges[1 + 1] = {
 	{1, 0},
-	{0, 3}
+	{0, 4}
 };
 
 const ProtobufCMessageDescriptor nsjail__id_map__descriptor = {
@@ -131,7 +145,7 @@ const ProtobufCMessageDescriptor nsjail__id_map__descriptor = {
 	"Nsjail__IdMap",
 	"nsjail",
 	sizeof(Nsjail__IdMap),
-	3,
+	4,
 	nsjail__id_map__field_descriptors,
 	nsjail__id_map__field_indices_by_name,
 	1, nsjail__id_map__number_ranges,
@@ -173,7 +187,7 @@ static const protobuf_c_boolean nsjail__ns_jail_config__clone_newpid__default_va
 static const protobuf_c_boolean nsjail__ns_jail_config__clone_newipc__default_value = 1;
 static const protobuf_c_boolean nsjail__ns_jail_config__clone_newuts__default_value = 1;
 static const protobuf_c_boolean nsjail__ns_jail_config__clone_newcgroup__default_value = 0;
-static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[41] = {
+static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[39] = {
 	{
 	 "mode",
 	 1,
@@ -642,30 +656,6 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 0,			/* flags */
 	 0, NULL, NULL		/* reserved1,reserved2, etc */
 	 },
-	{
-	 "newuidmap",
-	 42,
-	 PROTOBUF_C_LABEL_REPEATED,
-	 PROTOBUF_C_TYPE_MESSAGE,
-	 offsetof(Nsjail__NsJailConfig, n_newuidmap),
-	 offsetof(Nsjail__NsJailConfig, newuidmap),
-	 &nsjail__id_map__descriptor,
-	 NULL,
-	 0,			/* flags */
-	 0, NULL, NULL		/* reserved1,reserved2, etc */
-	 },
-	{
-	 "newgidmap",
-	 43,
-	 PROTOBUF_C_LABEL_REPEATED,
-	 PROTOBUF_C_TYPE_MESSAGE,
-	 offsetof(Nsjail__NsJailConfig, n_newgidmap),
-	 offsetof(Nsjail__NsJailConfig, newgidmap),
-	 &nsjail__id_map__descriptor,
-	 NULL,
-	 0,			/* flags */
-	 0, NULL, NULL		/* reserved1,reserved2, etc */
-	 },
 };
 
 static const unsigned nsjail__ns_jail_config__field_indices_by_name[] = {
@@ -689,8 +679,6 @@ static const unsigned nsjail__ns_jail_config__field_indices_by_name[] = {
 	11,			/* field[11] = log_level */
 	7,			/* field[7] = max_conns_per_ip */
 	0,			/* field[0] = mode */
-	40,			/* field[40] = newgidmap */
-	39,			/* field[39] = newuidmap */
 	15,			/* field[15] = pass_fd */
 	25,			/* field[25] = persona_addr_compat_layout */
 	28,			/* field[28] = persona_addr_limit_3gb */
@@ -715,7 +703,7 @@ static const unsigned nsjail__ns_jail_config__field_indices_by_name[] = {
 static const ProtobufCIntRange nsjail__ns_jail_config__number_ranges[2 + 1] = {
 	{1, 0},
 	{6, 3},
-	{0, 41}
+	{0, 39}
 };
 
 const ProtobufCMessageDescriptor nsjail__ns_jail_config__descriptor = {
@@ -725,7 +713,7 @@ const ProtobufCMessageDescriptor nsjail__ns_jail_config__descriptor = {
 	"Nsjail__NsJailConfig",
 	"nsjail",
 	sizeof(Nsjail__NsJailConfig),
-	41,
+	39,
 	nsjail__ns_jail_config__field_descriptors,
 	nsjail__ns_jail_config__field_indices_by_name,
 	2, nsjail__ns_jail_config__number_ranges,

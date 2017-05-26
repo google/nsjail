@@ -21,6 +21,7 @@ message IdMap {
 	required string inside_id = 1 [default = ""];
 	required string outside_id = 2 [default = ""];
 	required uint32 count = 3 [default = 1];
+	required bool use_newidmap = 4 [default = false];
 }
 
 message NsJailConfig {
@@ -69,6 +70,4 @@ message NsJailConfig {
 
 	repeated IdMap uidmap = 40;
 	repeated IdMap gidmap = 41;
-	repeated IdMap newuidmap = 42;
-	repeated IdMap newgidmap = 43;
 }

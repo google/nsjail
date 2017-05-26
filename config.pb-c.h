@@ -38,12 +38,13 @@ struct _Nsjail__IdMap {
 	char *inside_id;
 	char *outside_id;
 	uint32_t count;
+	protobuf_c_boolean use_newidmap;
 };
 extern char nsjail__id_map__inside_id__default_value[];
 extern char nsjail__id_map__outside_id__default_value[];
 #define NSJAIL__ID_MAP__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&nsjail__id_map__descriptor) \
-    , nsjail__id_map__inside_id__default_value, nsjail__id_map__outside_id__default_value, 1u }
+    , nsjail__id_map__inside_id__default_value, nsjail__id_map__outside_id__default_value, 1u, 0 }
 
 struct _Nsjail__NsJailConfig {
 	ProtobufCMessage base;
@@ -92,17 +93,13 @@ struct _Nsjail__NsJailConfig {
 	Nsjail__IdMap **uidmap;
 	size_t n_gidmap;
 	Nsjail__IdMap **gidmap;
-	size_t n_newuidmap;
-	Nsjail__IdMap **newuidmap;
-	size_t n_newgidmap;
-	Nsjail__IdMap **newgidmap;
 };
 extern char nsjail__ns_jail_config__hostname__default_value[];
 extern char nsjail__ns_jail_config__cwd__default_value[];
 extern char nsjail__ns_jail_config__bindhost__default_value[];
 #define NSJAIL__NS_JAIL_CONFIG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&nsjail__ns_jail_config__descriptor) \
-    , NSJAIL__MODE__ONCE, NULL, 0, nsjail__ns_jail_config__hostname__default_value, nsjail__ns_jail_config__cwd__default_value, 0u, nsjail__ns_jail_config__bindhost__default_value, 0u, 600u, 0, NULL, 0,0, 0, 0, 0, 0,NULL, 0, 0, 512ull, 0ull, 600ull, 1ull, 32ull, 0,0, 0,0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0,NULL, 0,NULL, 0,NULL, 0,NULL }
+    , NSJAIL__MODE__ONCE, NULL, 0, nsjail__ns_jail_config__hostname__default_value, nsjail__ns_jail_config__cwd__default_value, 0u, nsjail__ns_jail_config__bindhost__default_value, 0u, 600u, 0, NULL, 0,0, 0, 0, 0, 0,NULL, 0, 0, 512ull, 0ull, 600ull, 1ull, 32ull, 0,0, 0,0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0,NULL, 0,NULL }
 
 /* Nsjail__IdMap methods */
 void nsjail__id_map__init(Nsjail__IdMap * message);
