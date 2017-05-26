@@ -5,3 +5,6 @@ hostname: "TEST-NS"
 cwd: "/lib"
 bindhost: "::1"
 max_conns_per_ip: 10
+log: "/proc/self/fd/2"
+time_limit: 100
+daemon: false

@@ -415,6 +415,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
       .argv = NULL,
       .port = 0,
       .bindhost = "::",
+	  .logfile = NULL,
       .daemonize = false,
       .tlimit = 0,
       .pivot_root_only = false,
@@ -468,7 +469,6 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	TAILQ_INIT(&nsjconf->uid_mappings);
 	TAILQ_INIT(&nsjconf->gid_mappings);
 
-	const char *logfile = NULL;
 	static char cmdlineTmpfsSz[PATH_MAX] = "size=4194304";
 
 	struct fds_t *f;
@@ -539,7 +539,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			}
 			break;
 		case 'l':
-			logfile = optarg;
+			nsjconf->logfile = optarg;
 			break;
 		case 'd':
 			nsjconf->daemonize = true;
@@ -822,7 +822,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		TAILQ_INSERT_HEAD(&nsjconf->gids, p, pointers);
 	}
 
-	if (logInitLogFile(nsjconf, logfile, log_level) == false) {
+	if (logInitLogFile(nsjconf, nsjconf->logfile, log_level) == false) {
 		return false;
 	}
 

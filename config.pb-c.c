@@ -7,17 +7,20 @@
 #endif
 
 #include "config.pb-c.h"
-void nsjail__ns_jail_config__init(Nsjail__NsJailConfig * message) {
+void nsjail__ns_jail_config__init(Nsjail__NsJailConfig * message)
+{
 	static Nsjail__NsJailConfig init_value = NSJAIL__NS_JAIL_CONFIG__INIT;
 	*message = init_value;
 }
 
-size_t nsjail__ns_jail_config__get_packed_size(const Nsjail__NsJailConfig * message) {
+size_t nsjail__ns_jail_config__get_packed_size(const Nsjail__NsJailConfig * message)
+{
 	assert(message->base.descriptor == &nsjail__ns_jail_config__descriptor);
 	return protobuf_c_message_get_packed_size((const ProtobufCMessage *)(message));
 }
 
-size_t nsjail__ns_jail_config__pack(const Nsjail__NsJailConfig * message, uint8_t * out) {
+size_t nsjail__ns_jail_config__pack(const Nsjail__NsJailConfig * message, uint8_t * out)
+{
 	assert(message->base.descriptor == &nsjail__ns_jail_config__descriptor);
 	return protobuf_c_message_pack((const ProtobufCMessage *)message, out);
 }
@@ -53,7 +56,9 @@ static const uint32_t nsjail__ns_jail_config__port__default_value = 0u;
 static const ProtobufCBinaryData nsjail__ns_jail_config__bindhost__default_value =
     { 2, nsjail__ns_jail_config__bindhost__default_value_data };
 static const uint32_t nsjail__ns_jail_config__max_conns_per_ip__default_value = 0u;
-static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[8] = {
+static const uint32_t nsjail__ns_jail_config__time_limit__default_value = 600u;
+static const protobuf_c_boolean nsjail__ns_jail_config__daemon__default_value = 0;
+static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[11] = {
 	{
 	 "mode",
 	 1,
@@ -150,23 +155,62 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 0,			/* flags */
 	 0, NULL, NULL		/* reserved1,reserved2, etc */
 	 },
+	{
+	 "log",
+	 11,
+	 PROTOBUF_C_LABEL_OPTIONAL,
+	 PROTOBUF_C_TYPE_BYTES,
+	 offsetof(Nsjail__NsJailConfig, has_log),
+	 offsetof(Nsjail__NsJailConfig, log),
+	 NULL,
+	 NULL,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "time_limit",
+	 12,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_UINT32,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__NsJailConfig, time_limit),
+	 NULL,
+	 &nsjail__ns_jail_config__time_limit__default_value,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "daemon",
+	 13,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_BOOL,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__NsJailConfig, daemon),
+	 NULL,
+	 &nsjail__ns_jail_config__daemon__default_value,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
 };
 
 static const unsigned nsjail__ns_jail_config__field_indices_by_name[] = {
 	6,			/* field[6] = bindhost */
 	1,			/* field[1] = chroot */
 	4,			/* field[4] = cwd */
+	10,			/* field[10] = daemon */
 	3,			/* field[3] = hostname */
 	2,			/* field[2] = is_root_rw */
+	8,			/* field[8] = log */
 	7,			/* field[7] = max_conns_per_ip */
 	0,			/* field[0] = mode */
 	5,			/* field[5] = port */
+	9,			/* field[9] = time_limit */
 };
 
 static const ProtobufCIntRange nsjail__ns_jail_config__number_ranges[2 + 1] = {
 	{1, 0},
 	{6, 3},
-	{0, 8}
+	{0, 11}
 };
 
 const ProtobufCMessageDescriptor nsjail__ns_jail_config__descriptor = {
@@ -176,7 +220,7 @@ const ProtobufCMessageDescriptor nsjail__ns_jail_config__descriptor = {
 	"Nsjail__NsJailConfig",
 	"nsjail",
 	sizeof(Nsjail__NsJailConfig),
-	8,
+	11,
 	nsjail__ns_jail_config__field_descriptors,
 	nsjail__ns_jail_config__field_indices_by_name,
 	2, nsjail__ns_jail_config__number_ranges,

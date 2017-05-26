@@ -36,13 +36,17 @@ struct _Nsjail__NsJailConfig {
 	uint32_t port;
 	ProtobufCBinaryData bindhost;
 	uint32_t max_conns_per_ip;
+	protobuf_c_boolean has_log;
+	ProtobufCBinaryData log;
+	uint32_t time_limit;
+	protobuf_c_boolean daemon;
 };
 extern uint8_t nsjail__ns_jail_config__hostname__default_value_data[];
 extern uint8_t nsjail__ns_jail_config__cwd__default_value_data[];
 extern uint8_t nsjail__ns_jail_config__bindhost__default_value_data[];
 #define NSJAIL__NS_JAIL_CONFIG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&nsjail__ns_jail_config__descriptor) \
-    , NSJAIL__MODE__ONCE, 0,{0,NULL}, 0, { 6, nsjail__ns_jail_config__hostname__default_value_data }, { 1, nsjail__ns_jail_config__cwd__default_value_data }, 0u, { 2, nsjail__ns_jail_config__bindhost__default_value_data }, 0u }
+    , NSJAIL__MODE__ONCE, 0,{0,NULL}, 0, { 6, nsjail__ns_jail_config__hostname__default_value_data }, { 1, nsjail__ns_jail_config__cwd__default_value_data }, 0u, { 2, nsjail__ns_jail_config__bindhost__default_value_data }, 0u, 0,{0,NULL}, 600u, 0 }
 
 /* Nsjail__NsJailConfig methods */
 void nsjail__ns_jail_config__init(Nsjail__NsJailConfig * message);

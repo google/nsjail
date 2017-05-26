@@ -110,6 +110,7 @@ struct nsjconf_t {
 	char *const *argv;
 	int port;
 	const char *bindhost;
+	const char *logfile;
 	bool daemonize;
 	time_t tlimit;
 	bool pivot_root_only;

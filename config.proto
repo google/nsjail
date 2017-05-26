@@ -13,9 +13,12 @@ message NsJailConfig {
 	required Mode mode = 1 [default = ONCE];
 	optional bytes chroot = 2;
 	required bool is_root_rw = 3 [default = false];
-	required bytes hostname = 6 [default="NSJAIL"];
-	required bytes cwd = 7 [default="/"];
-	required uint32 port = 8 [default=0];
-	required bytes bindhost = 9 [default="::"];
-	required uint32 max_conns_per_ip = 10 [default=0];
+	required bytes hostname = 6 [default = "NSJAIL"];
+	required bytes cwd = 7 [default = "/"];
+	required uint32 port = 8 [default = 0];
+	required bytes bindhost = 9 [default = "::"];
+	required uint32 max_conns_per_ip = 10 [default = 0];
+	optional bytes log = 11;
+	required uint32 time_limit = 12 [default = 600];
+	required bool daemon = 13 [default = false];
 }

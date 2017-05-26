@@ -63,6 +63,11 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 	nsjconf->cwd = utilStrDupLen((char *)njc->cwd.data, njc->cwd.len);
 	nsjconf->bindhost = utilStrDupLen((char *)njc->bindhost.data, njc->bindhost.len);
 	nsjconf->max_conns_per_ip = njc->max_conns_per_ip;
+	if (njc->has_log) {
+		nsjconf->logfile = utilStrDupLen((char *)njc->log.data, njc->log.len);
+	}
+	nsjconf->tlimit = njc->time_limit;
+	nsjconf->daemonize = njc->daemon;
 
 	return true;
 }
