@@ -108,7 +108,7 @@ bool mountIsDir(const char *path)
 	}
 	struct stat st;
 	if (stat(path, &st) == -1) {
-		PLOG_E("stat('%s')", path);
+		PLOG_W("stat('%s')", path);
 		return false;
 	}
 	if (S_ISDIR(st.st_mode)) {
