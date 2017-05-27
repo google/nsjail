@@ -282,6 +282,14 @@ $ ./nsjail --config configs/home-documents-with-xorg-no-net.cfg -- /usr/bin/gv /
 </pre>
 
 ***
+
+The [configs/firefox-with-net.cfg](https://github.com/google/nsjail/blob/master/configs/firefox-with-net.cfg) config file will allow you to run firefox in a  sandboxed environment:
+
+<pre>
+$ ./nsjail --config configs/firefox-with-net.cfg
+</pre>
+
+***
 ### More info
 
 The options should be self-explanatory, and these are available with:
