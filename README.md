@@ -136,7 +136,7 @@ Date: Wed, 02 Mar 2016 02:14:08 GMT
  / $
 </pre>
 
-#### Bash in a minimal file-system with uid==0 and access to /dev/urandom only
+### Bash in a minimal file-system with uid==0 and access to /dev/urandom only
 <pre>
 $ ./nsjail -Mo --user 0 --group 99999 -R /bin/ -R /lib -R /lib64/ -R /usr/ -R /sbin/ -T /dev -R /dev/urandom --keep_caps -- /bin/bash -i
 [2017-05-24T17:08:02+0200] Mode: STANDALONE_ONCE
@@ -171,7 +171,7 @@ exit
 [2017-05-24T17:08:05+0200] PID: 129839 exited with status: 0, (PIDs left: 0)
 </pre>
 
-#### /usr/bin/find in a minimal file-system (only /usr/bin/find accessible from /usr/bin)
+### /usr/bin/find in a minimal file-system (only /usr/bin/find accessible from /usr/bin)
 <pre>
 $ ./nsjail -Mo --user 99999 --group 99999 -R /lib/x86_64-linux-gnu/ -R /lib/x86_64-linux-gnu -R /lib64 -R /usr/bin/find -R /dev/urandom --keep_caps -- /usr/bin/find / | wc -l
 [2017-05-24T17:04:37+0200] Mode: STANDALONE_ONCE
@@ -191,7 +191,7 @@ $ ./nsjail -Mo --user 99999 --group 99999 -R /lib/x86_64-linux-gnu/ -R /lib/x86_
 [2017-05-24T17:04:37+0200] PID: 129525 exited with status: 1, (PIDs left: 0)
 </pre>
 
-#### Using /etc/subuid
+### Using /etc/subuid
 <pre>
 $ tail -n1 /etc/subuid
 user:10000000:1
@@ -221,7 +221,7 @@ drwxr-xr-x   4 65534 65534 20480 May 24 00:24 sbin
 [2017-05-24T17:12:31+0200] PID: 130841 exited with status: 0, (PIDs left: 0)
 </pre>
 
-#### Even more contrained shell (with seccomp-bpf policies)
+### Even more contrained shell (with seccomp-bpf policies)
 <pre>
 $ ./nsjail --chroot / --seccomp_string 'POLICY a { ALLOW { write, execve, brk, access, mmap, open, newfstat, close, read, mprotect, arch_prctl, munmap, getuid, getgid, getpid, rt_sigaction, geteuid, getppid, getcwd, getegid, ioctl, fcntl, newstat, clone, wait4, rt_sigreturn, exit_group } } USE a DEFAULT KILL' -- /bin/sh -i
 [2017-01-15T21:53:08+0100] Mode: STANDALONE_ONCE
