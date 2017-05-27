@@ -260,6 +260,11 @@ Usage:
 You can also override certain options with command-line options. Here, the executed binary (_/bin/bash_) is overriden with _/usr/bin/id_, yet options from _configs/bash-with-fake-geteuid.cfg_ apply
 <pre>
 ./nsjail --config configs/bash-with-fake-geteuid.cfg -- /usr/bin/id
+...
+[INSIDE-JAIL]: id
+uid=999999 gid=999998 euid=4294965959 groups=999998,65534
+[INSIDE-JAIL]: exit
+[2017-05-27T18:45:40+0200] PID: 16579 exited with status: 0, (PIDs left: 0)
 </pre>
 
 ***
