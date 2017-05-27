@@ -71,22 +71,15 @@ mount {
 }
 
 mount {
-	src: "/usr"
-	dst: "/usr"
-	is_bind: true
-	is_ro: true
-}
-
-mount {
-	src: "/bin"
-	dst: "/bin"
-	is_bind: true
-	is_ro: true
-}
-
-mount {
 	src: "/sbin"
 	dst: "/sbin"
+	is_bind: true
+	is_ro: true
+}
+
+mount {
+	src: "/usr"
+	dst: "/usr"
 	is_bind: true
 	is_ro: true
 }

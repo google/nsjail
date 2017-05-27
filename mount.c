@@ -120,7 +120,7 @@ bool mountIsDir(const char *path)
 static bool mountMount(struct nsjconf_t *nsjconf, struct mounts_t *mpt, const char *oldroot,
 		       const char *dst)
 {
-	LOG_D("Mounting '%s' on '%s' (type:'%s', flags:%s, options:'%s', is_dir:%s)",
+	LOG_D("Mounting '%s' on '%s' (fstype:'%s', flags:%s, options:'%s', is_dir:%s)",
 	      mpt->src ? mpt->src : "[NULL]", dst, mpt->fs_type ? mpt->fs_type : "[NULL]",
 	      mountFlagsToStr(mpt->flags), mpt->options ? mpt->options : "[NULL]",
 	      mpt->isDir ? "True" : "False");
@@ -160,11 +160,12 @@ static bool mountMount(struct nsjconf_t *nsjconf, struct mounts_t *mpt, const ch
 	if (mount(srcpath, dst, mpt->fs_type, flags, mpt->options) == -1) {
 		if (errno == EACCES) {
 			PLOG_W
-			    ("mount('%s', '%s', type='%s') failed. Try fixing this problem by applying 'chmod o+x' to the '%s' directory and its ancestors",
+			    ("mount('%s', '%s', fstype:'%s') failed. Try fixing this problem by applying 'chmod o+x' to the '%s' directory and its ancestors",
 			     srcpath, dst, mpt->fs_type ? mpt->fs_type : "[NULL]", nsjconf->chroot);
 		} else {
-			PLOG_W("mount('%s', '%s', type='%s') failed", srcpath, dst,
-			       mpt->fs_type ? mpt->fs_type : "[NULL]");
+			PLOG_W("mount('%s', '%s', fstype='%s', mandatory:%s) failed", srcpath, dst,
+			       mpt->fs_type ? mpt->fs_type : "[NULL]",
+			       mpt->mandatory ? "true" : "false");
 		}
 		if (mpt->mandatory) {
 			return false;

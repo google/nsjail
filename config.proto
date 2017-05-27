@@ -10,9 +10,9 @@ enum Mode {
 }
 /* Should be self explanatory */
 enum LogLevel {
-    DEBUG = 0;
-    INFO = 1;
-    WARNING = 2;
+    DEBUG = 0; /* Equivalent to the '-v' cmd-line option */
+    INFO = 1; /* Default level */
+    WARNING = 2; /* Equivalent to the '-q' cmd-line option */
     ERROR = 3;
     FATAL = 4;
 }
@@ -21,7 +21,7 @@ message IdMap
     /* Empty string means "current uid/gid" */
     required string inside_id = 1 [ default = "" ];
     required string outside_id = 2 [ default = "" ];
-    /* 'man user_namespaces' for the meaning of count */
+    /* See 'man user_namespaces' for the meaning of count */
     required uint32 count = 3 [ default = 1 ];
     /* Does this map use /usr/bin/new[u|g]idmap binary? */
     required bool use_newidmap = 4 [ default = false ];
@@ -47,7 +47,7 @@ message MountPt
 }
 message Exe
 {
-    /* This will be usef both for path and for argv[0] */
+    /* Will be used both as execv's path and as argv[0] */
     required string path = 1;
     /* This will be argv[1] and so on.. */
     repeated string arg = 2;
@@ -56,7 +56,7 @@ message NsJailConfig
 {
     /* Execution mode: see 'msg Mode' description for more */
     required Mode mode = 1 [ default = ONCE ];
-    /* Equivalent to a bind mount with src='/', dst='/' */
+    /* Equivalent to a bind mount with dst='/' */
     optional string chroot_dir = 2;
     /* Applies both to the chroot_dir and to /proc mounts */
     required bool is_root_rw = 3 [ default = false ];
@@ -105,13 +105,13 @@ message NsJailConfig
        inside the jail */
     required bool disable_no_new_privs = 21 [ default = false ];
 
-    required uint64 rlimit_as = 22 [ default = 512 ]; /* In MiB     */
-    required uint64 rlimit_core = 23 [ default = 0 ]; /* In MiB     */
+    required uint64 rlimit_as = 22 [ default = 512 ]; /* In MiB */
+    required uint64 rlimit_core = 23 [ default = 0 ]; /* In MiB */
     required uint64 rlimit_cpu = 24 [ default = 600 ]; /* In seconds */
-    required uint64 rlimit_fsize = 25 [ default = 1 ]; /* In MiB     */
+    required uint64 rlimit_fsize = 25 [ default = 1 ]; /* In MiB */
     required uint64 rlimit_nofile = 26 [ default = 32 ];
-    optional uint64 rlimit_nproc = 27;
-    optional uint64 rlimit_stack = 28; /* In MiB     */
+    optional uint64 rlimit_nproc = 27; /* This is system-wide: tricky to use */
+    optional uint64 rlimit_stack = 28; /* In MiB */
 
     /* See 'man personality' for more */
     required bool persona_addr_compat_layout = 29 [ default = false ];
@@ -135,32 +135,33 @@ message NsJailConfig
     repeated IdMap uidmap = 41;
     repeated IdMap gidmap = 42;
 
-    /* Should /proc be mounted? One can also force this in the 'mount' */
-    required bool mount_proc = 43 [ default = true ];
+    /* Should /proc be mounted (R/O)? This can also be added in the 'mount'
+       section below */
+    required bool mount_proc = 43 [ default = false ];
     /* Mount points inside the jail. See the description for 'msg MountPt'
        for more */
     repeated MountPt mount = 44;
 
-    /* Kafel seccomp policy file or string.
+    /* Kafel seccomp-bpf policy file or a string:
        Homepage of the project: https://github.com/google/kafel */
     optional string seccomp_policy_file = 45;
     optional string seccomp_string = 46;
 
-    /* If > 0, maximum cumulative size of RAM used inside jail */
+    /* If > 0, maximum cumulative size of RAM used inside any jail */
     required uint64 cgroup_mem_max = 47 [ default = 0 ]; /* In MiB */
-    /* Mount point for cgroups-memory */
+    /* Mount point for cgroups-memory in your system */
     required string cgroup_mem_mount = 48 [ default = "/sys/fs/cgroup/memory" ];
     /* Writeable directory (for the nsjail user) under cgroup_mem_mount */
     required string cgroup_mem_parent = 49 [ default = "NSJAIL" ];
 
     /* If > 0, maximum number of PIDs (threads/processes) inside jail */
     required uint64 cgroup_pids_max = 50 [ default = 0 ];
-    /* Mount point for cgroups-memory */
+    /* Mount point for cgroups-pids in your system */
     required string cgroup_pids_mount = 51 [ default = "/sys/fs/cgroup/pids" ];
     /* Writeable directory (for the nsjail user) under cgroup_pids_mount */
     required string cgroup_pids_parent = 52 [ default = "NSJAIL" ];
 
-    /* Should the 'lo' interface be brought up inside jail? */
+    /* Should the 'lo' interface be brought up (active) inside this jail? */
     required bool iface_no_lo = 53 [ default = false ];
 
     /* Parameters for the cloned MACVLAN interface inside jail */
@@ -169,7 +170,7 @@ message NsJailConfig
     required string macvlan_vs_nm = 56 [ default = "255.255.255.0" ];
     required string macvlan_vs_gw = 57 [ default = "192.168.0.1" ];
 
-    /* Binary with arguments to be executed. If not specified here, it can be
-       specified with the command-line as "-- /path/to/command arg1 arg2" */
+    /* Binary path (with arguments) to be executed. If not specified here, it
+       can be specified with cmd-line as "-- /path/to/command arg1 arg2" */
     optional Exe exec_bin = 58;
 }
