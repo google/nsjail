@@ -1,10 +1,11 @@
 - [What is it](#what-is-it)
 - [What forms of isolation does it provide](#what-forms-of-isolation-does-it-provide)
-- [Which use-cases are supported](#which-use-cases-are-supported)
+- Which use-cases are supported
   * [Isolation of network services (inetd style)](#isolation-of-network-services-inetd-style)
   * [Isolation with access to a private, cloned interface (requires root/setuid)](#isolation-with-access-to-a-private-cloned-interface-requires-rootsetuid)
   * [Isolation of local processes](#isolation-of-local-processes)
   * [Isolation of local processes (and re-running them, if necessary)](#isolation-of-local-processes-and-re-running-them-if-necessary)
+- Examples of use
   * [Bash in a minimal file-system with uid==0 and access to /dev/urandom only](#bash-in-a-minimal-file-system-with-uid0-and-access-to-devurandom-only)
   * [/usr/bin/find in a minimal file-system (only /usr/bin/find accessible from /usr/bin)](#usrbinfind-in-a-minimal-file-system-only-usrbinfind-accessible-from-usrbin)
   * [Using /etc/subuid](#using-etcsubuid)
@@ -246,10 +247,8 @@ $ exit
 [2017-01-15T21:53:17+0100] PID: 18873 exited with status: 159, (PIDs left: 0)
 </pre>
 
-***
-
 ### Configuration file
-[config.proto](https://github.com/google/nsjail/blob/master/config.proto) contains ProtoBuf schema for nsjail's configuration format. You can also find example config file in [config1.example](https://github.com/google/nsjail/blob/master/configs/config1.example).
+[config.proto](https://github.com/google/nsjail/blob/master/config.proto) contains ProtoBuf schema for nsjail's configuration format. You can also examine the example config file in [config1.example](https://github.com/google/nsjail/blob/master/configs/config1.example).
 
 Usage:
 
