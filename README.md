@@ -250,18 +250,16 @@ $ exit
 
 ***
 ### Configuration file
-[config.proto](https://github.com/google/nsjail/blob/master/config.proto) contains ProtoBuf schema for nsjail's configuration format. You can also examine the example config file in [config1.example](https://github.com/google/nsjail/blob/master/configs/config1.example).
+[config.proto](https://github.com/google/nsjail/blob/master/config.proto) contains ProtoBuf schema for nsjail's configuration format. You can also examine an example config file in [configs/bash-with-fake-geteuid.cfg](https://github.com/google/nsjail/blob/master/configs/bash-with-fake-geteuid.cfg).
 
 Usage:
-
 <pre>
-./nsjail --config configs/config1.example
+./nsjail --config configs/bash-with-fake-geteuid.cfg
 </pre>
 
-You can also override certain options with command-line options. Here, the executed binary is changed from _/usr/bin/id_ to _/bin/ls_, yet options from _config1.example_ are applied.
-
+You can also override certain options with command-line options. Here, the executed binary (_/bin/bash_) is overriden with _/usr/bin/id_, yet options from _configs/bash-with-fake-geteuid.cfg_ apply
 <pre>
-./nsjail --config configs/config1.example -- /bin/ls
+./nsjail --config configs/bash-with-fake-geteuid.cfg -- /usr/bin/id
 </pre>
 
 ***
