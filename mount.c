@@ -160,12 +160,16 @@ static bool mountMount(struct nsjconf_t *nsjconf, struct mounts_t *mpt, const ch
 	if (mount(srcpath, dst, mpt->fs_type, flags, mpt->options) == -1) {
 		if (errno == EACCES) {
 			PLOG_W
-			    ("mount('%s', '%s', fstype:'%s') failed. Try fixing this problem by applying 'chmod o+x' to the '%s' directory and its ancestors",
-			     srcpath, dst, mpt->fs_type ? mpt->fs_type : "[NULL]", nsjconf->chroot);
+			    ("mount(src:'%s', dst:'%s', fstype:'%s', flags:'%s', mandatory:%s) failed. "
+			     "Try fixing this problem by applying 'chmod o+x' to the '%s' directory and "
+			     "its ancestors", srcpath, dst, mpt->fs_type ? mpt->fs_type : "[NULL]",
+			     mountFlagsToStr(mpt->flags), nsjconf->chroot,
+			     mpt->mandatory ? "true" : "false");
 		} else {
-			PLOG_W("mount('%s', '%s', fstype='%s', mandatory:%s) failed", srcpath, dst,
-			       mpt->fs_type ? mpt->fs_type : "[NULL]",
-			       mpt->mandatory ? "true" : "false");
+			PLOG_W
+			    ("mount(src:'%s', dst:'%s', fstype:'%s', flags:'%s' mandatory:%s) failed",
+			     srcpath, dst, mpt->fs_type ? mpt->fs_type : "[NULL]",
+			     mountFlagsToStr(mpt->flags), mpt->mandatory ? "true" : "false");
 		}
 		if (mpt->mandatory) {
 			return false;
