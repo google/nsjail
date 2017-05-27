@@ -131,6 +131,7 @@ static bool userGidMapExternal(struct nsjconf_t *nsjconf, pid_t pid UNUSED)
 	idx++;
 
 	struct idmap_t *p;
+	bool use = false;
 	TAILQ_FOREACH(p, &nsjconf->gids, pointers) {
 		if (p->is_newidmap == false) {
 			continue;
@@ -139,6 +140,7 @@ static bool userGidMapExternal(struct nsjconf_t *nsjconf, pid_t pid UNUSED)
 			LOG_W("Number of arguments to '/usr/bin/newgidmap' too big");
 			return false;
 		}
+		use = true;
 
 		snprintf(parms[idx], sizeof(parms[idx]), "%u", (unsigned)p->inside_id);
 		argv[idx] = parms[idx];
@@ -155,7 +157,7 @@ static bool userGidMapExternal(struct nsjconf_t *nsjconf, pid_t pid UNUSED)
 
 	argv[idx] = NULL;
 
-	if (idx < 4) {
+	if (!use) {
 		return true;
 	}
 
@@ -181,6 +183,7 @@ static bool userUidMapExternal(struct nsjconf_t *nsjconf, pid_t pid UNUSED)
 	argv[idx] = parms[idx];
 	idx++;
 
+	bool use = false;
 	struct idmap_t *p;
 	TAILQ_FOREACH(p, &nsjconf->uids, pointers) {
 		if (p->is_newidmap == false) {
@@ -190,6 +193,7 @@ static bool userUidMapExternal(struct nsjconf_t *nsjconf, pid_t pid UNUSED)
 			LOG_W("Number of arguments to '/usr/bin/newuidmap' too big");
 			return false;
 		}
+		use = true;
 
 		snprintf(parms[idx], sizeof(parms[idx]), "%u", (unsigned)p->inside_id);
 		argv[idx] = parms[idx];
@@ -206,7 +210,7 @@ static bool userUidMapExternal(struct nsjconf_t *nsjconf, pid_t pid UNUSED)
 
 	argv[idx] = NULL;
 
-	if (idx < 4) {
+	if (!use) {
 		return true;
 	}
 
