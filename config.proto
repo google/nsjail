@@ -125,12 +125,12 @@ message NsJailConfig {
 	required bool clone_newcgroup = 39 [default = false];
 
 	/* Mappings for UIDs and GIDs. See the description for 'msg IdMap'
-       for more */
+	   for more */
 	repeated IdMap uidmap = 40;
 	repeated IdMap gidmap = 41;
 
 	/* Mount points inside the jail. See the description for 'msg MountPt'
-       for more */
+	   for more */
 	repeated MountPt mount = 42;
 	/* Should /proc be mounted? One can also force this in the 'mount' */
 	required bool mount_proc = 43 [default = true];
