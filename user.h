@@ -29,6 +29,7 @@
 bool userInitNsFromParent(struct nsjconf_t *nsjconf, pid_t pid);
 bool userInitNsFromChild(struct nsjconf_t *nsjconf);
 
-struct idmap_t *userParseId(const char *i_id, const char *o_id, size_t cnt, bool is_gid);
+bool userParseId(struct nsjconf_t *nsjconf, const char *i_id, const char *o_id, size_t cnt,
+		 bool is_gid, bool is_newidmap);
 
 #endif				/* NS_USER_H */

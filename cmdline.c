@@ -108,7 +108,7 @@ struct custom_option custom_opts[] = {
     {{"disable_clone_newuts", no_argument, NULL, 0x0406}, "Don't use CLONE_NEWUTS"},
     {{"enable_clone_newcgroup", no_argument, NULL, 0x0407}, "Use CLONE_NEWCGROUP"},
     {{"uid_mapping", required_argument, NULL, 'U'}, "Add a custom uid mapping of the form inside_uid:outside_uid:count. Setting this requires newuidmap to be present"},
-    {{"gid_mapping", required_argument, NULL, 'G'}, "Add a custom gid mapping of the form inside_gid:outside_gid:count. Setting this requires newuidmap to be present"},
+    {{"gid_mapping", required_argument, NULL, 'G'}, "Add a custom gid mapping of the form inside_gid:outside_gid:count. Setting this requires newgidmap to be present"},
     {{"bindmount_ro", required_argument, NULL, 'R'}, "List of mountpoints to be mounted --bind (ro) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'"},
     {{"bindmount", required_argument, NULL, 'B'}, "List of mountpoints to be mounted --bind (rw) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'"},
     {{"tmpfsmount", required_argument, NULL, 'T'}, "List of mountpoints to be mounted as RW/tmpfs inside the container. Can be specified multiple times. Supports 'dest' syntax"},
@@ -234,34 +234,17 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	{
 		struct idmap_t *p;
 		TAILQ_FOREACH(p, &nsjconf->uids, pointers) {
-			LOG_I("Uid map: inside_uid:%d outside_uid:%d count:%zu", p->inside_id,
-			      p->outside_id, p->count);
+			LOG_I("Uid map: inside_uid:%d outside_uid:%d count:%zu newuidmap:%s",
+			      p->inside_id, p->outside_id, p->count,
+			      p->is_newidmap ? "true" : "false");
 			if (p->outside_id == 0) {
 				LOG_W("Process will be UID/EUID=0 in the global user namespace");
 			}
 		}
 		TAILQ_FOREACH(p, &nsjconf->gids, pointers) {
-			LOG_I("Gid map: inside_gid:%d outside_gid:%d count:%zu", p->inside_id,
-			      p->outside_id, p->count);
-			if (p->outside_id == 0) {
-				LOG_W("Process will be GID/EGID=0 in the global user namespace");
-			}
-		}
-	}
-
-	{
-		struct idmap_t *p;
-		TAILQ_FOREACH(p, &nsjconf->newuidmap, pointers) {
-			LOG_I("Newuid mapping: inside_uid:%u outside_uid:%u count:%zu",
-			      p->inside_id, p->outside_id, p->count);
-			if (p->outside_id == 0) {
-				LOG_W("Process will be UID/EUID=0 in the global user namespace");
-			}
-		}
-
-		TAILQ_FOREACH(p, &nsjconf->newgidmap, pointers) {
-			LOG_I("Newgid mapping: inside_uid:%u outside_uid:%u count:%zu",
-			      p->inside_id, p->outside_id, p->count);
+			LOG_I("Gid map: inside_gid:%d outside_gid:%d count:%zu newgidmap:%s",
+			      p->inside_id, p->outside_id, p->count,
+			      p->is_newidmap ? "true" : "false");
 			if (p->outside_id == 0) {
 				LOG_W("Process will be GID/EGID=0 in the global user namespace");
 			}
@@ -379,8 +362,6 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	TAILQ_INIT(&nsjconf->envs);
 	TAILQ_INIT(&nsjconf->uids);
 	TAILQ_INIT(&nsjconf->gids);
-	TAILQ_INIT(&nsjconf->newuidmap);
-	TAILQ_INIT(&nsjconf->newgidmap);
 
 	static char cmdlineTmpfsSz[PATH_MAX] = "size=4194304";
 
@@ -574,12 +555,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 						|| strlen(cnt) == 0) ? 1U : (size_t) strtoull(cnt,
 											      NULL,
 											      0);
-
-				struct idmap_t *p =
-				    userParseId(i_id, o_id, count, false /* is_gid */ );
-				if (p) {
-					TAILQ_INSERT_TAIL(&nsjconf->uids, p, pointers);
-				} else {
+				if (userParseId(nsjconf, i_id, o_id, count, false /* is_gid */ ,
+						false /* is_newidmap */ ) == false) {
 					return false;
 				}
 			}
@@ -592,11 +569,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 						|| strlen(cnt) == 0) ? 1U : (size_t) strtoull(cnt,
 											      NULL,
 											      0);
-				struct idmap_t *p =
-				    userParseId(i_id, o_id, count, true /* is_gid */ );
-				if (p) {
-					TAILQ_INSERT_TAIL(&nsjconf->gids, p, pointers);
-				} else {
+				if (userParseId(nsjconf, i_id, o_id, count, true /* is_gid */ ,
+						false /* is_newidmap */ ) == false) {
 					return false;
 				}
 			}
@@ -609,11 +583,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 						|| strlen(cnt) == 0) ? 1U : (size_t) strtoull(cnt,
 											      NULL,
 											      0);
-				struct idmap_t *p =
-				    userParseId(i_id, o_id, count, false /* is_gid */ );
-				if (p) {
-					TAILQ_INSERT_TAIL(&nsjconf->newuidmap, p, pointers);
-				} else {
+				if (userParseId(nsjconf, i_id, o_id, count, false /* is_gid */ ,
+						true /* is_newidmap */ ) == false) {
 					return false;
 				}
 			}
@@ -626,11 +597,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 						|| strlen(cnt) == 0) ? 1U : (size_t) strtoull(cnt,
 											      NULL,
 											      0);
-				struct idmap_t *p =
-				    userParseId(i_id, o_id, count, true /* is_gid */ );
-				if (p) {
-					TAILQ_INSERT_TAIL(&nsjconf->newgidmap, p, pointers);
-				} else {
+				if (userParseId(nsjconf, i_id, o_id, count, true /* is_gid */ ,
+						true /* is_newidmap */ ) == false) {
 					return false;
 				}
 			}
@@ -638,7 +606,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		case 'R':{
 				struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
 				p->src = optarg;
-				p->dst = cmdlineSplitStrByColon(optarg);
+				const char *dst = cmdlineSplitStrByColon(optarg);
+				p->dst = dst ? dst : optarg;
 				p->flags = MS_BIND | MS_REC | MS_RDONLY;
 				p->options = "";
 				p->fs_type = "";
@@ -649,7 +618,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		case 'B':{
 				struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
 				p->src = optarg;
-				p->dst = cmdlineSplitStrByColon(optarg);
+				const char *dst = cmdlineSplitStrByColon(optarg);
+				p->dst = dst ? dst : optarg;
 				p->flags = MS_BIND | MS_REC;
 				p->options = "";
 				p->fs_type = "";
@@ -787,6 +757,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		p->inside_id = getuid();
 		p->outside_id = getuid();
 		p->count = 1U;
+		p->is_newidmap = false;
 		TAILQ_INSERT_HEAD(&nsjconf->uids, p, pointers);
 	}
 	if (TAILQ_EMPTY(&nsjconf->gids)) {
@@ -794,6 +765,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		p->inside_id = getgid();
 		p->outside_id = getgid();
 		p->count = 1U;
+		p->is_newidmap = false;
 		TAILQ_INSERT_HEAD(&nsjconf->gids, p, pointers);
 	}
 

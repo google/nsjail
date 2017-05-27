@@ -155,29 +155,19 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 	nsjconf->clone_newcgroup = njc->clone_newcgroup;
 
 	for (size_t i = 0; i < njc->n_uidmap; i++) {
-		struct idmap_t *p =
-		    userParseId(njc->uidmap[i]->inside_id, njc->uidmap[i]->outside_id,
-				njc->uidmap[i]->count, false /* is_gid */ );
-		if (p == NULL) {
+		if (userParseId
+		    (nsjconf, njc->uidmap[i]->inside_id, njc->uidmap[i]->outside_id,
+		     njc->uidmap[i]->count, false /* is_gid */ ,
+		     njc->uidmap[i]->use_newidmap) == false) {
 			return false;
-		}
-		if (njc->uidmap[i]->use_newidmap) {
-			TAILQ_INSERT_TAIL(&nsjconf->newuidmap, p, pointers);
-		} else {
-			TAILQ_INSERT_TAIL(&nsjconf->uids, p, pointers);
 		}
 	}
 	for (size_t i = 0; i < njc->n_gidmap; i++) {
-		struct idmap_t *p =
-		    userParseId(njc->gidmap[i]->inside_id, njc->gidmap[i]->outside_id,
-				njc->gidmap[i]->count, true /* is_gid */ );
-		if (p == NULL) {
+		if (userParseId
+		    (nsjconf, njc->gidmap[i]->inside_id, njc->gidmap[i]->outside_id,
+		     njc->gidmap[i]->count, true /* is_gid */ ,
+		     njc->gidmap[i]->use_newidmap) == false) {
 			return false;
-		}
-		if (njc->gidmap[i]->use_newidmap) {
-			TAILQ_INSERT_TAIL(&nsjconf->newgidmap, p, pointers);
-		} else {
-			TAILQ_INSERT_TAIL(&nsjconf->gids, p, pointers);
 		}
 	}
 

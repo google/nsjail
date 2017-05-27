@@ -67,8 +67,15 @@ static bool userUidMapSelf(struct nsjconf_t *nsjconf, pid_t pid)
 
 	struct idmap_t *p;
 	TAILQ_FOREACH(p, &nsjconf->uids, pointers) {
+		if (p->is_newidmap) {
+			continue;
+		}
 		utilSSnPrintf(map, sizeof(map), "%lu %lu %zu\n", (unsigned long)p->inside_id,
 			      (unsigned long)p->outside_id, p->count);
+	}
+
+	if (strlen(map) == 0) {
+		return true;
 	}
 
 	LOG_D("Writing '%s' to '%s'", map, fname);
@@ -89,8 +96,15 @@ static bool userGidMapSelf(struct nsjconf_t *nsjconf, pid_t pid)
 
 	struct idmap_t *p;
 	TAILQ_FOREACH(p, &nsjconf->gids, pointers) {
+		if (p->is_newidmap) {
+			continue;
+		}
 		utilSSnPrintf(map, sizeof(map), "%lu %lu %zu\n", (unsigned long)p->inside_id,
 			      (unsigned long)p->outside_id, p->count);
+	}
+
+	if (strlen(map) == 0) {
+		return true;
 	}
 
 	LOG_D("Writing '%s' to '%s'", map, fname);
@@ -117,7 +131,10 @@ static bool userGidMapExternal(struct nsjconf_t *nsjconf, pid_t pid UNUSED)
 	idx++;
 
 	struct idmap_t *p;
-	TAILQ_FOREACH(p, &nsjconf->newgidmap, pointers) {
+	TAILQ_FOREACH(p, &nsjconf->gids, pointers) {
+		if (p->is_newidmap == false) {
+			continue;
+		}
 		if ((idx + 4) >= ARRAYSIZE(argv)) {
 			LOG_W("Number of arguments to '/usr/bin/newgidmap' too big");
 			return false;
@@ -137,6 +154,10 @@ static bool userGidMapExternal(struct nsjconf_t *nsjconf, pid_t pid UNUSED)
 	}
 
 	argv[idx] = NULL;
+
+	if (idx < 4) {
+		return true;
+	}
 
 	if (subprocSystem(argv, environ) != 0) {
 		LOG_E("'/usr/bin/newgidmap' failed");
@@ -161,7 +182,10 @@ static bool userUidMapExternal(struct nsjconf_t *nsjconf, pid_t pid UNUSED)
 	idx++;
 
 	struct idmap_t *p;
-	TAILQ_FOREACH(p, &nsjconf->newuidmap, pointers) {
+	TAILQ_FOREACH(p, &nsjconf->uids, pointers) {
+		if (p->is_newidmap == false) {
+			continue;
+		}
 		if ((idx + 4) >= ARRAYSIZE(argv)) {
 			LOG_W("Number of arguments to '/usr/bin/newuidmap' too big");
 			return false;
@@ -182,6 +206,10 @@ static bool userUidMapExternal(struct nsjconf_t *nsjconf, pid_t pid UNUSED)
 
 	argv[idx] = NULL;
 
+	if (idx < 4) {
+		return true;
+	}
+
 	if (subprocSystem(argv, environ) != 0) {
 		LOG_E("'/usr/bin/newuidmap' failed");
 		return false;
@@ -192,20 +220,19 @@ static bool userUidMapExternal(struct nsjconf_t *nsjconf, pid_t pid UNUSED)
 
 static bool userUidGidMap(struct nsjconf_t *nsjconf, pid_t pid)
 {
-	if (TAILQ_EMPTY(&nsjconf->newgidmap)) {
-		if (!userGidMapSelf(nsjconf, pid)) {
-			return false;
-		}
-	} else {
-		if (!userGidMapExternal(nsjconf, pid)) {
-			return false;
-		}
+	if (!userGidMapSelf(nsjconf, pid)) {
+		return false;
 	}
-	if (TAILQ_EMPTY(&nsjconf->newgidmap)) {
-		return userUidMapSelf(nsjconf, pid);
-	} else {
-		return userUidMapExternal(nsjconf, pid);
+	if (!userGidMapExternal(nsjconf, pid)) {
+		return false;
 	}
+	if (!userUidMapSelf(nsjconf, pid)) {
+		return false;
+	}
+	if (!userUidMapExternal(nsjconf, pid)) {
+		return false;
+	}
+	return true;
 }
 
 bool userInitNsFromParent(struct nsjconf_t * nsjconf, pid_t pid)
@@ -284,7 +311,8 @@ static gid_t cmdParseGid(const char *id)
 	return -1;
 }
 
-struct idmap_t *userParseId(const char *i_id, const char *o_id, size_t cnt, bool is_gid)
+bool userParseId(struct nsjconf_t * nsjconf, const char *i_id, const char *o_id, size_t cnt,
+		 bool is_gid, bool is_newidmap)
 {
 	uid_t inside_id;
 	uid_t outside_id;
@@ -292,24 +320,24 @@ struct idmap_t *userParseId(const char *i_id, const char *o_id, size_t cnt, bool
 	if (is_gid) {
 		inside_id = cmdParseGid(i_id);
 		if (inside_id == (uid_t) - 1) {
-			LOG_E("Cannot parse '%s' as GID", i_id);
-			return NULL;
+			LOG_W("Cannot parse '%s' as GID", i_id);
+			return false;
 		}
 		outside_id = cmdParseGid(o_id);
 		if (inside_id == (uid_t) - 1) {
-			LOG_E("Cannot parse '%s' as GID", o_id);
-			return NULL;
+			LOG_W("Cannot parse '%s' as GID", o_id);
+			return false;
 		}
 	} else {
 		inside_id = cmdParseUid(i_id);
 		if (inside_id == (uid_t) - 1) {
-			LOG_E("Cannot parse '%s' as UID", i_id);
-			return NULL;
+			LOG_W("Cannot parse '%s' as UID", i_id);
+			return false;
 		}
 		outside_id = cmdParseUid(o_id);
 		if (inside_id == (uid_t) - 1) {
-			LOG_E("Cannot parse '%s' as UID", o_id);
-			return NULL;
+			LOG_W("Cannot parse '%s' as UID", o_id);
+			return false;
 		}
 	}
 
@@ -317,5 +345,13 @@ struct idmap_t *userParseId(const char *i_id, const char *o_id, size_t cnt, bool
 	p->inside_id = inside_id;
 	p->outside_id = outside_id;
 	p->count = cnt;
-	return p;
+	p->is_newidmap = is_newidmap;
+
+	if (is_gid) {
+		TAILQ_INSERT_TAIL(&nsjconf->gids, p, pointers);
+	} else {
+		TAILQ_INSERT_TAIL(&nsjconf->uids, p, pointers);
+	}
+
+	return true;
 }
