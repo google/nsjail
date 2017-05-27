@@ -267,6 +267,12 @@ uid=999999 gid=999998 euid=4294965959 groups=999998,65534
 [2017-05-27T18:45:40+0200] PID: 16579 exited with status: 0, (PIDs left: 0)
 </pre>
 
+You might also want to try using _https://github.com/google/nsjail/blob/master/configs/home-documents-with-xorg-no-net.cfg_. You'll have to modify referreces to _/home/jagger_ to whatever your home directory is, though. After that, you can use it as follows:
+
+<pre>
+./nsjail --config configs/home-documents-with-xorg-no-net.cfg -- /usr/bin/geeqie /home/jagger/Documents/doc.pdf
+</pre>
+
 ***
 ### More info
 
