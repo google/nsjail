@@ -272,7 +272,9 @@ uid=999999 gid=999998 euid=4294965959 groups=999998,65534
 You might also want to try using [configs/home-documents-with-xorg-no-net.cfg](https://github.com/google/nsjail/blob/master/configs/home-documents-with-xorg-no-net.cfg). You'll have to modify all referrences to _/home/jagger_ to whatever your home directory is, though. After that, you can use it as follows:
 
 <pre>
-./nsjail --config configs/home-documents-with-xorg-no-net.cfg -- /usr/bin/geeqie /home/jagger/Documents/doc.pdf
+$ ./nsjail --config configs/home-documents-with-xorg-no-net.cfg -- /usr/bin/evince /home/jagger/Documents/doc.pdf
+$ ./nsjail --config configs/home-documents-with-xorg-no-net.cfg -- /usr/bin/geeqie /home/jagger/Documents/
+$ ./nsjail --config configs/home-documents-with-xorg-no-net.cfg -- /usr/bin/gv /home/jagger/Documents/doc.pdf
 </pre>
 
 ***
