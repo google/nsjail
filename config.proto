@@ -164,6 +164,6 @@ message NsJailConfig {
 	required string macvlan_vs_gw = 56 [default = "192.168.0.1"];
 
 	/* Binary with arguments to be executed. If not specified here, it can be
-       specified with the command-line as "-- /path/to/command arg1 arg2" */
+	   specified with the command-line as "-- /path/to/command arg1 arg2" */
 	optional Exe exec_bin = 57;
 }
