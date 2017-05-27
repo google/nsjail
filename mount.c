@@ -117,8 +117,7 @@ bool mountIsDir(const char *path)
 	return false;
 }
 
-static bool mountMount(struct nsjconf_t *nsjconf, struct mounts_t *mpt, const char *oldroot,
-		       const char *dst)
+static bool mountMount(struct mounts_t *mpt, const char *oldroot, const char *dst)
 {
 	LOG_D("Mounting '%s' on '%s' (fstype:'%s', flags:%s, options:'%s', is_dir:%s)",
 	      mpt->src ? mpt->src : "[NULL]", dst, mpt->fs_type ? mpt->fs_type : "[NULL]",
@@ -158,15 +157,21 @@ static bool mountMount(struct nsjconf_t *nsjconf, struct mounts_t *mpt, const ch
 	 */
 	unsigned long flags = mpt->flags & ~(MS_RDONLY);
 	if (mount(srcpath, dst, mpt->fs_type, flags, mpt->options) == -1) {
-		if (errno == EACCES) {
-			PLOG_W
+		if (mpt->mandatory == false) {
+			PLOG_D
+			    ("mount(src:'%s', dst:'%s', fstype:'%s', flags:'%s', mandatory:%s) failed. "
+			     "Skipping this mount as it's non-mandatory", srcpath, dst,
+			     mpt->fs_type ? mpt->fs_type : "[NULL]", mountFlagsToStr(mpt->flags),
+			     mpt->mandatory ? "true" : "false");
+		} else if (errno == EACCES) {
+			PLOG_E
 			    ("mount(src:'%s', dst:'%s', fstype:'%s', flags:'%s', mandatory:%s) failed. "
 			     "Try fixing this problem by applying 'chmod o+x' to the '%s' directory and "
 			     "its ancestors", srcpath, dst, mpt->fs_type ? mpt->fs_type : "[NULL]",
-			     mountFlagsToStr(mpt->flags), nsjconf->chroot,
+			     mountFlagsToStr(mpt->flags), mpt->src,
 			     mpt->mandatory ? "true" : "false");
 		} else {
-			PLOG_W
+			PLOG_E
 			    ("mount(src:'%s', dst:'%s', fstype:'%s', flags:'%s' mandatory:%s) failed",
 			     srcpath, dst, mpt->fs_type ? mpt->fs_type : "[NULL]",
 			     mountFlagsToStr(mpt->flags), mpt->mandatory ? "true" : "false");
@@ -268,7 +273,7 @@ static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 		}
 		char dst[PATH_MAX];
 		snprintf(dst, sizeof(dst), "%s/%s", newrootdir, p->dst);
-		if (mountMount(nsjconf, p, "/old_root", dst) == false) {
+		if (mountMount(p, "/old_root", dst) == false) {
 			return false;
 		}
 	}
