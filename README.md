@@ -278,7 +278,8 @@ You might also want to try using [configs/home-documents-with-xorg-no-net.cfg](h
 <pre>
 $ ./nsjail --config configs/home-documents-with-xorg-no-net.cfg -- /usr/bin/evince /user/Documents/doc.pdf
 $ ./nsjail --config configs/home-documents-with-xorg-no-net.cfg -- /usr/bin/geeqie /user/Documents/
-$ ./nsjail --config configs/home-documents-with-xorg-no-net.cfg -- /usr/bin/gv //user/Documents/doc.pdf
+$ ./nsjail --config configs/home-documents-with-xorg-no-net.cfg -- /usr/bin/gv /user/Documents/doc.pdf
+$ ./nsjail --config configs/home-documents-with-xorg-no-net.cfg -- /usr/bin/mupdf /user/Documents/doc.pdf
 </pre>
 
 ***
