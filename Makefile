@@ -98,7 +98,9 @@ $(PROTO_DEPS): config.proto
 
 clean:
 	$(RM) core Makefile.bak $(OBJS) $(BIN)
+ifneq ("$(wildcard kafel/Makefile)","")
 	$(MAKE) -C kafel clean
+endif
 
 depend:
 	makedepend -Y -Ykafel/include -- -- $(SRCS)
