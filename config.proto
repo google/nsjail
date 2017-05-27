@@ -42,8 +42,8 @@ message MountPt
     required string options = 6 [ default = "" ];
     /* Is it 'mount --bind src dst' type of mount */
     required bool is_bind = 7 [ default = false ];
-    /* It it RO mount */
-    required bool is_ro = 8 [ default = false ];
+    /* It it R/W mount */
+    required bool rw = 8 [ default = false ];
     /* Is it directory? If not specified an internal
        heuristics will be used to determine that */
     optional bool is_dir = 9;

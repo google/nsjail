@@ -180,7 +180,7 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 		const char *fstype = njc->mount[i]->fstype;
 		const char *options = njc->mount[i]->options;
 
-		uintptr_t flags = njc->mount[i]->is_ro ? MS_RDONLY : 0;
+		uintptr_t flags = (njc->mount[i]->rw == false) ? MS_RDONLY : 0;
 		flags |= njc->mount[i]->is_bind ? (MS_BIND | MS_REC) : 0;
 		bool mandatory = njc->mount[i]->mandatory;
 
