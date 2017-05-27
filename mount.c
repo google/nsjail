@@ -120,13 +120,16 @@ bool mountIsDir(const char *path)
 static bool mountMount(struct nsjconf_t *nsjconf, struct mounts_t *mpt, const char *oldroot,
 		       const char *dst)
 {
-	LOG_D("Mounting '%s' on '%s' (type:'%s', flags:%s, options:'%s', is_dir:%s)", mpt->src, dst,
-	      mpt->fs_type, mountFlagsToStr(mpt->flags), mpt->options,
+	LOG_D("Mounting '%s' on '%s' (type:'%s', flags:%s, options:'%s', is_dir:%s)",
+	      mpt->src ? mpt->src : "[NULL]", dst, mpt->fs_type ? mpt->fs_type : "[NULL]",
+	      mountFlagsToStr(mpt->flags), mpt->options ? mpt->options : "[NULL]",
 	      mpt->isDir ? "True" : "False");
 
-	char srcpath[PATH_MAX] = { 0 };
-	if (mpt->src != NULL) {
+	char srcpath[PATH_MAX];
+	if (mpt->src != NULL && strlen(mpt->src) > 0) {
 		snprintf(srcpath, sizeof(srcpath), "%s/%s", oldroot, mpt->src);
+	} else {
+		snprintf(srcpath, sizeof(srcpath), "none");
 	}
 
 	if (mpt->isDir == true) {

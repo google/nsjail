@@ -52,6 +52,9 @@ void *utilCalloc(size_t sz)
 
 char *utilStrDup(const char *str)
 {
+	if (str == NULL) {
+		return NULL;
+	}
 	char *ret = strdup(str);
 	if (ret == NULL) {
 		LOG_E("Cannot allocate memory for strdup(sz=%zu)", strlen(str));

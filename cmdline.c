@@ -227,7 +227,8 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 		TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
 			LOG_I
 			    ("Mount point: src:'%s' dst:'%s' type:'%s' flags:%s options:'%s' isDir:%s",
-			     p->src, p->dst, p->fs_type, mountFlagsToStr(p->flags), p->options,
+			     p->src ? p->src : "[NULL]", p->dst, p->fs_type ? p->fs_type : "[NULL]",
+			     mountFlagsToStr(p->flags), p->options ? p->options : "[NULL]",
 			     p->isDir ? "True" : "False");
 		}
 	}
@@ -657,7 +658,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			} break;
 		case 'T':{
 				struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
-				p->src = "none";
+				p->src = NULL;
 				p->dst = optarg;
 				p->flags = 0;
 				p->options = cmdlineTmpfsSz;
@@ -739,7 +740,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 
 	if (nsjconf->mount_proc == true) {
 		struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
-		p->src = "none";
+		p->src = NULL;
 		p->dst = "/proc";
 		p->flags = 0;
 		if (nsjconf->is_root_rw == false) {
@@ -764,7 +765,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		TAILQ_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
 	} else {
 		struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
-		p->src = "none";
+		p->src = NULL;
 		p->dst = "/";
 		p->flags = 0;
 		p->options = "";

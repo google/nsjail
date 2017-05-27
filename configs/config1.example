@@ -1,8 +1,6 @@
 mode: ONCE
-chroot_dir: "/"
-is_root_rw: false
 hostname: "TEST-NS"
-cwd: "/lib"
+cwd: "/"
 
 bindhost: "::1"
 max_conns_per_ip: 10
@@ -14,6 +12,7 @@ daemon: false
 keep_env: false
 envar: "ENVAR1=VALUE1"
 envar: "ENVAR2=VALUE2"
+envar: "PS1=[INSIDE-JAIL]: "
 
 silent: false
 skip_setsid: false
@@ -56,19 +55,58 @@ gidmap {
 }
 
 mount {
-	src: ""
+	src: "/lib"
+	dst: "/lib"
+	is_bind: true
+	is_ro: true
+}
+
+mount {
+	src: "/bin"
+	dst: "/bin"
+	is_bind: true
+	is_ro: true
+}
+
+mount {
+	src: "/usr"
+	dst: "/usr"
+	is_bind: true
+	is_ro: true
+}
+
+mount {
+	src: "/bin"
+	dst: "/bin"
+	is_bind: true
+	is_ro: true
+}
+
+mount {
+	src: "/sbin"
+	dst: "/sbin"
+	is_bind: true
+	is_ro: true
+}
+
+mount {
+	src: "/lib64"
+	dst: "/lib64"
+	is_bind: true
+	is_ro: true
+}
+
+mount {
 	dst: "/tmp"
 	fstype: "tmpfs"
-	options: ""
 	is_ro: false
 	is_bind: false
 }
 
 mount {
-	src: ""
 	dst: "/dev"
 	fstype: "tmpfs"
-	options: ""
+	options: "size=8388608"
 	is_ro: false
 	is_bind: false
 }
@@ -76,11 +114,17 @@ mount {
 mount {
 	src: "/dev/null"
 	dst: "/dev/null"
-	fstype: ""
-	options: ""
 	is_ro: false
 	is_bind: true
 }
+
+mount {
+	dst: "/proc"
+	fstype: "proc"
+	is_ro: true
+}
+
+mount_proc: false
 
 seccomp_string: "
 	POLICY example {
@@ -91,6 +135,6 @@ seccomp_string: "
 "
 
 exec_bin {
-	path: "/usr/bin/id"
-	arg: "root"
+	path: "/bin/bash"
+	arg: "-i"
 }

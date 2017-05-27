@@ -75,7 +75,7 @@ extern char nsjail__id_map__outside_id__default_value[];
 struct _Nsjail__MountPt {
 	ProtobufCMessage base;
 	/*
-	 * Can be empty string for filesystems like 'proc' 
+	 * Can be skipped for filesystems like 'proc' 
 	 */
 	char *src;
 	char *dst;
@@ -130,7 +130,7 @@ struct _Nsjail__NsJailConfig {
 	 */
 	Nsjail__Mode mode;
 	/*
-	 * Equivalent to a mount with dst='/' 
+	 * Equivalent to a bind mount with src='/', dst='/' 
 	 */
 	char *chroot_dir;
 	/*

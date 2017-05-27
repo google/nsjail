@@ -61,9 +61,7 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 		LOG_E("Uknown running mode: %d", njc->mode);
 		return false;
 	}
-	if (njc->chroot_dir) {
-		nsjconf->chroot = utilStrDup(njc->chroot_dir);
-	}
+	nsjconf->chroot = utilStrDup(njc->chroot_dir);
 	nsjconf->hostname = utilStrDup(njc->hostname);
 	nsjconf->cwd = utilStrDup(njc->cwd);
 	nsjconf->bindhost = utilStrDup(njc->bindhost);
@@ -71,9 +69,7 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 	nsjconf->tlimit = njc->time_limit;
 	nsjconf->daemonize = njc->daemon;
 
-	if (njc->log_file) {
-		nsjconf->logfile = utilStrDup(njc->log_file);
-	}
+	nsjconf->logfile = utilStrDup(njc->log_file);
 	if (njc->has_log_level) {
 		switch (njc->log_level) {
 		case NSJAIL__LOG_LEVEL__DEBUG:
@@ -196,7 +192,9 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 		if (njc->mount[i]->has_is_dir) {
 			p->isDir = njc->mount[i]->is_dir;
 		} else {
-			if (njc->mount[i]->is_bind) {
+			if (njc->mount[i]->src == NULL) {
+				p->isDir = true;
+			} else if (njc->mount[i]->is_bind) {
 				p->isDir = mountIsDir(njc->mount[i]->src);
 			} else {
 				p->isDir = true;
@@ -214,9 +212,7 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 			return false;
 		}
 	}
-	if (njc->seccomp_string) {
-		nsjconf->kafel_string = utilStrDup(njc->seccomp_string);
-	}
+	nsjconf->kafel_string = utilStrDup(njc->seccomp_string);
 
 	nsjconf->cgroup_mem_max = njc->cgroup_mem_max;
 	nsjconf->cgroup_mem_mount = utilStrDup(njc->cgroup_mem_mount);
@@ -227,9 +223,7 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 	nsjconf->cgroup_pids_parent = utilStrDup(njc->cgroup_pids_parent);
 
 	nsjconf->iface_no_lo = njc->iface_no_lo;
-	if (njc->macvlan_iface) {
-		nsjconf->iface = utilStrDup(njc->macvlan_iface);
-	}
+	nsjconf->iface = utilStrDup(njc->macvlan_iface);
 	nsjconf->iface_vs_ip = utilStrDup(njc->macvlan_vs_ip);
 	nsjconf->iface_vs_nm = utilStrDup(njc->macvlan_vs_nm);
 	nsjconf->iface_vs_gw = utilStrDup(njc->macvlan_vs_gw);

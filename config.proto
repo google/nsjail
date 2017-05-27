@@ -27,11 +27,11 @@ message IdMap
 }
 message MountPt
 {
-    /* Can be empty string for filesystems like 'proc' */
-    required string src = 1;
+    /* Can be skipped for filesystems like 'proc' */
+    optional string src = 1;
     required string dst = 2;
     /* Can be empty for mount --bind mounts */
-    required string fstype = 3;
+    optional string fstype = 3 [ default = "" ];
     /* E.g. size=5000000 for 'tmpfs' */
     required string options = 4 [ default = "" ];
     /* Is it 'mount --bind src dst' type of mount */
@@ -53,7 +53,7 @@ message NsJailConfig
 {
     /* Execution mode: see 'msg Mode' description for more */
     required Mode mode = 1 [ default = ONCE ];
-    /* Equivalent to a mount with dst='/' */
+    /* Equivalent to a bind mount with src='/', dst='/' */
     optional string chroot_dir = 2;
     /* Applies both to the chroot_dir and to /proc mounts */
     required bool is_root_rw = 3 [ default = false ];
