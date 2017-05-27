@@ -212,15 +212,14 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	      "clone_newnet:%s, clone_newuser:%s, clone_newns:%s, clone_newpid:%s, "
 	      "clone_newipc:%s, clonew_newuts:%s, clone_newcgroup:%s, keep_caps:%s, "
 	      "tmpfs_size:%zu, disable_no_new_privs:%s, pivot_root_only:%s",
-	      nsjconf->hostname, nsjconf->chroot, nsjconf->argv[0], nsjconf->bindhost,
-	      nsjconf->port, nsjconf->max_conns_per_ip, nsjconf->tlimit,
-	      nsjconf->personality, logYesNo(nsjconf->daemonize),
-	      logYesNo(nsjconf->clone_newnet), logYesNo(nsjconf->clone_newuser),
-	      logYesNo(nsjconf->clone_newns), logYesNo(nsjconf->clone_newpid),
-	      logYesNo(nsjconf->clone_newipc), logYesNo(nsjconf->clone_newuts),
-	      logYesNo(nsjconf->clone_newcgroup), logYesNo(nsjconf->keep_caps),
-	      nsjconf->tmpfs_size, logYesNo(nsjconf->disable_no_new_privs),
-	      logYesNo(nsjconf->pivot_root_only));
+	      nsjconf->hostname, nsjconf->chroot ? nsjconf->chroot : "[NULL]", nsjconf->argv[0],
+	      nsjconf->bindhost, nsjconf->port, nsjconf->max_conns_per_ip, nsjconf->tlimit,
+	      nsjconf->personality, logYesNo(nsjconf->daemonize), logYesNo(nsjconf->clone_newnet),
+	      logYesNo(nsjconf->clone_newuser), logYesNo(nsjconf->clone_newns),
+	      logYesNo(nsjconf->clone_newpid), logYesNo(nsjconf->clone_newipc),
+	      logYesNo(nsjconf->clone_newuts), logYesNo(nsjconf->clone_newcgroup),
+	      logYesNo(nsjconf->keep_caps), nsjconf->tmpfs_size,
+	      logYesNo(nsjconf->disable_no_new_privs), logYesNo(nsjconf->pivot_root_only));
 
 	{
 		struct mounts_t *p;
