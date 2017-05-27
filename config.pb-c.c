@@ -238,7 +238,7 @@ char nsjail__mount_pt__options__default_value[] = "";
 static const protobuf_c_boolean nsjail__mount_pt__is_bind__default_value = 0;
 static const protobuf_c_boolean nsjail__mount_pt__is_ro__default_value = 0;
 static const protobuf_c_boolean nsjail__mount_pt__mandatory__default_value = 1;
-static const ProtobufCFieldDescriptor nsjail__mount_pt__field_descriptors[8] = {
+static const ProtobufCFieldDescriptor nsjail__mount_pt__field_descriptors[10] = {
 	{
 	 "src",
 	 1,
@@ -252,8 +252,20 @@ static const ProtobufCFieldDescriptor nsjail__mount_pt__field_descriptors[8] = {
 	 0, NULL, NULL		/* reserved1,reserved2, etc */
 	 },
 	{
-	 "dst",
+	 "prefix_src_env",
 	 2,
+	 PROTOBUF_C_LABEL_OPTIONAL,
+	 PROTOBUF_C_TYPE_STRING,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__MountPt, prefix_src_env),
+	 NULL,
+	 NULL,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "dst",
+	 3,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_STRING,
 	 0,			/* quantifier_offset */
@@ -264,8 +276,20 @@ static const ProtobufCFieldDescriptor nsjail__mount_pt__field_descriptors[8] = {
 	 0, NULL, NULL		/* reserved1,reserved2, etc */
 	 },
 	{
+	 "prefix_dst_env",
+	 4,
+	 PROTOBUF_C_LABEL_OPTIONAL,
+	 PROTOBUF_C_TYPE_STRING,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__MountPt, prefix_dst_env),
+	 NULL,
+	 NULL,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
 	 "fstype",
-	 3,
+	 5,
 	 PROTOBUF_C_LABEL_OPTIONAL,
 	 PROTOBUF_C_TYPE_STRING,
 	 0,			/* quantifier_offset */
@@ -277,7 +301,7 @@ static const ProtobufCFieldDescriptor nsjail__mount_pt__field_descriptors[8] = {
 	 },
 	{
 	 "options",
-	 4,
+	 6,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_STRING,
 	 0,			/* quantifier_offset */
@@ -289,7 +313,7 @@ static const ProtobufCFieldDescriptor nsjail__mount_pt__field_descriptors[8] = {
 	 },
 	{
 	 "is_bind",
-	 5,
+	 7,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_BOOL,
 	 0,			/* quantifier_offset */
@@ -301,7 +325,7 @@ static const ProtobufCFieldDescriptor nsjail__mount_pt__field_descriptors[8] = {
 	 },
 	{
 	 "is_ro",
-	 6,
+	 8,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_BOOL,
 	 0,			/* quantifier_offset */
@@ -313,7 +337,7 @@ static const ProtobufCFieldDescriptor nsjail__mount_pt__field_descriptors[8] = {
 	 },
 	{
 	 "is_dir",
-	 7,
+	 9,
 	 PROTOBUF_C_LABEL_OPTIONAL,
 	 PROTOBUF_C_TYPE_BOOL,
 	 offsetof(Nsjail__MountPt, has_is_dir),
@@ -325,7 +349,7 @@ static const ProtobufCFieldDescriptor nsjail__mount_pt__field_descriptors[8] = {
 	 },
 	{
 	 "mandatory",
-	 8,
+	 10,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_BOOL,
 	 0,			/* quantifier_offset */
@@ -338,19 +362,21 @@ static const ProtobufCFieldDescriptor nsjail__mount_pt__field_descriptors[8] = {
 };
 
 static const unsigned nsjail__mount_pt__field_indices_by_name[] = {
-	1,			/* field[1] = dst */
-	2,			/* field[2] = fstype */
-	4,			/* field[4] = is_bind */
-	6,			/* field[6] = is_dir */
-	5,			/* field[5] = is_ro */
-	7,			/* field[7] = mandatory */
-	3,			/* field[3] = options */
+	2,			/* field[2] = dst */
+	4,			/* field[4] = fstype */
+	6,			/* field[6] = is_bind */
+	8,			/* field[8] = is_dir */
+	7,			/* field[7] = is_ro */
+	9,			/* field[9] = mandatory */
+	5,			/* field[5] = options */
+	3,			/* field[3] = prefix_dst_env */
+	1,			/* field[1] = prefix_src_env */
 	0,			/* field[0] = src */
 };
 
 static const ProtobufCIntRange nsjail__mount_pt__number_ranges[1 + 1] = {
 	{1, 0},
-	{0, 8}
+	{0, 10}
 };
 
 const ProtobufCMessageDescriptor nsjail__mount_pt__descriptor = {
@@ -360,7 +386,7 @@ const ProtobufCMessageDescriptor nsjail__mount_pt__descriptor = {
 	"Nsjail__MountPt",
 	"nsjail",
 	sizeof(Nsjail__MountPt),
-	8,
+	10,
 	nsjail__mount_pt__field_descriptors,
 	nsjail__mount_pt__field_indices_by_name,
 	1, nsjail__mount_pt__number_ranges,

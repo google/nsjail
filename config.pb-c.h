@@ -87,7 +87,18 @@ struct _Nsjail__MountPt {
 	 * Can be skipped for filesystems like 'proc' 
 	 */
 	char *src;
+	/*
+	 * Should 'src' path be prefixed with this envvar? 
+	 */
+	char *prefix_src_env;
+	/*
+	 * Mount point inside jail 
+	 */
 	char *dst;
+	/*
+	 * Should 'dst' path be prefixed with this envvar? 
+	 */
+	char *prefix_dst_env;
 	/*
 	 * Can be empty for mount --bind mounts 
 	 */
@@ -119,7 +130,7 @@ extern char nsjail__mount_pt__fstype__default_value[];
 extern char nsjail__mount_pt__options__default_value[];
 #define NSJAIL__MOUNT_PT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&nsjail__mount_pt__descriptor) \
-    , NULL, NULL, nsjail__mount_pt__fstype__default_value, nsjail__mount_pt__options__default_value, 0, 0, 0,0, 1 }
+    , NULL, NULL, NULL, NULL, nsjail__mount_pt__fstype__default_value, nsjail__mount_pt__options__default_value, 0, 0, 0,0, 1 }
 
 struct _Nsjail__Exe {
 	ProtobufCMessage base;

@@ -334,3 +334,60 @@ bool mountInitNs(struct nsjconf_t * nsjconf)
 	}
 	return false;
 }
+
+bool mountAddMountPt(struct nsjconf_t * nsjconf, const char *src, const char *dst,
+		     const char *fstype, const char *options, uintptr_t flags, const bool * isDir,
+		     bool mandatory, const char *src_env, const char *dst_env)
+{
+	struct mounts_t *p = utilCalloc(sizeof(struct mounts_t));
+
+	if (src_env) {
+		const char *e = getenv(src_env);
+		if (e == NULL) {
+			LOG_W("No such envvar:'%s'", src_env);
+			return false;
+		}
+		if (asprintf((char **)&p->src, "%s%s", e, src ? src : "") == -1) {
+			PLOG_W("asprintf() failed");
+			return false;
+		}
+	} else {
+		p->src = utilStrDup(src);
+	}
+
+	if (dst_env) {
+		const char *e = getenv(dst_env);
+		if (e == NULL) {
+			LOG_W("No such envvar:'%s'", dst_env);
+			return false;
+		}
+		if (asprintf((char **)&p->dst, "%s%s", e, dst ? dst : "") == -1) {
+			PLOG_W("asprintf() failed");
+			return false;
+		}
+	} else {
+		p->dst = utilStrDup(dst);
+	}
+
+	p->fs_type = utilStrDup(fstype);
+	p->options = utilStrDup(options);
+	p->flags = flags;
+	p->isDir = isDir;
+	p->mandatory = mandatory;
+
+	if (isDir) {
+		p->isDir = *isDir;
+	} else {
+		if (p->src == NULL) {
+			p->isDir = true;
+		} else if (p->flags & MS_BIND) {
+			p->isDir = mountIsDir(p->src);
+		} else {
+			p->isDir = true;
+		}
+	}
+
+	TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
+
+	return true;
+}

@@ -183,26 +183,26 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 
 	nsjconf->mount_proc = njc->mount_proc;
 	for (size_t i = 0; i < njc->n_mount; i++) {
-		struct mounts_t *p = utilCalloc(sizeof(struct mounts_t));
-		p->src = utilStrDup(njc->mount[i]->src);
-		p->dst = utilStrDup(njc->mount[i]->dst);
-		p->fs_type = utilStrDup(njc->mount[i]->fstype);
-		p->options = utilStrDup(njc->mount[i]->options);
-		p->flags |= (njc->mount[i]->is_ro ? MS_RDONLY : 0);
-		p->flags |= (njc->mount[i]->is_bind ? (MS_BIND | MS_REC) : 0);
-		if (njc->mount[i]->has_is_dir) {
-			p->isDir = njc->mount[i]->is_dir;
-		} else {
-			if (njc->mount[i]->src == NULL) {
-				p->isDir = true;
-			} else if (njc->mount[i]->is_bind) {
-				p->isDir = mountIsDir(njc->mount[i]->src);
-			} else {
-				p->isDir = true;
-			}
+		const char *src = njc->mount[i]->src;
+		const char *src_env = njc->mount[i]->prefix_src_env;
+		const char *dst = njc->mount[i]->dst;
+		const char *dst_env = njc->mount[i]->prefix_dst_env;
+		const char *fstype = njc->mount[i]->fstype;
+		const char *options = njc->mount[i]->options;
+
+		uintptr_t flags = njc->mount[i]->is_ro ? MS_RDONLY : 0;
+		flags |= njc->mount[i]->is_bind ? (MS_BIND | MS_REC) : 0;
+		bool mandatory = njc->mount[i]->mandatory;
+
+		const bool *isDir =
+		    (njc->mount[i]->has_is_dir) ? (const bool *)&njc->mount[i]->is_dir : NULL;
+
+		if (mountAddMountPt
+		    (nsjconf, src, dst, fstype, options, flags, isDir, mandatory, src_env,
+		     dst_env) == false) {
+			LOG_E("Couldn't add mountpoint for src:'%s' dst:'%s'", src, dst);
+			return false;
 		}
-		p->mandatory = njc->mount[i]->mandatory;
-		TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
 	}
 
 	if (njc->seccomp_policy_file) {

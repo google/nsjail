@@ -29,5 +29,8 @@
 const char *mountFlagsToStr(uintptr_t flags);
 bool mountIsDir(const char *path);
 bool mountInitNs(struct nsjconf_t *nsjconf);
+bool mountAddMountPt(struct nsjconf_t *nsjconf, const char *src, const char *dst,
+		     const char *fstype, const char *options, uintptr_t flags, const bool * isDir,
+		     bool mandatory, const char *src_env, const char *dst_env);
 
 #endif				/* NS_MOUNT_H */

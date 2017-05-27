@@ -30,20 +30,25 @@ message MountPt
 {
     /* Can be skipped for filesystems like 'proc' */
     optional string src = 1;
-    required string dst = 2;
+	/* Should 'src' path be prefixed with this envvar? */
+	optional string prefix_src_env = 2;
+	/* Mount point inside jail */
+    required string dst = 3;
+	/* Should 'dst' path be prefixed with this envvar? */
+	optional string prefix_dst_env = 4;
     /* Can be empty for mount --bind mounts */
-    optional string fstype = 3 [ default = "" ];
+    optional string fstype = 5 [ default = "" ];
     /* E.g. size=5000000 for 'tmpfs' */
-    required string options = 4 [ default = "" ];
+    required string options = 6 [ default = "" ];
     /* Is it 'mount --bind src dst' type of mount */
-    required bool is_bind = 5 [ default = false ];
+    required bool is_bind = 7 [ default = false ];
     /* It it RO mount */
-    required bool is_ro = 6 [ default = false ];
+    required bool is_ro = 8 [ default = false ];
     /* Is it directory? If not specified an internal
        heuristics will be used to determine that */
-    optional bool is_dir = 7;
+    optional bool is_dir = 9;
     /* Should the sandboxing fail if we cannot mount this resource? */
-    required bool mandatory = 8 [ default = true ];
+    required bool mandatory = 10 [ default = true ];
 }
 message Exe
 {
