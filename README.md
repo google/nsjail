@@ -249,18 +249,18 @@ $ exit
 ***
 
 ### Configuration file
-[config.proto](https://github.com/google/nsjail/blob/master/config.proto) contains ProtoBuf schema for nsjail's configuration format. You can also find example config file in [config.example](https://github.com/google/nsjail/blob/master/configs/config.example).
+[config.proto](https://github.com/google/nsjail/blob/master/config.proto) contains ProtoBuf schema for nsjail's configuration format. You can also find example config file in [config1.example](https://github.com/google/nsjail/blob/master/configs/config1.example).
 
 Usage:
 
 <pre>
-./nsjail --config ./config.example
+./nsjail --config configs/config1.example
 </pre>
 
-You can also override certain options with command-line options. Here, the executed binary is changed from _/usr/bin/id_ to _/bin/ls_, yet options from _config.example_ are applied.
+You can also override certain options with command-line options. Here, the executed binary is changed from _/usr/bin/id_ to _/bin/ls_, yet options from _config1.example_ are applied.
 
 <pre>
-./nsjail --config ./config.example -- /bin/ls
+./nsjail --config configs/config1.example -- /bin/ls
 </pre>
 
 ### More info
