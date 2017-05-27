@@ -59,12 +59,19 @@ ifeq ($(PROTOBUF_EXISTS), yes)
 endif
 endif
 
+
 .PHONY: all clear depend indent kafel protobuf-c-text
 
 .c.o: %.c
 	$(CC) $(CFLAGS) $< -o $@
 
 all: $(PROTO_DEPS) protobuf-c-text kafel $(BIN)
+ifneq ($(PROTOBUF_EXISTS), yes)
+	$(info *********************************************************)
+	$(info * Code compiled without libprotobuf-c/libprotobuf-c-dev *)
+	$(info *  The --config commandline option will be unavailable  *)
+	$(info *********************************************************)
+endif
 
 $(BIN): $(OBJS) $(LIBS)
 	$(CC) -o $(BIN) $(OBJS) $(LIBS) $(LDFLAGS)
