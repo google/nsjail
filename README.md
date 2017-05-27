@@ -9,6 +9,7 @@
   * [/usr/bin/find in a minimal file-system (only /usr/bin/find accessible from /usr/bin)](#usrbinfind-in-a-minimal-file-system-only-usrbinfind-accessible-from-usrbin)
   * [Using /etc/subuid](#using-etcsubuid)
   * [Even more contrained shell (with seccomp-bpf policies)](#even-more-contrained-shell-with-seccomp-bpf-policies)
+- [Configuration file](#configuration-file)
 - [More info](#more-info)
 - [Launching in Docker](#launching-in-docker)
 
@@ -246,6 +247,22 @@ $ exit
 </pre>
 
 ***
+
+### Configuration file
+[config.proto](https://github.com/google/nsjail/blob/master/config.proto) contains ProtoBuf schema for nsjail's configuration format. You can also find example config file in [config.example](https://github.com/google/nsjail/blob/master/configs/config.example).
+
+Usage:
+
+<pre>
+./nsjail --config ./config.example
+</pre>
+
+You can also override certain options with command-line options. Here, the executed binary is changed from _/usr/bin/id_ to _/bin/ls_, yet options from _config.example_ are applied.
+
+<pre>
+./nsjail --config ./config.example -- /bin/ls
+</pre>
+
 ### More info
 
 The options should be self-explanatory, and these are available with:
