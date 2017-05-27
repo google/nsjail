@@ -10,7 +10,7 @@ port: 31337
 
 time_limit: 100
 daemon: false
-keep_env: true
+keep_env: false
 silent: false
 skip_setsid: false
 pass_fd: 100
@@ -85,3 +85,8 @@ seccomp_string: "
 	}
 	USE example DEFAULT ALLOW
 "
+
+exec_bin {
+	path: "/usr/bin/id"
+	arg: "root"
+}

@@ -228,6 +228,16 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 	nsjconf->iface_vs_nm = utilStrDup(njc->macvlan_vs_nm);
 	nsjconf->iface_vs_gw = utilStrDup(njc->macvlan_vs_gw);
 
+	if (njc->exec_bin) {
+		char **argv = utilCalloc(sizeof(const char *) * (njc->exec_bin->n_arg + 2));
+		argv[0] = utilStrDup(njc->exec_bin->path);
+		for (size_t i = 0; i < njc->exec_bin->n_arg; i++) {
+			argv[i + 1] = utilStrDup(njc->exec_bin->arg[i]);
+		}
+		argv[njc->exec_bin->n_arg + 1] = NULL;
+		nsjconf->argv = argv;
+	}
+
 	return true;
 }
 

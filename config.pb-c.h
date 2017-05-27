@@ -14,6 +14,7 @@ PROTOBUF_C__BEGIN_DECLS
 #endif
 typedef struct _Nsjail__IdMap Nsjail__IdMap;
 typedef struct _Nsjail__MountPt Nsjail__MountPt;
+typedef struct _Nsjail__Exe Nsjail__Exe;
 typedef struct _Nsjail__NsJailConfig Nsjail__NsJailConfig;
 
 /* --- enums --- */
@@ -62,6 +63,16 @@ extern char nsjail__mount_pt__options__default_value[];
 #define NSJAIL__MOUNT_PT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&nsjail__mount_pt__descriptor) \
     , NULL, NULL, NULL, nsjail__mount_pt__options__default_value, 0, 0, 0,0 }
+
+struct _Nsjail__Exe {
+	ProtobufCMessage base;
+	char *path;
+	size_t n_arg;
+	char **arg;
+};
+#define NSJAIL__EXE__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&nsjail__exe__descriptor) \
+    , NULL, 0,NULL }
 
 struct _Nsjail__NsJailConfig {
 	ProtobufCMessage base;
@@ -126,6 +137,7 @@ struct _Nsjail__NsJailConfig {
 	char *macvlan_vs_ip;
 	char *macvlan_vs_nm;
 	char *macvlan_vs_gw;
+	Nsjail__Exe *exec_bin;
 };
 extern char nsjail__ns_jail_config__hostname__default_value[];
 extern char nsjail__ns_jail_config__cwd__default_value[];
@@ -139,7 +151,7 @@ extern char nsjail__ns_jail_config__macvlan_vs_nm__default_value[];
 extern char nsjail__ns_jail_config__macvlan_vs_gw__default_value[];
 #define NSJAIL__NS_JAIL_CONFIG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&nsjail__ns_jail_config__descriptor) \
-    , NSJAIL__MODE__ONCE, NULL, 0, nsjail__ns_jail_config__hostname__default_value, nsjail__ns_jail_config__cwd__default_value, 0u, nsjail__ns_jail_config__bindhost__default_value, 0u, 600u, 0, NULL, 0,0, 0, 0, 0, 0,NULL, 0, 0, 512ull, 0ull, 600ull, 1ull, 32ull, 0,0, 0,0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0,NULL, 0,NULL, 0,NULL, 1, NULL, NULL, 0ull, nsjail__ns_jail_config__cgroup_mem_mount__default_value, nsjail__ns_jail_config__cgroup_mem_parent__default_value, 0ull, nsjail__ns_jail_config__cgroup_pids_mount__default_value, nsjail__ns_jail_config__cgroup_pids_parent__default_value, 0, NULL, nsjail__ns_jail_config__macvlan_vs_ip__default_value, nsjail__ns_jail_config__macvlan_vs_nm__default_value, nsjail__ns_jail_config__macvlan_vs_gw__default_value }
+    , NSJAIL__MODE__ONCE, NULL, 0, nsjail__ns_jail_config__hostname__default_value, nsjail__ns_jail_config__cwd__default_value, 0u, nsjail__ns_jail_config__bindhost__default_value, 0u, 600u, 0, NULL, 0,0, 0, 0, 0, 0,NULL, 0, 0, 512ull, 0ull, 600ull, 1ull, 32ull, 0,0, 0,0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0,NULL, 0,NULL, 0,NULL, 1, NULL, NULL, 0ull, nsjail__ns_jail_config__cgroup_mem_mount__default_value, nsjail__ns_jail_config__cgroup_mem_parent__default_value, 0ull, nsjail__ns_jail_config__cgroup_pids_mount__default_value, nsjail__ns_jail_config__cgroup_pids_parent__default_value, 0, NULL, nsjail__ns_jail_config__macvlan_vs_ip__default_value, nsjail__ns_jail_config__macvlan_vs_nm__default_value, nsjail__ns_jail_config__macvlan_vs_gw__default_value, NULL }
 
 /* Nsjail__IdMap methods */
 void nsjail__id_map__init(Nsjail__IdMap * message);
@@ -157,6 +169,13 @@ size_t nsjail__mount_pt__pack_to_buffer(const Nsjail__MountPt * message, Protobu
 Nsjail__MountPt *nsjail__mount_pt__unpack
     (ProtobufCAllocator * allocator, size_t len, const uint8_t * data);
 void nsjail__mount_pt__free_unpacked(Nsjail__MountPt * message, ProtobufCAllocator * allocator);
+/* Nsjail__Exe methods */
+void nsjail__exe__init(Nsjail__Exe * message);
+size_t nsjail__exe__get_packed_size(const Nsjail__Exe * message);
+size_t nsjail__exe__pack(const Nsjail__Exe * message, uint8_t * out);
+size_t nsjail__exe__pack_to_buffer(const Nsjail__Exe * message, ProtobufCBuffer * buffer);
+Nsjail__Exe *nsjail__exe__unpack(ProtobufCAllocator * allocator, size_t len, const uint8_t * data);
+void nsjail__exe__free_unpacked(Nsjail__Exe * message, ProtobufCAllocator * allocator);
 /* Nsjail__NsJailConfig methods */
 void nsjail__ns_jail_config__init(Nsjail__NsJailConfig * message);
 size_t nsjail__ns_jail_config__get_packed_size(const Nsjail__NsJailConfig * message);
@@ -173,6 +192,8 @@ typedef void (*Nsjail__IdMap_Closure)
  (const Nsjail__IdMap * message, void *closure_data);
 typedef void (*Nsjail__MountPt_Closure)
  (const Nsjail__MountPt * message, void *closure_data);
+typedef void (*Nsjail__Exe_Closure)
+ (const Nsjail__Exe * message, void *closure_data);
 typedef void (*Nsjail__NsJailConfig_Closure)
  (const Nsjail__NsJailConfig * message, void *closure_data);
 
@@ -184,6 +205,7 @@ extern const ProtobufCEnumDescriptor nsjail__mode__descriptor;
 extern const ProtobufCEnumDescriptor nsjail__log_level__descriptor;
 extern const ProtobufCMessageDescriptor nsjail__id_map__descriptor;
 extern const ProtobufCMessageDescriptor nsjail__mount_pt__descriptor;
+extern const ProtobufCMessageDescriptor nsjail__exe__descriptor;
 extern const ProtobufCMessageDescriptor nsjail__ns_jail_config__descriptor;
 
 PROTOBUF_C__END_DECLS

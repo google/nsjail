@@ -69,6 +69,36 @@ void nsjail__mount_pt__free_unpacked(Nsjail__MountPt * message, ProtobufCAllocat
 	protobuf_c_message_free_unpacked((ProtobufCMessage *) message, allocator);
 }
 
+void nsjail__exe__init(Nsjail__Exe * message) {
+	static Nsjail__Exe init_value = NSJAIL__EXE__INIT;
+	*message = init_value;
+}
+
+size_t nsjail__exe__get_packed_size(const Nsjail__Exe * message) {
+	assert(message->base.descriptor == &nsjail__exe__descriptor);
+	return protobuf_c_message_get_packed_size((const ProtobufCMessage *)(message));
+}
+
+size_t nsjail__exe__pack(const Nsjail__Exe * message, uint8_t * out) {
+	assert(message->base.descriptor == &nsjail__exe__descriptor);
+	return protobuf_c_message_pack((const ProtobufCMessage *)message, out);
+}
+
+size_t nsjail__exe__pack_to_buffer(const Nsjail__Exe * message, ProtobufCBuffer * buffer) {
+	assert(message->base.descriptor == &nsjail__exe__descriptor);
+	return protobuf_c_message_pack_to_buffer((const ProtobufCMessage *)message, buffer);
+}
+
+Nsjail__Exe *nsjail__exe__unpack(ProtobufCAllocator * allocator, size_t len, const uint8_t * data) {
+	return (Nsjail__Exe *)
+	    protobuf_c_message_unpack(&nsjail__exe__descriptor, allocator, len, data);
+}
+
+void nsjail__exe__free_unpacked(Nsjail__Exe * message, ProtobufCAllocator * allocator) {
+	assert(message->base.descriptor == &nsjail__exe__descriptor);
+	protobuf_c_message_free_unpacked((ProtobufCMessage *) message, allocator);
+}
+
 void nsjail__ns_jail_config__init(Nsjail__NsJailConfig * message) {
 	static Nsjail__NsJailConfig init_value = NSJAIL__NS_JAIL_CONFIG__INIT;
 	*message = init_value;
@@ -304,6 +334,58 @@ const ProtobufCMessageDescriptor nsjail__mount_pt__descriptor = {
 	NULL, NULL, NULL	/* reserved[123] */
 };
 
+static const ProtobufCFieldDescriptor nsjail__exe__field_descriptors[2] = {
+	{
+	 "path",
+	 1,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_STRING,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__Exe, path),
+	 NULL,
+	 NULL,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+	{
+	 "arg",
+	 2,
+	 PROTOBUF_C_LABEL_REPEATED,
+	 PROTOBUF_C_TYPE_STRING,
+	 offsetof(Nsjail__Exe, n_arg),
+	 offsetof(Nsjail__Exe, arg),
+	 NULL,
+	 NULL,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
+};
+
+static const unsigned nsjail__exe__field_indices_by_name[] = {
+	1,			/* field[1] = arg */
+	0,			/* field[0] = path */
+};
+
+static const ProtobufCIntRange nsjail__exe__number_ranges[1 + 1] = {
+	{1, 0},
+	{0, 2}
+};
+
+const ProtobufCMessageDescriptor nsjail__exe__descriptor = {
+	PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+	"nsjail.Exe",
+	"Exe",
+	"Nsjail__Exe",
+	"nsjail",
+	sizeof(Nsjail__Exe),
+	2,
+	nsjail__exe__field_descriptors,
+	nsjail__exe__field_indices_by_name,
+	1, nsjail__exe__number_ranges,
+	(ProtobufCMessageInit) nsjail__exe__init,
+	NULL, NULL, NULL	/* reserved[123] */
+};
+
 char nsjail__ns_jail_config__hostname__default_value[] = "NSJAIL";
 char nsjail__ns_jail_config__cwd__default_value[] = "/";
 char nsjail__ns_jail_config__bindhost__default_value[] = "::";
@@ -349,7 +431,7 @@ static const protobuf_c_boolean nsjail__ns_jail_config__mount_proc__default_valu
 static const uint64_t nsjail__ns_jail_config__cgroup_mem_max__default_value = 0ull;
 static const uint64_t nsjail__ns_jail_config__cgroup_pids_max__default_value = 0ull;
 static const protobuf_c_boolean nsjail__ns_jail_config__iface_no_lo__default_value = 0;
-static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[54] = {
+static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[55] = {
 	{
 	 "mode",
 	 1,
@@ -998,6 +1080,18 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 0,			/* flags */
 	 0, NULL, NULL		/* reserved1,reserved2, etc */
 	 },
+	{
+	 "exec_bin",
+	 57,
+	 PROTOBUF_C_LABEL_OPTIONAL,
+	 PROTOBUF_C_TYPE_MESSAGE,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__NsJailConfig, exec_bin),
+	 &nsjail__exe__descriptor,
+	 NULL,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
 };
 
 static const unsigned nsjail__ns_jail_config__field_indices_by_name[] = {
@@ -1019,6 +1113,7 @@ static const unsigned nsjail__ns_jail_config__field_indices_by_name[] = {
 	4,			/* field[4] = cwd */
 	9,			/* field[9] = daemon */
 	17,			/* field[17] = disable_no_new_privs */
+	54,			/* field[54] = exec_bin */
 	38,			/* field[38] = gidmap */
 	3,			/* field[3] = hostname */
 	49,			/* field[49] = iface_no_lo */
@@ -1060,7 +1155,7 @@ static const unsigned nsjail__ns_jail_config__field_indices_by_name[] = {
 static const ProtobufCIntRange nsjail__ns_jail_config__number_ranges[2 + 1] = {
 	{1, 0},
 	{6, 3},
-	{0, 54}
+	{0, 55}
 };
 
 const ProtobufCMessageDescriptor nsjail__ns_jail_config__descriptor = {
@@ -1070,7 +1165,7 @@ const ProtobufCMessageDescriptor nsjail__ns_jail_config__descriptor = {
 	"Nsjail__NsJailConfig",
 	"nsjail",
 	sizeof(Nsjail__NsJailConfig),
-	54,
+	55,
 	nsjail__ns_jail_config__field_descriptors,
 	nsjail__ns_jail_config__field_indices_by_name,
 	2, nsjail__ns_jail_config__number_ranges,

@@ -795,8 +795,10 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		return false;
 	}
 
-	nsjconf->argv = &argv[optind];
-	if (nsjconf->argv[0] == NULL) {
+	if (argv[optind]) {
+		nsjconf->argv = &argv[optind];
+	}
+	if (nsjconf->argv == NULL || nsjconf->argv[0] == NULL) {
 		LOG_E("No command provided");
 		cmdlineUsage(argv[0]);
 		return false;

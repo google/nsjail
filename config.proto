@@ -34,6 +34,11 @@ message MountPt {
 	optional bool is_dir = 7;
 }
 
+message Exe {
+	required string path = 1;
+	repeated string arg = 2;
+}
+
 message NsJailConfig {
 	required Mode mode = 1 [default = ONCE];
 	optional string chroot_dir = 2;
@@ -100,4 +105,6 @@ message NsJailConfig {
 	required string macvlan_vs_ip = 54 [default = "192.168.0.2"];
 	required string macvlan_vs_nm = 55 [default = "255.255.255.0"];
 	required string macvlan_vs_gw = 56 [default = "192.168.0.1"];
+
+	optional Exe exec_bin = 57;
 }
