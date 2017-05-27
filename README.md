@@ -1,4 +1,4 @@
-- [What is it](#what-is-it)
+- [Overview](#overview)
 - [What forms of isolation does it provide](#what-forms-of-isolation-does-it-provide)
 - Which use-cases are supported
   * [Isolation of network services (inetd style)](#isolation-of-network-services-inetd-style)
@@ -18,10 +18,10 @@
 This is NOT an official Google product.
 ***
 
-### What is it
-NsJail is a process isolation tool for Linux. It utilizes Linux namespace subsystem, resource limits, and the seccomp-bpf syscall filters from the Linux kernel.
+### Overview
+NsJail is a process isolation tool for Linux. It utilizes Linux namespace subsystem, resource limits, and the seccomp-bpf syscall filters of the Linux kernel.
 
-It can help with (among other things):
+It can help you with (among other things):
   * Isolating __networking services__ (e.g. web, time, DNS), by isolating them from the rest of the OS
   * Hosting computer security challenges (so-called __CTFs__)
   * Containing invasive syscall-level OS __fuzzers__
