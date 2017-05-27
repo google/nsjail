@@ -250,16 +250,20 @@ $ exit
 
 ***
 ### Configuration file
-[config.proto](https://github.com/google/nsjail/blob/master/config.proto) contains ProtoBuf schema for nsjail's configuration format. You can also examine an example config file in [configs/bash-with-fake-geteuid.cfg](https://github.com/google/nsjail/blob/master/configs/bash-with-fake-geteuid.cfg).
+[config.proto](https://github.com/google/nsjail/blob/master/config.proto) contains ProtoBuf schema for nsjail's configuration format.
+
+***
+
+You can examine an example config file in [configs/bash-with-fake-geteuid.cfg](https://github.com/google/nsjail/blob/master/configs/bash-with-fake-geteuid.cfg).
 
 Usage:
 <pre>
-./nsjail --config configs/bash-with-fake-geteuid.cfg
+$ ./nsjail --config configs/bash-with-fake-geteuid.cfg
 </pre>
 
-You can also override certain options with command-line options. Here, the executed binary (_/bin/bash_) is overriden with _/usr/bin/id_, yet options from _configs/bash-with-fake-geteuid.cfg_ apply
+You can also override certain options with command-line options. Here, the executed binary (_/bin/bash_) is overriden with _/usr/bin/id_, yet options from _configs/bash-with-fake-geteuid.cfg_ still apply
 <pre>
-./nsjail --config configs/bash-with-fake-geteuid.cfg -- /usr/bin/id
+$ ./nsjail --config configs/bash-with-fake-geteuid.cfg -- /usr/bin/id
 ...
 [INSIDE-JAIL]: id
 uid=999999 gid=999998 euid=4294965959 groups=999998,65534
@@ -269,12 +273,20 @@ uid=999999 gid=999998 euid=4294965959 groups=999998,65534
 
 ***
 
-You might also want to try using [configs/home-documents-with-xorg-no-net.cfg](https://github.com/google/nsjail/blob/master/configs/home-documents-with-xorg-no-net.cfg). You'll have to modify all referrences to _/home/jagger_ to whatever your home directory is, though. After that, you can use it as follows:
+You might also want to try using [configs/home-documents-with-xorg-no-net.cfg](https://github.com/google/nsjail/blob/master/configs/home-documents-with-xorg-no-net.cfg).
 
 <pre>
-$ ./nsjail --config configs/home-documents-with-xorg-no-net.cfg -- /usr/bin/evince /home/jagger/Documents/doc.pdf
-$ ./nsjail --config configs/home-documents-with-xorg-no-net.cfg -- /usr/bin/geeqie /home/jagger/Documents/
-$ ./nsjail --config configs/home-documents-with-xorg-no-net.cfg -- /usr/bin/gv /home/jagger/Documents/doc.pdf
+$ ./nsjail --config configs/home-documents-with-xorg-no-net.cfg -- /usr/bin/evince /user/Documents/doc.pdf
+$ ./nsjail --config configs/home-documents-with-xorg-no-net.cfg -- /usr/bin/geeqie /user/Documents/
+$ ./nsjail --config configs/home-documents-with-xorg-no-net.cfg -- /usr/bin/gv //user/Documents/doc.pdf
+</pre>
+
+***
+
+The [configs/firefox-with-net.cfg](https://github.com/google/nsjail/blob/master/configs/firefox-with-net.cfg) config file will allow you to run firefox in a  sandboxed environment:
+
+<pre>
+$ ./nsjail --config configs/firefox-with-net.cfg
 </pre>
 
 ***
