@@ -14,9 +14,10 @@
 - [More info](#more-info)
 - [Launching in Docker](#launching-in-docker)
 
-This is NOT an official Google product.
-
 ***
+This is NOT an official Google product.
+***
+
 ### What is it
 NsJail is a process isolation tool for Linux. It utilizes Linux namespace subsystem, resource limits, and the seccomp-bpf syscall filters from the Linux kernel.
 
@@ -247,6 +248,7 @@ $ exit
 [2017-01-15T21:53:17+0100] PID: 18873 exited with status: 159, (PIDs left: 0)
 </pre>
 
+***
 ### Configuration file
 [config.proto](https://github.com/google/nsjail/blob/master/config.proto) contains ProtoBuf schema for nsjail's configuration format. You can also examine the example config file in [config1.example](https://github.com/google/nsjail/blob/master/configs/config1.example).
 
@@ -262,6 +264,7 @@ You can also override certain options with command-line options. Here, the execu
 ./nsjail --config configs/config1.example -- /bin/ls
 </pre>
 
+***
 ### More info
 
 The options should be self-explanatory, and these are available with:
