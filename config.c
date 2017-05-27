@@ -212,6 +212,22 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 		nsjconf->kafel_string = utilStrDup(njc->seccomp_string);
 	}
 
+	nsjconf->cgroup_mem_max = njc->cgroup_mem_max;
+	nsjconf->cgroup_mem_mount = utilStrDup(njc->cgroup_mem_mount);
+	nsjconf->cgroup_mem_parent = utilStrDup(njc->cgroup_mem_parent);
+
+	nsjconf->cgroup_pids_max = njc->cgroup_pids_max;
+	nsjconf->cgroup_pids_mount = utilStrDup(njc->cgroup_pids_mount);
+	nsjconf->cgroup_pids_parent = utilStrDup(njc->cgroup_pids_parent);
+
+	nsjconf->iface_no_lo = njc->iface_no_lo;
+	if (njc->macvlan_iface) {
+		nsjconf->iface = utilStrDup(njc->macvlan_iface);
+	}
+	nsjconf->iface_vs_ip = utilStrDup(njc->macvlan_vs_ip);
+	nsjconf->iface_vs_nm = utilStrDup(njc->macvlan_vs_nm);
+	nsjconf->iface_vs_gw = utilStrDup(njc->macvlan_vs_gw);
+
 	return true;
 }
 

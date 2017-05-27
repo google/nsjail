@@ -83,6 +83,21 @@ message NsJailConfig {
 
 	repeated MountPt mount = 42;
 	required bool mount_proc = 43 [default = true];
+
 	optional string seccomp_policy_file = 44;
 	optional string seccomp_string = 45;
+
+	required uint64 cgroup_mem_max = 46 [default = 0];
+	required string cgroup_mem_mount = 47 [default = "/sys/fs/cgroup/memory"];
+	required string cgroup_mem_parent = 48 [default = "NSJAIL"];
+
+	required uint64 cgroup_pids_max = 49 [default = 0];
+	required string cgroup_pids_mount = 50 [default = "/sys/fs/cgroup/pids"];
+	required string cgroup_pids_parent = 51 [default = "NSJAIL"];
+
+	required bool iface_no_lo = 52 [default = false];
+	optional string macvlan_iface = 53;
+	required string macvlan_vs_ip = 54 [default = "192.168.0.2"];
+	required string macvlan_vs_nm = 55 [default = "255.255.255.0"];
+	required string macvlan_vs_gw = 56 [default = "192.168.0.1"];
 }
