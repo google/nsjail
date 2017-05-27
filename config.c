@@ -104,6 +104,12 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 	}
 
 	nsjconf->keep_env = njc->keep_env;
+	for (size_t i = 0; i < njc->n_envar; i++) {
+		struct charptr_t *p = utilMalloc(sizeof(struct charptr_t));
+		p->val = utilStrDup(njc->envar[i]);
+		TAILQ_INSERT_TAIL(&nsjconf->envs, p, pointers);
+	}
+
 	nsjconf->is_silent = njc->silent;
 	nsjconf->skip_setsid = njc->skip_setsid;
 

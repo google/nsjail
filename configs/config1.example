@@ -10,7 +10,11 @@ port: 31337
 
 time_limit: 100
 daemon: false
+
 keep_env: false
+envar: "ENVAR1=VALUE1"
+envar: "ENVAR2=VALUE2"
+
 silent: false
 skip_setsid: false
 pass_fd: 100
