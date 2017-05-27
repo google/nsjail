@@ -1,10 +1,11 @@
-- [What is it](#what-is-it)
+- [Overview](#overview)
 - [What forms of isolation does it provide](#what-forms-of-isolation-does-it-provide)
-- [Which use-cases are supported](#which-use-cases-are-supported)
+- Which use-cases are supported
   * [Isolation of network services (inetd style)](#isolation-of-network-services-inetd-style)
   * [Isolation with access to a private, cloned interface (requires root/setuid)](#isolation-with-access-to-a-private-cloned-interface-requires-rootsetuid)
   * [Isolation of local processes](#isolation-of-local-processes)
   * [Isolation of local processes (and re-running them, if necessary)](#isolation-of-local-processes-and-re-running-them-if-necessary)
+- Examples of use
   * [Bash in a minimal file-system with uid==0 and access to /dev/urandom only](#bash-in-a-minimal-file-system-with-uid0-and-access-to-devurandom-only)
   * [/usr/bin/find in a minimal file-system (only /usr/bin/find accessible from /usr/bin)](#usrbinfind-in-a-minimal-file-system-only-usrbinfind-accessible-from-usrbin)
   * [Using /etc/subuid](#using-etcsubuid)
@@ -13,13 +14,14 @@
 - [More info](#more-info)
 - [Launching in Docker](#launching-in-docker)
 
-This is NOT an official Google product.
-
 ***
-### What is it
-NsJail is a process isolation tool for Linux. It utilizes Linux namespace subsystem, resource limits, and the seccomp-bpf syscall filters from the Linux kernel.
+This is NOT an official Google product.
+***
 
-It can help with (among other things):
+### Overview
+NsJail is a process isolation tool for Linux. It utilizes Linux namespace subsystem, resource limits, and the seccomp-bpf syscall filters of the Linux kernel.
+
+It can help you with (among other things):
   * Isolating __networking services__ (e.g. web, time, DNS), by isolating them from the rest of the OS
   * Hosting computer security challenges (so-called __CTFs__)
   * Containing invasive syscall-level OS __fuzzers__
@@ -247,22 +249,35 @@ $ exit
 </pre>
 
 ***
-
 ### Configuration file
-[config.proto](https://github.com/google/nsjail/blob/master/config.proto) contains ProtoBuf schema for nsjail's configuration format. You can also find example config file in [config1.example](https://github.com/google/nsjail/blob/master/configs/config1.example).
+[config.proto](https://github.com/google/nsjail/blob/master/config.proto) contains ProtoBuf schema for nsjail's configuration format. You can also examine an example config file in [configs/bash-with-fake-geteuid.cfg](https://github.com/google/nsjail/blob/master/configs/bash-with-fake-geteuid.cfg).
 
 Usage:
-
 <pre>
-./nsjail --config configs/config1.example
+./nsjail --config configs/bash-with-fake-geteuid.cfg
 </pre>
 
-You can also override certain options with command-line options. Here, the executed binary is changed from _/usr/bin/id_ to _/bin/ls_, yet options from _config1.example_ are applied.
-
+You can also override certain options with command-line options. Here, the executed binary (_/bin/bash_) is overriden with _/usr/bin/id_, yet options from _configs/bash-with-fake-geteuid.cfg_ apply
 <pre>
-./nsjail --config configs/config1.example -- /bin/ls
+./nsjail --config configs/bash-with-fake-geteuid.cfg -- /usr/bin/id
+...
+[INSIDE-JAIL]: id
+uid=999999 gid=999998 euid=4294965959 groups=999998,65534
+[INSIDE-JAIL]: exit
+[2017-05-27T18:45:40+0200] PID: 16579 exited with status: 0, (PIDs left: 0)
 </pre>
 
+***
+
+You might also want to try using [configs/home-documents-with-xorg-no-net.cfg](https://github.com/google/nsjail/blob/master/configs/home-documents-with-xorg-no-net.cfg). You'll have to modify all referrences to _/home/jagger_ to whatever your home directory is, though. After that, you can use it as follows:
+
+<pre>
+$ ./nsjail --config configs/home-documents-with-xorg-no-net.cfg -- /usr/bin/evince /home/jagger/Documents/doc.pdf
+$ ./nsjail --config configs/home-documents-with-xorg-no-net.cfg -- /usr/bin/geeqie /home/jagger/Documents/
+$ ./nsjail --config configs/home-documents-with-xorg-no-net.cfg -- /usr/bin/gv /home/jagger/Documents/doc.pdf
+</pre>
+
+***
 ### More info
 
 The options should be self-explanatory, and these are available with:
