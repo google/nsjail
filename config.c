@@ -181,6 +181,7 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 		}
 	}
 
+	nsjconf->mount_proc = njc->mount_proc;
 	for (size_t i = 0; i < njc->n_mount; i++) {
 		struct mounts_t *p = utilCalloc(sizeof(struct mounts_t));
 		p->src = utilStrDup(njc->mount[i]->src);
@@ -200,10 +201,9 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 				p->isDir = true;
 			}
 		}
+		p->mandatory = njc->mount[i]->mandatory;
 		TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
 	}
-
-	nsjconf->mount_proc = njc->mount_proc;
 
 	if (njc->seccomp_policy_file) {
 		if ((nsjconf->kafel_file = fopen(njc->seccomp_policy_file, "rb")) == NULL) {

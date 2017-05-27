@@ -7,22 +7,26 @@
 #endif
 
 #include "config.pb-c.h"
-void nsjail__id_map__init(Nsjail__IdMap * message) {
+void nsjail__id_map__init(Nsjail__IdMap * message)
+{
 	static Nsjail__IdMap init_value = NSJAIL__ID_MAP__INIT;
 	*message = init_value;
 }
 
-size_t nsjail__id_map__get_packed_size(const Nsjail__IdMap * message) {
+size_t nsjail__id_map__get_packed_size(const Nsjail__IdMap * message)
+{
 	assert(message->base.descriptor == &nsjail__id_map__descriptor);
 	return protobuf_c_message_get_packed_size((const ProtobufCMessage *)(message));
 }
 
-size_t nsjail__id_map__pack(const Nsjail__IdMap * message, uint8_t * out) {
+size_t nsjail__id_map__pack(const Nsjail__IdMap * message, uint8_t * out)
+{
 	assert(message->base.descriptor == &nsjail__id_map__descriptor);
 	return protobuf_c_message_pack((const ProtobufCMessage *)message, out);
 }
 
-size_t nsjail__id_map__pack_to_buffer(const Nsjail__IdMap * message, ProtobufCBuffer * buffer) {
+size_t nsjail__id_map__pack_to_buffer(const Nsjail__IdMap * message, ProtobufCBuffer * buffer)
+{
 	assert(message->base.descriptor == &nsjail__id_map__descriptor);
 	return protobuf_c_message_pack_to_buffer((const ProtobufCMessage *)message, buffer);
 }
@@ -33,27 +37,32 @@ Nsjail__IdMap *nsjail__id_map__unpack
 	    protobuf_c_message_unpack(&nsjail__id_map__descriptor, allocator, len, data);
 }
 
-void nsjail__id_map__free_unpacked(Nsjail__IdMap * message, ProtobufCAllocator * allocator) {
+void nsjail__id_map__free_unpacked(Nsjail__IdMap * message, ProtobufCAllocator * allocator)
+{
 	assert(message->base.descriptor == &nsjail__id_map__descriptor);
 	protobuf_c_message_free_unpacked((ProtobufCMessage *) message, allocator);
 }
 
-void nsjail__mount_pt__init(Nsjail__MountPt * message) {
+void nsjail__mount_pt__init(Nsjail__MountPt * message)
+{
 	static Nsjail__MountPt init_value = NSJAIL__MOUNT_PT__INIT;
 	*message = init_value;
 }
 
-size_t nsjail__mount_pt__get_packed_size(const Nsjail__MountPt * message) {
+size_t nsjail__mount_pt__get_packed_size(const Nsjail__MountPt * message)
+{
 	assert(message->base.descriptor == &nsjail__mount_pt__descriptor);
 	return protobuf_c_message_get_packed_size((const ProtobufCMessage *)(message));
 }
 
-size_t nsjail__mount_pt__pack(const Nsjail__MountPt * message, uint8_t * out) {
+size_t nsjail__mount_pt__pack(const Nsjail__MountPt * message, uint8_t * out)
+{
 	assert(message->base.descriptor == &nsjail__mount_pt__descriptor);
 	return protobuf_c_message_pack((const ProtobufCMessage *)message, out);
 }
 
-size_t nsjail__mount_pt__pack_to_buffer(const Nsjail__MountPt * message, ProtobufCBuffer * buffer) {
+size_t nsjail__mount_pt__pack_to_buffer(const Nsjail__MountPt * message, ProtobufCBuffer * buffer)
+{
 	assert(message->base.descriptor == &nsjail__mount_pt__descriptor);
 	return protobuf_c_message_pack_to_buffer((const ProtobufCMessage *)message, buffer);
 }
@@ -64,52 +73,62 @@ Nsjail__MountPt *nsjail__mount_pt__unpack
 	    protobuf_c_message_unpack(&nsjail__mount_pt__descriptor, allocator, len, data);
 }
 
-void nsjail__mount_pt__free_unpacked(Nsjail__MountPt * message, ProtobufCAllocator * allocator) {
+void nsjail__mount_pt__free_unpacked(Nsjail__MountPt * message, ProtobufCAllocator * allocator)
+{
 	assert(message->base.descriptor == &nsjail__mount_pt__descriptor);
 	protobuf_c_message_free_unpacked((ProtobufCMessage *) message, allocator);
 }
 
-void nsjail__exe__init(Nsjail__Exe * message) {
+void nsjail__exe__init(Nsjail__Exe * message)
+{
 	static Nsjail__Exe init_value = NSJAIL__EXE__INIT;
 	*message = init_value;
 }
 
-size_t nsjail__exe__get_packed_size(const Nsjail__Exe * message) {
+size_t nsjail__exe__get_packed_size(const Nsjail__Exe * message)
+{
 	assert(message->base.descriptor == &nsjail__exe__descriptor);
 	return protobuf_c_message_get_packed_size((const ProtobufCMessage *)(message));
 }
 
-size_t nsjail__exe__pack(const Nsjail__Exe * message, uint8_t * out) {
+size_t nsjail__exe__pack(const Nsjail__Exe * message, uint8_t * out)
+{
 	assert(message->base.descriptor == &nsjail__exe__descriptor);
 	return protobuf_c_message_pack((const ProtobufCMessage *)message, out);
 }
 
-size_t nsjail__exe__pack_to_buffer(const Nsjail__Exe * message, ProtobufCBuffer * buffer) {
+size_t nsjail__exe__pack_to_buffer(const Nsjail__Exe * message, ProtobufCBuffer * buffer)
+{
 	assert(message->base.descriptor == &nsjail__exe__descriptor);
 	return protobuf_c_message_pack_to_buffer((const ProtobufCMessage *)message, buffer);
 }
 
-Nsjail__Exe *nsjail__exe__unpack(ProtobufCAllocator * allocator, size_t len, const uint8_t * data) {
+Nsjail__Exe *nsjail__exe__unpack(ProtobufCAllocator * allocator, size_t len, const uint8_t * data)
+{
 	return (Nsjail__Exe *)
 	    protobuf_c_message_unpack(&nsjail__exe__descriptor, allocator, len, data);
 }
 
-void nsjail__exe__free_unpacked(Nsjail__Exe * message, ProtobufCAllocator * allocator) {
+void nsjail__exe__free_unpacked(Nsjail__Exe * message, ProtobufCAllocator * allocator)
+{
 	assert(message->base.descriptor == &nsjail__exe__descriptor);
 	protobuf_c_message_free_unpacked((ProtobufCMessage *) message, allocator);
 }
 
-void nsjail__ns_jail_config__init(Nsjail__NsJailConfig * message) {
+void nsjail__ns_jail_config__init(Nsjail__NsJailConfig * message)
+{
 	static Nsjail__NsJailConfig init_value = NSJAIL__NS_JAIL_CONFIG__INIT;
 	*message = init_value;
 }
 
-size_t nsjail__ns_jail_config__get_packed_size(const Nsjail__NsJailConfig * message) {
+size_t nsjail__ns_jail_config__get_packed_size(const Nsjail__NsJailConfig * message)
+{
 	assert(message->base.descriptor == &nsjail__ns_jail_config__descriptor);
 	return protobuf_c_message_get_packed_size((const ProtobufCMessage *)(message));
 }
 
-size_t nsjail__ns_jail_config__pack(const Nsjail__NsJailConfig * message, uint8_t * out) {
+size_t nsjail__ns_jail_config__pack(const Nsjail__NsJailConfig * message, uint8_t * out)
+{
 	assert(message->base.descriptor == &nsjail__ns_jail_config__descriptor);
 	return protobuf_c_message_pack((const ProtobufCMessage *)message, out);
 }
@@ -214,10 +233,12 @@ const ProtobufCMessageDescriptor nsjail__id_map__descriptor = {
 	NULL, NULL, NULL	/* reserved[123] */
 };
 
+char nsjail__mount_pt__fstype__default_value[] = "";
 char nsjail__mount_pt__options__default_value[] = "";
 static const protobuf_c_boolean nsjail__mount_pt__is_bind__default_value = 0;
 static const protobuf_c_boolean nsjail__mount_pt__is_ro__default_value = 0;
-static const ProtobufCFieldDescriptor nsjail__mount_pt__field_descriptors[7] = {
+static const protobuf_c_boolean nsjail__mount_pt__mandatory__default_value = 1;
+static const ProtobufCFieldDescriptor nsjail__mount_pt__field_descriptors[8] = {
 	{
 	 "src",
 	 1,
@@ -250,7 +271,7 @@ static const ProtobufCFieldDescriptor nsjail__mount_pt__field_descriptors[7] = {
 	 0,			/* quantifier_offset */
 	 offsetof(Nsjail__MountPt, fstype),
 	 NULL,
-	 NULL,
+	 &nsjail__mount_pt__fstype__default_value,
 	 0,			/* flags */
 	 0, NULL, NULL		/* reserved1,reserved2, etc */
 	 },
@@ -302,6 +323,18 @@ static const ProtobufCFieldDescriptor nsjail__mount_pt__field_descriptors[7] = {
 	 0,			/* flags */
 	 0, NULL, NULL		/* reserved1,reserved2, etc */
 	 },
+	{
+	 "mandatory",
+	 8,
+	 PROTOBUF_C_LABEL_REQUIRED,
+	 PROTOBUF_C_TYPE_BOOL,
+	 0,			/* quantifier_offset */
+	 offsetof(Nsjail__MountPt, mandatory),
+	 NULL,
+	 &nsjail__mount_pt__mandatory__default_value,
+	 0,			/* flags */
+	 0, NULL, NULL		/* reserved1,reserved2, etc */
+	 },
 };
 
 static const unsigned nsjail__mount_pt__field_indices_by_name[] = {
@@ -310,13 +343,14 @@ static const unsigned nsjail__mount_pt__field_indices_by_name[] = {
 	4,			/* field[4] = is_bind */
 	6,			/* field[6] = is_dir */
 	5,			/* field[5] = is_ro */
+	7,			/* field[7] = mandatory */
 	3,			/* field[3] = options */
 	0,			/* field[0] = src */
 };
 
 static const ProtobufCIntRange nsjail__mount_pt__number_ranges[1 + 1] = {
 	{1, 0},
-	{0, 7}
+	{0, 8}
 };
 
 const ProtobufCMessageDescriptor nsjail__mount_pt__descriptor = {
@@ -326,7 +360,7 @@ const ProtobufCMessageDescriptor nsjail__mount_pt__descriptor = {
 	"Nsjail__MountPt",
 	"nsjail",
 	sizeof(Nsjail__MountPt),
-	7,
+	8,
 	nsjail__mount_pt__field_descriptors,
 	nsjail__mount_pt__field_indices_by_name,
 	1, nsjail__mount_pt__number_ranges,

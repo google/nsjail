@@ -159,13 +159,16 @@ static bool mountMount(struct nsjconf_t *nsjconf, struct mounts_t *mpt, const ch
 	unsigned long flags = mpt->flags & ~(MS_RDONLY);
 	if (mount(srcpath, dst, mpt->fs_type, flags, mpt->options) == -1) {
 		if (errno == EACCES) {
-			PLOG_E
+			PLOG_W
 			    ("mount('%s', '%s', type='%s') failed. Try fixing this problem by applying 'chmod o+x' to the '%s' directory and its ancestors",
-			     srcpath, dst, mpt->fs_type, nsjconf->chroot);
+			     srcpath, dst, mpt->fs_type ? mpt->fs_type : "[NULL]", nsjconf->chroot);
 		} else {
-			PLOG_E("mount('%s', '%s', type='%s') failed", srcpath, dst, mpt->fs_type);
+			PLOG_W("mount('%s', '%s', type='%s') failed", srcpath, dst,
+			       mpt->fs_type ? mpt->fs_type : "[NULL]");
 		}
-		return false;
+		if (mpt->mandatory) {
+			return false;
+		}
 	}
 	return true;
 }
@@ -193,8 +196,10 @@ static bool mountRemountRO(struct mounts_t *mpt)
 	      mountFlagsToStr(vfs.f_flag), mountFlagsToStr(new_flags));
 
 	if (mount(mpt->dst, mpt->dst, NULL, new_flags, 0) == -1) {
-		PLOG_E("mount('%s', flags:%s)", mpt->dst, mountFlagsToStr(new_flags));
-		return false;
+		PLOG_W("mount('%s', flags:%s)", mpt->dst, mountFlagsToStr(new_flags));
+		if (mpt->mandatory) {
+			return false;
+		}
 	}
 
 	return true;

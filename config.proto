@@ -41,6 +41,8 @@ message MountPt
     /* Is it directory? If not specified an internal
 	 * heuristics will be used to determine that */
     optional bool is_dir = 7;
+	/* Should the sandboxing fail if we cannot mount this resource? */
+	required bool mandatory = 8 [default = true];
 }
 message Exe
 {
@@ -132,11 +134,11 @@ message NsJailConfig
     repeated IdMap uidmap = 41;
     repeated IdMap gidmap = 42;
 
+    /* Should /proc be mounted? One can also force this in the 'mount' */
+    required bool mount_proc = 43 [ default = true ];
     /* Mount points inside the jail. See the description for 'msg MountPt'
 	   for more */
-    repeated MountPt mount = 43;
-    /* Should /proc be mounted? One can also force this in the 'mount' */
-    required bool mount_proc = 44 [ default = true ];
+    repeated MountPt mount = 44;
 
     /* Kafel seccomp policy file or string.
 	   Homepage of the project: https://github.com/google/kafel */

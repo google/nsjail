@@ -25,7 +25,7 @@ rlimit_as: 128
 rlimit_core: 0
 rlimit_cpu: 10
 rlimit_fsize: 0
-rlimit_nofile: 5
+rlimit_nofile: 32
 rlimit_stack: 1
 
 persona_addr_compat_layout: false
@@ -53,6 +53,8 @@ gidmap {
 	outside_id: ""
 	count: 1
 }
+
+mount_proc: false
 
 mount {
 	src: "/lib"
@@ -94,6 +96,15 @@ mount {
 	dst: "/lib64"
 	is_bind: true
 	is_ro: true
+	mandatory: false
+}
+
+mount {
+	src: "/lib32"
+	dst: "/lib32"
+	is_bind: true
+	is_ro: true
+	mandatory: false
 }
 
 mount {
@@ -124,7 +135,12 @@ mount {
 	is_ro: true
 }
 
-mount_proc: false
+mount {
+	src: "/nonexistent_777"
+	dst: "/nonexistent_777"
+	is_bind: true
+	mandatory: false
+}
 
 seccomp_string: "
 	POLICY example {

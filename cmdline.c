@@ -226,10 +226,10 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 		struct mounts_t *p;
 		TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
 			LOG_I
-			    ("Mount point: src:'%s' dst:'%s' type:'%s' flags:%s options:'%s' isDir:%s",
+			    ("Mount point: src:'%s' dst:'%s' type:'%s' flags:%s options:'%s' isDir:%s mandatory:%s",
 			     p->src ? p->src : "[NULL]", p->dst, p->fs_type ? p->fs_type : "[NULL]",
 			     mountFlagsToStr(p->flags), p->options ? p->options : "[NULL]",
-			     p->isDir ? "True" : "False");
+			     p->isDir ? "true" : "false", p->mandatory ? "true" : "false");
 		}
 	}
 	{
@@ -644,6 +644,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				p->options = "";
 				p->fs_type = "";
 				p->isDir = mountIsDir(optarg);
+				p->mandatory = true;
 				TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
 			} break;
 		case 'B':{
@@ -654,6 +655,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				p->options = "";
 				p->fs_type = "";
 				p->isDir = mountIsDir(optarg);
+				p->mandatory = true;
 				TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
 			} break;
 		case 'T':{
@@ -664,6 +666,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				p->options = cmdlineTmpfsSz;
 				p->fs_type = "tmpfs";
 				p->isDir = true;
+				p->mandatory = true;
 				TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
 			} break;
 		case 'M':
@@ -749,6 +752,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		p->options = "";
 		p->fs_type = "proc";
 		p->isDir = true;
+		p->mandatory = true;
 		TAILQ_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
 	}
 	if (nsjconf->chroot != NULL) {
@@ -756,24 +760,26 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		p->src = nsjconf->chroot;
 		p->dst = "/";
 		p->flags = MS_BIND | MS_REC;
-		p->options = "";
-		p->fs_type = "";
-		p->isDir = true;
 		if (nsjconf->is_root_rw == false) {
 			p->flags |= MS_RDONLY;
 		}
+		p->options = "";
+		p->fs_type = "";
+		p->isDir = true;
+		p->mandatory = true;
 		TAILQ_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
 	} else {
 		struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
 		p->src = NULL;
 		p->dst = "/";
 		p->flags = 0;
-		p->options = "";
-		p->fs_type = "tmpfs";
-		p->isDir = true;
 		if (nsjconf->is_root_rw == false) {
 			p->flags |= MS_RDONLY;
 		}
+		p->options = "";
+		p->fs_type = "tmpfs";
+		p->isDir = true;
+		p->mandatory = true;
 		TAILQ_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
 	}
 
