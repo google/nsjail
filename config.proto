@@ -80,8 +80,8 @@ message NsJailConfig {
 	/* Minimum log level displayed.
 	   See 'msg LogLevel' description for more */
 	optional LogLevel log_level = 14;
-    /* Should the current environment variables be kept
-       when executing the binary */
+	/* Should the current environment variables be kept
+	   when executing the binary */
 	required bool keep_env = 15 [default = false];
 	/* Should nsjail close FD=0,1,2 before executing the process */
 	required bool silent = 16 [default = false];
@@ -89,11 +89,11 @@ message NsJailConfig {
        Can be useful to allow /bin/sh to provide
        job control / signals */
 	required bool skip_setsid = 17 [default = false];
-    /* Which FDs should be passed to the newly executed process
-       By default only FD=0,1,2 are passed */
+	/* Which FDs should be passed to the newly executed process
+	   By default only FD=0,1,2 are passed */
 	repeated int32 pass_fd = 18;
-    /* Should pivot_root be used instead of chroot?
-       Using pivot_root allows to have subnamespaces */
+	/* Should pivot_root be used instead of chroot?
+	   Using pivot_root allows to have subnamespaces */
 	required bool pivot_root_only = 19 [ default = false];
 	/* Setting it to true will allow to have set-uid binaries
        inside the jail */
@@ -136,7 +136,7 @@ message NsJailConfig {
 	required bool mount_proc = 43 [default = true];
 
 	/* Kafel seccomp policy file or string.
-       Homepage of the project: https://github.com/google/kafel */
+	   Homepage of the project: https://github.com/google/kafel */
 	optional string seccomp_policy_file = 44;
 	optional string seccomp_string = 45;
 
