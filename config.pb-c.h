@@ -21,15 +21,15 @@ typedef struct _Nsjail__NsJailConfig Nsjail__NsJailConfig;
 
 typedef enum _Nsjail__Mode {
 	/*
-	 * Listening on a TCP port              
+	 * Listening on a TCP port 
 	 */
 	NSJAIL__MODE__LISTEN = 0,
 	/*
-	 * Running the command once only        
+	 * Running the command once only 
 	 */
 	NSJAIL__MODE__ONCE = 1,
 	/*
-	 * Re-executing the command (forever)   
+	 * Re-executing the command (forever) 
 	 */
 	NSJAIL__MODE__RERUN = 2,
 	/*
@@ -41,8 +41,17 @@ typedef enum _Nsjail__Mode {
  * Should be self explanatory 
  */
 typedef enum _Nsjail__LogLevel {
+	/*
+	 * Equivalent to the '-v' cmd-line option 
+	 */
 	NSJAIL__LOG_LEVEL__DEBUG = 0,
+	/*
+	 * Default level 
+	 */
 	NSJAIL__LOG_LEVEL__INFO = 1,
+	/*
+	 * Equivalent to the '-q' cmd-line option 
+	 */
 	NSJAIL__LOG_LEVEL__WARNING = 2,
 	NSJAIL__LOG_LEVEL__ERROR = 3,
 	NSJAIL__LOG_LEVEL__FATAL = 4 PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(NSJAIL__LOG_LEVEL)
@@ -58,7 +67,7 @@ struct _Nsjail__IdMap {
 	char *inside_id;
 	char *outside_id;
 	/*
-	 * 'man user_namespaces' for the meaning of count 
+	 * See 'man user_namespaces' for the meaning of count 
 	 */
 	uint32_t count;
 	/*
@@ -97,7 +106,7 @@ struct _Nsjail__MountPt {
 	protobuf_c_boolean is_ro;
 	/*
 	 * Is it directory? If not specified an internal
-	 * heuristics will be used to determine that 
+	 *heuristics will be used to determine that 
 	 */
 	protobuf_c_boolean has_is_dir;
 	protobuf_c_boolean is_dir;
@@ -115,7 +124,7 @@ extern char nsjail__mount_pt__options__default_value[];
 struct _Nsjail__Exe {
 	ProtobufCMessage base;
 	/*
-	 * This will be usef both for path and for argv[0] 
+	 * Will be used both as execv's path and as argv[0] 
 	 */
 	char *path;
 	/*
@@ -131,11 +140,16 @@ struct _Nsjail__Exe {
 struct _Nsjail__NsJailConfig {
 	ProtobufCMessage base;
 	/*
+	 * Optional name and description for this config 
+	 */
+	char *name;
+	char *description;
+	/*
 	 * Execution mode: see 'msg Mode' description for more 
 	 */
 	Nsjail__Mode mode;
 	/*
-	 * Equivalent to a bind mount with src='/', dst='/' 
+	 * Equivalent to a bind mount with dst='/' 
 	 */
 	char *chroot_dir;
 	/*
@@ -217,11 +231,11 @@ struct _Nsjail__NsJailConfig {
 	 */
 	protobuf_c_boolean disable_no_new_privs;
 	/*
-	 * In MiB     
+	 * In MiB 
 	 */
 	uint64_t rlimit_as;
 	/*
-	 * In MiB     
+	 * In MiB 
 	 */
 	uint64_t rlimit_core;
 	/*
@@ -229,14 +243,17 @@ struct _Nsjail__NsJailConfig {
 	 */
 	uint64_t rlimit_cpu;
 	/*
-	 * In MiB     
+	 * In MiB 
 	 */
 	uint64_t rlimit_fsize;
 	uint64_t rlimit_nofile;
+	/*
+	 * This is system-wide: tricky to use 
+	 */
 	protobuf_c_boolean has_rlimit_nproc;
 	uint64_t rlimit_nproc;
 	/*
-	 * In MiB     
+	 * In MiB 
 	 */
 	protobuf_c_boolean has_rlimit_stack;
 	uint64_t rlimit_stack;
@@ -270,30 +287,31 @@ struct _Nsjail__NsJailConfig {
 	size_t n_gidmap;
 	Nsjail__IdMap **gidmap;
 	/*
+	 * Should /proc be mounted (R/O)? This can also be added in the 'mount'
+	 *section below 
+	 */
+	protobuf_c_boolean mount_proc;
+	/*
 	 * Mount points inside the jail. See the description for 'msg MountPt'
 	 *for more 
 	 */
 	size_t n_mount;
 	Nsjail__MountPt **mount;
 	/*
-	 * Should /proc be mounted? One can also force this in the 'mount' 
-	 */
-	protobuf_c_boolean mount_proc;
-	/*
-	 * Kafel seccomp policy file or string.
+	 * Kafel seccomp-bpf policy file or a string:
 	 *Homepage of the project: https://github.com/google/kafel 
 	 */
 	char *seccomp_policy_file;
 	char *seccomp_string;
 	/*
-	 * If > 0, maximum cumulative size of RAM used inside jail 
+	 * If > 0, maximum cumulative size of RAM used inside any jail 
 	 */
 	/*
 	 * In MiB 
 	 */
 	uint64_t cgroup_mem_max;
 	/*
-	 * Mount point for cgroups-memory 
+	 * Mount point for cgroups-memory in your system 
 	 */
 	char *cgroup_mem_mount;
 	/*
@@ -305,7 +323,7 @@ struct _Nsjail__NsJailConfig {
 	 */
 	uint64_t cgroup_pids_max;
 	/*
-	 * Mount point for cgroups-memory 
+	 * Mount point for cgroups-pids in your system 
 	 */
 	char *cgroup_pids_mount;
 	/*
@@ -313,7 +331,7 @@ struct _Nsjail__NsJailConfig {
 	 */
 	char *cgroup_pids_parent;
 	/*
-	 * Should the 'lo' interface be brought up inside jail? 
+	 * Should the 'lo' interface be brought up (active) inside this jail? 
 	 */
 	protobuf_c_boolean iface_no_lo;
 	/*
@@ -327,11 +345,13 @@ struct _Nsjail__NsJailConfig {
 	char *macvlan_vs_nm;
 	char *macvlan_vs_gw;
 	/*
-	 * Binary with arguments to be executed. If not specified here, it can be
-	 *specified with the command-line as "-- /path/to/command arg1 arg2" 
+	 * Binary path (with arguments) to be executed. If not specified here, it
+	 *can be specified with cmd-line as "-- /path/to/command arg1 arg2" 
 	 */
 	Nsjail__Exe *exec_bin;
 };
+extern char nsjail__ns_jail_config__name__default_value[];
+extern char nsjail__ns_jail_config__description__default_value[];
 extern char nsjail__ns_jail_config__hostname__default_value[];
 extern char nsjail__ns_jail_config__cwd__default_value[];
 extern char nsjail__ns_jail_config__bindhost__default_value[];
@@ -344,7 +364,7 @@ extern char nsjail__ns_jail_config__macvlan_vs_nm__default_value[];
 extern char nsjail__ns_jail_config__macvlan_vs_gw__default_value[];
 #define NSJAIL__NS_JAIL_CONFIG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&nsjail__ns_jail_config__descriptor) \
-    , NSJAIL__MODE__ONCE, NULL, 0, nsjail__ns_jail_config__hostname__default_value, nsjail__ns_jail_config__cwd__default_value, 0u, nsjail__ns_jail_config__bindhost__default_value, 0u, 600u, 0, NULL, 0,0, 0, 0,NULL, 0, 0, 0,NULL, 0, 0, 512ull, 0ull, 600ull, 1ull, 32ull, 0,0, 0,0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0,NULL, 0,NULL, 0,NULL, 1, NULL, NULL, 0ull, nsjail__ns_jail_config__cgroup_mem_mount__default_value, nsjail__ns_jail_config__cgroup_mem_parent__default_value, 0ull, nsjail__ns_jail_config__cgroup_pids_mount__default_value, nsjail__ns_jail_config__cgroup_pids_parent__default_value, 0, NULL, nsjail__ns_jail_config__macvlan_vs_ip__default_value, nsjail__ns_jail_config__macvlan_vs_nm__default_value, nsjail__ns_jail_config__macvlan_vs_gw__default_value, NULL }
+    , nsjail__ns_jail_config__name__default_value, nsjail__ns_jail_config__description__default_value, NSJAIL__MODE__ONCE, NULL, 0, nsjail__ns_jail_config__hostname__default_value, nsjail__ns_jail_config__cwd__default_value, 0u, nsjail__ns_jail_config__bindhost__default_value, 0u, 600u, 0, NULL, 0,0, 0, 0,NULL, 0, 0, 0,NULL, 0, 0, 512ull, 0ull, 600ull, 1ull, 32ull, 0,0, 0,0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0,NULL, 0,NULL, 0, 0,NULL, NULL, NULL, 0ull, nsjail__ns_jail_config__cgroup_mem_mount__default_value, nsjail__ns_jail_config__cgroup_mem_parent__default_value, 0ull, nsjail__ns_jail_config__cgroup_pids_mount__default_value, nsjail__ns_jail_config__cgroup_pids_parent__default_value, 0, NULL, nsjail__ns_jail_config__macvlan_vs_ip__default_value, nsjail__ns_jail_config__macvlan_vs_nm__default_value, nsjail__ns_jail_config__macvlan_vs_gw__default_value, NULL }
 
 /* Nsjail__IdMap methods */
 void nsjail__id_map__init(Nsjail__IdMap * message);
