@@ -376,7 +376,11 @@ bool mountAddMountPt(struct nsjconf_t * nsjconf, const char *src, const char *ds
 			free((void *)p->src);
 			p->src = rp;
 		} else {
-			PLOG_W("realpath('%s') failed", p->src);
+			if (mandatory) {
+				PLOG_W("realpath('%s') failed", p->src);
+			} else {
+				PLOG_D("realpath('%s') failed", p->src);
+			}
 		}
 	}
 
