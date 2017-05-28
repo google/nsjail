@@ -86,13 +86,13 @@ endif
 protobuf-c-text:
 ifeq ("$(wildcard protobuf-c-text/configure)","")
 	git submodule update --init
+	sh -c "cd protobuf-c-text; CFLAGS=\"$(EXTRA_CFLAGS)\" ./autogen.sh;"
 endif
 
 kafel/libkafel.a:
 	$(MAKE) -C kafel
 
 protobuf-c-text/protobuf-c-text/.libs/libprotobuf-c-text.a:
-	sh -c "cd protobuf-c-text; CFLAGS=\"$(EXTRA_CFLAGS)\" ./autogen.sh;"
 	$(MAKE) -C protobuf-c-text
 
 $(PROTO_DEPS): config.proto
