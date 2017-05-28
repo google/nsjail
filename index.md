@@ -251,6 +251,11 @@ $ exit
 
 ***
 ### Configuration file
+
+You will also find all examples in the [configs](https://github.com/google/nsjail/blob/master/configs) directory.
+
+***
+
 [config.proto](https://github.com/google/nsjail/blob/master/config.proto) contains ProtoBuf schema for nsjail's configuration format.
 
 ***
