@@ -191,8 +191,13 @@ static bool mountRemountRO(struct mounts_t *mpt)
 
 	struct statvfs vfs;
 	if (TEMP_FAILURE_RETRY(statvfs(mpt->dst, &vfs)) == -1) {
-		PLOG_E("statvfs('%s')", mpt->dst);
-		return false;
+		if (mpt->mandatory) {
+			PLOG_E("statvfs('%s')", mpt->dst);
+			return false;
+		} else {
+			PLOG_D("statvfs('%s')", mpt->dst);
+			return true;
+		}
 	}
 	/*
 	 * It's fine to use 'flags | vfs.f_flag' here as per
@@ -206,10 +211,11 @@ static bool mountRemountRO(struct mounts_t *mpt)
 	      mountFlagsToStr(vfs.f_flag), mountFlagsToStr(new_flags));
 
 	if (mount(mpt->dst, mpt->dst, NULL, new_flags, 0) == -1) {
-		PLOG_W("mount('%s', flags:%s)", mpt->dst, mountFlagsToStr(new_flags));
 		if (mpt->mandatory) {
+			PLOG_W("mount('%s', flags:%s)", mpt->dst, mountFlagsToStr(new_flags));
 			return false;
 		}
+		PLOG_D("mount('%s', flags:%s)", mpt->dst, mountFlagsToStr(new_flags));
 	}
 
 	return true;
