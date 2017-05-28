@@ -49,7 +49,7 @@ endif
 
 USE_PROTOBUF ?= yes
 ifeq ($(USE_PROTOBUF), yes)
-PROTOBUF_EXISTS := $(shell pkg-config --exists protobuf && echo yes)
+PROTOBUF_EXISTS := $(shell pkg-config --exists libprotobuf-c && echo yes)
 ifeq ($(PROTOBUF_EXISTS), yes)
 	PROTO_DEPS = config.pb-c.h config.pb-c.c
 	SRCS += config.pb-c.c
