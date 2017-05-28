@@ -221,6 +221,10 @@ struct _Nsjail__NsJailConfig {
 	size_t n_envar;
 	char **envar;
 	/*
+	 * Should capabilities be preserved or dropped 
+	 */
+	protobuf_c_boolean keep_caps;
+	/*
 	 * Should nsjail close FD=0,1,2 before executing the process 
 	 */
 	protobuf_c_boolean silent;
@@ -380,7 +384,7 @@ extern char nsjail__ns_jail_config__macvlan_vs_nm__default_value[];
 extern char nsjail__ns_jail_config__macvlan_vs_gw__default_value[];
 #define NSJAIL__NS_JAIL_CONFIG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&nsjail__ns_jail_config__descriptor) \
-    , nsjail__ns_jail_config__name__default_value, nsjail__ns_jail_config__description__default_value, NSJAIL__MODE__ONCE, NULL, 0, nsjail__ns_jail_config__hostname__default_value, nsjail__ns_jail_config__cwd__default_value, 0u, nsjail__ns_jail_config__bindhost__default_value, 0u, 600u, 0, NULL, 0,0, 0, 0,NULL, 0, 0, 0,NULL, 0, 0, 512ull, 0ull, 600ull, 1ull, 32ull, 0,0, 0,0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0,NULL, 0,NULL, 0, 0,NULL, NULL, NULL, 0ull, nsjail__ns_jail_config__cgroup_mem_mount__default_value, nsjail__ns_jail_config__cgroup_mem_parent__default_value, 0ull, nsjail__ns_jail_config__cgroup_pids_mount__default_value, nsjail__ns_jail_config__cgroup_pids_parent__default_value, 0, NULL, nsjail__ns_jail_config__macvlan_vs_ip__default_value, nsjail__ns_jail_config__macvlan_vs_nm__default_value, nsjail__ns_jail_config__macvlan_vs_gw__default_value, NULL }
+    , nsjail__ns_jail_config__name__default_value, nsjail__ns_jail_config__description__default_value, NSJAIL__MODE__ONCE, NULL, 0, nsjail__ns_jail_config__hostname__default_value, nsjail__ns_jail_config__cwd__default_value, 0u, nsjail__ns_jail_config__bindhost__default_value, 0u, 600u, 0, NULL, 0,0, 0, 0,NULL, 0, 0, 0, 0,NULL, 0, 0, 512ull, 0ull, 600ull, 1ull, 32ull, 0,0, 0,0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0,NULL, 0,NULL, 0, 0,NULL, NULL, NULL, 0ull, nsjail__ns_jail_config__cgroup_mem_mount__default_value, nsjail__ns_jail_config__cgroup_mem_parent__default_value, 0ull, nsjail__ns_jail_config__cgroup_pids_mount__default_value, nsjail__ns_jail_config__cgroup_pids_parent__default_value, 0, NULL, nsjail__ns_jail_config__macvlan_vs_ip__default_value, nsjail__ns_jail_config__macvlan_vs_nm__default_value, nsjail__ns_jail_config__macvlan_vs_gw__default_value, NULL }
 
 /* Nsjail__IdMap methods */
 void nsjail__id_map__init(Nsjail__IdMap * message);
