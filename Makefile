@@ -103,6 +103,9 @@ clean:
 ifneq ("$(wildcard kafel/Makefile)","")
 	$(MAKE) -C kafel clean
 endif
+ifneq ("$(wildcard protobuf-c-text/Makefile)","")
+	$(MAKE) -C protobuf-c-text clean
+endif
 
 depend:
 	makedepend -Y -Ykafel/include -- -- $(SRCS)
