@@ -62,14 +62,6 @@ char *utilStrDup(const char *str)
 	return ret;
 }
 
-char *utilStrDupLen(const char *str, size_t len)
-{
-	char *ret = utilMalloc(len + 1);
-	memcpy(ret, str, len);
-	ret[len] = '\0';
-	return ret;
-}
-
 uint8_t *utilMemDup(const uint8_t * src, size_t len)
 {
 	if (src == NULL) {
