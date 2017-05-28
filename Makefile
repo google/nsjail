@@ -90,7 +90,7 @@ kafel/libkafel.a:
 	$(MAKE) -C kafel
 
 protobuf-c-text/protobuf-c-text/.libs/libprotobuf-c-text.a:
-	sh -c "cd protobuf-c-text; ./autogen.sh;"
+	sh -c "cd protobuf-c-text; CFLAGS=\"-fPIC\" ./autogen.sh;"
 	$(MAKE) -C protobuf-c-text
 
 $(PROTO_DEPS): config.proto
