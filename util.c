@@ -70,6 +70,16 @@ char *utilStrDupLen(const char *str, size_t len)
 	return ret;
 }
 
+uint8_t *utilMemDup(const uint8_t * src, size_t len)
+{
+	if (src == NULL) {
+		return NULL;
+	}
+	uint8_t *ret = utilMalloc(len);
+	memcpy(ret, src, len);
+	return ret;
+}
+
 ssize_t utilReadFromFd(int fd, void *buf, size_t len)
 {
 	uint8_t *charbuf = (uint8_t *) buf;

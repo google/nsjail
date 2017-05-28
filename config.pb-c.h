@@ -92,6 +92,11 @@ struct _Nsjail__MountPt {
 	 */
 	char *prefix_src_env;
 	/*
+	 * If specified, contains buffer that will be written to the dst file 
+	 */
+	protobuf_c_boolean has_src_content;
+	ProtobufCBinaryData src_content;
+	/*
 	 * Mount point inside jail 
 	 */
 	char *dst;
@@ -130,7 +135,7 @@ extern char nsjail__mount_pt__fstype__default_value[];
 extern char nsjail__mount_pt__options__default_value[];
 #define NSJAIL__MOUNT_PT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&nsjail__mount_pt__descriptor) \
-    , NULL, NULL, NULL, NULL, nsjail__mount_pt__fstype__default_value, nsjail__mount_pt__options__default_value, 0, 0, 0,0, 1 }
+    , NULL, NULL, 0,{0,NULL}, NULL, NULL, nsjail__mount_pt__fstype__default_value, nsjail__mount_pt__options__default_value, 0, 0, 0,0, 1 }
 
 struct _Nsjail__Exe {
 	ProtobufCMessage base;

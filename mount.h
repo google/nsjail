@@ -31,6 +31,7 @@ bool mountIsDir(const char *path);
 bool mountInitNs(struct nsjconf_t *nsjconf);
 bool mountAddMountPt(struct nsjconf_t *nsjconf, const char *src, const char *dst,
 		     const char *fstype, const char *options, uintptr_t flags, const bool * isDir,
-		     bool mandatory, const char *src_env, const char *dst_env);
+		     bool mandatory, const char *src_env, const char *dst_env,
+		     const uint8_t * src_content, size_t src_content_len);
 
 #endif				/* NS_MOUNT_H */

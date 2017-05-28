@@ -225,10 +225,11 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 		struct mounts_t *p;
 		TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
 			LOG_I
-			    ("Mount point: src:'%s' dst:'%s' type:'%s' flags:%s options:'%s' isDir:%s mandatory:%s",
+			    ("Mount point: src:'%s' dst:'%s' type:'%s' flags:%s options:'%s' isDir:%s mandatory:%s src_content:%s (size:%zu)",
 			     p->src ? p->src : "[NULL]", p->dst, p->fs_type ? p->fs_type : "[NULL]",
 			     mountFlagsToStr(p->flags), p->options ? p->options : "[NULL]",
-			     p->isDir ? "true" : "false", p->mandatory ? "true" : "false");
+			     p->isDir ? "true" : "false", p->mandatory ? "true" : "false",
+			     p->src_content ? "true" : "false", p->src_content_len);
 		}
 	}
 	{
@@ -606,6 +607,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		case 'R':{
 				struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
 				p->src = optarg;
+				p->src_content = NULL;
+				p->src_content_len = 0;
 				const char *dst = cmdlineSplitStrByColon(optarg);
 				p->dst = dst ? dst : optarg;
 				p->flags = MS_BIND | MS_REC | MS_RDONLY;
@@ -618,6 +621,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		case 'B':{
 				struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
 				p->src = optarg;
+				p->src_content = NULL;
+				p->src_content_len = 0;
 				const char *dst = cmdlineSplitStrByColon(optarg);
 				p->dst = dst ? dst : optarg;
 				p->flags = MS_BIND | MS_REC;
@@ -630,6 +635,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		case 'T':{
 				struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
 				p->src = NULL;
+				p->src_content = NULL;
+				p->src_content_len = 0;
 				p->dst = optarg;
 				p->flags = 0;
 				p->options = cmdlineTmpfsSz;
@@ -713,6 +720,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	if (nsjconf->mount_proc == true) {
 		struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
 		p->src = NULL;
+		p->src_content = NULL;
+		p->src_content_len = 0;
 		p->dst = "/proc";
 		p->flags = 0;
 		if (nsjconf->is_root_rw == false) {
@@ -727,6 +736,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	if (nsjconf->chroot != NULL) {
 		struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
 		p->src = nsjconf->chroot;
+		p->src_content = NULL;
+		p->src_content_len = 0;
 		p->dst = "/";
 		p->flags = MS_BIND | MS_REC;
 		if (nsjconf->is_root_rw == false) {
@@ -740,6 +751,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	} else {
 		struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
 		p->src = NULL;
+		p->src_content = NULL;
+		p->src_content_len = 0;
 		p->dst = "/";
 		p->flags = 0;
 		if (nsjconf->is_root_rw == false) {

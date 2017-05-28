@@ -32,23 +32,25 @@ message MountPt
     optional string src = 1;
 	/* Should 'src' path be prefixed with this envvar? */
 	optional string prefix_src_env = 2;
+	/* If specified, contains buffer that will be written to the dst file */
+	optional bytes src_content = 3;
 	/* Mount point inside jail */
-    required string dst = 3;
+    required string dst = 4;
 	/* Should 'dst' path be prefixed with this envvar? */
-	optional string prefix_dst_env = 4;
+	optional string prefix_dst_env = 5;
     /* Can be empty for mount --bind mounts */
-    optional string fstype = 5 [ default = "" ];
+    optional string fstype = 6 [ default = "" ];
     /* E.g. size=5000000 for 'tmpfs' */
-    required string options = 6 [ default = "" ];
+    required string options = 7 [ default = "" ];
     /* Is it 'mount --bind src dst' type of mount */
-    required bool is_bind = 7 [ default = false ];
+    required bool is_bind = 8 [ default = false ];
     /* It it R/W mount */
-    required bool rw = 8 [ default = false ];
+    required bool rw = 9 [ default = false ];
     /* Is it directory? If not specified an internal
        heuristics will be used to determine that */
-    optional bool is_dir = 9;
+    optional bool is_dir = 10;
     /* Should the sandboxing fail if we cannot mount this resource? */
-    required bool mandatory = 10 [ default = true ];
+    required bool mandatory = 11 [ default = true ];
 }
 message Exe
 {

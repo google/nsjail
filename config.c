@@ -187,9 +187,16 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 		const bool *isDir =
 		    (njc->mount[i]->has_is_dir) ? (const bool *)&njc->mount[i]->is_dir : NULL;
 
+		uint8_t *src_content = NULL;
+		size_t src_content_len = 0;
+		if (njc->mount[i]->has_src_content) {
+			src_content = njc->mount[i]->src_content.data;
+			src_content_len = njc->mount[i]->src_content.len;
+		}
+
 		if (mountAddMountPt
 		    (nsjconf, src, dst, fstype, options, flags, isDir, mandatory, src_env,
-		     dst_env) == false) {
+		     dst_env, src_content, src_content_len) == false) {
 			LOG_E("Couldn't add mountpoint for src:'%s' dst:'%s'", src, dst);
 			return false;
 		}

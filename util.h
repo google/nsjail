@@ -30,6 +30,7 @@
 void *utilMalloc(size_t sz);
 void *utilCalloc(size_t sz);
 char *utilStrDup(const char *str);
+uint8_t *utilMemDup(const uint8_t * src, size_t len);
 ssize_t utilReadFromFd(int fd, void *buf, size_t len);
 ssize_t utilReadFromFile(const char *fname, void *buf, size_t len);
 ssize_t utilWriteToFd(int fd, const void *buf, size_t len);

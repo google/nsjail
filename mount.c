@@ -152,6 +152,23 @@ static bool mountMount(struct mounts_t *mpt, const char *oldroot, const char *ds
 		}
 	}
 
+	if (mpt->src_content) {
+		snprintf(srcpath, sizeof(srcpath), "/file.XXXXXX");
+		int fd = mkostemp(srcpath, O_CLOEXEC);
+		if (fd < 0) {
+			PLOG_W("mkostemp('%s')", srcpath);
+			close(fd);
+			return false;
+		}
+		if (utilWriteToFd(fd, mpt->src_content, mpt->src_content_len) == false) {
+			LOG_W("Writting %zu bytes to '%s' failed", mpt->src_content_len, srcpath);
+			close(fd);
+			return false;
+		}
+		close(fd);
+		mpt->flags |= (MS_BIND | MS_REC);
+	}
+
 	/*
 	 * Initially mount it as RW, it will be remounted later on if needed
 	 */
@@ -343,7 +360,8 @@ bool mountInitNs(struct nsjconf_t * nsjconf)
 
 bool mountAddMountPt(struct nsjconf_t * nsjconf, const char *src, const char *dst,
 		     const char *fstype, const char *options, uintptr_t flags, const bool * isDir,
-		     bool mandatory, const char *src_env, const char *dst_env)
+		     bool mandatory, const char *src_env, const char *dst_env,
+		     const uint8_t * src_content, size_t src_content_len)
 {
 	struct mounts_t *p = utilCalloc(sizeof(struct mounts_t));
 
@@ -393,13 +411,15 @@ bool mountAddMountPt(struct nsjconf_t * nsjconf, const char *src, const char *ds
 	p->fs_type = utilStrDup(fstype);
 	p->options = utilStrDup(options);
 	p->flags = flags;
-	p->isDir = isDir;
+	p->isDir = true;
 	p->mandatory = mandatory;
 
 	if (isDir) {
 		p->isDir = *isDir;
 	} else {
-		if (p->src == NULL) {
+		if (src_content) {
+			p->isDir = false;
+		} else if (p->src == NULL) {
 			p->isDir = true;
 		} else if (p->flags & MS_BIND) {
 			p->isDir = mountIsDir(p->src);
@@ -407,6 +427,9 @@ bool mountAddMountPt(struct nsjconf_t * nsjconf, const char *src, const char *ds
 			p->isDir = true;
 		}
 	}
+
+	p->src_content = utilMemDup(src_content, src_content_len);
+	p->src_content_len = src_content_len;
 
 	TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
 

@@ -66,6 +66,8 @@ struct pids_t {
 
 struct mounts_t {
 	const char *src;
+	const uint8_t *src_content;
+	size_t src_content_len;
 	const char *dst;
 	const char *fs_type;
 	const char *options;
