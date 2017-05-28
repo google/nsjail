@@ -21,7 +21,7 @@ CC ?= gcc
 
 CFLAGS += -O2 -c -std=gnu11 \
 	-D_GNU_SOURCE \
-	-fstack-protector-all -Wformat -Wformat=2 -Wformat-security -fPIE \
+	-Wformat -Wformat=2 -Wformat-security -fPIE \
 	-Wno-format-nonliteral \
 	-Wall -Wextra -Werror \
 	-Ikafel/include \
