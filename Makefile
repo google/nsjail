@@ -62,12 +62,12 @@ endif
 endif
 
 
-.PHONY: all clear depend indent kafel protobuf-c-text
+.PHONY: all clear depend indent
 
 .c.o: %.c
 	$(CC) $(CFLAGS) $< -o $@
 
-all: $(PROTO_DEPS) protobuf-c-text kafel $(BIN)
+all: $(PROTO_DEPS) $(BIN)
 ifneq ($(PROTOBUF_EXISTS), yes)
 	$(info *********************************************************)
 	$(info * Code compiled without libprotobuf-c/libprotobuf-c-dev *)
@@ -75,24 +75,20 @@ ifneq ($(PROTOBUF_EXISTS), yes)
 	$(info *********************************************************)
 endif
 
-$(BIN): $(OBJS) $(LIBS)
+$(BIN): $(LIBS) $(OBJS)
 	$(CC) -o $(BIN) $(OBJS) $(LIBS) $(LDFLAGS)
 
-kafel:
+kafel/libkafel.a:
 ifeq ("$(wildcard kafel/Makefile)","")
 	git submodule update --init
 endif
-
-protobuf-c-text:
-ifeq ("$(wildcard protobuf-c-text/configure)","")
-	git submodule update --init
-	sh -c "cd protobuf-c-text; CFLAGS=\"-fPIC $(EXTRA_CFLAGS)\" ./autogen.sh;"
-endif
-
-kafel/libkafel.a:
 	$(MAKE) -C kafel
 
 protobuf-c-text/protobuf-c-text/.libs/libprotobuf-c-text.a:
+ifeq ("$(wildcard protobuf-c-text/configure)","")
+	git submodule update --init
+	sh -c "cd protobuf-c-text; CFLAGS=\"-fPIC $(EXTRA_CFLAGS)\" ./autogen.sh --enable-shared=no --disable-doxygen-doc;"
+endif
 	$(MAKE) -C protobuf-c-text
 
 $(PROTO_DEPS): config.proto
