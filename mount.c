@@ -369,6 +369,17 @@ bool mountAddMountPt(struct nsjconf_t * nsjconf, const char *src, const char *ds
 		p->dst = utilStrDup(dst);
 	}
 
+	/* Try to canonicalize/realpath the source path if it's mount --bind */
+	if (p->src && (flags & MS_BIND)) {
+		const char *rp = realpath(p->src, NULL);
+		if (rp) {
+			free((void *)p->src);
+			p->src = rp;
+		} else {
+			PLOG_W("realpath('%s') failed", p->src);
+		}
+	}
+
 	p->fs_type = utilStrDup(fstype);
 	p->options = utilStrDup(options);
 	p->flags = flags;
