@@ -19,6 +19,8 @@
 
 CC ?= gcc
 
+EXTRA_CFLAGS := $(CFLAGS)
+
 CFLAGS += -O2 -c -std=gnu11 \
 	-D_GNU_SOURCE \
 	-Wformat -Wformat=2 -Wformat-security -fPIE \
@@ -90,7 +92,7 @@ kafel/libkafel.a:
 	$(MAKE) -C kafel
 
 protobuf-c-text/protobuf-c-text/.libs/libprotobuf-c-text.a:
-	sh -c "cd protobuf-c-text; CFLAGS=\"-fPIC\" ./autogen.sh;"
+	sh -c "cd protobuf-c-text; CFLAGS=\"$(EXTRA_CFLAGS)\" ./autogen.sh;"
 	$(MAKE) -C protobuf-c-text
 
 $(PROTO_DEPS): config.proto
