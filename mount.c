@@ -253,70 +253,39 @@ static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 		return true;
 	}
 
-	const char *const destdir = "/tmp";
-	if (mount(NULL, destdir, "tmpfs", 0, NULL) == -1) {
-		PLOG_E("mount('%s', 'tmpfs')", destdir);
-		return false;
-	}
-	char oldrootdir[PATH_MAX];
-	snprintf(oldrootdir, sizeof(oldrootdir), "%s/old_root", destdir);
-	if (mkdir(oldrootdir, 0755) == -1) {
-		PLOG_E("mkdir('%s')", oldrootdir);
-		return false;
-	}
-	if (syscall(__NR_pivot_root, destdir, oldrootdir) == -1) {
-		PLOG_E("pivot_root('%s', '%s')", destdir, oldrootdir);
-		return false;
-	}
 	if (chdir("/") == -1) {
 		PLOG_E("chdir('/')");
 		return false;
 	}
 
-	const char *newrootdir;
-	if (nsjconf->pivot_root_only == false) {
-		newrootdir = "/new_root";
-		if (mkdir(newrootdir, 0755) == -1) {
-			PLOG_E("mkdir('%s')", newrootdir);
-			return false;
-		}
-	} else {
-		newrootdir = "/";
+	char destdir[PATH_MAX];
+	snprintf(destdir, sizeof(destdir), "/tmp/nsjail.%d", (int)getuid());
+	if (mkdir(destdir, 0755) == -1 && errno != EEXIST) {
+		PLOG_E("Couldn't create '%s' directory. Maybe remove it?", destdir);
+	}
+	if (mount(NULL, destdir, "tmpfs", 0, NULL) == -1) {
+		PLOG_E("mount('%s', 'tmpfs')", destdir);
+		return false;
 	}
 
 	struct mounts_t *p;
 	TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
-		/*
-		 * The intention behind pivot_root_only is to allow creating
-		 * nested usernamespaces. If we bind mount over /, the kernel
-		 * will see the process as chrooted and deny CLONE_NEWUSER.
-		 */
-		if (nsjconf->pivot_root_only && strcmp(p->dst, "/") == 0) {
-			continue;
-		}
 		char dst[PATH_MAX];
-		snprintf(dst, sizeof(dst), "%s/%s", newrootdir, p->dst);
-		if (mountMount(p, "/old_root", dst) == false) {
+		snprintf(dst, sizeof(dst), "%s/%s", destdir, p->dst);
+		if (mountMount(p, "/", dst) == false) {
 			return false;
 		}
 	}
 
-	if (umount2("/old_root", MNT_DETACH) == -1) {
-		PLOG_E("umount2('/old_root', MNT_DETACH)");
+	if (syscall(__NR_pivot_root, destdir, destdir) == -1) {
+		PLOG_E("pivot_root('%s', '%s')", destdir, destdir);
 		return false;
 	}
-	if (nsjconf->pivot_root_only == false) {
-		if (chroot(newrootdir) == -1) {
-			PLOG_E("chroot('%s')", newrootdir);
-			return false;
-		}
-	} else {
-		if (rmdir("/old_root") == -1) {
-			PLOG_E("rmdir('/old_root')");
-			return false;
-		}
-	}
 
+	if (umount2("/", MNT_DETACH) == -1) {
+		PLOG_E("umount2('/', MNT_DETACH)");
+		return false;
+	}
 	if (chdir(nsjconf->cwd) == -1) {
 		PLOG_E("chdir('%s')", nsjconf->cwd);
 		return false;

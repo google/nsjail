@@ -86,7 +86,6 @@ struct custom_option custom_opts[] = {
     {{"silent", no_argument, NULL, 0x0502}, "Redirect child's fd:0/1/2 to /dev/null"},
     {{"skip_setsid", no_argument, NULL, 0x0504}, "Don't call setsid(), allows for terminal signal handling in the sandboxed process"},
     {{"pass_fd", required_argument, NULL, 0x0505}, "Don't close this FD before executing child (can be specified multiple times), by default: 0/1/2 are kept open"},
-    {{"pivot_root_only", no_argument, NULL, 0x0506}, "Only perform pivot_root, no chroot. This will enable nested namespaces"},
     {{"disable_no_new_privs", no_argument, NULL, 0x0507}, "Don't set the prctl(NO_NEW_PRIVS, 1) (DANGEROUS)"},
     {{"rlimit_as", required_argument, NULL, 0x0201}, "RLIMIT_AS in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 512)"},
     {{"rlimit_core", required_argument, NULL, 0x0202}, "RLIMIT_CORE in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 0)"},
@@ -211,7 +210,7 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	      "max_conns_per_ip:%u, time_limit:%ld, personality:%#lx, daemonize:%s, "
 	      "clone_newnet:%s, clone_newuser:%s, clone_newns:%s, clone_newpid:%s, "
 	      "clone_newipc:%s, clonew_newuts:%s, clone_newcgroup:%s, keep_caps:%s, "
-	      "tmpfs_size:%zu, disable_no_new_privs:%s, pivot_root_only:%s",
+	      "tmpfs_size:%zu, disable_no_new_privs:%s",
 	      nsjconf->hostname, nsjconf->chroot ? nsjconf->chroot : "[NULL]", nsjconf->argv[0],
 	      nsjconf->bindhost, nsjconf->port, nsjconf->max_conns_per_ip, nsjconf->tlimit,
 	      nsjconf->personality, logYesNo(nsjconf->daemonize), logYesNo(nsjconf->clone_newnet),
@@ -219,7 +218,7 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	      logYesNo(nsjconf->clone_newpid), logYesNo(nsjconf->clone_newipc),
 	      logYesNo(nsjconf->clone_newuts), logYesNo(nsjconf->clone_newcgroup),
 	      logYesNo(nsjconf->keep_caps), nsjconf->tmpfs_size,
-	      logYesNo(nsjconf->disable_no_new_privs), logYesNo(nsjconf->pivot_root_only));
+	      logYesNo(nsjconf->disable_no_new_privs));
 
 	{
 		struct mounts_t *p;
@@ -316,7 +315,6 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
       .loglevel = INFO,
       .daemonize = false,
       .tlimit = 0,
-      .pivot_root_only = false,
       .keep_caps = false,
       .disable_no_new_privs = false,
       .rl_as = 512 * (1024 * 1024),
@@ -526,9 +524,6 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				f->fd = (int)strtol(optarg, NULL, 0);
 				TAILQ_INSERT_HEAD(&nsjconf->open_fds, f, pointers);
 			} break;
-		case 0x0506:
-			nsjconf->pivot_root_only = true;
-			break;
 		case 0x0507:
 			nsjconf->disable_no_new_privs = true;
 			break;

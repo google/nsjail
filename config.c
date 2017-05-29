@@ -116,7 +116,6 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 		TAILQ_INSERT_HEAD(&nsjconf->open_fds, f, pointers);
 	}
 
-	nsjconf->pivot_root_only = njc->pivot_root_only;
 	nsjconf->disable_no_new_privs = njc->disable_no_new_privs;
 
 	nsjconf->rl_as = njc->rlimit_as * 1024ULL * 1024ULL;

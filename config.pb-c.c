@@ -462,7 +462,6 @@ static const protobuf_c_boolean nsjail__ns_jail_config__keep_env__default_value 
 static const protobuf_c_boolean nsjail__ns_jail_config__keep_caps__default_value = 0;
 static const protobuf_c_boolean nsjail__ns_jail_config__silent__default_value = 0;
 static const protobuf_c_boolean nsjail__ns_jail_config__skip_setsid__default_value = 0;
-static const protobuf_c_boolean nsjail__ns_jail_config__pivot_root_only__default_value = 0;
 static const protobuf_c_boolean nsjail__ns_jail_config__disable_no_new_privs__default_value = 0;
 static const uint64_t nsjail__ns_jail_config__rlimit_as__default_value = 512ull;
 static const uint64_t nsjail__ns_jail_config__rlimit_core__default_value = 0ull;
@@ -488,7 +487,7 @@ static const protobuf_c_boolean nsjail__ns_jail_config__mount_proc__default_valu
 static const uint64_t nsjail__ns_jail_config__cgroup_mem_max__default_value = 0ull;
 static const uint64_t nsjail__ns_jail_config__cgroup_pids_max__default_value = 0ull;
 static const protobuf_c_boolean nsjail__ns_jail_config__iface_no_lo__default_value = 0;
-static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[59] = {
+static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[58] = {
 	{
 	 "name",
 	 1,
@@ -730,20 +729,8 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 0, NULL, NULL		/* reserved1,reserved2, etc */
 	 },
 	{
-	 "pivot_root_only",
-	 23,
-	 PROTOBUF_C_LABEL_REQUIRED,
-	 PROTOBUF_C_TYPE_BOOL,
-	 0,			/* quantifier_offset */
-	 offsetof(Nsjail__NsJailConfig, pivot_root_only),
-	 NULL,
-	 &nsjail__ns_jail_config__pivot_root_only__default_value,
-	 0,			/* flags */
-	 0, NULL, NULL		/* reserved1,reserved2, etc */
-	 },
-	{
 	 "disable_no_new_privs",
-	 24,
+	 23,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_BOOL,
 	 0,			/* quantifier_offset */
@@ -755,7 +742,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "rlimit_as",
-	 25,
+	 24,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_UINT64,
 	 0,			/* quantifier_offset */
@@ -767,7 +754,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "rlimit_core",
-	 26,
+	 25,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_UINT64,
 	 0,			/* quantifier_offset */
@@ -779,7 +766,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "rlimit_cpu",
-	 27,
+	 26,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_UINT64,
 	 0,			/* quantifier_offset */
@@ -791,7 +778,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "rlimit_fsize",
-	 28,
+	 27,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_UINT64,
 	 0,			/* quantifier_offset */
@@ -803,7 +790,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "rlimit_nofile",
-	 29,
+	 28,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_UINT64,
 	 0,			/* quantifier_offset */
@@ -815,7 +802,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "rlimit_nproc",
-	 30,
+	 29,
 	 PROTOBUF_C_LABEL_OPTIONAL,
 	 PROTOBUF_C_TYPE_UINT64,
 	 offsetof(Nsjail__NsJailConfig, has_rlimit_nproc),
@@ -827,7 +814,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "rlimit_stack",
-	 31,
+	 30,
 	 PROTOBUF_C_LABEL_OPTIONAL,
 	 PROTOBUF_C_TYPE_UINT64,
 	 offsetof(Nsjail__NsJailConfig, has_rlimit_stack),
@@ -839,7 +826,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "persona_addr_compat_layout",
-	 32,
+	 31,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_BOOL,
 	 0,			/* quantifier_offset */
@@ -851,7 +838,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "persona_mmap_page_zero",
-	 33,
+	 32,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_BOOL,
 	 0,			/* quantifier_offset */
@@ -863,7 +850,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "persona_read_implies_exec",
-	 34,
+	 33,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_BOOL,
 	 0,			/* quantifier_offset */
@@ -875,7 +862,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "persona_addr_limit_3gb",
-	 35,
+	 34,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_BOOL,
 	 0,			/* quantifier_offset */
@@ -887,7 +874,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "persona_addr_no_randomize",
-	 36,
+	 35,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_BOOL,
 	 0,			/* quantifier_offset */
@@ -899,7 +886,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "clone_newnet",
-	 37,
+	 36,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_BOOL,
 	 0,			/* quantifier_offset */
@@ -911,7 +898,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "clone_newuser",
-	 38,
+	 37,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_BOOL,
 	 0,			/* quantifier_offset */
@@ -923,7 +910,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "clone_newns",
-	 39,
+	 38,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_BOOL,
 	 0,			/* quantifier_offset */
@@ -935,7 +922,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "clone_newpid",
-	 40,
+	 39,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_BOOL,
 	 0,			/* quantifier_offset */
@@ -947,7 +934,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "clone_newipc",
-	 41,
+	 40,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_BOOL,
 	 0,			/* quantifier_offset */
@@ -959,7 +946,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "clone_newuts",
-	 42,
+	 41,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_BOOL,
 	 0,			/* quantifier_offset */
@@ -971,7 +958,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "clone_newcgroup",
-	 43,
+	 42,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_BOOL,
 	 0,			/* quantifier_offset */
@@ -983,7 +970,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "uidmap",
-	 44,
+	 43,
 	 PROTOBUF_C_LABEL_REPEATED,
 	 PROTOBUF_C_TYPE_MESSAGE,
 	 offsetof(Nsjail__NsJailConfig, n_uidmap),
@@ -995,7 +982,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "gidmap",
-	 45,
+	 44,
 	 PROTOBUF_C_LABEL_REPEATED,
 	 PROTOBUF_C_TYPE_MESSAGE,
 	 offsetof(Nsjail__NsJailConfig, n_gidmap),
@@ -1007,7 +994,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "mount_proc",
-	 46,
+	 45,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_BOOL,
 	 0,			/* quantifier_offset */
@@ -1019,7 +1006,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "mount",
-	 47,
+	 46,
 	 PROTOBUF_C_LABEL_REPEATED,
 	 PROTOBUF_C_TYPE_MESSAGE,
 	 offsetof(Nsjail__NsJailConfig, n_mount),
@@ -1031,7 +1018,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "seccomp_policy_file",
-	 48,
+	 47,
 	 PROTOBUF_C_LABEL_OPTIONAL,
 	 PROTOBUF_C_TYPE_STRING,
 	 0,			/* quantifier_offset */
@@ -1043,7 +1030,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "seccomp_string",
-	 49,
+	 48,
 	 PROTOBUF_C_LABEL_OPTIONAL,
 	 PROTOBUF_C_TYPE_STRING,
 	 0,			/* quantifier_offset */
@@ -1055,7 +1042,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "cgroup_mem_max",
-	 50,
+	 49,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_UINT64,
 	 0,			/* quantifier_offset */
@@ -1067,7 +1054,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "cgroup_mem_mount",
-	 51,
+	 50,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_STRING,
 	 0,			/* quantifier_offset */
@@ -1079,7 +1066,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "cgroup_mem_parent",
-	 52,
+	 51,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_STRING,
 	 0,			/* quantifier_offset */
@@ -1091,7 +1078,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "cgroup_pids_max",
-	 53,
+	 52,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_UINT64,
 	 0,			/* quantifier_offset */
@@ -1103,7 +1090,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "cgroup_pids_mount",
-	 54,
+	 53,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_STRING,
 	 0,			/* quantifier_offset */
@@ -1115,7 +1102,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "cgroup_pids_parent",
-	 55,
+	 54,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_STRING,
 	 0,			/* quantifier_offset */
@@ -1127,7 +1114,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "iface_no_lo",
-	 56,
+	 55,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_BOOL,
 	 0,			/* quantifier_offset */
@@ -1139,7 +1126,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "macvlan_iface",
-	 57,
+	 56,
 	 PROTOBUF_C_LABEL_OPTIONAL,
 	 PROTOBUF_C_TYPE_STRING,
 	 0,			/* quantifier_offset */
@@ -1151,7 +1138,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "macvlan_vs_ip",
-	 58,
+	 57,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_STRING,
 	 0,			/* quantifier_offset */
@@ -1163,7 +1150,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "macvlan_vs_nm",
-	 59,
+	 58,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_STRING,
 	 0,			/* quantifier_offset */
@@ -1175,7 +1162,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "macvlan_vs_gw",
-	 60,
+	 59,
 	 PROTOBUF_C_LABEL_REQUIRED,
 	 PROTOBUF_C_TYPE_STRING,
 	 0,			/* quantifier_offset */
@@ -1187,7 +1174,7 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 	 },
 	{
 	 "exec_bin",
-	 61,
+	 60,
 	 PROTOBUF_C_LABEL_OPTIONAL,
 	 PROTOBUF_C_TYPE_MESSAGE,
 	 0,			/* quantifier_offset */
@@ -1201,70 +1188,69 @@ static const ProtobufCFieldDescriptor nsjail__ns_jail_config__field_descriptors[
 
 static const unsigned nsjail__ns_jail_config__field_indices_by_name[] = {
 	8,			/* field[8] = bindhost */
-	47,			/* field[47] = cgroup_mem_max */
-	48,			/* field[48] = cgroup_mem_mount */
-	49,			/* field[49] = cgroup_mem_parent */
-	50,			/* field[50] = cgroup_pids_max */
-	51,			/* field[51] = cgroup_pids_mount */
-	52,			/* field[52] = cgroup_pids_parent */
+	46,			/* field[46] = cgroup_mem_max */
+	47,			/* field[47] = cgroup_mem_mount */
+	48,			/* field[48] = cgroup_mem_parent */
+	49,			/* field[49] = cgroup_pids_max */
+	50,			/* field[50] = cgroup_pids_mount */
+	51,			/* field[51] = cgroup_pids_parent */
 	3,			/* field[3] = chroot_dir */
-	40,			/* field[40] = clone_newcgroup */
-	38,			/* field[38] = clone_newipc */
-	34,			/* field[34] = clone_newnet */
-	36,			/* field[36] = clone_newns */
-	37,			/* field[37] = clone_newpid */
-	35,			/* field[35] = clone_newuser */
-	39,			/* field[39] = clone_newuts */
+	39,			/* field[39] = clone_newcgroup */
+	37,			/* field[37] = clone_newipc */
+	33,			/* field[33] = clone_newnet */
+	35,			/* field[35] = clone_newns */
+	36,			/* field[36] = clone_newpid */
+	34,			/* field[34] = clone_newuser */
+	38,			/* field[38] = clone_newuts */
 	6,			/* field[6] = cwd */
 	11,			/* field[11] = daemon */
 	1,			/* field[1] = description */
-	21,			/* field[21] = disable_no_new_privs */
+	20,			/* field[20] = disable_no_new_privs */
 	15,			/* field[15] = envar */
-	58,			/* field[58] = exec_bin */
-	42,			/* field[42] = gidmap */
+	57,			/* field[57] = exec_bin */
+	41,			/* field[41] = gidmap */
 	5,			/* field[5] = hostname */
-	53,			/* field[53] = iface_no_lo */
+	52,			/* field[52] = iface_no_lo */
 	4,			/* field[4] = is_root_rw */
 	16,			/* field[16] = keep_caps */
 	14,			/* field[14] = keep_env */
 	12,			/* field[12] = log_file */
 	13,			/* field[13] = log_level */
-	54,			/* field[54] = macvlan_iface */
-	57,			/* field[57] = macvlan_vs_gw */
-	55,			/* field[55] = macvlan_vs_ip */
-	56,			/* field[56] = macvlan_vs_nm */
+	53,			/* field[53] = macvlan_iface */
+	56,			/* field[56] = macvlan_vs_gw */
+	54,			/* field[54] = macvlan_vs_ip */
+	55,			/* field[55] = macvlan_vs_nm */
 	9,			/* field[9] = max_conns_per_ip */
 	2,			/* field[2] = mode */
-	44,			/* field[44] = mount */
-	43,			/* field[43] = mount_proc */
+	43,			/* field[43] = mount */
+	42,			/* field[42] = mount_proc */
 	0,			/* field[0] = name */
 	19,			/* field[19] = pass_fd */
-	29,			/* field[29] = persona_addr_compat_layout */
-	32,			/* field[32] = persona_addr_limit_3gb */
-	33,			/* field[33] = persona_addr_no_randomize */
-	30,			/* field[30] = persona_mmap_page_zero */
-	31,			/* field[31] = persona_read_implies_exec */
-	20,			/* field[20] = pivot_root_only */
+	28,			/* field[28] = persona_addr_compat_layout */
+	31,			/* field[31] = persona_addr_limit_3gb */
+	32,			/* field[32] = persona_addr_no_randomize */
+	29,			/* field[29] = persona_mmap_page_zero */
+	30,			/* field[30] = persona_read_implies_exec */
 	7,			/* field[7] = port */
-	22,			/* field[22] = rlimit_as */
-	23,			/* field[23] = rlimit_core */
-	24,			/* field[24] = rlimit_cpu */
-	25,			/* field[25] = rlimit_fsize */
-	26,			/* field[26] = rlimit_nofile */
-	27,			/* field[27] = rlimit_nproc */
-	28,			/* field[28] = rlimit_stack */
-	45,			/* field[45] = seccomp_policy_file */
-	46,			/* field[46] = seccomp_string */
+	21,			/* field[21] = rlimit_as */
+	22,			/* field[22] = rlimit_core */
+	23,			/* field[23] = rlimit_cpu */
+	24,			/* field[24] = rlimit_fsize */
+	25,			/* field[25] = rlimit_nofile */
+	26,			/* field[26] = rlimit_nproc */
+	27,			/* field[27] = rlimit_stack */
+	44,			/* field[44] = seccomp_policy_file */
+	45,			/* field[45] = seccomp_string */
 	17,			/* field[17] = silent */
 	18,			/* field[18] = skip_setsid */
 	10,			/* field[10] = time_limit */
-	41,			/* field[41] = uidmap */
+	40,			/* field[40] = uidmap */
 };
 
 static const ProtobufCIntRange nsjail__ns_jail_config__number_ranges[2 + 1] = {
 	{1, 0},
 	{8, 5},
-	{0, 59}
+	{0, 58}
 };
 
 const ProtobufCMessageDescriptor nsjail__ns_jail_config__descriptor = {
@@ -1274,7 +1260,7 @@ const ProtobufCMessageDescriptor nsjail__ns_jail_config__descriptor = {
 	"Nsjail__NsJailConfig",
 	"nsjail",
 	sizeof(Nsjail__NsJailConfig),
-	59,
+	58,
 	nsjail__ns_jail_config__field_descriptors,
 	nsjail__ns_jail_config__field_indices_by_name,
 	2, nsjail__ns_jail_config__number_ranges,

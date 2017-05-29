@@ -111,79 +111,76 @@ message NsJailConfig
     /* Which FDs should be passed to the newly executed process
        By default only FD=0,1,2 are passed */
     repeated int32 pass_fd = 22;
-    /* Should pivot_root be used instead of chroot?
-       Using pivot_root allows to have subnamespaces */
-    required bool pivot_root_only = 23 [ default = false ];
     /* Setting it to true will allow to have set-uid binaries
        inside the jail */
-    required bool disable_no_new_privs = 24 [ default = false ];
+    required bool disable_no_new_privs = 23 [ default = false ];
 
-    required uint64 rlimit_as = 25 [ default = 512 ]; /* In MiB */
-    required uint64 rlimit_core = 26 [ default = 0 ]; /* In MiB */
-    required uint64 rlimit_cpu = 27 [ default = 600 ]; /* In seconds */
-    required uint64 rlimit_fsize = 28 [ default = 1 ]; /* In MiB */
-    required uint64 rlimit_nofile = 29 [ default = 32 ];
-    optional uint64 rlimit_nproc = 30; /* This is system-wide: tricky to use */
-    optional uint64 rlimit_stack = 31; /* In MiB */
+    required uint64 rlimit_as = 24 [ default = 512 ]; /* In MiB */
+    required uint64 rlimit_core = 25 [ default = 0 ]; /* In MiB */
+    required uint64 rlimit_cpu = 26 [ default = 600 ]; /* In seconds */
+    required uint64 rlimit_fsize = 27 [ default = 1 ]; /* In MiB */
+    required uint64 rlimit_nofile = 28 [ default = 32 ];
+    optional uint64 rlimit_nproc = 29; /* This is system-wide: tricky to use */
+    optional uint64 rlimit_stack = 30; /* In MiB */
 
     /* See 'man personality' for more */
-    required bool persona_addr_compat_layout = 32 [ default = false ];
-    required bool persona_mmap_page_zero = 33 [ default = false ];
-    required bool persona_read_implies_exec = 34 [ default = false ];
-    required bool persona_addr_limit_3gb = 35 [ default = false ];
-    required bool persona_addr_no_randomize = 36 [ default = false ];
+    required bool persona_addr_compat_layout = 31 [ default = false ];
+    required bool persona_mmap_page_zero = 32 [ default = false ];
+    required bool persona_read_implies_exec = 33 [ default = false ];
+    required bool persona_addr_limit_3gb = 34 [ default = false ];
+    required bool persona_addr_no_randomize = 35 [ default = false ];
 
     /* Which name-spaces should be used? */
-    required bool clone_newnet = 37 [ default = true ];
-    required bool clone_newuser = 38 [ default = true ];
-    required bool clone_newns = 39 [ default = true ];
-    required bool clone_newpid = 40 [ default = true ];
-    required bool clone_newipc = 41 [ default = true ];
-    required bool clone_newuts = 42 [ default = true ];
+    required bool clone_newnet = 36 [ default = true ];
+    required bool clone_newuser = 37 [ default = true ];
+    required bool clone_newns = 38 [ default = true ];
+    required bool clone_newpid = 39 [ default = true ];
+    required bool clone_newipc = 40 [ default = true ];
+    required bool clone_newuts = 41 [ default = true ];
     /* It's only supported in newer kernels, hence disabled by default */
-    required bool clone_newcgroup = 43 [ default = false ];
+    required bool clone_newcgroup = 42 [ default = false ];
 
     /* Mappings for UIDs and GIDs. See the description for 'msg IdMap'
        for more */
-    repeated IdMap uidmap = 44;
-    repeated IdMap gidmap = 45;
+    repeated IdMap uidmap = 43;
+    repeated IdMap gidmap = 44;
 
     /* Should /proc be mounted (R/O)? This can also be added in the 'mount'
        section below */
-    required bool mount_proc = 46 [ default = false ];
+    required bool mount_proc = 45 [ default = false ];
     /* Mount points inside the jail. See the description for 'msg MountPt'
        for more */
-    repeated MountPt mount = 47;
+    repeated MountPt mount = 46;
 
     /* Kafel seccomp-bpf policy file or a string:
        Homepage of the project: https://github.com/google/kafel */
-    optional string seccomp_policy_file = 48;
-    optional string seccomp_string = 49;
+    optional string seccomp_policy_file = 47;
+    optional string seccomp_string = 48;
 
     /* If > 0, maximum cumulative size of RAM used inside any jail */
-    required uint64 cgroup_mem_max = 50 [ default = 0 ]; /* In MiB */
+    required uint64 cgroup_mem_max = 49 [ default = 0 ]; /* In MiB */
     /* Mount point for cgroups-memory in your system */
-    required string cgroup_mem_mount = 51 [ default = "/sys/fs/cgroup/memory" ];
+    required string cgroup_mem_mount = 50 [ default = "/sys/fs/cgroup/memory" ];
     /* Writeable directory (for the nsjail user) under cgroup_mem_mount */
-    required string cgroup_mem_parent = 52 [ default = "NSJAIL" ];
+    required string cgroup_mem_parent = 51 [ default = "NSJAIL" ];
 
     /* If > 0, maximum number of PIDs (threads/processes) inside jail */
-    required uint64 cgroup_pids_max = 53 [ default = 0 ];
+    required uint64 cgroup_pids_max = 52 [ default = 0 ];
     /* Mount point for cgroups-pids in your system */
-    required string cgroup_pids_mount = 54 [ default = "/sys/fs/cgroup/pids" ];
+    required string cgroup_pids_mount = 53 [ default = "/sys/fs/cgroup/pids" ];
     /* Writeable directory (for the nsjail user) under cgroup_pids_mount */
-    required string cgroup_pids_parent = 55 [ default = "NSJAIL" ];
+    required string cgroup_pids_parent = 54 [ default = "NSJAIL" ];
 
     /* Should the 'lo' interface be brought up (active) inside this jail? */
-    required bool iface_no_lo = 56 [ default = false ];
+    required bool iface_no_lo = 55 [ default = false ];
 
     /* Parameters for the cloned MACVLAN interface inside jail */
-    optional string macvlan_iface = 57; /* Interface to be cloned, eg 'eth0' */
-    required string macvlan_vs_ip = 58 [ default = "192.168.0.2" ];
-    required string macvlan_vs_nm = 59 [ default = "255.255.255.0" ];
-    required string macvlan_vs_gw = 60 [ default = "192.168.0.1" ];
+    optional string macvlan_iface = 56; /* Interface to be cloned, eg 'eth0' */
+    required string macvlan_vs_ip = 57 [ default = "192.168.0.2" ];
+    required string macvlan_vs_nm = 58 [ default = "255.255.255.0" ];
+    required string macvlan_vs_gw = 59 [ default = "192.168.0.1" ];
 
     /* Binary path (with arguments) to be executed. If not specified here, it
        can be specified with cmd-line as "-- /path/to/command arg1 arg2" */
-    optional Exe exec_bin = 61;
+    optional Exe exec_bin = 60;
 }
