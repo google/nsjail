@@ -200,6 +200,10 @@ static bool mountMount(struct mounts_t *mpt, const char *newroot)
 			return false;
 		}
 	}
+
+	if (mpt->src_content && unlink(srcpath) == -1) {
+		PLOG_W("unlink('%s')", srcpath);
+	}
 	return true;
 }
 
