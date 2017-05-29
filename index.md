@@ -28,8 +28,9 @@ It can help you with (among other things):
   * Containing invasive syscall-level OS __fuzzers__
 
 Features:
-  - [x]  It offers three __distinct operational modes__. See [this section](#which-use-cases-are-supported) for more info.
-  - [x]  Uses [kafel seccomp-bpf configuration language](https://github.com/google/kafel/) for __flexible syscall policy definitions__.
+  - [x]  Offers three __distinct operational modes__. See [this section](#which-use-cases-are-supported) for more info.
+  - [x]  Utilizes [kafel seccomp-bpf configuration language](https://github.com/google/kafel/) for __flexible syscall policy definitions__.
+  - [x]  Uses expressive, ProtoBuf-based [configuration file](#configuration-file)
   - [x]  It's __rock-solid__.
 
 ***
