@@ -117,8 +117,11 @@ bool mountIsDir(const char *path)
 	return false;
 }
 
-static bool mountMount(struct mounts_t *mpt, const char *oldroot, const char *dst)
+static bool mountMount(struct mounts_t *mpt, const char *newroot)
 {
+	char dst[PATH_MAX];
+	snprintf(dst, sizeof(dst), "%s/%s", newroot, mpt->dst);
+
 	LOG_D("Mounting '%s' on '%s' (fstype:'%s', flags:%s, options:'%s', is_dir:%s)",
 	      mpt->src ? mpt->src : "[NULL]", dst, mpt->fs_type ? mpt->fs_type : "[NULL]",
 	      mountFlagsToStr(mpt->flags), mpt->options ? mpt->options : "[NULL]",
@@ -126,7 +129,7 @@ static bool mountMount(struct mounts_t *mpt, const char *oldroot, const char *ds
 
 	char srcpath[PATH_MAX];
 	if (mpt->src != NULL && strlen(mpt->src) > 0) {
-		snprintf(srcpath, sizeof(srcpath), "%s/%s", oldroot, mpt->src);
+		snprintf(srcpath, sizeof(srcpath), "%s", mpt->src);
 	} else {
 		snprintf(srcpath, sizeof(srcpath), "none");
 	}
@@ -153,7 +156,7 @@ static bool mountMount(struct mounts_t *mpt, const char *oldroot, const char *ds
 	}
 
 	if (mpt->src_content) {
-		snprintf(srcpath, sizeof(srcpath), "/file.XXXXXX");
+		snprintf(srcpath, sizeof(srcpath), "%s/file.XXXXXX", newroot);
 		int fd = mkostemp(srcpath, O_CLOEXEC);
 		if (fd < 0) {
 			PLOG_W("mkostemp('%s')", srcpath);
@@ -270,9 +273,7 @@ static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 
 	struct mounts_t *p;
 	TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
-		char dst[PATH_MAX];
-		snprintf(dst, sizeof(dst), "%s/%s", destdir, p->dst);
-		if (mountMount(p, "/", dst) == false) {
+		if (mountMount(p, destdir) == false) {
 			return false;
 		}
 	}
