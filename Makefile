@@ -26,9 +26,7 @@ CFLAGS += -O2 -c -std=gnu11 \
 	-Wformat -Wformat=2 -Wformat-security -fPIE \
 	-Wno-format-nonliteral \
 	-Wall -Wextra -Werror \
-	-Ikafel/include \
-	-I/usr/include/google \
-	-Iprotobuf-c-text/protobuf-c-text
+	-Ikafel/include
 
 LDFLAGS += -Wl,-z,now -Wl,-z,relro -pie -Wl,-z,noexecstack
 
@@ -52,16 +50,34 @@ endif
 
 USE_PROTOBUF ?= yes
 ifeq ($(USE_PROTOBUF), yes)
-PROTOBUF_EXISTS ?= $(shell pkg-config --exists libprotobuf-c && echo yes)
-ifeq ($(PROTOBUF_EXISTS), yes)
-	PROTO_DEPS = config.pb-c.h config.pb-c.c
-	SRCS += config.pb-c.c
-	CFLAGS += -DNSJAIL_WITH_PROTOBUF $(shell pkg-config --cflags libprotobuf-c)
-	LIBS += protobuf-c-text/protobuf-c-text/.libs/libprotobuf-c-text.a
-	LDFLAGS += $(shell pkg-config --libs libprotobuf-c)
+ifeq ("$(shell which protoc-c)", "")
+	USE_PROTOBUF := no
+	PROTOC_WARNING := yes
 endif
 endif
 
+ifeq ($(USE_PROTOBUF), no)
+else ifeq ($(shell pkg-config --exists libprotobuf-c && echo yes), yes)
+	PROTO_DEPS = config.pb-c.h config.pb-c.c
+	SRCS += config.pb-c.c
+	CFLAGS += -DNSJAIL_WITH_PROTOBUF -Iprotobuf-c-text/protobuf-c-text $(shell pkg-config --cflags libprotobuf-c)
+	LIBS += protobuf-c-text/protobuf-c-text/.libs/libprotobuf-c-text.a
+	LDFLAGS += $(shell pkg-config --libs libprotobuf-c)
+else ifneq ("$(wildcard /usr/include/google/protobuf-c/protobuf-c.h)", "")
+	PROTO_DEPS = config.pb-c.h config.pb-c.c
+	SRCS += config.pb-c.c
+	CFLAGS += -DNSJAIL_WITH_PROTOBUF -Iprotobuf-c-text/protobuf-c-text -I/usr/include/google
+	LIBS += protobuf-c-text/protobuf-c-text/.libs/libprotobuf-c-text.a
+	LDFLAGS += -Wl,-lprotobuf-c
+else ifneq ("$(wildcard /usr/local/include/google/protobuf-c/protobuf-c.h)", "")
+	PROTO_DEPS = config.pb-c.h config.pb-c.c
+	SRCS += config.pb-c.c
+	CFLAGS += -DNSJAIL_WITH_PROTOBUF -Iprotobuf-c-text/protobuf-c-text -I/usr/local/include/google
+	LIBS += protobuf-c-text/protobuf-c-text/.libs/libprotobuf-c-text.a
+	LDFLAGS += -Wl,--library-path=/usr/local/lib -Wl,-lprotobuf-c
+else
+	USE_PROTOBUF := no
+endif
 
 .PHONY: all clear depend indent
 
@@ -69,7 +85,13 @@ endif
 	$(CC) $(CFLAGS) $< -o $@
 
 all: $(PROTO_DEPS) $(BIN)
-ifneq ($(PROTOBUF_EXISTS), yes)
+ifeq ($(PROTOC_WARNING), yes)
+	$(info *********************************************************)
+	$(info *        'protoc-c' is missing on your system           *)
+	$(info *  Install 'protobuf-c-compiler' or a similar package   *)
+	$(info *********************************************************)
+endif
+ifeq ($(USE_PROTOBUF), no)
 	$(info *********************************************************)
 	$(info * Code compiled without libprotobuf-c/libprotobuf-c-dev *)
 	$(info *  The --config commandline option will be unavailable  *)
