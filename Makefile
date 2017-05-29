@@ -120,7 +120,7 @@ $(PROTO_DEPS): config.proto
 	protoc-c --c_out=. config.proto
 
 clean:
-	$(RM) core Makefile.bak $(OBJS) $(BIN)
+	$(RM) core Makefile.bak $(OBJS) $(BIN) $(PROTO_DEPS)
 ifneq ("$(wildcard kafel/Makefile)","")
 	$(MAKE) -C kafel clean
 endif
