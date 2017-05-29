@@ -33,5 +33,6 @@ bool mountAddMountPt(struct nsjconf_t *nsjconf, const char *src, const char *dst
 		     const char *fstype, const char *options, uintptr_t flags, const bool * isDir,
 		     bool mandatory, const char *src_env, const char *dst_env,
 		     const uint8_t * src_content, size_t src_content_len);
+const char *mountDescribeMountPt(struct mounts_t *mpt);
 
 #endif				/* NS_MOUNT_H */

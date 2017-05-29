@@ -223,12 +223,7 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	{
 		struct mounts_t *p;
 		TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
-			LOG_I
-			    ("Mount point: src:'%s' dst:'%s' type:'%s' flags:%s options:'%s' isDir:%s mandatory:%s src_content:%s (size:%zu)",
-			     p->src ? p->src : "[NULL]", p->dst, p->fs_type ? p->fs_type : "[NULL]",
-			     mountFlagsToStr(p->flags), p->options ? p->options : "[NULL]",
-			     p->isDir ? "true" : "false", p->mandatory ? "true" : "false",
-			     p->src_content ? "true" : "false", p->src_content_len);
+			LOG_I("Mount point: %s", mountDescribeMountPt(p));
 		}
 	}
 	{

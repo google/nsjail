@@ -122,10 +122,7 @@ static bool mountMount(struct mounts_t *mpt, const char *newroot, const char *tm
 	char dst[PATH_MAX];
 	snprintf(dst, sizeof(dst), "%s/%s", newroot, mpt->dst);
 
-	LOG_D("Mounting '%s' on '%s' (fstype:'%s', flags:%s, options:'%s', is_dir:%s)",
-	      mpt->src ? mpt->src : "[NULL]", dst, mpt->fs_type ? mpt->fs_type : "[NULL]",
-	      mountFlagsToStr(mpt->flags), mpt->options ? mpt->options : "[NULL]",
-	      mpt->isDir ? "True" : "False");
+	LOG_D("Mounting '%s'", mountDescribeMountPt(mpt));
 
 	char srcpath[PATH_MAX];
 	if (mpt->src != NULL && strlen(mpt->src) > 0) {
@@ -178,23 +175,15 @@ static bool mountMount(struct mounts_t *mpt, const char *newroot, const char *tm
 	unsigned long flags = mpt->flags & ~(MS_RDONLY);
 	if (mount(srcpath, dst, mpt->fs_type, flags, mpt->options) == -1) {
 		if (mpt->mandatory == false) {
-			PLOG_D
-			    ("mount(src:'%s', dst:'%s', fstype:'%s', flags:'%s', mandatory:%s) failed. "
-			     "Skipping this mount as it's non-mandatory", srcpath, dst,
-			     mpt->fs_type ? mpt->fs_type : "[NULL]", mountFlagsToStr(mpt->flags),
-			     mpt->mandatory ? "true" : "false");
+			PLOG_D("mount('%s') src:'%s' dst:'%s' failed", mountDescribeMountPt(mpt),
+			       srcpath, dst);
 		} else if (errno == EACCES) {
-			PLOG_E
-			    ("mount(src:'%s', dst:'%s', fstype:'%s', flags:'%s', mandatory:%s) failed. "
-			     "Try fixing this problem by applying 'chmod o+x' to the '%s' directory and "
-			     "its ancestors", srcpath, dst, mpt->fs_type ? mpt->fs_type : "[NULL]",
-			     mountFlagsToStr(mpt->flags), mpt->src,
-			     mpt->mandatory ? "true" : "false");
+			PLOG_E("mount('%s') src:'%s' dst:'%s' failed. "
+			       "Try fixing this problem by applying 'chmod o+x' to the '%s' directory and "
+			       "its ancestors", mountDescribeMountPt(mpt), srcpath, dst, srcpath);
 		} else {
-			PLOG_E
-			    ("mount(src:'%s', dst:'%s', fstype:'%s', flags:'%s' mandatory:%s) failed",
-			     srcpath, dst, mpt->fs_type ? mpt->fs_type : "[NULL]",
-			     mountFlagsToStr(mpt->flags), mpt->mandatory ? "true" : "false");
+			PLOG_E("mount('%s') src:'%s' dst:'%s' failed", mountDescribeMountPt(mpt),
+			       srcpath, dst);
 		}
 		if (mpt->mandatory) {
 			return false;
@@ -421,4 +410,25 @@ bool mountAddMountPt(struct nsjconf_t * nsjconf, const char *src, const char *ds
 	TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
 
 	return true;
+}
+
+const char *mountDescribeMountPt(struct mounts_t *mpt)
+{
+	static __thread char mount_pt_descr[4096];
+
+	snprintf(mount_pt_descr, sizeof(mount_pt_descr),
+		 "src:'%s' dst:'%s' type:'%s' flags:%s options:'%s' isDir:%s",
+		 mpt->src ? mpt->src : "[NULL]", mpt->dst, mpt->fs_type ? mpt->fs_type : "[NULL]",
+		 mountFlagsToStr(mpt->flags), mpt->options ? mpt->options : "[NULL]",
+		 mpt->isDir ? "true" : "false");
+
+	if (mpt->mandatory == false) {
+		utilSSnPrintf(mount_pt_descr, sizeof(mount_pt_descr), " mandatory:false");
+	}
+	if (mpt->src_content) {
+		utilSSnPrintf(mount_pt_descr, sizeof(mount_pt_descr), " src_content_len:%zu",
+			      mpt->src_content_len);
+	}
+
+	return mount_pt_descr;
 }
