@@ -291,10 +291,23 @@ $ ./nsjail --config configs/home-documents-with-xorg-no-net.cfg -- /usr/bin/mupd
 
 ***
 
-The [configs/firefox-with-net.cfg](https://github.com/google/nsjail/blob/master/configs/firefox-with-net.cfg) config file will allow you to run firefox in a  sandboxed environment:
+The [configs/firefox-with-net.cfg](https://github.com/google/nsjail/blob/master/configs/firefox-with-net.cfg)
+config file will allow you to run firefox inside a sandboxed environment:
 
 <pre>
 $ ./nsjail --config configs/firefox-with-net.cfg
+</pre>
+
+A more complex setup, which utilizes virtualized (cloned) Ethernet
+interfaces (to separate it from the main network namespace), can be
+found in [configs/firefox-with-cloned-net.cfg](https://github.com/google/nsjail/blob/master/configs/firefox-with-cloned-net.cfg).
+Remember to change relevant UIDs and Ethernet interface names before use.
+
+As using cloned Ethernet interfaces (MACVTAP) required root privileges, you'll
+have to run it under sudo:
+
+<pre>
+$ sudo ./nsjail --config configs/firefox-with-cloned-net.cfg
 </pre>
 
 ***
