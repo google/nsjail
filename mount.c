@@ -117,7 +117,7 @@ bool mountIsDir(const char *path)
 	return false;
 }
 
-static bool mountMount(struct mounts_t *mpt, const char *newroot)
+static bool mountMount(struct mounts_t *mpt, const char *newroot, const char *tmpdir)
 {
 	char dst[PATH_MAX];
 	snprintf(dst, sizeof(dst), "%s/%s", newroot, mpt->dst);
@@ -156,7 +156,7 @@ static bool mountMount(struct mounts_t *mpt, const char *newroot)
 	}
 
 	if (mpt->src_content) {
-		snprintf(srcpath, sizeof(srcpath), "%s/file.XXXXXX", newroot);
+		snprintf(srcpath, sizeof(srcpath), "%s/file.XXXXXX", tmpdir);
 		int fd = mkostemp(srcpath, O_CLOEXEC);
 		if (fd < 0) {
 			PLOG_W("mkostemp('%s')", srcpath);
@@ -265,23 +265,36 @@ static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 		return false;
 	}
 
-	char destdir[PATH_MAX];
-	snprintf(destdir, sizeof(destdir), "/tmp/nsjail.%d", (int)getuid());
+	const char *const destdir = "/tmp/nsjail.root";
 	if (mkdir(destdir, 0755) == -1 && errno != EEXIST) {
 		PLOG_E("Couldn't create '%s' directory. Maybe remove it?", destdir);
+		return false;
 	}
-	if (mount(NULL, destdir, "tmpfs", 0, NULL) == -1) {
+	if (mount(NULL, destdir, "tmpfs", 0, "size=16777216") == -1) {
 		PLOG_E("mount('%s', 'tmpfs')", destdir);
+		return false;
+	}
+	const char *const tmpdir = "/tmp/nsjail.tmp";
+	if (mkdir(tmpdir, 0755) == -1 && errno != EEXIST) {
+		PLOG_E("Couldn't create '%s' directory. Maybe remove it?", tmpdir);
+		return false;
+	}
+	if (mount(NULL, tmpdir, "tmpfs", 0, "size=16777216") == -1) {
+		PLOG_E("mount('%s', 'tmpfs')", tmpdir);
 		return false;
 	}
 
 	struct mounts_t *p;
 	TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
-		if (mountMount(p, destdir) == false) {
+		if (mountMount(p, destdir, tmpdir) == false) {
 			return false;
 		}
 	}
 
+	if (umount2(tmpdir, MNT_DETACH) == -1) {
+		PLOG_E("umount2('%s', MNT_DETACH)", tmpdir);
+		return false;
+	}
 	if (syscall(__NR_pivot_root, destdir, destdir) == -1) {
 		PLOG_E("pivot_root('%s', '%s')", destdir, destdir);
 		return false;
