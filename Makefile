@@ -27,7 +27,8 @@ CFLAGS += -O2 -c -std=gnu11 \
 	-Wno-format-nonliteral \
 	-Wall -Wextra -Werror \
 	-Ikafel/include \
-	-Iprotobuf-c-text/protobuf-c-text 
+	-I/usr/include/google \
+	-Iprotobuf-c-text/protobuf-c-text
 
 LDFLAGS += -Wl,-z,now -Wl,-z,relro -pie -Wl,-z,noexecstack
 
@@ -51,7 +52,7 @@ endif
 
 USE_PROTOBUF ?= yes
 ifeq ($(USE_PROTOBUF), yes)
-PROTOBUF_EXISTS := $(shell pkg-config --exists libprotobuf-c && echo yes)
+PROTOBUF_EXISTS ?= $(shell pkg-config --exists libprotobuf-c && echo yes)
 ifeq ($(PROTOBUF_EXISTS), yes)
 	PROTO_DEPS = config.pb-c.h config.pb-c.c
 	SRCS += config.pb-c.c
@@ -87,7 +88,9 @@ endif
 protobuf-c-text/protobuf-c-text/.libs/libprotobuf-c-text.a:
 ifeq ("$(wildcard protobuf-c-text/configure)","")
 	git submodule update --init
-	sh -c "cd protobuf-c-text; CFLAGS=\"-fPIC $(EXTRA_CFLAGS)\" ./autogen.sh --enable-shared=no --disable-doxygen-doc;"
+endif
+ifeq ("$(wildcard protobuf-c-text/Makefile)","")
+	sh -c "cd protobuf-c-text; CFLAGS=\"-fPIC -I/usr/include/google $(EXTRA_CFLAGS)\" ./autogen.sh --enable-shared=no --disable-doxygen-doc;"
 endif
 	$(MAKE) -C protobuf-c-text
 
