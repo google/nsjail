@@ -476,5 +476,5 @@ This will build up an image containing njsail and kafel.
 
 From now you can either use it in another Dockerfile (`FROM nsjail`) or directly:
 <pre>
-docker run --rm -it nsjail nsjail --user 99999 --group 99999 --disable_proc --chroot / --time_limit 30 /bin/bash
+docker run --privileged --rm -it nsjail nsjail --user 99999 --group 99999 --disable_proc --chroot / --time_limit 30 /bin/bash
 </pre>
