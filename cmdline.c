@@ -66,6 +66,7 @@ struct custom_option custom_opts[] = {
      "\tr: Immediately launch a single process on the console, keep doing it "
      "forever [MODE_STANDALONE_RERUN]"},
     {{"config", required_argument, NULL, 'C'}, "Configuration file in the config.proto ProtoBuf format"},
+    {{"exec_file", required_argument, NULL, 'x'}, "File to exec (default: argv[0])"},
     {{"chroot", required_argument, NULL, 'c'}, "Directory containing / of the jail (default: none)"},
     {{"rw", no_argument, NULL, 0x601}, "Mount / and /proc as RW (default: RO)"},
     {{"user", required_argument, NULL, 'u'}, "Username/uid of processess inside the jail (default: your current uid). You can also use inside_ns_uid:outside_ns_uid:count convention here. Can be specified multiple times"},
@@ -300,6 +301,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 {
   /*  *INDENT-OFF* */
   (*nsjconf) = (const struct nsjconf_t){
+      .exec_file = NULL,
       .hostname = "NSJAIL",
       .cwd = "/",
       .chroot = NULL,
@@ -386,12 +388,15 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	int opt_index = 0;
 	for (;;) {
 		int c = getopt_long(argc, argv,
-				    "H:D:C:c:p:i:u:g:l:t:M:Ndvqeh?E:R:B:T:P:I:U:G:", opts,
+				    "x:H:D:C:c:p:i:u:g:l:t:M:Ndvqeh?E:R:B:T:P:I:U:G:", opts,
 				    &opt_index);
 		if (c == -1) {
 			break;
 		}
 		switch (c) {
+		case 'x':
+			nsjconf->exec_file = optarg;
+			break;
 		case 'H':
 			nsjconf->hostname = optarg;
 			break;
@@ -783,6 +788,9 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		LOG_E("No command provided");
 		cmdlineUsage(argv[0]);
 		return false;
+	}
+	if (nsjconf->exec_file == NULL) {
+		nsjconf->exec_file = nsjconf->argv[0];
 	}
 
 	return true;
