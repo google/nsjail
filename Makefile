@@ -152,4 +152,3 @@ subproc.o: util.h
 user.o: user.h common.h log.h subproc.h util.h
 util.o: util.h common.h log.h
 uts.o: uts.h common.h log.h
-config.pb-c.o: config.pb-c.h
