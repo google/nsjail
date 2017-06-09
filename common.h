@@ -113,6 +113,7 @@ enum llevel_t {
 };
 
 struct nsjconf_t {
+	const char *exec_file;
 	const char *hostname;
 	const char *cwd;
 	char *const *argv;

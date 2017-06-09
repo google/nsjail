@@ -165,7 +165,7 @@ static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int 
 
 	char cs_addr[64];
 	netConnToText(fd_in, true /* remote */ , cs_addr, sizeof(cs_addr), NULL);
-	LOG_I("Executing '%s' for '%s'", nsjconf->argv[0], cs_addr);
+	LOG_I("Executing '%s' for '%s'", nsjconf->exec_file, cs_addr);
 
 	for (size_t i = 0; nsjconf->argv[i]; i++) {
 		LOG_D(" Arg[%zu]: '%s'", i, nsjconf->argv[i]);
@@ -175,9 +175,9 @@ static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int 
 	if (sandboxApply(nsjconf) == false) {
 		exit(1);
 	}
-	execv(nsjconf->argv[0], &nsjconf->argv[0]);
+	execv(nsjconf->exec_file, &nsjconf->argv[0]);
 
-	PLOG_E("execve('%s') failed", nsjconf->argv[0]);
+	PLOG_E("execve('%s') failed", nsjconf->exec_file);
 
 	_exit(1);
 }

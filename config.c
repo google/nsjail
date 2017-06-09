@@ -232,6 +232,7 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 			argv[i + 1] = utilStrDup(njc->exec_bin->arg[i]);
 		}
 		argv[njc->exec_bin->n_arg + 1] = NULL;
+		nsjconf->exec_file = argv[0];
 		nsjconf->argv = argv;
 	}
 
