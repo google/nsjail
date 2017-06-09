@@ -250,12 +250,18 @@ static bool containMakeFdsCOENaive(struct nsjconf_t *nsjconf)
 
 static bool containMakeFdsCOEProc(struct nsjconf_t *nsjconf)
 {
-	/* Make all fds above stderr close-on-exec */
-	DIR *dir = opendir("/proc/self/fd");
+        int dirfd = open("/proc/self/fd", O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+        if (dirfd == -1) {
+          PLOG_D("open('/proc/self/fd', O_DIRECTORY|O_RDONLY)");
+          return false;
+        }
+	DIR *dir = fdopendir(dirfd);
 	if (dir == NULL) {
-		PLOG_D("opendir('/proc/self/fd')");
+		PLOG_W("fdopendir(fd=%d)", dirfd);
+                close(dirfd);
 		return false;
 	}
+	/* Make all fds above stderr close-on-exec */
 	for (;;) {
 		errno = 0;
 		struct dirent *entry = readdir(dir);
