@@ -376,7 +376,7 @@ static bool subprocInitParent(struct nsjconf_t *nsjconf, pid_t pid, int pipefd)
 }
 
 /* Will be used inside the child process only, so it's save to have it in BSS */
-static uint8_t subprocCloneStack[128 * 1024]; /* 128 KiB */
+static uint8_t subprocCloneStack[128 * 1024];	/* 128 KiB */
 /* Cannot be on the stack, as the child's stack pointer will change after clone() */
 static __thread jmp_buf env;
 
