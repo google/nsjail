@@ -119,6 +119,7 @@ struct nsjconf_t {
 	char *const *argv;
 	int port;
 	const char *bindhost;
+	int log_fd;
 	const char *logfile;
 	enum llevel_t loglevel;
 	bool daemonize;
