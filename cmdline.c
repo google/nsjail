@@ -76,7 +76,8 @@ struct custom_option custom_opts[] = {
     {{"port", required_argument, NULL, 'p'}, "TCP port to bind to (enables MODE_LISTEN_TCP) (default: 0)"},
     {{"bindhost", required_argument, NULL, 0x604}, "IP address port to bind to (only in [MODE_LISTEN_TCP]), '::ffff:127.0.0.1' for locahost (default: '::')"},
     {{"max_conns_per_ip", required_argument, NULL, 'i'}, "Maximum number of connections per one IP (only in [MODE_LISTEN_TCP]), (default: 0 (unlimited))"},
-    {{"log", required_argument, NULL, 'l'}, "Log file (default: /proc/self/fd/2)"},
+    {{"log", required_argument, NULL, 'l'}, "Log file (default: use log_fd)"},
+    {{"log_fd", required_argument, NULL, 'L'}, "Log FD (default: 2)"},
     {{"time_limit", required_argument, NULL, 't'}, "Maximum time that a jail can exist, in seconds (default: 600)"},
     {{"daemon", no_argument, NULL, 'd'}, "Daemonize after start"},
     {{"verbose", no_argument, NULL, 'v'}, "Verbose output"},
@@ -308,6 +309,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
       .argv = NULL,
       .port = 0,
       .bindhost = "::",
+      .log_fd = 2,
       .logfile = NULL,
       .loglevel = INFO,
       .daemonize = false,
@@ -388,7 +390,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	int opt_index = 0;
 	for (;;) {
 		int c = getopt_long(argc, argv,
-				    "x:H:D:C:c:p:i:u:g:l:t:M:Ndvqeh?E:R:B:T:P:I:U:G:", opts,
+				    "x:H:D:C:c:p:i:u:g:l:L:t:M:Ndvqeh?E:R:B:T:P:I:U:G:", opts,
 				    &opt_index);
 		if (c == -1) {
 			break;
@@ -423,6 +425,12 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			break;
 		case 'l':
 			nsjconf->logfile = optarg;
+			if (logInitLogFile(nsjconf) == false) {
+				return false;
+			}
+			break;
+		case 'L':
+			nsjconf->log_fd = strtol(optarg, NULL, 0);
 			if (logInitLogFile(nsjconf) == false) {
 				return false;
 			}

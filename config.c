@@ -69,6 +69,7 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 	nsjconf->tlimit = njc->time_limit;
 	nsjconf->daemonize = njc->daemon;
 
+	nsjconf->log_fd = njc->log_fd;
 	nsjconf->logfile = utilStrDup(njc->log_file);
 	if (njc->has_log_level) {
 		switch (njc->log_level) {

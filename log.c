@@ -51,7 +51,9 @@ bool logInitLogFile(struct nsjconf_t *nsjconf)
 		close(log_fd);
 		log_fd = STDERR_FILENO;
 	}
+	log_fd = nsjconf->log_fd;
 	log_level = nsjconf->loglevel;
+
 	if (nsjconf->logfile == NULL && nsjconf->daemonize == true) {
 		nsjconf->logfile = _LOG_DEFAULT_FILE;
 	}
