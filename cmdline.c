@@ -309,7 +309,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
       .argv = NULL,
       .port = 0,
       .bindhost = "::",
-      .log_fd = 2,
+      .log_fd = STDERR_FILENO,
       .logfile = NULL,
       .loglevel = INFO,
       .daemonize = false,

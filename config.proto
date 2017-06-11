@@ -89,7 +89,7 @@ message NsJailConfig
     required bool daemon = 14 [ default = false ];
 
     /* FD to log to. */
-    required int32 log_fd = 61 [ default = 2 ];
+    optional int32 log_fd = 61;
     /* File to save lofs to */
     optional string log_file = 15;
     /* Minimum log level displayed.
