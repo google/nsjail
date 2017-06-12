@@ -58,6 +58,8 @@ message Exe
     required string path = 1;
     /* This will be argv[1] and so on.. */
     repeated string arg = 2;
+    /* Override argv[0] */
+    optional string arg0 = 3;
 }
 message NsJailConfig
 {

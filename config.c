@@ -230,7 +230,11 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 
 	if (njc->exec_bin) {
 		char **argv = utilCalloc(sizeof(const char *) * (njc->exec_bin->n_arg + 2));
-		argv[0] = utilStrDup(njc->exec_bin->path);
+		if (njc->exec_bin->arg0) {
+			argv[0] = utilStrDup(njc->exec_bin->arg0);
+		} else {
+			argv[0] = utilStrDup(njc->exec_bin->path);
+		}
 		for (size_t i = 0; i < njc->exec_bin->n_arg; i++) {
 			argv[i + 1] = utilStrDup(njc->exec_bin->arg[i]);
 		}
