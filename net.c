@@ -55,11 +55,11 @@ bool netInitNsFromParent(struct nsjconf_t *nsjconf, int pid)
 	if (nsjconf->clone_newnet == false) {
 		return true;
 	}
-	if (nsjconf->iface == NULL) {
+	if (nsjconf->iface_vs == NULL) {
 		return true;
 	}
 
-	LOG_D("Putting iface:'%s' into namespace of PID:%d (with libnl3)", nsjconf->iface, pid);
+	LOG_D("Putting iface:'%s' into namespace of PID:%d (with libnl3)", nsjconf->iface_vs, pid);
 
 	struct nl_sock *sk = nl_socket_alloc();
 	if (sk == NULL) {
@@ -89,9 +89,9 @@ bool netInitNsFromParent(struct nsjconf_t *nsjconf, int pid)
 		return false;
 	}
 
-	int master_index = rtnl_link_name2i(link_cache, nsjconf->iface);
+	int master_index = rtnl_link_name2i(link_cache, nsjconf->iface_vs);
 	if (master_index == 0) {
-		LOG_E("rtnl_link_name2i(): Did not find '%s' interface", nsjconf->iface);
+		LOG_E("rtnl_link_name2i(): Did not find '%s' interface", nsjconf->iface_vs);
 		nl_cache_free(link_cache);
 		rtnl_link_put(rmv);
 		nl_socket_free(sk);
@@ -122,22 +122,23 @@ bool netInitNsFromParent(struct nsjconf_t *nsjconf, int pid)
 	if (nsjconf->clone_newnet == false) {
 		return true;
 	}
-	if (nsjconf->iface == NULL) {
+	if (nsjconf->iface_vs == NULL) {
 		return true;
 	}
 
-	LOG_D("Putting iface:'%s' into namespace of PID:%d (with /sbin/ip)", nsjconf->iface, pid);
+	LOG_D("Putting iface:'%s' into namespace of PID:%d (with /sbin/ip)", nsjconf->iface_vs,
+	      pid);
 
 	char pid_str[256];
 	snprintf(pid_str, sizeof(pid_str), "%d", pid);
 
 	const char *argv[] =
-	    { "/sbin/ip", "link", "add", "link", (char *)nsjconf->iface, "name", IFACE_NAME,
+	    { "/sbin/ip", "link", "add", "link", (char *)nsjconf->iface_vs, "name", IFACE_NAME,
 		"netns",
 		pid_str, "type", "macvlan", "mode", "bridge", NULL
 	};
 	if (subprocSystem(argv, environ) != 0) {
-		LOG_E("Couldn't create MACVTAP interface for '%s'", nsjconf->iface);
+		LOG_E("Couldn't create MACVTAP interface for '%s'", nsjconf->iface_vs);
 		return false;
 	}
 
@@ -420,7 +421,7 @@ bool netInitNsFromChild(struct nsjconf_t * nsjconf)
 			return false;
 		}
 	}
-	if (nsjconf->iface) {
+	if (nsjconf->iface_vs) {
 		if (netConfigureVs(nsjconf) == false) {
 			return false;
 		}

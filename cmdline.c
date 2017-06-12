@@ -345,7 +345,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
       .cgroup_pids_parent = "NSJAIL",
       .cgroup_pids_max = (size_t)0,
       .iface_no_lo = false,
-      .iface = NULL,
+      .iface_vs = NULL,
       .iface_vs_ip = "0.0.0.0",
       .iface_vs_nm = "255.255.255.0",
       .iface_vs_gw = "0.0.0.0",
@@ -676,7 +676,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			nsjconf->iface_no_lo = true;
 			break;
 		case 'I':
-			nsjconf->iface = optarg;
+			nsjconf->iface_vs = optarg;
 			break;
 		case 0x701:
 			nsjconf->iface_vs_ip = optarg;

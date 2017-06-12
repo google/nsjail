@@ -223,7 +223,7 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 	nsjconf->cgroup_pids_parent = utilStrDup(njc->cgroup_pids_parent);
 
 	nsjconf->iface_no_lo = njc->iface_no_lo;
-	nsjconf->iface = utilStrDup(njc->macvlan_iface);
+	nsjconf->iface_vs = utilStrDup(njc->macvlan_iface);
 	nsjconf->iface_vs_ip = utilStrDup(njc->macvlan_vs_ip);
 	nsjconf->iface_vs_nm = utilStrDup(njc->macvlan_vs_nm);
 	nsjconf->iface_vs_gw = utilStrDup(njc->macvlan_vs_gw);

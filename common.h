@@ -151,7 +151,7 @@ struct nsjconf_t {
 	size_t tmpfs_size;
 	bool mount_proc;
 	bool iface_no_lo;
-	const char *iface;
+	const char *iface_vs;
 	const char *iface_vs_ip;
 	const char *iface_vs_nm;
 	const char *iface_vs_gw;
