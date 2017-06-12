@@ -30,14 +30,14 @@ message MountPt
 {
     /* Can be skipped for filesystems like 'proc' */
     optional string src = 1;
-	/* Should 'src' path be prefixed with this envvar? */
-	optional string prefix_src_env = 2;
-	/* If specified, contains buffer that will be written to the dst file */
-	optional bytes src_content = 3;
-	/* Mount point inside jail */
+    /* Should 'src' path be prefixed with this envvar? */
+    optional string prefix_src_env = 2;
+    /* If specified, contains buffer that will be written to the dst file */
+    optional bytes src_content = 3;
+    /* Mount point inside jail */
     required string dst = 4;
-	/* Should 'dst' path be prefixed with this envvar? */
-	optional string prefix_dst_env = 5;
+    /* Should 'dst' path be prefixed with this envvar? */
+    optional string prefix_dst_env = 5;
     /* Can be empty for mount --bind mounts */
     optional string fstype = 6 [ default = "" ];
     /* E.g. size=5000000 for 'tmpfs' */
@@ -61,9 +61,9 @@ message Exe
 }
 message NsJailConfig
 {
-	/* Optional name and description for this config */
-	optional string name = 1 [ default = "" ];
-	optional string description = 2 [ default = "" ];
+    /* Optional name and description for this config */
+    optional string name = 1 [ default = "" ];
+    optional string description = 2 [ default = "" ];
 
     /* Execution mode: see 'msg Mode' description for more */
     required Mode mode = 3 [ default = ONCE ];
