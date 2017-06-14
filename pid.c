@@ -47,11 +47,15 @@ bool pidInitNs(struct nsjconf_t *nsjconf)
 	if (pid > 0) {
 		return true;
 	}
+
 	if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0UL, 0UL, 0UL) == -1) {
 		PLOG_W("(prctl(PR_SET_PDEATHSIG, SIGKILL) failed");
 	}
 	if (prctl(PR_SET_NAME, "init", 0UL, 0UL, 0UL) == -1) {
 		PLOG_W("(prctl(PR_SET_NAME, 'init') failed");
+	}
+	if (prctl(PR_SET_DUMPABLE, 0UL, 0UL, 0UL, 0UL) == -1) {
+		PLOG_W("(prctl(PR_SET_DUMPABLE, 0) failed");
 	}
 
 	/* Act sort-a like a init by reaping zombie processes */
