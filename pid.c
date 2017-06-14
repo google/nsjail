@@ -50,6 +50,18 @@ bool pidInitNs(struct nsjconf_t *nsjconf)
 	if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0) == -1) {
 		PLOG_W("(prctl(PR_SET_PDEATHSIG, SIGKILL) failed");
 	}
+
+	/* Act sort-a like a init by reaping zombie processes */
+	struct sigaction sa = {
+		.sa_handler = SIG_DFL,
+		.sa_flags = SA_NOCLDWAIT | SA_NOCLDSTOP,
+		.sa_restorer = NULL,
+	};
+	sigemptyset(&sa.sa_mask);
+	if (sigaction(SIGSTOP, &sa, NULL) == -1) {
+		PLOG_W("Couldn't set sighandler for SIGSTOP");
+	}
+
 	for (;;) {
 		pause();
 	}
