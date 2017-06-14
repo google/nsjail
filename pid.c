@@ -47,8 +47,11 @@ bool pidInitNs(struct nsjconf_t *nsjconf)
 	if (pid > 0) {
 		return true;
 	}
-	if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0) == -1) {
+	if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0UL, 0UL, 0UL) == -1) {
 		PLOG_W("(prctl(PR_SET_PDEATHSIG, SIGKILL) failed");
+	}
+	if (prctl(PR_SET_NAME, "init", 0UL, 0UL, 0UL) == -1) {
+		PLOG_W("(prctl(PR_SET_NAME, 'init') failed");
 	}
 
 	/* Act sort-a like a init by reaping zombie processes */
@@ -58,8 +61,8 @@ bool pidInitNs(struct nsjconf_t *nsjconf)
 		.sa_restorer = NULL,
 	};
 	sigemptyset(&sa.sa_mask);
-	if (sigaction(SIGSTOP, &sa, NULL) == -1) {
-		PLOG_W("Couldn't set sighandler for SIGSTOP");
+	if (sigaction(SIGCHLD, &sa, NULL) == -1) {
+		PLOG_W("Couldn't set sighandler for SIGCHLD");
 	}
 
 	for (;;) {
