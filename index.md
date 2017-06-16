@@ -46,6 +46,8 @@ Features:
 ### Which use-cases are supported
 #### Isolation of network services (inetd style)
 
+_PS: You'll need to have a valid file-system tree in /chroot. If you don't have it, change ```/chroot``` to ```/```_
+
 + Server:
 <pre>
  $ ./nsjail -Ml --port 9000 --chroot /chroot/ --user 99999 --group 99999 -- /bin/sh -i
@@ -70,6 +72,9 @@ Features:
 </pre>
 
 #### Isolation with access to a private, cloned interface (requires root/setuid)
+
+_PS: You'll need to have a valid file-system tree in /chroot. If you don't have it, change /chroot to /_
+
 <pre>
 $ sudo ./nsjail --user 9999 --group 9999 --macvlan_iface eth0 --chroot /chroot/ -Mo --macvlan_vs_ip 192.168.0.44 --macvlan_vs_nm 255.255.255.0 --macvlan_vs_gw 192.168.0.1 -- /bin/sh -i
 / $ id
@@ -103,6 +108,9 @@ Date: Wed, 02 Mar 2016 02:14:08 GMT
 </pre>
 
 #### Isolation of local processes
+
+_PS: You'll need to have a valid file-system tree in /chroot. If you don't have it, change ```/chroot``` to ```/```_
+
 <pre>
  $ ./nsjail -Mo --chroot /chroot/ --user 99999 --group 99999 -- /bin/sh -i
  / $ ifconfig -a
@@ -122,6 +130,9 @@ Date: Wed, 02 Mar 2016 02:14:08 GMT
 </pre>
 
 #### Isolation of local processes (and re-running them, if necessary)
+
+_PS: You'll need to have a valid file-system tree in /chroot. If you don't have it, change ```/chroot``` to ```/```_
+
 <pre>
  $ ./nsjail -Mr --chroot /chroot/ --user 99999 --group 99999 -- /bin/sh -i
  BusyBox v1.21.1 (Ubuntu 1:1.21.0-1ubuntu1) built-in shell (ash)
@@ -141,6 +152,7 @@ Date: Wed, 02 Mar 2016 02:14:08 GMT
 </pre>
 
 ### Bash in a minimal file-system with uid==0 and access to /dev/urandom only
+
 <pre>
 $ ./nsjail -Mo --user 0 --group 99999 -R /bin/ -R /lib -R /lib64/ -R /usr/ -R /sbin/ -T /dev -R /dev/urandom --keep_caps -- /bin/bash -i
 [2017-05-24T17:08:02+0200] Mode: STANDALONE_ONCE
@@ -176,6 +188,7 @@ exit
 </pre>
 
 ### /usr/bin/find in a minimal file-system (only /usr/bin/find accessible from /usr/bin)
+
 <pre>
 $ ./nsjail -Mo --user 99999 --group 99999 -R /lib/x86_64-linux-gnu/ -R /lib/x86_64-linux-gnu -R /lib64 -R /usr/bin/find -R /dev/urandom --keep_caps -- /usr/bin/find / | wc -l
 [2017-05-24T17:04:37+0200] Mode: STANDALONE_ONCE
@@ -196,6 +209,7 @@ $ ./nsjail -Mo --user 99999 --group 99999 -R /lib/x86_64-linux-gnu/ -R /lib/x86_
 </pre>
 
 ### Using /etc/subuid
+
 <pre>
 $ tail -n1 /etc/subuid
 user:10000000:1
@@ -226,6 +240,7 @@ drwxr-xr-x   4 65534 65534 20480 May 24 00:24 sbin
 </pre>
 
 ### Even more contrained shell (with seccomp-bpf policies)
+
 <pre>
 $ ./nsjail --chroot / --seccomp_string 'POLICY a { ALLOW { write, execve, brk, access, mmap, open, newfstat, close, read, mprotect, arch_prctl, munmap, getuid, getgid, getpid, rt_sigaction, geteuid, getppid, getcwd, getegid, ioctl, fcntl, newstat, clone, wait4, rt_sigreturn, exit_group } } USE a DEFAULT KILL' -- /bin/sh -i
 [2017-01-15T21:53:08+0100] Mode: STANDALONE_ONCE
@@ -313,7 +328,7 @@ $ sudo ./nsjail --config configs/firefox-with-cloned-net.cfg
 ***
 ### More info
 
-The options should be self-explanatory, and these are available with:
+The command-line options should be self-explanatory, while the proto-buf config options are described in [config.proto](https://github.com/google/nsjail/blob/master/config.proto)
 
 <pre>
 ./nsjail --help
@@ -330,14 +345,18 @@ Options:
 	o: Immediately launch a single process on the console using clone/execve [MODE_STANDALONE_ONCE]
 	e: Immediately launch a single process on the console using execve [MODE_STANDALONE_EXECVE]
 	r: Immediately launch a single process on the console, keep doing it forever [MODE_STANDALONE_RERUN]
+ --config|-C VALUE
+	Configuration file in the config.proto ProtoBuf format
+ --exec_file|-x VALUE
+	File to exec (default: argv[0])
  --chroot|-c VALUE
 	Directory containing / of the jail (default: none)
  --rw 
 	Mount / and /proc as RW (default: RO)
  --user|-u VALUE
-	Username/uid of processess inside the jail (default: your current uid). You can also use inside_ns_uid:outside_ns_uid convention here. Can be specified multiple times
+	Username/uid of processess inside the jail (default: your current uid). You can also use inside_ns_uid:outside_ns_uid:count convention here. Can be specified multiple times
  --group|-g VALUE
-	Groupname/gid of processess inside the jail (default: your current gid). You can also use inside_ns_gid:global_ns_gid convention here. Can be specified multiple times
+	Groupname/gid of processess inside the jail (default: your current gid). You can also use inside_ns_gid:global_ns_gid:count convention here. Can be specified multiple times
  --hostname|-H VALUE
 	UTS name (hostname) of the jail (default: 'NSJAIL')
  --cwd|-D VALUE
@@ -347,9 +366,11 @@ Options:
  --bindhost VALUE
 	IP address port to bind to (only in [MODE_LISTEN_TCP]), '::ffff:127.0.0.1' for locahost (default: '::')
  --max_conns_per_ip|-i VALUE
-	Maximum number of connections per one IP (default: 0 (unlimited))
+	Maximum number of connections per one IP (only in [MODE_LISTEN_TCP]), (default: 0 (unlimited))
  --log|-l VALUE
-	Log file (default: /proc/self/fd/2)
+	Log file (default: use log_fd)
+ --log_fd|-L VALUE
+	Log FD (default: 2)
  --time_limit|-t VALUE
 	Maximum time that a jail can exist, in seconds (default: 600)
  --daemon|-d 
@@ -370,8 +391,6 @@ Options:
 	Don't call setsid(), allows for terminal signal handling in the sandboxed process
  --pass_fd VALUE
 	Don't close this FD before executing child (can be specified multiple times), by default: 0/1/2 are kept open
- --pivot_root_only 
-	Only perform pivot_root, no chroot. This will enable nested namespaces
  --disable_no_new_privs 
 	Don't set the prctl(NO_NEW_PRIVS, 1) (DANGEROUS)
  --rlimit_as VALUE
@@ -415,7 +434,7 @@ Options:
  --uid_mapping|-U VALUE
 	Add a custom uid mapping of the form inside_uid:outside_uid:count. Setting this requires newuidmap to be present
  --gid_mapping|-G VALUE
-	Add a custom gid mapping of the form inside_gid:outside_gid:count. Setting this requires newuidmap to be present
+	Add a custom gid mapping of the form inside_gid:outside_gid:count. Setting this requires newgidmap to be present
  --bindmount_ro|-R VALUE
 	List of mountpoints to be mounted --bind (ro) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'
  --bindmount|-B VALUE
@@ -447,11 +466,25 @@ Options:
  --macvlan_iface|-I VALUE
 	Interface which will be cloned (MACVLAN) and put inside the subprocess' namespace as 'vs'
  --macvlan_vs_ip VALUE
-	IP of the 'vs' interface
+	IP of the 'vs' interface (e.g. "192.168.0.1")
  --macvlan_vs_nm VALUE
-	Netmask of the 'vs' interface
+	Netmask of the 'vs' interface (e.g. "255.255.255.0")
  --macvlan_vs_gw VALUE
-	Default GW for the 'vs' interface
+	Default GW for the 'vs' interface (e.g. "192.168.0.1")
+
+Deprecated options:
+ --iface|-I VALUE
+	Interface which will be cloned (MACVLAN) and put inside the subprocess' namespace as 'vs'
+	DEPRECATED: Use macvlan_iface instead.
+ --iface_vs_ip VALUE
+	IP of the 'vs' interface (e.g. "192.168.0.1")
+	DEPRECATED: Use macvlan_vs_ip instead.
+ --iface_vs_nm VALUE
+	Netmask of the 'vs' interface (e.g. "255.255.255.0")
+	DEPRECATED: Use macvlan_vs_nm instead.
+ --iface_vs_gw VALUE
+	Default GW for the 'vs' interface (e.g. "192.168.0.1")
+	DEPRECATED: Use macvlan_vs_gw instead.
 
  Examples: 
  Wait on a port 31337 for connections, and run /bin/sh
@@ -476,5 +509,5 @@ This will build up an image containing njsail and kafel.
 
 From now you can either use it in another Dockerfile (`FROM nsjail`) or directly:
 <pre>
-docker run --rm -it nsjail nsjail --user 99999 --group 99999 --disable_proc --chroot / --time_limit 30 /bin/bash
+docker run --privileged --rm -it nsjail nsjail --user 99999 --group 99999 --disable_proc --chroot / --time_limit 30 /bin/bash
 </pre>
