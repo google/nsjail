@@ -73,7 +73,7 @@ _PS: You'll need to have a valid file-system tree in /chroot. If you don't have 
 
 #### Isolation with access to a private, cloned interface (requires root/setuid)
 
-_PS: You'll need to have a valid file-system tree in /chroot. If you don't have it, change /chroot to /_
+_PS: You'll need to have a valid file-system tree in /chroot. If you don't have it, change ```/chroot``` to ```/```_
 
 <pre>
 $ sudo ./nsjail --user 9999 --group 9999 --macvlan_iface eth0 --chroot /chroot/ -Mo --macvlan_vs_ip 192.168.0.44 --macvlan_vs_nm 255.255.255.0 --macvlan_vs_gw 192.168.0.1 -- /bin/sh -i
