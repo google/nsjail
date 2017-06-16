@@ -35,11 +35,11 @@ Features:
 
 ***
 ### What forms of isolation does it provide
-1. Linux __namespaces__: UTS (hostname), MOUNT (chroot), PID (separate PID tree), IPC, NET (separate networking context), USER
-2. __FS constraints__: chroot(), pivot_root(), RO-remounting
+1. Linux __namespaces__: UTS (hostname), MOUNT (chroot), PID (separate PID tree), IPC, NET (separate networking context), USER, CGROUPS
+2. __FS constraints__: chroot(), pivot_root(), RO-remounting, custom ```/proc``` and ```tmpfs``` mount points
 3. __Resource limits__ (wall-time/CPU time limits, VM/mem address space limits, etc.)
-4. Programmable seccomp-bpf __syscall filters__ (with the [kafel language](https://github.com/google/kafel/))
-5. Cloned and separated __Ethernet interfaces__
+4. Programmable seccomp-bpf __syscall filters__ (through the [kafel language](https://github.com/google/kafel/))
+5. Cloned and isolated __Ethernet interfaces__
 6. __Cgroups__ for memory and PID utilization control
 
 ***
