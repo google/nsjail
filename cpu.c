@@ -53,7 +53,7 @@ bool cpuInit(struct nsjconf_t *nsjconf)
 		return false;
 	}
 	if (nsjconf->max_cpu_num >= (size_t) all_cpus) {
-		LOG_D("Requested number of CPUs '%zu' is bigger that CPUs online '%ld'",
+		LOG_W("Requested number of CPUs:%zu is bigger than CPUs online:%ld",
 		      nsjconf->max_cpu_num, all_cpus);
 		return true;
 	}
