@@ -58,21 +58,6 @@ static const char subprocDoneChar = 'D';
 #define CLONE_NEWCGROUP 0x02000000
 #endif				/* !defined(CLONE_NEWCGROUP) */
 
-extern const char *sys_sigabbrev[];
-
-static const char *subprocSigName(int signo)
-{
-	static __thread char sigName[1024];
-	if (signo >= __SIGRTMIN && signo <= SIGRTMAX) {
-		snprintf(sigName, sizeof(sigName), "SIG%d=__RTMIN+%d", signo, signo - __SIGRTMIN);
-	} else if (signo >= 0 && signo <= SIGSYS) {
-		snprintf(sigName, sizeof(sigName), "SIG%s", sys_sigabbrev[signo]);
-	} else {
-		snprintf(sigName, sizeof(sigName), "UNKNOWN-%d", signo);
-	}
-	return sigName;
-}
-
 static const char *subprocCloneFlagsToStr(uintptr_t flags)
 {
 	static __thread char cloneFlagName[1024];
@@ -124,7 +109,7 @@ static const char *subprocCloneFlagsToStr(uintptr_t flags)
 		utilSSnPrintf(cloneFlagName, sizeof(cloneFlagName), "%#tx|",
 			      flags & ~(knownFlagMask));
 	}
-	utilSSnPrintf(cloneFlagName, sizeof(cloneFlagName), "%s", subprocSigName(flags & CSIGNAL));
+	utilSSnPrintf(cloneFlagName, sizeof(cloneFlagName), "%s", utilSigName(flags & CSIGNAL));
 	return cloneFlagName;
 }
 
@@ -321,9 +306,10 @@ int subprocReap(struct nsjconf_t *nsjconf)
 				}
 			}
 			if (WIFSIGNALED(status)) {
-				LOG_I("PID: %d (%s) terminated with signal: %d, (PIDs left: %d)",
-				      si.si_pid, remote_txt, WTERMSIG(status),
-				      subprocCount(nsjconf) - 1);
+				LOG_I
+				    ("PID: %d (%s) terminated with signal: %s (%d), (PIDs left: %d)",
+				     si.si_pid, remote_txt, utilSigName(WTERMSIG(status)),
+				     WTERMSIG(status), subprocCount(nsjconf) - 1);
 				subprocRemove(nsjconf, si.si_pid);
 				rv = 100 + WTERMSIG(status);
 			}
@@ -538,8 +524,8 @@ int subprocSystem(const char **argv, char **env)
 		}
 		if (WIFSIGNALED(status)) {
 			int exit_signal = WTERMSIG(status);
-			LOG_W("PID %d killed by a signal: %d (%s)", pid, exit_signal,
-			      strsignal(exit_signal));
+			LOG_W("PID %d killed by signal: %d (%s)", pid, exit_signal,
+			      utilSigName(exit_signal));
 			return 2;
 		}
 		LOG_W("Unknown exit status: %d", status);

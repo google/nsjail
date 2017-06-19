@@ -34,6 +34,7 @@
 #include "log.h"
 #include "net.h"
 #include "subproc.h"
+#include "util.h"
 
 static __thread int nsjailSigFatal = 0;
 static __thread bool nsjailShowProc = false;
@@ -55,7 +56,7 @@ static void nsjailSig(int sig)
 
 static bool nsjailSetSigHandler(int sig)
 {
-	LOG_D("Setting sighandler for signal '%d' (%s)", sig, strsignal(sig));
+	LOG_D("Setting sighandler for signal %s (%d)", utilSigName(sig), sig);
 
 	sigset_t smask;
 	sigemptyset(&smask);

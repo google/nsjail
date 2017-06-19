@@ -25,6 +25,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -240,4 +241,22 @@ uint64_t utilRnd64(void)
 	pthread_once(&rndThreadOnce, utilRndInitThread);
 	rndX = a * rndX + c;
 	return rndX;
+}
+
+extern const char *sys_sigabbrev[];
+static __thread char arch_signame[32];
+
+const char *utilSigName(int signo)
+{
+	if (signo < 0 || signo > _NSIG) {
+		snprintf(arch_signame, sizeof(arch_signame), "UNKNOWN-%d", signo);
+		return arch_signame;
+	}
+	if (signo > __SIGRTMIN) {
+		snprintf(arch_signame, sizeof(arch_signame), "SIG%d-RTMIN+%d", signo,
+			 signo - __SIGRTMIN);
+		return arch_signame;
+	}
+	snprintf(arch_signame, sizeof(arch_signame), "SIG%s", sys_sigabbrev[signo]);
+	return arch_signame;
 }
