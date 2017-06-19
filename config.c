@@ -64,6 +64,7 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 	nsjconf->chroot = utilStrDup(njc->chroot_dir);
 	nsjconf->hostname = utilStrDup(njc->hostname);
 	nsjconf->cwd = utilStrDup(njc->cwd);
+	nsjconf->port = njc->port;
 	nsjconf->bindhost = utilStrDup(njc->bindhost);
 	nsjconf->max_conns_per_ip = njc->max_conns_per_ip;
 	nsjconf->tlimit = njc->time_limit;
