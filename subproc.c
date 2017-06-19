@@ -303,19 +303,28 @@ int subprocReap(struct nsjconf_t *nsjconf)
 
 		if (wait4(si.si_pid, &status, WNOHANG, NULL) == si.si_pid) {
 			cgroupFinishFromParent(nsjconf, si.si_pid);
+
+			const char *remote_txt = "[UNKNOWN]";
+			struct pids_t *elem = subprocGetPidElem(nsjconf, si.si_pid);
+			if (elem) {
+				remote_txt = elem->remote_txt;
+			}
+
 			if (WIFEXITED(status)) {
+				LOG_I("PID: %d (%s) exited with status: %d, (PIDs left: %d)",
+				      si.si_pid, remote_txt, WEXITSTATUS(status),
+				      subprocCount(nsjconf) - 1);
 				subprocRemove(nsjconf, si.si_pid);
-				LOG_I("PID: %d exited with status: %d, (PIDs left: %d)", si.si_pid,
-				      WEXITSTATUS(status), subprocCount(nsjconf));
 				rv = WEXITSTATUS(status) % 100;
 				if (rv == 0 && WEXITSTATUS(status) != 0) {
 					rv = 1;
 				}
 			}
 			if (WIFSIGNALED(status)) {
+				LOG_I("PID: %d (%s) terminated with signal: %d, (PIDs left: %d)",
+				      si.si_pid, remote_txt, WTERMSIG(status),
+				      subprocCount(nsjconf) - 1);
 				subprocRemove(nsjconf, si.si_pid);
-				LOG_I("PID: %d terminated with signal: %d, (PIDs left: %d)",
-				      si.si_pid, WTERMSIG(status), subprocCount(nsjconf));
 				rv = 100 + WTERMSIG(status);
 			}
 		}
