@@ -77,8 +77,10 @@ bool cpuInit(struct nsjconf_t *nsjconf)
 
 	if (sched_setaffinity(0, mask_size, mask) == -1) {
 		PLOG_W("sched_setaffinity(max_cpu_num=%zu) failed", nsjconf->max_cpu_num);
+		CPU_FREE(mask);
 		return false;
 	}
+	CPU_FREE(mask);
 
 	return true;
 }
