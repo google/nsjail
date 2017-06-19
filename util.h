@@ -23,6 +23,7 @@
 #define NS_UTIL_H
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 
 #include "common.h"
@@ -38,5 +39,6 @@ bool utilWriteBufToFile(const char *filename, const void *buf, size_t len, int o
 bool utilCreateDirRecursively(const char *dir);
 int utilSSnPrintf(char *str, size_t size, const char *format, ...);
 bool utilIsANumber(const char *s);
+uint64_t utilRnd64(void);
 
 #endif				/* NS_UTIL_H */

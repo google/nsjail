@@ -43,6 +43,7 @@
 #include <unistd.h>
 
 #include "cgroup.h"
+#include "cpu.h"
 #include "log.h"
 #include "mount.h"
 #include "net.h"
@@ -166,6 +167,11 @@ static bool containPrepareEnv(struct nsjconf_t *nsjconf)
 static bool containInitMountNs(struct nsjconf_t *nsjconf)
 {
 	return mountInitNs(nsjconf);
+}
+
+static bool containCPU(struct nsjconf_t *nsjconf)
+{
+	return cpuInit(nsjconf);
 }
 
 static bool containSetLimits(struct nsjconf_t *nsjconf)
@@ -351,6 +357,9 @@ bool containSetupFD(struct nsjconf_t * nsjconf, int fd_in, int fd_out, int fd_er
 
 bool containContain(struct nsjconf_t * nsjconf)
 {
+	if (containCPU(nsjconf) == false) {
+		return false;
+	}
 	if (containUserNs(nsjconf) == false) {
 		return false;
 	}

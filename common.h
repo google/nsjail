@@ -124,6 +124,7 @@ struct nsjconf_t {
 	enum llevel_t loglevel;
 	bool daemonize;
 	time_t tlimit;
+	size_t max_cpu_num;
 	bool keep_env;
 	bool keep_caps;
 	bool disable_no_new_privs;

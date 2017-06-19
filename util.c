@@ -24,6 +24,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -212,4 +213,31 @@ bool utilIsANumber(const char *s)
 		}
 	}
 	return true;
+}
+
+static __thread pthread_once_t rndThreadOnce = PTHREAD_ONCE_INIT;
+static __thread uint64_t rndX;
+
+/* MMIX LCG PRNG */
+static const uint64_t a = 6364136223846793005ULL;
+static const uint64_t c = 1442695040888963407ULL;
+
+static void utilRndInitThread(void)
+{
+	int fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
+	if (fd == -1) {
+		PLOG_F("Couldn't open /dev/urandom for reading");
+	}
+	if (utilReadFromFd(fd, (uint8_t *) & rndX, sizeof(rndX)) != sizeof(rndX)) {
+		PLOG_F("Couldn't read '%zu' bytes from /dev/urandom", sizeof(rndX));
+		close(fd);
+	}
+	close(fd);
+}
+
+uint64_t utilRnd64(void)
+{
+	pthread_once(&rndThreadOnce, utilRndInitThread);
+	rndX = a * rndX + c;
+	return rndX;
 }

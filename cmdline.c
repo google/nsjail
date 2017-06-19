@@ -79,6 +79,7 @@ struct custom_option custom_opts[] = {
     {{"log", required_argument, NULL, 'l'}, "Log file (default: use log_fd)"},
     {{"log_fd", required_argument, NULL, 'L'}, "Log FD (default: 2)"},
     {{"time_limit", required_argument, NULL, 't'}, "Maximum time that a jail can exist, in seconds (default: 600)"},
+    {{"max_cpu_num", required_argument, NULL, 0x508}, "Maximum number of CPUs a single jailed process can use (default: 0 'no limit')"},
     {{"daemon", no_argument, NULL, 'd'}, "Daemonize after start"},
     {{"verbose", no_argument, NULL, 'v'}, "Verbose output"},
     {{"quiet", no_argument, NULL, 'q'}, "Only output warning and more important messages"},
@@ -314,6 +315,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
       .loglevel = INFO,
       .daemonize = false,
       .tlimit = 0,
+      .max_cpu_num = 0,
       .keep_caps = false,
       .disable_no_new_privs = false,
       .rl_as = 512 * (1024 * 1024),
@@ -534,6 +536,9 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			} break;
 		case 0x0507:
 			nsjconf->disable_no_new_privs = true;
+			break;
+		case 0x0508:
+			nsjconf->max_cpu_num = strtoul(optarg, NULL, 0);
 			break;
 		case 0x0601:
 			nsjconf->is_root_rw = true;

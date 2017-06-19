@@ -28,11 +28,11 @@ CFLAGS += -O2 -c -std=gnu11 \
 	-Wall -Wextra -Werror \
 	-Ikafel/include
 
-LDFLAGS += -Wl,-z,now -Wl,-z,relro -pie -Wl,-z,noexecstack
+LDFLAGS += -Wl,-z,now -Wl,-z,relro -pie -Wl,-z,noexecstack -lpthread
 
 BIN = nsjail
 LIBS = kafel/libkafel.a
-SRCS = nsjail.c cmdline.c config.c contain.c log.c cgroup.c mount.c net.c pid.c sandbox.c subproc.c user.c util.c uts.c
+SRCS = nsjail.c cmdline.c config.c contain.c log.c cgroup.c mount.c net.c pid.c sandbox.c subproc.c user.c util.c uts.c cpu.c
 OBJS = $(SRCS:.c=.o)
 
 ifdef DEBUG
@@ -139,7 +139,7 @@ indent:
 nsjail.o: nsjail.h common.h cmdline.h log.h net.h subproc.h
 cmdline.o: cmdline.h common.h config.h log.h mount.h util.h user.h
 config.o: common.h config.h log.h mount.h user.h util.h
-contain.o: contain.h common.h cgroup.h log.h mount.h net.h pid.h user.h
+contain.o: contain.h common.h cgroup.h cpu.h log.h mount.h net.h pid.h user.h
 contain.o: util.h uts.h
 log.o: log.h common.h
 cgroup.o: cgroup.h common.h log.h util.h
@@ -152,3 +152,4 @@ subproc.o: util.h
 user.o: user.h common.h log.h subproc.h util.h
 util.o: util.h common.h log.h
 uts.o: uts.h common.h log.h
+cpu.o: cpu.h common.h log.h util.h
