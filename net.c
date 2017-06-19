@@ -195,9 +195,17 @@ int netGetRecvSocket(const char *bindhost, int port)
 		     port);
 	}
 
+	char bindaddr[128];
+	snprintf(bindaddr, sizeof(bindaddr), "%s", bindhost);
+	struct in_addr in4a;
+	if (inet_pton(AF_INET, bindaddr, &in4a) == 1) {
+		snprintf(bindaddr, sizeof(bindaddr), "::ffff:%s", bindhost);
+	}
+
 	struct in6_addr in6a;
-	if (inet_pton(AF_INET6, bindhost, &in6a) != 1) {
-		PLOG_E("Couldn't convert '%s' into AF_INET6 address", bindhost);
+	if (inet_pton(AF_INET6, bindaddr, &in6a) != 1) {
+		PLOG_E("Couldn't convert '%s' (orig:'%s') into AF_INET6 address", bindaddr,
+		       bindhost);
 		return -1;
 	}
 
@@ -220,7 +228,7 @@ int netGetRecvSocket(const char *bindhost, int port)
 	};
 	if (bind(sockfd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
 		close(sockfd);
-		PLOG_E("bind(host:[%s], port:%d)", bindhost, port);
+		PLOG_E("bind(host:[%s (orig:'%s')], port:%d)", bindaddr, bindhost, port);
 		return -1;
 	}
 	if (listen(sockfd, SOMAXCONN) == -1) {

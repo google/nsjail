@@ -74,7 +74,7 @@ struct custom_option custom_opts[] = {
     {{"hostname", required_argument, NULL, 'H'}, "UTS name (hostname) of the jail (default: 'NSJAIL')"},
     {{"cwd", required_argument, NULL, 'D'}, "Directory in the namespace the process will run (default: '/')"},
     {{"port", required_argument, NULL, 'p'}, "TCP port to bind to (enables MODE_LISTEN_TCP) (default: 0)"},
-    {{"bindhost", required_argument, NULL, 0x604}, "IP address port to bind to (only in [MODE_LISTEN_TCP]), '::ffff:127.0.0.1' for locahost (default: '::')"},
+    {{"bindhost", required_argument, NULL, 0x604}, "IP address to bind the port to (only in [MODE_LISTEN_TCP]), (default: '::')"},
     {{"max_conns_per_ip", required_argument, NULL, 'i'}, "Maximum number of connections per one IP (only in [MODE_LISTEN_TCP]), (default: 0 (unlimited))"},
     {{"log", required_argument, NULL, 'l'}, "Log file (default: use log_fd)"},
     {{"log_fd", required_argument, NULL, 'L'}, "Log FD (default: 2)"},
