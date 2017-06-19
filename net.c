@@ -199,8 +199,8 @@ int netGetRecvSocket(const char *bindhost, int port)
 	snprintf(bindaddr, sizeof(bindaddr), "%s", bindhost);
 	struct in_addr in4a;
 	if (inet_pton(AF_INET, bindaddr, &in4a) == 1) {
-		LOG_D("Converting bind IPv4:'%s' to IPv6:'::ffff:%s'", bindhost, bindhost);
 		snprintf(bindaddr, sizeof(bindaddr), "::ffff:%s", bindhost);
+		LOG_D("Converting bind IPv4:'%s' to IPv6:'%s'", bindhost, bindaddr);
 	}
 
 	struct in6_addr in6a;
