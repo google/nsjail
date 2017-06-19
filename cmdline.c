@@ -213,7 +213,7 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	      "max_conns_per_ip:%u, time_limit:%ld, personality:%#lx, daemonize:%s, "
 	      "clone_newnet:%s, clone_newuser:%s, clone_newns:%s, clone_newpid:%s, "
 	      "clone_newipc:%s, clonew_newuts:%s, clone_newcgroup:%s, keep_caps:%s, "
-	      "tmpfs_size:%zu, disable_no_new_privs:%s",
+	      "tmpfs_size:%zu, disable_no_new_privs:%s, max_cpu_num:%zu",
 	      nsjconf->hostname, nsjconf->chroot ? nsjconf->chroot : "[NULL]", nsjconf->argv[0],
 	      nsjconf->bindhost, nsjconf->port, nsjconf->max_conns_per_ip, nsjconf->tlimit,
 	      nsjconf->personality, logYesNo(nsjconf->daemonize), logYesNo(nsjconf->clone_newnet),
@@ -221,7 +221,7 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	      logYesNo(nsjconf->clone_newpid), logYesNo(nsjconf->clone_newipc),
 	      logYesNo(nsjconf->clone_newuts), logYesNo(nsjconf->clone_newcgroup),
 	      logYesNo(nsjconf->keep_caps), nsjconf->tmpfs_size,
-	      logYesNo(nsjconf->disable_no_new_privs));
+	      logYesNo(nsjconf->disable_no_new_privs), nsjconf->max_cpu_num);
 
 	{
 		struct mounts_t *p;
