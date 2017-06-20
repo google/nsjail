@@ -232,16 +232,16 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	{
 		struct idmap_t *p;
 		TAILQ_FOREACH(p, &nsjconf->uids, pointers) {
-			LOG_I("Uid map: inside_uid:%d outside_uid:%d count:%zu newuidmap:%s",
-			      p->inside_id, p->outside_id, p->count,
+			LOG_I("Uid map: inside_uid:%lu outside_uid:%lu count:%zu newuidmap:%s",
+			      (unsigned long)p->inside_id, (unsigned long)p->outside_id, p->count,
 			      p->is_newidmap ? "true" : "false");
 			if (p->outside_id == 0) {
 				LOG_W("Process will be UID/EUID=0 in the global user namespace");
 			}
 		}
 		TAILQ_FOREACH(p, &nsjconf->gids, pointers) {
-			LOG_I("Gid map: inside_gid:%d outside_gid:%d count:%zu newgidmap:%s",
-			      p->inside_id, p->outside_id, p->count,
+			LOG_I("Gid map: inside_gid:%lu outside_gid:%lu count:%zu newgidmap:%s",
+			      (unsigned long)p->inside_id, (unsigned long)p->outside_id, p->count,
 			      p->is_newidmap ? "true" : "false");
 			if (p->outside_id == 0) {
 				LOG_W("Process will be GID/EGID=0 in the global user namespace");
