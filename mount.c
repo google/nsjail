@@ -250,6 +250,10 @@ static bool mountMkdirAndTest(const char *dir)
 
 static bool mountGetDir(struct nsjconf_t *nsjconf, char *dir, const char *name)
 {
+	snprintf(dir, PATH_MAX, "/dev/shm/nsjail.%s", name);
+	if (mountMkdirAndTest(dir)) {
+		return true;
+	}
 	snprintf(dir, PATH_MAX, "/tmp/nsjail.%s", name);
 	if (mountMkdirAndTest(dir)) {
 		return true;
