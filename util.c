@@ -32,6 +32,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <time.h>
 
@@ -226,9 +227,18 @@ static const uint64_t c = 1442695040888963407ULL;
 
 static void utilRndInitThread(void)
 {
+#if defined(__NR_getrandom)
+	if (syscall(__NR_getrandom, &rndX, sizeof(rndX), 0) == sizeof(rndX)) {
+		return;
+	}
+#endif				/* defined(__NR_getrandom) */
 	int fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
 	if (fd == -1) {
-		PLOG_F("Couldn't open /dev/urandom for reading");
+		PLOG_D("Couldn't open /dev/urandom for reading");
+		struct timeval tv;
+		gettimeofday(&tv, NULL);
+		rndX = tv.tv_usec + ((uint64_t) tv.tv_sec << 32);
+		return;
 	}
 	if (utilReadFromFd(fd, (uint8_t *) & rndX, sizeof(rndX)) != sizeof(rndX)) {
 		PLOG_F("Couldn't read '%zu' bytes from /dev/urandom", sizeof(rndX));

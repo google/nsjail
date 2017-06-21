@@ -234,6 +234,49 @@ static bool mountRemountRO(struct mounts_t *mpt)
 	return true;
 }
 
+static bool mountMkdirAndTest(const char *dir)
+{
+	if (mkdir(dir, 0755) == -1 && errno != EEXIST) {
+		PLOG_W("Couldn't create '%s' directory", dir);
+		return false;
+	}
+	if (access(dir, R_OK) == -1) {
+		PLOG_W("access('%s', R_OK)", dir);
+		return false;
+	}
+	LOG_D("Created accessible directory in '%s'", dir);
+	return true;
+}
+
+static bool mountGetDirs(struct nsjconf_t *nsjconf, char *destdir, char *tmpdir)
+{
+	snprintf(destdir, PATH_MAX, "/tmp/nsjail.root.%d", (int)nsjconf->orig_euid);
+	if (!mountMkdirAndTest(destdir)) {
+		snprintf(destdir, PATH_MAX, "/tmp/nsjail.root");
+		if (!mountMkdirAndTest(destdir)) {
+			snprintf(destdir, PATH_MAX, "/tmp/nsjail.root.%" PRIx64, utilRnd64());
+			if (!mountMkdirAndTest(destdir)) {
+				LOG_E("Couldn't create directory for ROOT fs");
+				return false;
+			}
+		}
+	}
+
+	snprintf(tmpdir, PATH_MAX, "/tmp/nsjail.tmp.%d", (int)nsjconf->orig_euid);
+	if (!mountMkdirAndTest(tmpdir)) {
+		snprintf(tmpdir, PATH_MAX, "/tmp/nsjail.tmp");
+		if (!mountMkdirAndTest(tmpdir)) {
+			snprintf(tmpdir, PATH_MAX, "/tmp/nsjail.tmp.%" PRIx64, utilRnd64());
+			if (!mountMkdirAndTest(tmpdir)) {
+				LOG_E("Couldn't create a directory for TMP files");
+				return false;
+			}
+		}
+	}
+
+	return true;
+}
+
 static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 {
 	if (nsjconf->clone_newns == false) {
@@ -255,22 +298,17 @@ static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 	}
 
 	char destdir[PATH_MAX];
-	snprintf(destdir, sizeof(destdir), "/tmp/nsjail.root.%d", (int)nsjconf->orig_euid);
-	if (mkdir(destdir, 0755) == -1 && errno != EEXIST) {
-		PLOG_E("Couldn't create '%s' directory. Maybe remove it?", destdir);
+	char tmpdir[PATH_MAX];
+	if (mountGetDirs(nsjconf, destdir, tmpdir) == false) {
+		LOG_E("Couldn't obtain temporary mount directories");
 		return false;
 	}
+
 	if (mount(NULL, destdir, "tmpfs", 0, "size=16777216") == -1) {
 		PLOG_E("mount('%s', 'tmpfs')", destdir);
 		return false;
 	}
 
-	char tmpdir[PATH_MAX];
-	snprintf(tmpdir, sizeof(tmpdir), "/tmp/nsjail.tmp.%d", (int)nsjconf->orig_euid);
-	if (mkdir(tmpdir, 0755) == -1 && errno != EEXIST) {
-		PLOG_E("Couldn't create '%s' directory. Maybe remove it?", tmpdir);
-		return false;
-	}
 	if (mount(NULL, tmpdir, "tmpfs", 0, "size=16777216") == -1) {
 		PLOG_E("mount('%s', 'tmpfs')", tmpdir);
 		return false;

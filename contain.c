@@ -357,9 +357,6 @@ bool containSetupFD(struct nsjconf_t * nsjconf, int fd_in, int fd_out, int fd_er
 
 bool containContain(struct nsjconf_t * nsjconf)
 {
-	if (containCPU(nsjconf) == false) {
-		return false;
-	}
 	if (containUserNs(nsjconf) == false) {
 		return false;
 	}
@@ -383,6 +380,9 @@ bool containContain(struct nsjconf_t * nsjconf)
 	}
 	/* */
 	/* As non-root */
+	if (containCPU(nsjconf) == false) {
+		return false;
+	}
 	if (containSetLimits(nsjconf) == false) {
 		return false;
 	}
