@@ -90,7 +90,7 @@ message NsJailConfig
     /* Should nsjail go into background? */
     required bool daemon = 14 [ default = false ];
     /* Maximum number of CPUs to use: 0 - no limit */
-    required uint32 max_cpu_num = 62;
+    required uint32 max_cpus = 62;
 
     /* FD to log to. */
     optional int32 log_fd = 61;

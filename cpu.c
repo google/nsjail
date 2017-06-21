@@ -52,13 +52,13 @@ bool cpuInit(struct nsjconf_t *nsjconf)
 		PLOG_W("sysconf(_SC_NPROCESSORS_ONLN) returned %ld", all_cpus);
 		return false;
 	}
-	if (nsjconf->max_cpu_num >= (size_t) all_cpus) {
+	if (nsjconf->max_cpus >= (size_t) all_cpus) {
 		LOG_W("Requested number of CPUs:%zu is bigger than CPUs online:%ld",
-		      nsjconf->max_cpu_num, all_cpus);
+		      nsjconf->max_cpus, all_cpus);
 		return true;
 	}
-	if (nsjconf->max_cpu_num == 0) {
-		LOG_D("No max_cpu_num limit set");
+	if (nsjconf->max_cpus == 0) {
+		LOG_D("No max_cpus limit set");
 		return true;
 	}
 
@@ -71,12 +71,12 @@ bool cpuInit(struct nsjconf_t *nsjconf)
 	size_t mask_size = CPU_ALLOC_SIZE(all_cpus);
 	CPU_ZERO_S(mask_size, mask);
 
-	for (size_t i = 0; i < nsjconf->max_cpu_num; i++) {
+	for (size_t i = 0; i < nsjconf->max_cpus; i++) {
 		cpuSetRandomCpu(mask, mask_size, all_cpus);
 	}
 
 	if (sched_setaffinity(0, mask_size, mask) == -1) {
-		PLOG_W("sched_setaffinity(max_cpu_num=%zu) failed", nsjconf->max_cpu_num);
+		PLOG_W("sched_setaffinity(max_cpus=%zu) failed", nsjconf->max_cpus);
 		CPU_FREE(mask);
 		return false;
 	}

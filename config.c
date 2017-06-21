@@ -68,7 +68,7 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 	nsjconf->bindhost = utilStrDup(njc->bindhost);
 	nsjconf->max_conns_per_ip = njc->max_conns_per_ip;
 	nsjconf->tlimit = njc->time_limit;
-	nsjconf->max_cpu_num = njc->max_cpu_num;
+	nsjconf->max_cpus = njc->max_cpus;
 	nsjconf->daemonize = njc->daemon;
 
 	if (njc->has_log_fd) {

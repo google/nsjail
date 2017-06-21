@@ -79,7 +79,7 @@ struct custom_option custom_opts[] = {
     {{"log", required_argument, NULL, 'l'}, "Log file (default: use log_fd)"},
     {{"log_fd", required_argument, NULL, 'L'}, "Log FD (default: 2)"},
     {{"time_limit", required_argument, NULL, 't'}, "Maximum time that a jail can exist, in seconds (default: 600)"},
-    {{"max_cpu_num", required_argument, NULL, 0x508}, "Maximum number of CPUs a single jailed process can use (default: 0 'no limit')"},
+    {{"max_cpus", required_argument, NULL, 0x508}, "Maximum number of CPUs a single jailed process can use (default: 0 'no limit')"},
     {{"daemon", no_argument, NULL, 'd'}, "Daemonize after start"},
     {{"verbose", no_argument, NULL, 'v'}, "Verbose output"},
     {{"quiet", no_argument, NULL, 'q'}, "Only output warning and more important messages"},
@@ -213,7 +213,7 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	      "max_conns_per_ip:%u, time_limit:%ld, personality:%#lx, daemonize:%s, "
 	      "clone_newnet:%s, clone_newuser:%s, clone_newns:%s, clone_newpid:%s, "
 	      "clone_newipc:%s, clonew_newuts:%s, clone_newcgroup:%s, keep_caps:%s, "
-	      "tmpfs_size:%zu, disable_no_new_privs:%s, max_cpu_num:%zu",
+	      "tmpfs_size:%zu, disable_no_new_privs:%s, max_cpus:%zu",
 	      nsjconf->hostname, nsjconf->chroot ? nsjconf->chroot : "[NULL]", nsjconf->argv[0],
 	      nsjconf->bindhost, nsjconf->port, nsjconf->max_conns_per_ip, nsjconf->tlimit,
 	      nsjconf->personality, logYesNo(nsjconf->daemonize), logYesNo(nsjconf->clone_newnet),
@@ -221,7 +221,7 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	      logYesNo(nsjconf->clone_newpid), logYesNo(nsjconf->clone_newipc),
 	      logYesNo(nsjconf->clone_newuts), logYesNo(nsjconf->clone_newcgroup),
 	      logYesNo(nsjconf->keep_caps), nsjconf->tmpfs_size,
-	      logYesNo(nsjconf->disable_no_new_privs), nsjconf->max_cpu_num);
+	      logYesNo(nsjconf->disable_no_new_privs), nsjconf->max_cpus);
 
 	{
 		struct mounts_t *p;
@@ -315,7 +315,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
       .loglevel = INFO,
       .daemonize = false,
       .tlimit = 0,
-      .max_cpu_num = 0,
+      .max_cpus = 0,
       .keep_caps = false,
       .disable_no_new_privs = false,
       .rl_as = 512 * (1024 * 1024),
@@ -538,7 +538,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			nsjconf->disable_no_new_privs = true;
 			break;
 		case 0x0508:
-			nsjconf->max_cpu_num = strtoul(optarg, NULL, 0);
+			nsjconf->max_cpus = strtoul(optarg, NULL, 0);
 			break;
 		case 0x0601:
 			nsjconf->is_root_rw = true;
