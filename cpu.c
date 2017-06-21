@@ -39,7 +39,7 @@ static void cpuSetRandomCpu(cpu_set_t * mask, size_t mask_size, size_t cpu_num)
 	for (;;) {
 		uint64_t n = utilRnd64() % cpu_num;
 		if (!CPU_ISSET_S(n, mask_size, mask)) {
-			LOG_D("Setting allowed CPU: %" PRIx64 " of [0-%zu]", n, cpu_num - 1);
+			LOG_D("Setting allowed CPU: %" PRIu64 " of [0-%zu]", n, cpu_num - 1);
 			CPU_SET_S(n, mask_size, mask);
 			break;
 		}
@@ -53,9 +53,13 @@ bool cpuInit(struct nsjconf_t *nsjconf)
 		PLOG_W("sysconf(_SC_NPROCESSORS_ONLN) returned %ld", all_cpus);
 		return false;
 	}
-	if (nsjconf->max_cpus >= (size_t) all_cpus) {
+	if (nsjconf->max_cpus > (size_t) all_cpus) {
 		LOG_W("Requested number of CPUs:%zu is bigger than CPUs online:%ld",
 		      nsjconf->max_cpus, all_cpus);
+		return true;
+	}
+	if (nsjconf->max_cpus == (size_t) all_cpus) {
+		LOG_D("All CPUs requested (%zu of %ld)", nsjconf->max_cpus, all_cpus);
 		return true;
 	}
 	if (nsjconf->max_cpus == 0) {
