@@ -164,6 +164,7 @@ struct nsjconf_t {
 	size_t cgroup_pids_max;
 	FILE *kafel_file;
 	char *kafel_string;
+	uid_t orig_euid;
 	 TAILQ_HEAD(udmaplist, idmap_t) uids;
 	 TAILQ_HEAD(gdmaplist, idmap_t) gids;
 	 TAILQ_HEAD(envlist, charptr_t) envs;

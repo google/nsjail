@@ -254,7 +254,8 @@ static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 		return false;
 	}
 
-	const char *const destdir = "/tmp/nsjail.root";
+	char destdir[PATH_MAX];
+	snprintf(destdir, sizeof(destdir), "/tmp/nsjail.root.%d", (int)nsjconf->orig_euid);
 	if (mkdir(destdir, 0755) == -1 && errno != EEXIST) {
 		PLOG_E("Couldn't create '%s' directory. Maybe remove it?", destdir);
 		return false;
@@ -263,7 +264,9 @@ static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 		PLOG_E("mount('%s', 'tmpfs')", destdir);
 		return false;
 	}
-	const char *const tmpdir = "/tmp/nsjail.tmp";
+
+	char tmpdir[PATH_MAX];
+	snprintf(tmpdir, sizeof(tmpdir), "/tmp/nsjail.tmp.%d", (int)nsjconf->orig_euid);
 	if (mkdir(tmpdir, 0755) == -1 && errno != EEXIST) {
 		PLOG_E("Couldn't create '%s' directory. Maybe remove it?", tmpdir);
 		return false;
