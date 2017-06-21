@@ -248,33 +248,31 @@ static bool mountMkdirAndTest(const char *dir)
 	return true;
 }
 
-static bool mountGetDirs(struct nsjconf_t *nsjconf, char *destdir, char *tmpdir)
+static bool mountGetDir(struct nsjconf_t *nsjconf, char *dir, const char *name)
 {
-	snprintf(destdir, PATH_MAX, "/tmp/nsjail.root.%d", (int)nsjconf->orig_euid);
-	if (!mountMkdirAndTest(destdir)) {
-		snprintf(destdir, PATH_MAX, "/tmp/nsjail.root");
-		if (!mountMkdirAndTest(destdir)) {
-			snprintf(destdir, PATH_MAX, "/tmp/nsjail.root.%" PRIx64, utilRnd64());
-			if (!mountMkdirAndTest(destdir)) {
-				LOG_E("Couldn't create directory for ROOT fs");
-				return false;
-			}
+	snprintf(dir, PATH_MAX, "/tmp/nsjail.%s", name);
+	if (mountMkdirAndTest(dir)) {
+		return true;
+	}
+	snprintf(dir, PATH_MAX, "/tmp/nsjail.%s.%d", name, (int)nsjconf->orig_euid);
+	if (mountMkdirAndTest(dir)) {
+		return true;
+	}
+	snprintf(dir, PATH_MAX, "/tmp/nsjail.%s.%" PRIx64, name, utilRnd64());
+	if (mountMkdirAndTest(dir)) {
+		return true;
+	}
+
+	const char *tmp = getenv("TMPDIR");
+	if (tmp) {
+		snprintf(dir, PATH_MAX, "%s/nsjail.%s", name, tmp);
+		if (mountMkdirAndTest(dir)) {
+			return true;
 		}
 	}
 
-	snprintf(tmpdir, PATH_MAX, "/tmp/nsjail.tmp.%d", (int)nsjconf->orig_euid);
-	if (!mountMkdirAndTest(tmpdir)) {
-		snprintf(tmpdir, PATH_MAX, "/tmp/nsjail.tmp");
-		if (!mountMkdirAndTest(tmpdir)) {
-			snprintf(tmpdir, PATH_MAX, "/tmp/nsjail.tmp.%" PRIx64, utilRnd64());
-			if (!mountMkdirAndTest(tmpdir)) {
-				LOG_E("Couldn't create a directory for TMP files");
-				return false;
-			}
-		}
-	}
-
-	return true;
+	LOG_E("Couldn't create tmp directory of type '%s'", name);
+	return false;
 }
 
 static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
@@ -298,9 +296,8 @@ static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 	}
 
 	char destdir[PATH_MAX];
-	char tmpdir[PATH_MAX];
-	if (mountGetDirs(nsjconf, destdir, tmpdir) == false) {
-		LOG_E("Couldn't obtain temporary mount directories");
+	if (mountGetDir(nsjconf, destdir, "root") == false) {
+		LOG_E("Couldn't obtain root mount directories");
 		return false;
 	}
 
@@ -309,6 +306,11 @@ static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 		return false;
 	}
 
+	char tmpdir[PATH_MAX];
+	if (mountGetDir(nsjconf, tmpdir, "tmp") == false) {
+		LOG_E("Couldn't obtain temporary mount directories");
+		return false;
+	}
 	if (mount(NULL, tmpdir, "tmpfs", 0, "size=16777216") == -1) {
 		PLOG_E("mount('%s', 'tmpfs')", tmpdir);
 		return false;
