@@ -41,5 +41,6 @@ int utilSSnPrintf(char *str, size_t size, const char *format, ...);
 bool utilIsANumber(const char *s);
 uint64_t utilRnd64(void);
 const char *utilSigName(int signo);
+const char *utilTimeToStr(time_t t);
 
 #endif				/* NS_UTIL_H */

@@ -190,8 +190,8 @@ static void subprocRemove(struct nsjconf_t *nsjconf, pid_t pid)
 	struct pids_t *p;
 	TAILQ_FOREACH(p, &nsjconf->pids, pointers) {
 		if (p->pid == pid) {
-			LOG_D("Removing pid '%d' from the queue (IP:'%s', start time:'%u')", p->pid,
-			      p->remote_txt, (unsigned int)p->start);
+			LOG_D("Removing pid '%d' from the queue (IP:'%s', start time:'%s')", p->pid,
+			      p->remote_txt, utilTimeToStr(p->start));
 			close(p->pid_syscall_fd);
 			TAILQ_REMOVE(&nsjconf->pids, p, pointers);
 			free(p);

@@ -33,6 +33,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <time.h>
 
 #include "log.h"
 
@@ -244,19 +245,28 @@ uint64_t utilRnd64(void)
 }
 
 extern const char *sys_sigabbrev[];
-static __thread char arch_signame[32];
-
+static __thread char sigstr[32];
 const char *utilSigName(int signo)
 {
 	if (signo < 0 || signo > _NSIG) {
-		snprintf(arch_signame, sizeof(arch_signame), "UNKNOWN-%d", signo);
-		return arch_signame;
+		snprintf(sigstr, sizeof(sigstr), "UNKNOWN-%d", signo);
+		return sigstr;
 	}
 	if (signo > __SIGRTMIN) {
-		snprintf(arch_signame, sizeof(arch_signame), "SIG%d-RTMIN+%d", signo,
-			 signo - __SIGRTMIN);
-		return arch_signame;
+		snprintf(sigstr, sizeof(sigstr), "SIG%d-RTMIN+%d", signo, signo - __SIGRTMIN);
+		return sigstr;
 	}
-	snprintf(arch_signame, sizeof(arch_signame), "SIG%s", sys_sigabbrev[signo]);
-	return arch_signame;
+	snprintf(sigstr, sizeof(sigstr), "SIG%s", sys_sigabbrev[signo]);
+	return sigstr;
+}
+
+static __thread char timestr[64];
+const char *utilTimeToStr(time_t t)
+{
+	struct tm utctime;
+	localtime_r(&t, &utctime);
+	if (strftime(timestr, sizeof(timestr) - 1, "%FT%T%z", &utctime) == 0) {
+		return "[Time conv error]";
+	}
+	return timestr;
 }
