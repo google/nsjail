@@ -39,6 +39,7 @@ static void cpuSetRandomCpu(cpu_set_t * mask, size_t mask_size, size_t cpu_num)
 	for (;;) {
 		uint64_t n = utilRnd64() % cpu_num;
 		if (!CPU_ISSET_S(n, mask_size, mask)) {
+			LOG_D("Setting allowed CPU: %" PRIx64 " of [0-%zu]", n, cpu_num - 1);
 			CPU_SET_S(n, mask_size, mask);
 			break;
 		}
