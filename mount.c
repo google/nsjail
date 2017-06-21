@@ -254,7 +254,7 @@ static bool mountGetDirs(struct nsjconf_t *nsjconf, char *destdir, char *tmpdir)
 	if (!mountMkdirAndTest(destdir)) {
 		snprintf(destdir, PATH_MAX, "/tmp/nsjail.root");
 		if (!mountMkdirAndTest(destdir)) {
-			snprintf(destdir, PATH_MAX, "/tmp/nsjail.root.%" PRIx64, utilRnd64());
+			snprintf(destdir, PATH_MAX, "/tmp/nsjail.root.rnd.%" PRIx64, utilRnd64());
 			if (!mountMkdirAndTest(destdir)) {
 				LOG_E("Couldn't create directory for ROOT fs");
 				return false;
@@ -266,7 +266,7 @@ static bool mountGetDirs(struct nsjconf_t *nsjconf, char *destdir, char *tmpdir)
 	if (!mountMkdirAndTest(tmpdir)) {
 		snprintf(tmpdir, PATH_MAX, "/tmp/nsjail.tmp");
 		if (!mountMkdirAndTest(tmpdir)) {
-			snprintf(tmpdir, PATH_MAX, "/tmp/nsjail.tmp.%" PRIx64, utilRnd64());
+			snprintf(tmpdir, PATH_MAX, "/tmp/nsjail.tmp.rnd.%" PRIx64, utilRnd64());
 			if (!mountMkdirAndTest(tmpdir)) {
 				LOG_E("Couldn't create a directory for TMP files");
 				return false;
