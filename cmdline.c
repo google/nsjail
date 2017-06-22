@@ -353,7 +353,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
       .iface_vs_gw = "0.0.0.0",
       .kafel_file = NULL,
       .kafel_string = NULL,
-      .orig_euid = geteuid(),
+      .num_cpus = sysconf(_SC_NPROCESSORS_ONLN),
   };
   /*  *INDENT-ON* */
 

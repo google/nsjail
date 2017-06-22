@@ -48,18 +48,17 @@ static void cpuSetRandomCpu(cpu_set_t * mask, size_t mask_size, size_t cpu_num)
 
 bool cpuInit(struct nsjconf_t *nsjconf)
 {
-	long all_cpus = sysconf(_SC_NPROCESSORS_ONLN);
-	if (all_cpus < 0) {
-		PLOG_W("sysconf(_SC_NPROCESSORS_ONLN) returned %ld", all_cpus);
+	if (nsjconf->num_cpus < 0) {
+		PLOG_W("sysconf(_SC_NPROCESSORS_ONLN) returned %ld", nsjconf->num_cpus);
 		return false;
 	}
-	if (nsjconf->max_cpus > (size_t) all_cpus) {
+	if (nsjconf->max_cpus > (size_t) nsjconf->num_cpus) {
 		LOG_W("Requested number of CPUs:%zu is bigger than CPUs online:%ld",
-		      nsjconf->max_cpus, all_cpus);
+		      nsjconf->max_cpus, nsjconf->num_cpus);
 		return true;
 	}
-	if (nsjconf->max_cpus == (size_t) all_cpus) {
-		LOG_D("All CPUs requested (%zu of %ld)", nsjconf->max_cpus, all_cpus);
+	if (nsjconf->max_cpus == (size_t) nsjconf->num_cpus) {
+		LOG_D("All CPUs requested (%zu of %ld)", nsjconf->max_cpus, nsjconf->num_cpus);
 		return true;
 	}
 	if (nsjconf->max_cpus == 0) {
@@ -67,17 +66,17 @@ bool cpuInit(struct nsjconf_t *nsjconf)
 		return true;
 	}
 
-	cpu_set_t *mask = CPU_ALLOC(all_cpus);
+	cpu_set_t *mask = CPU_ALLOC(nsjconf->num_cpus);
 	if (mask == NULL) {
-		PLOG_W("Failure allocating cpu_set_t for %ld CPUs", all_cpus);
+		PLOG_W("Failure allocating cpu_set_t for %ld CPUs", nsjconf->num_cpus);
 		return false;
 	}
 
-	size_t mask_size = CPU_ALLOC_SIZE(all_cpus);
+	size_t mask_size = CPU_ALLOC_SIZE(nsjconf->num_cpus);
 	CPU_ZERO_S(mask_size, mask);
 
 	for (size_t i = 0; i < nsjconf->max_cpus; i++) {
-		cpuSetRandomCpu(mask, mask_size, all_cpus);
+		cpuSetRandomCpu(mask, mask_size, nsjconf->num_cpus);
 	}
 
 	if (sched_setaffinity(0, mask_size, mask) == -1) {
