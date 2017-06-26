@@ -62,6 +62,7 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 		return false;
 	}
 	nsjconf->chroot = utilStrDup(njc->chroot_dir);
+	nsjconf->is_root_rw = njc->is_root_rw;
 	nsjconf->hostname = utilStrDup(njc->hostname);
 	nsjconf->cwd = utilStrDup(njc->cwd);
 	nsjconf->port = njc->port;
