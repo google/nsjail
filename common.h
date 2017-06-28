@@ -73,6 +73,7 @@ struct mounts_t {
 	const char *options;
 	uintptr_t flags;
 	bool isDir;
+	bool isSymlink;
 	bool mandatory;
 	 TAILQ_ENTRY(mounts_t) pointers;
 };

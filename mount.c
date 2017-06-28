@@ -122,7 +122,7 @@ static bool mountMount(struct mounts_t *mpt, const char *newroot, const char *tm
 	char dst[PATH_MAX];
 	snprintf(dst, sizeof(dst), "%s/%s", newroot, mpt->dst);
 
-	LOG_D("Mounting '%s'", mountDescribeMountPt(mpt));
+	LOG_D("mounting '%s'", mountDescribeMountPt(mpt));
 
 	char srcpath[PATH_MAX];
 	if (mpt->src != NULL && strlen(mpt->src) > 0) {
@@ -131,7 +131,12 @@ static bool mountMount(struct mounts_t *mpt, const char *newroot, const char *tm
 		snprintf(srcpath, sizeof(srcpath), "none");
 	}
 
-	if (mpt->isDir == true) {
+	if (mpt->isSymlink == true) {
+		if (utilCreateDirRecursively(dst) == false) {
+			LOG_W("Couldn't create upper directories for '%s'", dst);
+			return false;
+		}
+	} else if (mpt->isDir == true) {
 		if (utilCreateDirRecursively(dst) == false) {
 			LOG_W("Couldn't create upper directories for '%s'", dst);
 			return false;
@@ -150,6 +155,15 @@ static bool mountMount(struct mounts_t *mpt, const char *newroot, const char *tm
 		} else {
 			PLOG_W("open('%s', O_CREAT|O_RDONLY|O_CLOEXEC, 0700)", dst);
 		}
+	}
+
+	if (mpt->isSymlink == true) {
+		LOG_D("symlink('%s', '%s')", srcpath, dst);
+		if (symlink(srcpath, dst) == -1) {
+			PLOG_W("symlink('%s', '%s')", srcpath, dst);
+			return false;
+		}
+		return true;
 	}
 
 	if (mpt->src_content) {
@@ -198,6 +212,9 @@ static bool mountMount(struct mounts_t *mpt, const char *newroot, const char *tm
 
 static bool mountRemountRO(struct mounts_t *mpt)
 {
+	if (mpt->isSymlink == true) {
+		return true;
+	}
 	if (!(mpt->flags & MS_RDONLY)) {
 		return true;
 	}
@@ -379,7 +396,7 @@ bool mountInitNs(struct nsjconf_t * nsjconf)
 bool mountAddMountPt(struct nsjconf_t * nsjconf, const char *src, const char *dst,
 		     const char *fstype, const char *options, uintptr_t flags, const bool * isDir,
 		     bool mandatory, const char *src_env, const char *dst_env,
-		     const uint8_t * src_content, size_t src_content_len)
+		     const uint8_t * src_content, size_t src_content_len, bool is_symlink)
 {
 	struct mounts_t *p = utilCalloc(sizeof(struct mounts_t));
 
@@ -430,6 +447,7 @@ bool mountAddMountPt(struct nsjconf_t * nsjconf, const char *src, const char *ds
 	p->options = utilStrDup(options);
 	p->flags = flags;
 	p->isDir = true;
+	p->isSymlink = is_symlink;
 	p->mandatory = mandatory;
 
 	if (isDir) {
@@ -470,6 +488,9 @@ const char *mountDescribeMountPt(struct mounts_t *mpt)
 	if (mpt->src_content) {
 		utilSSnPrintf(mount_pt_descr, sizeof(mount_pt_descr), " src_content_len:%zu",
 			      mpt->src_content_len);
+	}
+	if (mpt->isSymlink) {
+		utilSSnPrintf(mount_pt_descr, sizeof(mount_pt_descr), " symlink:true");
 	}
 
 	return mount_pt_descr;

@@ -202,7 +202,7 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 
 		if (mountAddMountPt
 		    (nsjconf, src, dst, fstype, options, flags, isDir, mandatory, src_env,
-		     dst_env, src_content, src_content_len) == false) {
+		     dst_env, src_content, src_content_len, njc->mount[i]->is_symlink) == false) {
 			LOG_E("Couldn't add mountpoint for src:'%s' dst:'%s'", src, dst);
 			return false;
 		}

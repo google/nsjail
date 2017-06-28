@@ -624,6 +624,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				p->options = "";
 				p->fs_type = "";
 				p->isDir = mountIsDir(optarg);
+				p->isSymlink = false;
 				p->mandatory = true;
 				TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
 			} break;
@@ -638,6 +639,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				p->options = "";
 				p->fs_type = "";
 				p->isDir = mountIsDir(optarg);
+				p->isSymlink = false;
 				p->mandatory = true;
 				TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
 			} break;
@@ -651,6 +653,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				p->options = cmdlineTmpfsSz;
 				p->fs_type = "tmpfs";
 				p->isDir = true;
+				p->isSymlink = false;
 				p->mandatory = true;
 				TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
 			} break;
@@ -739,6 +742,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		p->options = "";
 		p->fs_type = "proc";
 		p->isDir = true;
+		p->isSymlink = false;
 		p->mandatory = true;
 		TAILQ_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
 	}
@@ -755,6 +759,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		p->options = "";
 		p->fs_type = "";
 		p->isDir = true;
+		p->isSymlink = false;
 		p->mandatory = true;
 		TAILQ_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
 	} else {
@@ -770,6 +775,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		p->options = "";
 		p->fs_type = "tmpfs";
 		p->isDir = true;
+		p->isSymlink = false;
 		p->mandatory = true;
 		TAILQ_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
 	}

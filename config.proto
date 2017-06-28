@@ -51,6 +51,8 @@ message MountPt
     optional bool is_dir = 10;
     /* Should the sandboxing fail if we cannot mount this resource? */
     required bool mandatory = 11 [ default = true ];
+	/* Is it a symlink (instead of real mount point)? */
+	required bool is_symlink = 12 [ default = false ];
 }
 message Exe
 {
