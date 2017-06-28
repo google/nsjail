@@ -226,7 +226,7 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	{
 		struct mounts_t *p;
 		TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
-			LOG_I("Mount point: %s", mountDescribeMountPt(p));
+			LOG_I("%s: %s", p->isSymlink ? "Symlink" : "Mount point", mountDescribeMountPt(p));
 		}
 	}
 	{
