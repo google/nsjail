@@ -92,103 +92,103 @@ message NsJailConfig
     /* Should nsjail go into background? */
     required bool daemon = 14 [ default = false ];
     /* Maximum number of CPUs to use: 0 - no limit */
-    required uint32 max_cpus = 62;
+    required uint32 max_cpus = 15;
 
     /* FD to log to. */
-    optional int32 log_fd = 61;
+    optional int32 log_fd = 16;
     /* File to save lofs to */
-    optional string log_file = 15;
+    optional string log_file = 17;
     /* Minimum log level displayed.
        See 'msg LogLevel' description for more */
-    optional LogLevel log_level = 16;
+    optional LogLevel log_level = 18;
 
     /* Should the current environment variables be kept
        when executing the binary */
-    required bool keep_env = 17 [ default = false ];
+    required bool keep_env = 19 [ default = false ];
     /* EnvVars to be set before executing binaries */
-    repeated string envar = 18;
+    repeated string envar = 20;
 
     /* Should capabilities be preserved or dropped */
-    required bool keep_caps = 19 [ default = false ];
+    required bool keep_caps = 21 [ default = false ];
     /* Should nsjail close FD=0,1,2 before executing the process */
-    required bool silent = 20 [ default = false ];
+    required bool silent = 22 [ default = false ];
     /* Should the child process have control over terminal?
        Can be useful to allow /bin/sh to provide
        job control / signals */
-    required bool skip_setsid = 21 [ default = false ];
+    required bool skip_setsid = 23 [ default = false ];
     /* Which FDs should be passed to the newly executed process
        By default only FD=0,1,2 are passed */
-    repeated int32 pass_fd = 22;
+    repeated int32 pass_fd = 24;
     /* Setting it to true will allow to have set-uid binaries
        inside the jail */
-    required bool disable_no_new_privs = 23 [ default = false ];
+    required bool disable_no_new_privs = 25 [ default = false ];
 
-    required uint64 rlimit_as = 24 [ default = 512 ]; /* In MiB */
-    required uint64 rlimit_core = 25 [ default = 0 ]; /* In MiB */
-    required uint64 rlimit_cpu = 26 [ default = 600 ]; /* In seconds */
-    required uint64 rlimit_fsize = 27 [ default = 1 ]; /* In MiB */
-    required uint64 rlimit_nofile = 28 [ default = 32 ];
-    optional uint64 rlimit_nproc = 29; /* This is system-wide: tricky to use */
-    optional uint64 rlimit_stack = 30; /* In MiB */
+    required uint64 rlimit_as = 26 [ default = 512 ]; /* In MiB */
+    required uint64 rlimit_core = 27 [ default = 0 ]; /* In MiB */
+    required uint64 rlimit_cpu = 28 [ default = 600 ]; /* In seconds */
+    required uint64 rlimit_fsize = 29 [ default = 1 ]; /* In MiB */
+    required uint64 rlimit_nofile = 30 [ default = 32 ];
+    optional uint64 rlimit_nproc = 31; /* This is system-wide: tricky to use */
+    optional uint64 rlimit_stack = 32; /* In MiB */
 
     /* See 'man personality' for more */
-    required bool persona_addr_compat_layout = 31 [ default = false ];
-    required bool persona_mmap_page_zero = 32 [ default = false ];
-    required bool persona_read_implies_exec = 33 [ default = false ];
-    required bool persona_addr_limit_3gb = 34 [ default = false ];
-    required bool persona_addr_no_randomize = 35 [ default = false ];
+    required bool persona_addr_compat_layout = 33 [ default = false ];
+    required bool persona_mmap_page_zero = 34 [ default = false ];
+    required bool persona_read_implies_exec = 35 [ default = false ];
+    required bool persona_addr_limit_3gb = 36 [ default = false ];
+    required bool persona_addr_no_randomize = 37 [ default = false ];
 
     /* Which name-spaces should be used? */
-    required bool clone_newnet = 36 [ default = true ];
-    required bool clone_newuser = 37 [ default = true ];
-    required bool clone_newns = 38 [ default = true ];
-    required bool clone_newpid = 39 [ default = true ];
-    required bool clone_newipc = 40 [ default = true ];
-    required bool clone_newuts = 41 [ default = true ];
+    required bool clone_newnet = 38 [ default = true ];
+    required bool clone_newuser = 39 [ default = true ];
+    required bool clone_newns = 40 [ default = true ];
+    required bool clone_newpid = 41 [ default = true ];
+    required bool clone_newipc = 42 [ default = true ];
+    required bool clone_newuts = 43 [ default = true ];
     /* It's only supported in newer kernels, hence disabled by default */
-    required bool clone_newcgroup = 42 [ default = false ];
+    required bool clone_newcgroup = 44 [ default = false ];
 
     /* Mappings for UIDs and GIDs. See the description for 'msg IdMap'
        for more */
-    repeated IdMap uidmap = 43;
-    repeated IdMap gidmap = 44;
+    repeated IdMap uidmap = 45;
+    repeated IdMap gidmap = 46;
 
     /* Should /proc be mounted (R/O)? This can also be added in the 'mount'
        section below */
-    required bool mount_proc = 45 [ default = false ];
+    required bool mount_proc = 47 [ default = false ];
     /* Mount points inside the jail. See the description for 'msg MountPt'
        for more */
-    repeated MountPt mount = 46;
+    repeated MountPt mount = 48;
 
     /* Kafel seccomp-bpf policy file or a string:
        Homepage of the project: https://github.com/google/kafel */
-    optional string seccomp_policy_file = 47;
-    optional string seccomp_string = 48;
+    optional string seccomp_policy_file = 49;
+    optional string seccomp_string = 50;
 
     /* If > 0, maximum cumulative size of RAM used inside any jail */
-    required uint64 cgroup_mem_max = 49 [ default = 0 ]; /* In MiB */
+    required uint64 cgroup_mem_max = 51 [ default = 0 ]; /* In MiB */
     /* Mount point for cgroups-memory in your system */
-    required string cgroup_mem_mount = 50 [ default = "/sys/fs/cgroup/memory" ];
+    required string cgroup_mem_mount = 52 [ default = "/sys/fs/cgroup/memory" ];
     /* Writeable directory (for the nsjail user) under cgroup_mem_mount */
-    required string cgroup_mem_parent = 51 [ default = "NSJAIL" ];
+    required string cgroup_mem_parent = 53 [ default = "NSJAIL" ];
 
     /* If > 0, maximum number of PIDs (threads/processes) inside jail */
-    required uint64 cgroup_pids_max = 52 [ default = 0 ];
+    required uint64 cgroup_pids_max = 54 [ default = 0 ];
     /* Mount point for cgroups-pids in your system */
-    required string cgroup_pids_mount = 53 [ default = "/sys/fs/cgroup/pids" ];
+    required string cgroup_pids_mount = 55 [ default = "/sys/fs/cgroup/pids" ];
     /* Writeable directory (for the nsjail user) under cgroup_pids_mount */
-    required string cgroup_pids_parent = 54 [ default = "NSJAIL" ];
+    required string cgroup_pids_parent = 56 [ default = "NSJAIL" ];
 
     /* Should the 'lo' interface be brought up (active) inside this jail? */
-    required bool iface_no_lo = 55 [ default = false ];
+    required bool iface_no_lo = 57 [ default = false ];
 
     /* Parameters for the cloned MACVLAN interface inside jail */
-    optional string macvlan_iface = 56; /* Interface to be cloned, eg 'eth0' */
-    required string macvlan_vs_ip = 57 [ default = "192.168.0.2" ];
-    required string macvlan_vs_nm = 58 [ default = "255.255.255.0" ];
-    required string macvlan_vs_gw = 59 [ default = "192.168.0.1" ];
+    optional string macvlan_iface = 58; /* Interface to be cloned, eg 'eth0' */
+    required string macvlan_vs_ip = 59 [ default = "192.168.0.2" ];
+    required string macvlan_vs_nm = 60 [ default = "255.255.255.0" ];
+    required string macvlan_vs_gw = 61 [ default = "192.168.0.1" ];
 
     /* Binary path (with arguments) to be executed. If not specified here, it
        can be specified with cmd-line as "-- /path/to/command arg1 arg2" */
-    optional Exe exec_bin = 60;
+    optional Exe exec_bin = 62;
 }
