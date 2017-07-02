@@ -160,8 +160,13 @@ static bool mountMount(struct mounts_t *mpt, const char *newroot, const char *tm
 	if (mpt->isSymlink == true) {
 		LOG_D("symlink('%s', '%s')", srcpath, dst);
 		if (symlink(srcpath, dst) == -1) {
-			PLOG_W("symlink('%s', '%s')", srcpath, dst);
-			return false;
+			if (mpt->mandatory) {
+				PLOG_W("symlink('%s', '%s')", srcpath, dst);
+				return false;
+			} else {
+				PLOG_W("symlink('%s', '%s'), but it's not mandatory, continuing",
+				       srcpath, dst);
+			}
 		}
 		return true;
 	}
@@ -188,19 +193,13 @@ static bool mountMount(struct mounts_t *mpt, const char *newroot, const char *tm
 	 */
 	unsigned long flags = mpt->flags & ~(MS_RDONLY);
 	if (mount(srcpath, dst, mpt->fs_type, flags, mpt->options) == -1) {
-		if (mpt->mandatory == false) {
-			PLOG_D("mount('%s') src:'%s' dst:'%s' failed", mountDescribeMountPt(mpt),
-			       srcpath, dst);
-		} else if (errno == EACCES) {
-			PLOG_E("mount('%s') src:'%s' dst:'%s' failed. "
+		if (errno == EACCES) {
+			PLOG_W("mount('%s') src:'%s' dst:'%s' failed. "
 			       "Try fixing this problem by applying 'chmod o+x' to the '%s' directory and "
 			       "its ancestors", mountDescribeMountPt(mpt), srcpath, dst, srcpath);
 		} else {
-			PLOG_E("mount('%s') src:'%s' dst:'%s' failed", mountDescribeMountPt(mpt),
+			PLOG_W("mount('%s') src:'%s' dst:'%s' failed", mountDescribeMountPt(mpt),
 			       srcpath, dst);
-		}
-		if (mpt->mandatory) {
-			return false;
 		}
 	}
 
@@ -221,13 +220,8 @@ static bool mountRemountRO(struct mounts_t *mpt)
 
 	struct statvfs vfs;
 	if (TEMP_FAILURE_RETRY(statvfs(mpt->dst, &vfs)) == -1) {
-		if (mpt->mandatory) {
-			PLOG_E("statvfs('%s')", mpt->dst);
-			return false;
-		} else {
-			PLOG_D("statvfs('%s')", mpt->dst);
-			return true;
-		}
+		PLOG_W("statvfs('%s')", mpt->dst);
+		return false;
 	}
 	/*
 	 * It's fine to use 'flags | vfs.f_flag' here as per
@@ -241,11 +235,8 @@ static bool mountRemountRO(struct mounts_t *mpt)
 	      mountFlagsToStr(vfs.f_flag), mountFlagsToStr(new_flags));
 
 	if (mount(mpt->dst, mpt->dst, NULL, new_flags, 0) == -1) {
-		if (mpt->mandatory) {
-			PLOG_W("mount('%s', flags:%s)", mpt->dst, mountFlagsToStr(new_flags));
-			return false;
-		}
-		PLOG_D("mount('%s', flags:%s)", mpt->dst, mountFlagsToStr(new_flags));
+		PLOG_W("mount('%s', flags:%s)", mpt->dst, mountFlagsToStr(new_flags));
+		return false;
 	}
 
 	return true;
@@ -334,7 +325,7 @@ static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 
 	struct mounts_t *p;
 	TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
-		if (mountMount(p, destdir, tmpdir) == false) {
+		if (mountMount(p, destdir, tmpdir) == false && p->mandatory) {
 			return false;
 		}
 	}
@@ -358,7 +349,7 @@ static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 	}
 
 	TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
-		if (mountRemountRO(p) == false) {
+		if (mountRemountRO(p) == false && p->mandatory) {
 			return false;
 		}
 	}

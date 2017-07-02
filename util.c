@@ -157,7 +157,7 @@ bool utilCreateDirRecursively(const char *dir)
 
 	int prev_dir_fd = open("/", O_RDONLY | O_CLOEXEC);
 	if (prev_dir_fd == -1) {
-		PLOG_E("open('/', O_RDONLY | O_CLOEXEC)");
+		PLOG_W("open('/', O_RDONLY | O_CLOEXEC)");
 		return false;
 	}
 
@@ -177,14 +177,14 @@ bool utilCreateDirRecursively(const char *dir)
 		*next = '\0';
 
 		if (mkdirat(prev_dir_fd, curr, 0755) == -1 && errno != EEXIST) {
-			PLOG_E("mkdir('%s', 0755)", curr);
+			PLOG_W("mkdir('%s', 0755)", curr);
 			close(prev_dir_fd);
 			return false;
 		}
 
 		int dir_fd = TEMP_FAILURE_RETRY(openat(prev_dir_fd, curr, O_DIRECTORY | O_CLOEXEC));
 		if (dir_fd == -1) {
-			PLOG_E("openat('%d', '%s', O_DIRECTORY | O_CLOEXEC)", prev_dir_fd, curr);
+			PLOG_W("openat('%d', '%s', O_DIRECTORY | O_CLOEXEC)", prev_dir_fd, curr);
 			close(prev_dir_fd);
 			return false;
 		}
