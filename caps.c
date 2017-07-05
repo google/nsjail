@@ -73,7 +73,9 @@ static struct {
     VALSTR_STRUCT(CAP_SYSLOG),
     VALSTR_STRUCT(CAP_WAKE_ALARM),
     VALSTR_STRUCT(CAP_BLOCK_SUSPEND),
+#if defined(CAP_AUDIT_READ)
     VALSTR_STRUCT(CAP_AUDIT_READ),
+#endif  /* defined(CAP_AUDIT_READ) */
 };
 /*  *INDENT-ON* */
 
