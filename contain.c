@@ -89,7 +89,7 @@ static bool containDropPrivs(struct nsjconf_t *nsjconf)
 			PLOG_W("prctl(PR_SET_NO_NEW_PRIVS, 1)");
 		}
 	}
-	if (capsInitLocalNs(nsjconf) == false) {
+	if (capsInitNs(nsjconf) == false) {
 		return false;
 	}
 

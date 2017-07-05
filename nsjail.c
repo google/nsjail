@@ -185,10 +185,6 @@ int main(int argc, char *argv[])
 	if (nsjailSetTimer(&nsjconf) == false) {
 		exit(1);
 	}
-	if (capsInitGlobalNs(&nsjconf) == false) {
-		LOG_E("Couldn't initialize global capabilities");
-		exit(1);
-	}
 
 	if (nsjconf.mode == MODE_LISTEN_TCP) {
 		nsjailListenMode(&nsjconf);

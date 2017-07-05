@@ -150,15 +150,12 @@ static void capsClrFlag(cap_t cap, cap_value_t id, cap_value_t type)
 	}
 }
 
-bool capsInitInternal(struct nsjconf_t *nsjconf, bool is_global)
+bool capsInitNs(struct nsjconf_t *nsjconf)
 {
 	cap_t cap_orig = capsGet();
 	cap_t cap_new = capsGet();
 
-	struct capslistt *l = is_global ? &nsjconf->global_caps : &nsjconf->local_caps;
-	bool keep_caps = is_global ? nsjconf->keep_global_caps : nsjconf->keep_local_caps;
-
-	if (keep_caps) {
+	if (nsjconf->keep_caps) {
 		for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
 			if (capsGetCap(cap_orig, capNames[i].val, CAP_PERMITTED) == CAP_SET) {
 				capsSetCap(cap_new, capNames[i].val, CAP_INHERITABLE);
@@ -169,10 +166,10 @@ bool capsInitInternal(struct nsjconf_t *nsjconf, bool is_global)
 	} else {
 		capsClearType(cap_new, CAP_INHERITABLE);
 		struct ints_t *p;
-		TAILQ_FOREACH(p, l, pointers) {
+		TAILQ_FOREACH(p, &nsjconf->caps, pointers) {
 			if (capsGetCap(cap_orig, p->val, CAP_PERMITTED) != CAP_SET) {
-				LOG_W("Capability %s is not permitted in the %s namespace",
-				      capsValToStr(p->val), is_global ? "global" : "local");
+				LOG_W("Capability %s is not permitted in the namespace",
+				      capsValToStr(p->val));
 				capsFree(cap_orig);
 				capsFree(cap_new);
 				return false;
@@ -190,7 +187,7 @@ bool capsInitInternal(struct nsjconf_t *nsjconf, bool is_global)
 #define PR_CAP_AMBIENT 47
 #define PR_CAP_AMBIENT_RAISE 2
 #endif				/* !defined(PR_CAP_AMBIENT) */
-	if (keep_caps) {
+	if (nsjconf->keep_caps) {
 		for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
 			if (capsGetCap(cap_orig, capNames[i].val, CAP_PERMITTED) != CAP_SET) {
 				continue;
@@ -204,7 +201,7 @@ bool capsInitInternal(struct nsjconf_t *nsjconf, bool is_global)
 		}
 	} else {
 		struct ints_t *p;
-		TAILQ_FOREACH(p, l, pointers) {
+		TAILQ_FOREACH(p, &nsjconf->caps, pointers) {
 			if (prctl
 			    (PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)p->val, 0UL,
 			     0UL) == -1) {
@@ -217,14 +214,4 @@ bool capsInitInternal(struct nsjconf_t *nsjconf, bool is_global)
 	capsFree(cap_orig);
 	capsFree(cap_new);
 	return true;
-}
-
-bool capsInitGlobalNs(struct nsjconf_t * nsjconf)
-{
-	return capsInitInternal(nsjconf, true /* global */ );
-}
-
-bool capsInitLocalNs(struct nsjconf_t * nsjconf)
-{
-	return capsInitInternal(nsjconf, false /* local */ );
 }

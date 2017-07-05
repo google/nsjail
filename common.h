@@ -127,8 +127,7 @@ struct nsjconf_t {
 	time_t tlimit;
 	size_t max_cpus;
 	bool keep_env;
-	bool keep_global_caps;
-	bool keep_local_caps;
+	bool keep_caps;
 	bool disable_no_new_privs;
 	__rlim64_t rl_as;
 	__rlim64_t rl_core;
@@ -174,7 +173,7 @@ struct nsjconf_t {
 	 TAILQ_HEAD(pidslist, pids_t) pids;
 	 TAILQ_HEAD(mountptslist, mounts_t) mountpts;
 	 TAILQ_HEAD(fdslistt, ints_t) open_fds;
-	 TAILQ_HEAD(capslistt, ints_t) global_caps, local_caps;
+	 TAILQ_HEAD(capslistt, ints_t) caps;
 };
 
 #endif				/* NS_COMMON_H */
