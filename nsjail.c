@@ -30,6 +30,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#include "caps.h"
 #include "cmdline.h"
 #include "log.h"
 #include "net.h"
@@ -168,6 +169,7 @@ int main(int argc, char *argv[])
 {
 	struct nsjconf_t nsjconf;
 	if (!cmdlineParse(argc, argv, &nsjconf)) {
+		LOG_E("Couldn't parse cmdline options");
 		exit(1);
 	}
 	if (nsjconf.clone_newuser == false && geteuid() != 0) {
@@ -181,6 +183,10 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 	if (nsjailSetTimer(&nsjconf) == false) {
+		exit(1);
+	}
+	if (capsInitGlobalNs(&nsjconf) == false) {
+		LOG_E("Couldn't initialize global capabilities");
 		exit(1);
 	}
 

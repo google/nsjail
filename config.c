@@ -117,8 +117,8 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 	nsjconf->skip_setsid = njc->skip_setsid;
 
 	for (size_t i = 0; i < njc->n_pass_fd; i++) {
-		struct fds_t *f = utilMalloc(sizeof(struct fds_t));
-		f->fd = njc->pass_fd[i];
+		struct ints_t *f = utilMalloc(sizeof(struct ints_t));
+		f->val = njc->pass_fd[i];
 		TAILQ_INSERT_HEAD(&nsjconf->open_fds, f, pointers);
 	}
 

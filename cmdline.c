@@ -41,6 +41,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "caps.h"
 #include "config.h"
 #include "log.h"
 #include "mount.h"
@@ -90,6 +91,8 @@ struct custom_option custom_opts[] = {
     {{"skip_setsid", no_argument, NULL, 0x0504}, "Don't call setsid(), allows for terminal signal handling in the sandboxed process"},
     {{"pass_fd", required_argument, NULL, 0x0505}, "Don't close this FD before executing child (can be specified multiple times), by default: 0/1/2 are kept open"},
     {{"disable_no_new_privs", no_argument, NULL, 0x0507}, "Don't set the prctl(NO_NEW_PRIVS, 1) (DANGEROUS)"},
+    {{"global_cap", required_argument, NULL, 0x0509}, "Retain this capability in global namespace (e.g. CAP_PTRACE). Can be specified multiple times"},
+    {{"local_cap", required_argument, NULL, 0x050A}, "Retain this capability in local namespace (e.g. CAP_PTRACE). Can be specified multiple times)"},
     {{"rlimit_as", required_argument, NULL, 0x0201}, "RLIMIT_AS in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 512)"},
     {{"rlimit_core", required_argument, NULL, 0x0202}, "RLIMIT_CORE in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 0)"},
     {{"rlimit_cpu", required_argument, NULL, 0x0203}, "RLIMIT_CPU, 'max' for RLIM_INFINITY, 'def' for the current value (default: 600)"},
@@ -364,18 +367,20 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	TAILQ_INIT(&nsjconf->envs);
 	TAILQ_INIT(&nsjconf->uids);
 	TAILQ_INIT(&nsjconf->gids);
+	TAILQ_INIT(&nsjconf->global_caps);
+	TAILQ_INIT(&nsjconf->local_caps);
 
 	static char cmdlineTmpfsSz[PATH_MAX] = "size=4194304";
 
-	struct fds_t *f;
-	f = utilMalloc(sizeof(struct fds_t));
-	f->fd = STDIN_FILENO;
+	struct ints_t *f;
+	f = utilMalloc(sizeof(struct ints_t));
+	f->val = STDIN_FILENO;
 	TAILQ_INSERT_HEAD(&nsjconf->open_fds, f, pointers);
-	f = utilMalloc(sizeof(struct fds_t));
-	f->fd = STDOUT_FILENO;
+	f = utilMalloc(sizeof(struct ints_t));
+	f->val = STDOUT_FILENO;
 	TAILQ_INSERT_HEAD(&nsjconf->open_fds, f, pointers);
-	f = utilMalloc(sizeof(struct fds_t));
-	f->fd = STDERR_FILENO;
+	f = utilMalloc(sizeof(struct ints_t));
+	f->val = STDERR_FILENO;
 	TAILQ_INSERT_HEAD(&nsjconf->open_fds, f, pointers);
 
 	// Generate options array for getopt_long.
@@ -531,9 +536,9 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			nsjconf->skip_setsid = true;
 			break;
 		case 0x0505:{
-				struct fds_t *f;
-				f = utilMalloc(sizeof(struct fds_t));
-				f->fd = (int)strtol(optarg, NULL, 0);
+				struct ints_t *f;
+				f = utilMalloc(sizeof(struct ints_t));
+				f->val = (int)strtol(optarg, NULL, 0);
 				TAILQ_INSERT_HEAD(&nsjconf->open_fds, f, pointers);
 			} break;
 		case 0x0507:
@@ -541,6 +546,24 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			break;
 		case 0x0508:
 			nsjconf->max_cpus = strtoul(optarg, NULL, 0);
+			break;
+		case 0x509:{
+				struct ints_t *f = utilMalloc(sizeof(struct ints_t));
+				f->val = capsNameToVal(optarg);
+				if (f->val == -1) {
+					return false;
+				}
+				TAILQ_INSERT_HEAD(&nsjconf->global_caps, f, pointers);
+			}
+			break;
+		case 0x50A:{
+				struct ints_t *f = utilMalloc(sizeof(struct ints_t));
+				f->val = capsNameToVal(optarg);
+				if (f->val == -1) {
+					return false;
+				}
+				TAILQ_INSERT_HEAD(&nsjconf->local_caps, f, pointers);
+			}
 			break;
 		case 0x0601:
 			nsjconf->is_root_rw = true;

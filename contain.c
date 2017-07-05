@@ -42,6 +42,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#include "caps.h"
 #include "cgroup.h"
 #include "cpu.h"
 #include "log.h"
@@ -88,59 +89,10 @@ static bool containDropPrivs(struct nsjconf_t *nsjconf)
 			PLOG_W("prctl(PR_SET_NO_NEW_PRIVS, 1)");
 		}
 	}
-
-	struct __user_cap_header_struct cap_hdr = {
-		.version = _LINUX_CAPABILITY_VERSION_3,
-		.pid = 0,
-	};
-	struct __user_cap_data_struct cap_data[_LINUX_CAPABILITY_U32S_3];
-	if (syscall(__NR_capget, &cap_hdr, &cap_data) == -1) {
-		PLOG_E("capget()");
+	if (capsInitLocalNs(nsjconf) == false) {
 		return false;
 	}
 
-	if (nsjconf->keep_caps == true) {
-		for (size_t i = 0; i < _LINUX_CAPABILITY_U32S_3; i++) {
-			cap_data[i].inheritable = cap_data[i].permitted;
-			cap_data[i].effective = cap_data[i].permitted;
-		}
-		if (syscall(__NR_capset, &cap_hdr, &cap_data) == -1) {
-			PLOG_E("capset()");
-			return false;
-		}
-#if defined(PR_CAP_AMBIENT)
-		for (unsigned long i = 0; i < 128UL; i++) {
-			/*
-			 * Number of capabilities varies between kernels, so
-			 * wait for the first one which returns EINVAL
-			 */
-			if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, i, 0UL, 0UL, 0UL) == -1
-			    && errno != EINVAL) {
-				PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %lu)", i);
-			}
-		}
-#endif				/* defined(PR_CAP_AMBIENT) */
-	} else {
-		for (unsigned long i = 0; i < 128UL; i++) {
-			/*
-			 * Number of capabilities varies between kernels, so
-			 * wait for the first one which returns EINVAL
-			 */
-			if (prctl(PR_CAPBSET_DROP, i, 0UL, 0UL, 0UL) == -1 && errno != EINVAL) {
-				PLOG_W("prctl(PR_CAPBSET_DROP, %lu", i);
-			}
-		}
-		if (prctl(PR_SET_KEEPCAPS, 0, 0, 0, 0) == -1) {
-			PLOG_E("prctl(PR_SET_KEEPCAPS, 0)");
-			return false;
-		}
-
-		memset(&cap_data, '\0', sizeof(cap_data));
-		if (syscall(__NR_capset, &cap_hdr, &cap_data) == -1) {
-			PLOG_E("capset()");
-			return false;
-		}
-	}
 	return true;
 }
 
@@ -217,9 +169,9 @@ static bool containSetLimits(struct nsjconf_t *nsjconf)
 
 static bool containPassFd(struct nsjconf_t *nsjconf, int fd)
 {
-	struct fds_t *p;
+	struct ints_t *p;
 	TAILQ_FOREACH(p, &nsjconf->open_fds, pointers) {
-		if (p->fd == fd) {
+		if (p->val == fd) {
 			return true;
 		}
 	}

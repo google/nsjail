@@ -28,11 +28,11 @@ CFLAGS += -O2 -c -std=gnu11 \
 	-Wall -Wextra -Werror \
 	-Ikafel/include
 
-LDFLAGS += -Wl,-z,now -Wl,-z,relro -pie -Wl,-z,noexecstack -lpthread
+LDFLAGS += -Wl,-z,now -Wl,-z,relro -pie -Wl,-z,noexecstack -lpthread -lcap
 
 BIN = nsjail
 LIBS = kafel/libkafel.a
-SRCS = nsjail.c cmdline.c config.c contain.c log.c cgroup.c mount.c net.c pid.c sandbox.c subproc.c user.c util.c uts.c cpu.c
+SRCS = nsjail.c caps.c cmdline.c config.c contain.c log.c cgroup.c mount.c net.c pid.c sandbox.c subproc.c user.c util.c uts.c cpu.c
 OBJS = $(SRCS:.c=.o)
 
 ifdef DEBUG
@@ -136,11 +136,12 @@ indent:
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 
-nsjail.o: nsjail.h common.h cmdline.h log.h net.h subproc.h util.h
-cmdline.o: cmdline.h common.h config.h log.h mount.h util.h user.h
+nsjail.o: nsjail.h common.h caps.h cmdline.h log.h net.h subproc.h util.h
+caps.o: caps.h common.h log.h
+cmdline.o: cmdline.h common.h caps.h config.h log.h mount.h util.h user.h
 config.o: common.h config.h log.h mount.h user.h util.h
-contain.o: contain.h common.h cgroup.h cpu.h log.h mount.h net.h pid.h user.h
-contain.o: util.h uts.h
+contain.o: contain.h common.h caps.h cgroup.h cpu.h log.h mount.h net.h pid.h
+contain.o: user.h util.h uts.h
 log.o: log.h common.h
 cgroup.o: cgroup.h common.h log.h util.h
 mount.o: mount.h common.h log.h subproc.h util.h

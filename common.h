@@ -86,9 +86,9 @@ struct idmap_t {
 	 TAILQ_ENTRY(idmap_t) pointers;
 };
 
-struct fds_t {
-	int fd;
-	 TAILQ_ENTRY(fds_t) pointers;
+struct ints_t {
+	int val;
+	 TAILQ_ENTRY(ints_t) pointers;
 };
 
 enum ns_mode_t {
@@ -172,7 +172,8 @@ struct nsjconf_t {
 	 TAILQ_HEAD(envlist, charptr_t) envs;
 	 TAILQ_HEAD(pidslist, pids_t) pids;
 	 TAILQ_HEAD(mountptslist, mounts_t) mountpts;
-	 TAILQ_HEAD(fdslistt, fds_t) open_fds;
+	 TAILQ_HEAD(fdslistt, ints_t) open_fds;
+	 TAILQ_HEAD(capslistt, ints_t) global_caps, local_caps;
 };
 
 #endif				/* NS_COMMON_H */

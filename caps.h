@@ -1,9 +1,9 @@
 /*
 
-   nsjail - cgroup namespacing
+   nsjail - capability-related operations
    -----------------------------------------
 
-   Copyright 2014 Google Inc. All Rights Reserved.
+   Copyright 2017 Google Inc. All Rights Reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -19,16 +19,13 @@
 
 */
 
-#ifndef NS_CGROUP_H
-#define NS_CGROUP_H
-
-#include <stdbool.h>
-#include <stddef.h>
+#ifndef NS_CAPS_H
+#define NS_CAPS_H
 
 #include "common.h"
 
-bool cgroupInitNsFromParent(struct nsjconf_t *nsjconf, pid_t pid);
-bool cgroupInitNs(void);
-void cgroupFinishFromParent(struct nsjconf_t *nsjconf, pid_t pid);
+int capsNameToVal(const char *name);
+bool capsInitGlobalNs(struct nsjconf_t *nsjconf);
+bool capsInitLocalNs(struct nsjconf_t *nsjconf);
 
-#endif				/* _CGROUP_H */
+#endif				/* NS_CAPS_H */
