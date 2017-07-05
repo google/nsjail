@@ -34,7 +34,7 @@
 /*  *INDENT-OFF* */
 static struct {
 	const int val;
-    const char* const name;
+	const char* const name;
 } const capNames[] = {
     VALSTR_STRUCT(CAP_CHOWN),
     VALSTR_STRUCT(CAP_DAC_OVERRIDE),
@@ -104,119 +104,102 @@ static const char *capsValToStr(int val)
 	return capsStr;
 }
 
-bool capsInitInternal(struct nsjconf_t * nsjconf, bool is_global)
+static cap_t capsGet(void)
 {
-	cap_t cap_orig = cap_get_pid(getpid());
-	if (cap_orig == NULL) {
-		PLOG_W("capget(PID=%d)", (int)getpid());
-		return false;
+	cap_t cap = cap_get_pid(getpid());
+	if (cap == NULL) {
+		PLOG_F("cap_get_pit(PID=%d)", (int)getpid());
 	}
+	return cap;
+}
 
-	cap_t cap_new = cap_dup(cap_orig);
-	if (cap_new == NULL) {
-		PLOG_W("cap_dup()");
-		cap_free(cap_orig);
-		return false;
+static void capsFree(cap_t cap)
+{
+	if (cap_free(cap) == -1) {
+		PLOG_F("cap_free()");
 	}
+}
+
+static void capsClearType(cap_t cap, cap_flag_t type)
+{
+	if (cap_clear_flag(cap, type) == -1) {
+		PLOG_F("cap_clear_flag(flag=%d)", (int)type);
+	}
+}
+
+static cap_flag_value_t capsGetCap(cap_t cap, cap_value_t id, cap_flag_t type)
+{
+	cap_flag_value_t v;
+	if (cap_get_flag(cap, id, type, &v) == -1) {
+		PLOG_F("cap_get_flag(id=%d, type=%d)", (int)id, (int)type);
+	}
+	return v;
+}
+
+static void capsSetCap(cap_t cap, cap_value_t id, cap_value_t type)
+{
+	if (cap_set_flag(cap, type, 1, &id, CAP_SET) == -1) {
+		PLOG_F("cap_set_flag(id=%d, type=%d)", (int)id, (int)type);
+	}
+}
+
+static void capsClrFlag(cap_t cap, cap_value_t id, cap_value_t type)
+{
+	if (cap_set_flag(cap, type, 1, &id, CAP_CLEAR) == -1) {
+		PLOG_F("cap_set_flag(id=%d, type=%d)", (int)id, (int)type);
+	}
+}
+
+bool capsInitInternal(struct nsjconf_t *nsjconf, bool is_global)
+{
+	cap_t cap_orig = capsGet();
+	cap_t cap_new = capsGet();
 
 	struct capslistt *l = is_global ? &nsjconf->global_caps : &nsjconf->local_caps;
-	if (is_global || nsjconf->keep_caps == false) {
-		if (cap_clear_flag(cap_new, CAP_INHERITABLE) == -1) {
-			PLOG_W("cap_clear_flag(CAP_INHERITABLE)");
-			cap_free(cap_orig);
-			cap_free(cap_new);
-			return false;
-		}
-		if (is_global == false) {
-			if (cap_clear_flag(cap_new, CAP_PERMITTED) == -1) {
-				PLOG_W("cap_clear_flag(CAP_PERMITTED)");
-				cap_free(cap_orig);
-				cap_free(cap_new);
-				return false;
-			}
-			if (cap_clear_flag(cap_new, CAP_EFFECTIVE) == -1) {
-				PLOG_W("cap_clear_flag(CAP_EFFECTIVE)");
-				cap_free(cap_orig);
-				cap_free(cap_new);
-				return false;
-			}
-		}
+	bool keep_caps = is_global ? nsjconf->keep_global_caps : nsjconf->keep_local_caps;
 
+	if (keep_caps) {
+		for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
+			if (capsGetCap(cap_orig, capNames[i].val, CAP_PERMITTED) == CAP_SET) {
+				capsSetCap(cap_new, capNames[i].val, CAP_INHERITABLE);
+			} else {
+				capsClrFlag(cap_new, capNames[i].val, CAP_INHERITABLE);
+			}
+		}
+	} else {
+		capsClearType(cap_new, CAP_INHERITABLE);
 		struct ints_t *p;
 		TAILQ_FOREACH(p, l, pointers) {
-			cap_flag_value_t v;
-			if (cap_get_flag(cap_orig, p->val, CAP_PERMITTED, &v) == -1) {
-				PLOG_W("cap_get_flag(cap_orig, CAP_PERMITTED, %s)",
-				       capsValToStr(p->val));
-				cap_free(cap_orig);
-				cap_free(cap_new);
-				return false;
-			}
-			if (v != CAP_SET) {
+			if (capsGetCap(cap_orig, p->val, CAP_PERMITTED) != CAP_SET) {
 				LOG_W("Capability %s is not permitted in the %s namespace",
 				      capsValToStr(p->val), is_global ? "global" : "local");
-				cap_free(cap_orig);
-				cap_free(cap_new);
+				capsFree(cap_orig);
+				capsFree(cap_new);
 				return false;
 			}
-			if (cap_set_flag(cap_new, CAP_INHERITABLE, 1, &p->val, CAP_SET) == -1) {
-				PLOG_W("cap_set_flag(cap_new, CAP_INHERITABLE, %s)",
-				       capsValToStr(p->val));
-				cap_free(cap_orig);
-				cap_free(cap_new);
-				return false;
-			}
-			if (is_global == false) {
-				if (cap_set_flag(cap_new, CAP_PERMITTED, 1, &p->val, CAP_SET) == -1) {
-					PLOG_W("cap_set_flag(cap_new, CAP_PERMITTED, %s)",
-					       capsValToStr(p->val));
-					cap_free(cap_orig);
-					cap_free(cap_new);
-					return false;
-				}
-				if (cap_set_flag(cap_new, CAP_EFFECTIVE, 1, &p->val, CAP_SET) == -1) {
-					PLOG_W("cap_set_flag(cap_new, CAP_EFFECTIVE, %s)",
-					       capsValToStr(p->val));
-					cap_free(cap_orig);
-					cap_free(cap_new);
-					return false;
-				}
-			}
-		}
-	}
-
-	if (is_global == false || nsjconf->keep_caps == true) {
-		for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
-			cap_flag_value_t v;
-			if (cap_get_flag(cap_orig, capNames[i].val, CAP_PERMITTED, &v) == -1) {
-				PLOG_W("cap_get_flag(cap_orig, CAP_PERMITTED, %s)",
-				       capNames[i].name);
-				cap_free(cap_orig);
-				cap_free(cap_new);
-				return false;
-			}
-			if (cap_set_flag(cap_new, CAP_INHERITABLE, 1, &capNames[i].val, v) == -1) {
-				PLOG_W("cap_set_flag(cap_new, CAP_INHERITABLE, %s)",
-				       capNames[i].name);
-				cap_free(cap_orig);
-				cap_free(cap_new);
-				return false;
-			}
+			capsSetCap(cap_new, p->val, CAP_INHERITABLE);
 		}
 	}
 
 	if (cap_set_proc(cap_new) == -1) {
-		PLOG_W("cap_set_proc()");
-		cap_free(cap_orig);
-		cap_free(cap_new);
+		capsFree(cap_orig);
+		capsFree(cap_new);
 		return false;
 	}
-#if defined(PR_CAP_AMBIENT)
-	if (is_global == false && nsjconf->keep_caps == true) {
-		for (unsigned long i = 0; i < CAP_LAST_CAP; i++) {
-			if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, i, 0UL, 0UL) == -1) {
+#if !defined(PR_CAP_AMBIENT)
+#define PR_CAP_AMBIENT 47
+#define PR_CAP_AMBIENT_RAISE 2
+#endif				/* !defined(PR_CAP_AMBIENT) */
+	if (keep_caps) {
+		for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
+			if (capsGetCap(cap_orig, capNames[i].val, CAP_PERMITTED) != CAP_SET) {
+				continue;
+			}
+			if (prctl
+			    (PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)capNames[i].val,
+			     0UL, 0UL) == -1) {
 				PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s)",
-				       capsValToStr(i));
+				       capNames[i].name);
 			}
 		}
 	} else {
@@ -230,10 +213,9 @@ bool capsInitInternal(struct nsjconf_t * nsjconf, bool is_global)
 			}
 		}
 	}
-#endif				/* defined(PR_CAP_AMBIENT) */
 
-	cap_free(cap_orig);
-	cap_free(cap_new);
+	capsFree(cap_orig);
+	capsFree(cap_new);
 	return true;
 }
 

@@ -112,7 +112,8 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 		TAILQ_INSERT_TAIL(&nsjconf->envs, p, pointers);
 	}
 
-	nsjconf->keep_caps = njc->keep_caps;
+	nsjconf->keep_local_caps = njc->keep_local_caps;
+	nsjconf->keep_global_caps = njc->keep_global_caps;
 	nsjconf->is_silent = njc->silent;
 	nsjconf->skip_setsid = njc->skip_setsid;
 

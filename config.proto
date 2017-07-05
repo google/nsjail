@@ -108,8 +108,10 @@ message NsJailConfig
     /* EnvVars to be set before executing binaries */
     repeated string envar = 20;
 
-    /* Should capabilities be preserved or dropped */
-    required bool keep_caps = 21 [ default = false ];
+    /* Should local (inside ns) capabilities be preserved or dropped */
+    required bool keep_local_caps = 21 [ default = false ];
+    /* Should global (outside ns) capabilities be preserved or dropped */
+    required bool keep_global_caps = 63 [ default = false ];
     /* Should nsjail close FD=0,1,2 before executing the process */
     required bool silent = 22 [ default = false ];
     /* Should the child process have control over terminal?

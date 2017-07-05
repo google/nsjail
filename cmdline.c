@@ -86,7 +86,8 @@ struct custom_option custom_opts[] = {
     {{"quiet", no_argument, NULL, 'q'}, "Only output warning and more important messages"},
     {{"keep_env", no_argument, NULL, 'e'}, "Should all environment variables be passed to the child?"},
     {{"env", required_argument, NULL, 'E'}, "Environment variable (can be used multiple times)"},
-    {{"keep_caps", no_argument, NULL, 0x0501}, "Don't drop capabilities (DANGEROUS)"},
+    {{"keep_global_caps", no_argument, NULL, 0x0500}, "Don't drop capabilities in the global namespace"},
+    {{"keep_local_caps", no_argument, NULL, 0x0501}, "Don't drop capabilities in the local namespace"},
     {{"silent", no_argument, NULL, 0x0502}, "Redirect child's fd:0/1/2 to /dev/null"},
     {{"skip_setsid", no_argument, NULL, 0x0504}, "Don't call setsid(), allows for terminal signal handling in the sandboxed process"},
     {{"pass_fd", required_argument, NULL, 0x0505}, "Don't close this FD before executing child (can be specified multiple times), by default: 0/1/2 are kept open"},
@@ -141,6 +142,7 @@ struct custom_option deprecated_opts[] = {
     {{"iface_vs_ip", required_argument, NULL, 0x701}, "IP of the 'vs' interface (e.g. \"192.168.0.1\")"},
     {{"iface_vs_nm", required_argument, NULL, 0x702}, "Netmask of the 'vs' interface (e.g. \"255.255.255.0\")"},
     {{"iface_vs_gw", required_argument, NULL, 0x703}, "Default GW for the 'vs' interface (e.g. \"192.168.0.1\")"},
+    {{"keep_caps", no_argument, NULL, 0x0501}, "Don't drop capabilities in the local namespace"},
 };
 /*  *INDENT-ON* */
 
@@ -215,16 +217,16 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 	      "bind:[%s]:%d, "
 	      "max_conns_per_ip:%u, time_limit:%ld, personality:%#lx, daemonize:%s, "
 	      "clone_newnet:%s, clone_newuser:%s, clone_newns:%s, clone_newpid:%s, "
-	      "clone_newipc:%s, clonew_newuts:%s, clone_newcgroup:%s, keep_caps:%s, "
-	      "tmpfs_size:%zu, disable_no_new_privs:%s, max_cpus:%zu",
+	      "clone_newipc:%s, clonew_newuts:%s, clone_newcgroup:%s, keep_global_caps:%s, "
+	      "keep_local_caps:%s, tmpfs_size:%zu, disable_no_new_privs:%s, max_cpus:%zu",
 	      nsjconf->hostname, nsjconf->chroot ? nsjconf->chroot : "[NULL]", nsjconf->argv[0],
 	      nsjconf->bindhost, nsjconf->port, nsjconf->max_conns_per_ip, nsjconf->tlimit,
 	      nsjconf->personality, logYesNo(nsjconf->daemonize), logYesNo(nsjconf->clone_newnet),
 	      logYesNo(nsjconf->clone_newuser), logYesNo(nsjconf->clone_newns),
 	      logYesNo(nsjconf->clone_newpid), logYesNo(nsjconf->clone_newipc),
 	      logYesNo(nsjconf->clone_newuts), logYesNo(nsjconf->clone_newcgroup),
-	      logYesNo(nsjconf->keep_caps), nsjconf->tmpfs_size,
-	      logYesNo(nsjconf->disable_no_new_privs), nsjconf->max_cpus);
+	      logYesNo(nsjconf->keep_global_caps), logYesNo(nsjconf->keep_local_caps),
+	      nsjconf->tmpfs_size, logYesNo(nsjconf->disable_no_new_privs), nsjconf->max_cpus);
 
 	{
 		struct mounts_t *p;
@@ -320,7 +322,8 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
       .daemonize = false,
       .tlimit = 0,
       .max_cpus = 0,
-      .keep_caps = false,
+      .keep_global_caps = false,
+      .keep_local_caps = false,
       .disable_no_new_privs = false,
       .rl_as = 512 * (1024 * 1024),
       .rl_core = 0,
@@ -526,8 +529,11 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 		case 0x0407:
 			nsjconf->clone_newcgroup = true;
 			break;
+		case 0x0500:
+			nsjconf->keep_global_caps = true;
+			break;
 		case 0x0501:
-			nsjconf->keep_caps = true;
+			nsjconf->keep_local_caps = true;
 			break;
 		case 0x0502:
 			nsjconf->is_silent = true;

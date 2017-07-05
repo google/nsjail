@@ -127,7 +127,8 @@ struct nsjconf_t {
 	time_t tlimit;
 	size_t max_cpus;
 	bool keep_env;
-	bool keep_caps;
+	bool keep_global_caps;
+	bool keep_local_caps;
 	bool disable_no_new_privs;
 	__rlim64_t rl_as;
 	__rlim64_t rl_core;
