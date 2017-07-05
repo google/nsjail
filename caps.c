@@ -158,6 +158,8 @@ bool capsInitNs(struct nsjconf_t *nsjconf)
 	if (nsjconf->keep_caps) {
 		for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
 			if (capsGetCap(cap_orig, capNames[i].val, CAP_PERMITTED) == CAP_SET) {
+				LOG_D("Adding '%s' capability to the inheritable set",
+				      capNames[i].name);
 				capsSetCap(cap_new, capNames[i].val, CAP_INHERITABLE);
 			} else {
 				capsClrFlag(cap_new, capNames[i].val, CAP_INHERITABLE);
@@ -174,6 +176,8 @@ bool capsInitNs(struct nsjconf_t *nsjconf)
 				capsFree(cap_new);
 				return false;
 			}
+			LOG_D("Adding '%s' capability to the inheritable set",
+			      capsValToStr(p->val));
 			capsSetCap(cap_new, p->val, CAP_INHERITABLE);
 		}
 	}
@@ -192,6 +196,7 @@ bool capsInitNs(struct nsjconf_t *nsjconf)
 			if (capsGetCap(cap_orig, capNames[i].val, CAP_PERMITTED) != CAP_SET) {
 				continue;
 			}
+			LOG_D("Adding '%s' capability to the ambient set", capNames[i].name);
 			if (prctl
 			    (PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)capNames[i].val,
 			     0UL, 0UL) == -1) {
@@ -202,6 +207,7 @@ bool capsInitNs(struct nsjconf_t *nsjconf)
 	} else {
 		struct ints_t *p;
 		TAILQ_FOREACH(p, &nsjconf->caps, pointers) {
+			LOG_D("Adding '%s' capability to the ambient set", capsValToStr(p->val));
 			if (prctl
 			    (PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)p->val, 0UL,
 			     0UL) == -1) {
