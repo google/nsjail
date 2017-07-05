@@ -110,6 +110,9 @@ message NsJailConfig
 
     /* Should capabilities be preserved or dropped */
     required bool keep_caps = 21 [ default = false ];
+    /* Which capabilities should be preserved if keep_caps == false.
+       Format: "CAP_SYS_PTRACE" */
+	repeated string cap = 63;
     /* Should nsjail close FD=0,1,2 before executing the process */
     required bool silent = 22 [ default = false ];
     /* Should the child process have control over terminal?

@@ -25,6 +25,7 @@
 #include <sys/mount.h>
 #include <sys/personality.h>
 
+#include "caps.h"
 #include "config.h"
 #include "log.h"
 #include "mount.h"
@@ -113,6 +114,15 @@ static bool configParseInternal(struct nsjconf_t *nsjconf, Nsjail__NsJailConfig 
 	}
 
 	nsjconf->keep_caps = njc->keep_caps;
+	for (size_t i = 0; i < njc->n_cap; i++) {
+		struct ints_t *f = utilMalloc(sizeof(struct ints_t));
+		f->val = capsNameToVal(njc->cap[i]);
+		if (f->val == -1) {
+			return false;
+		}
+		TAILQ_INSERT_HEAD(&nsjconf->caps, f, pointers);
+	}
+
 	nsjconf->is_silent = njc->silent;
 	nsjconf->skip_setsid = njc->skip_setsid;
 

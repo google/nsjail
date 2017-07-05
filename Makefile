@@ -139,7 +139,7 @@ indent:
 nsjail.o: nsjail.h common.h caps.h cmdline.h log.h net.h subproc.h util.h
 caps.o: caps.h common.h log.h
 cmdline.o: cmdline.h common.h caps.h config.h log.h mount.h util.h user.h
-config.o: common.h config.h log.h mount.h user.h util.h
+config.o: common.h caps.h config.h log.h mount.h user.h util.h
 contain.o: contain.h common.h caps.h cgroup.h cpu.h log.h mount.h net.h pid.h
 contain.o: user.h util.h uts.h
 log.o: log.h common.h
