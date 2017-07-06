@@ -152,7 +152,8 @@ bool capsInitNs(struct nsjconf_t *nsjconf)
 		for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
 			cap_flag_value_t v = capsGetCap(cap_orig, capNames[i].val, CAP_PERMITTED);
 			if (v == CAP_SET) {
-				LOG_D("Adding '%s' capability to the inheritable set", capNames[i].name);
+				LOG_D("Adding '%s' capability to the inheritable set",
+				      capNames[i].name);
 			}
 			capsSetCap(cap_new, capNames[i].val, CAP_INHERITABLE, v);
 		}
@@ -167,7 +168,8 @@ bool capsInitNs(struct nsjconf_t *nsjconf)
 				capsFree(cap_new);
 				return false;
 			}
-			LOG_D("Adding '%s' capability to the inheritable set", capsValToStr(p->val));
+			LOG_D("Adding '%s' capability to the inheritable set",
+			      capsValToStr(p->val));
 			capsSetCap(cap_new, p->val, CAP_INHERITABLE, CAP_SET);
 		}
 	}
