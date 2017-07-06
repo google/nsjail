@@ -136,17 +136,10 @@ static cap_flag_value_t capsGetCap(cap_t cap, cap_value_t id, cap_flag_t type)
 	return v;
 }
 
-static void capsSetCap(cap_t cap, cap_value_t id, cap_value_t type)
+static void capsSetCap(cap_t cap, cap_value_t id, cap_value_t type, cap_flag_value_t val)
 {
-	if (cap_set_flag(cap, type, 1, &id, CAP_SET) == -1) {
-		PLOG_F("cap_set_flag(id=%d, type=%d)", (int)id, (int)type);
-	}
-}
-
-static void capsClrFlag(cap_t cap, cap_value_t id, cap_value_t type)
-{
-	if (cap_set_flag(cap, type, 1, &id, CAP_CLEAR) == -1) {
-		PLOG_F("cap_set_flag(id=%d, type=%d)", (int)id, (int)type);
+	if (cap_set_flag(cap, type, 1, &id, val) == -1) {
+		PLOG_F("cap_set_flag(id=%d, type=%d, val=%d)", (int)id, (int)type, (int)val);
 	}
 }
 
@@ -157,13 +150,11 @@ bool capsInitNs(struct nsjconf_t *nsjconf)
 
 	if (nsjconf->keep_caps) {
 		for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
-			if (capsGetCap(cap_orig, capNames[i].val, CAP_PERMITTED) == CAP_SET) {
-				LOG_D("Adding '%s' capability to the inheritable set",
-				      capNames[i].name);
-				capsSetCap(cap_new, capNames[i].val, CAP_INHERITABLE);
-			} else {
-				capsClrFlag(cap_new, capNames[i].val, CAP_INHERITABLE);
+			cap_flag_value_t v = capsGetCap(cap_orig, capNames[i].val, CAP_PERMITTED);
+			if (v == CAP_SET) {
+				LOG_D("Adding '%s' capability to the inheritable set", capNames[i].name);
 			}
+			capsSetCap(cap_new, capNames[i].val, CAP_INHERITABLE, v);
 		}
 	} else {
 		capsClearType(cap_new, CAP_INHERITABLE);
@@ -176,9 +167,8 @@ bool capsInitNs(struct nsjconf_t *nsjconf)
 				capsFree(cap_new);
 				return false;
 			}
-			LOG_D("Adding '%s' capability to the inheritable set",
-			      capsValToStr(p->val));
-			capsSetCap(cap_new, p->val, CAP_INHERITABLE);
+			LOG_D("Adding '%s' capability to the inheritable set", capsValToStr(p->val));
+			capsSetCap(cap_new, p->val, CAP_INHERITABLE, CAP_SET);
 		}
 	}
 
