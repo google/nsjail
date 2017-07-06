@@ -175,7 +175,6 @@ bool capsInitNs(struct nsjconf_t *nsjconf)
 			capsSetCap(cap_new, p->val, CAP_INHERITABLE, CAP_SET);
 		}
 	}
-
 	LOG_D("Adding the following capabilities to the inheritable set:%s", dbgmsg);
 	dbgmsg[0] = '\0';
 
@@ -215,8 +214,24 @@ bool capsInitNs(struct nsjconf_t *nsjconf)
 			}
 		}
 	}
-
 	LOG_D("Added the following capabilities to the ambient set:%s", dbgmsg);
+	dbgmsg[0] = '\0';
+
+	if (nsjconf->keep_caps == false) {
+		for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
+			if (capsGetCap(cap_new, capNames[i].val, CAP_INHERITABLE) == CAP_SET) {
+				continue;
+			}
+			utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capNames[i].name);
+			if (prctl(PR_CAPBSET_DROP, (unsigned long)capNames[i].val, 0UL, 0UL, 0UL) ==
+			    -1) {
+				PLOG_W("prctl(PR_CAPBSET_DROP, %s)", capNames[i].name);
+				return false;
+			}
+		}
+		LOG_D("Dropped the following capabilities from the bounding set:%s", dbgmsg);
+		dbgmsg[0] = '\0';
+	}
 
 	capsFree(cap_orig);
 	capsFree(cap_new);
