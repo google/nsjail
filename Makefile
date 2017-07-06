@@ -137,7 +137,7 @@ indent:
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 
 nsjail.o: nsjail.h common.h caps.h cmdline.h log.h net.h subproc.h util.h
-caps.o: caps.h common.h log.h
+caps.o: caps.h common.h log.h util.h
 cmdline.o: cmdline.h common.h caps.h config.h log.h mount.h util.h user.h
 config.o: common.h caps.h config.h log.h mount.h user.h util.h
 contain.o: contain.h common.h caps.h cgroup.h cpu.h log.h mount.h net.h pid.h
