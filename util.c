@@ -235,7 +235,7 @@ static void utilRndInitThread(void)
 #endif				/* defined(__NR_getrandom) */
 	int fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
 	if (fd == -1) {
-		PLOG_D("Couldn't open /dev/urandom for reading");
+		PLOG_D("Couldn't open /dev/urandom for reading. Using gettimeofday fall-back");
 		struct timeval tv;
 		gettimeofday(&tv, NULL);
 		rndX = tv.tv_usec + ((uint64_t) tv.tv_sec << 32);
