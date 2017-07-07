@@ -91,7 +91,7 @@ struct custom_option custom_opts[] = {
     {{"skip_setsid", no_argument, NULL, 0x0504}, "Don't call setsid(), allows for terminal signal handling in the sandboxed process"},
     {{"pass_fd", required_argument, NULL, 0x0505}, "Don't close this FD before executing child (can be specified multiple times), by default: 0/1/2 are kept open"},
     {{"disable_no_new_privs", no_argument, NULL, 0x0507}, "Don't set the prctl(NO_NEW_PRIVS, 1) (DANGEROUS)"},
-    {{"cap", required_argument, NULL, 0x0509}, "Retain this capability in local namespace (e.g. CAP_PTRACE). Can be specified multiple times)"},
+    {{"cap", required_argument, NULL, 0x0509}, "Retain this capability in local namespace (e.g. CAP_PTRACE). Can be specified multiple times"},
     {{"rlimit_as", required_argument, NULL, 0x0201}, "RLIMIT_AS in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 512)"},
     {{"rlimit_core", required_argument, NULL, 0x0202}, "RLIMIT_CORE in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 0)"},
     {{"rlimit_cpu", required_argument, NULL, 0x0203}, "RLIMIT_CPU, 'max' for RLIM_INFINITY, 'def' for the current value (default: 600)"},
