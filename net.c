@@ -103,7 +103,8 @@ bool netInitNsFromParent(struct nsjconf_t *nsjconf, int pid)
 	rtnl_link_set_ns_pid(rmv, pid);
 
 	if ((err = rtnl_link_add(sk, rmv, NLM_F_CREATE)) < 0) {
-		LOG_E("rtnl_link_add(): %s", nl_geterror(err));
+		LOG_E("rtnl_link_add(name:'%s' link:'%s'): %s", IFACE_NAME, nsjconf->iface_vs,
+		      nl_geterror(err));
 		nl_cache_free(link_cache);
 		rtnl_link_put(rmv);
 		nl_socket_free(sk);
