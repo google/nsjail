@@ -133,7 +133,7 @@ bool netInitNsFromParent(struct nsjconf_t *nsjconf, int pid)
 	char pid_str[256];
 	snprintf(pid_str, sizeof(pid_str), "%d", pid);
 
-	const char *const argv[] = {
+	const char *argv[] = {
 		"/sbin/ip", "link", "add", "link", (char *)nsjconf->iface_vs, "name", IFACE_NAME,
 		"netns", pid_str, "type", "macvlan", "mode", "bridge", NULL
 	};
