@@ -239,7 +239,8 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 			      (unsigned long)p->inside_id, (unsigned long)p->outside_id, p->count,
 			      p->is_newidmap ? "true" : "false");
 			if (p->outside_id == 0) {
-				LOG_W("Process will be UID/EUID=0 in the global user namespace");
+				LOG_W
+				    ("Process will be UID/EUID=0 in the global user namespace, and will have user root-level access to files");
 			}
 		}
 		TAILQ_FOREACH(p, &nsjconf->gids, pointers) {
@@ -247,7 +248,8 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 			      (unsigned long)p->inside_id, (unsigned long)p->outside_id, p->count,
 			      p->is_newidmap ? "true" : "false");
 			if (p->outside_id == 0) {
-				LOG_W("Process will be GID/EGID=0 in the global user namespace");
+				LOG_W
+				    ("Process will be GID/EGID=0 in the global user namespace, and will have group root-level access to files");
 			}
 		}
 	}
