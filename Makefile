@@ -22,7 +22,7 @@ CC ?= gcc
 EXTRA_CFLAGS := $(CFLAGS)
 
 CFLAGS += -O2 -c -std=gnu11 \
-	-D_GNU_SOURCE \
+	-D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 \
 	-Wformat -Wformat=2 -Wformat-security -fPIE \
 	-Wno-format-nonliteral \
 	-Wall -Wextra -Werror \
