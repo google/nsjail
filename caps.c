@@ -132,7 +132,14 @@ static cap_flag_value_t capsGetCap(cap_t cap, cap_value_t id, cap_flag_t type)
 {
 	cap_flag_value_t v;
 	if (cap_get_flag(cap, id, type, &v) == -1) {
-		PLOG_F("cap_get_flag(id=%d, type=%d)", (int)id, (int)type);
+#if defined(CAP_AUDIT_READ)
+		if (id == CAP_AUDIT_READ) {
+			PLOG_W
+			    ("CAP_AUDIT_READ requested to be read but your libcap doesn't understand this capability");
+			return CAP_CLEAR;
+		}
+#endif
+		PLOG_F("cap_get_flag(id=%s, type=%d)", capsValToStr((int)id), (int)type);
 	}
 	return v;
 }
@@ -140,7 +147,15 @@ static cap_flag_value_t capsGetCap(cap_t cap, cap_value_t id, cap_flag_t type)
 static void capsSetCap(cap_t cap, cap_value_t id, cap_value_t type, cap_flag_value_t val)
 {
 	if (cap_set_flag(cap, type, 1, &id, val) == -1) {
-		PLOG_F("cap_set_flag(id=%d, type=%d, val=%d)", (int)id, (int)type, (int)val);
+#if defined(CAP_AUDIT_READ)
+		if (id == CAP_AUDIT_READ) {
+			PLOG_W
+			    ("CAP_AUDIT_READ requested to be set but your libcap doesn't understand this capability");
+			return;
+		}
+#endif
+		PLOG_F("cap_set_flag(id=%s, type=%d, val=%d)", capsValToStr((int)id), (int)type,
+		       (int)val);
 	}
 }
 
