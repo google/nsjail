@@ -12,7 +12,8 @@ RUN apt-get -y update && apt-get install -y \
     pkg-config \
     protobuf-c-compiler \
     re2c \
-&& rm -rf /var/lib/apt/lists/*
+    libcap-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN git clone https://github.com/google/nsjail.git
 
