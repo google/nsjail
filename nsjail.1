@@ -1,0 +1,271 @@
+.TH NSJAIL "1" "August 2017" "nsjail" "User Commands"
+\"
+.SH NAME
+nsjail \- process isolation tool for linux
+\"
+.SH SYNOPSIS
+\fInsjail\fP [options] \fB\-\-\fR path_to_command [args]
+\"
+.SH DESCRIPTION
+NsJail is a process isolation tool for Linux. It utilizes Linux namespace subsystem, resource limits, and the seccomp-bpf syscall filters of the Linux kernel
+\"
+.SH Options
+.TP
+\fB\-\-help\fR|\fB\-h\fR Help plz..
+.TP
+\fB\-\-mode\fR|\fB\-M\fR VALUE Execution mode (default: o [MODE_STANDALONE_ONCE]):
+.IP
+\fBl\fR: Wait for connections on a TCP port (specified with \fB\-\-port\fR) [MODE_LISTEN_TCP]
+.PP
+.IP
+\fBo\fR: Immediately launch a single process on the console using clone/execve [MODE_STANDALONE_ONCE]
+.PP
+.IP
+\fBe\fR: Immediately launch a single process on the console using execve [MODE_STANDALONE_EXECVE]
+.PP
+.IP
+\fBr\fR: Immediately launch a single process on the console, keep doing it forever [MODE_STANDALONE_RERUN]
+.PP
+.TP
+\fB\-\-config\fR|\fB\-C\fR VALUE
+Configuration file in the config.proto ProtoBuf format
+.TP
+\fB\-\-exec_file\fR|\fB\-x\fR VALUE
+File to exec (default: argv[0])
+.TP
+\fB\-\-chroot\fR|\fB\-c\fR VALUE
+Directory containing / of the jail (default: none)
+.TP
+\fB\-\-rw\fR
+Mount / and \fI/proc\fP as RW (default: RO)
+.TP
+\fB\-\-user\fR|\fB\-u\fR VALUE
+Username/uid of processess inside the jail (default: your current uid). You can also use inside_ns_uid:outside_ns_uid:count convention here. Can be specified multiple times
+.TP
+\fB\-\-group\fR|\fB\-g\fR VALUE
+Groupname/gid of processess inside the jail (default: your current gid). You can also use inside_ns_gid:global_ns_gid:count convention here. Can be specified multiple times
+.TP
+\fB\-\-hostname\fR|\fB\-H\fR VALUE
+UTS name (hostname) of the jail (default: 'NSJAIL')
+.TP
+\fB\-\-cwd\fR|\fB\-D\fR VALUE
+Directory in the namespace the process will run (default: '/')
+.TP
+\fB\-\-port\fR|\fB\-p\fR VALUE
+TCP port to bind to (enables MODE_LISTEN_TCP) (default: 0)
+.TP
+\fB\-\-bindhost\fR VALUE
+IP address to bind the port to (only in [MODE_LISTEN_TCP]), (default: '::')
+.TP
+\fB\-\-max_conns_per_ip\fR|\fB\-i\fR VALUE
+Maximum number of connections per one IP (only in [MODE_LISTEN_TCP]), (default: 0 (unlimited))
+.TP
+\fB\-\-log\fR|\fB\-l\fR VALUE
+Log file (default: use log_fd)
+.TP
+\fB\-\-log_fd\fR|\fB\-L\fR VALUE
+Log FD (default: 2)
+.TP
+\fB\-\-time_limit\fR|\fB\-t\fR VALUE
+Maximum time that a jail can exist, in seconds (default: 600)
+.TP
+\fB\-\-max_cpus\fR VALUE
+Maximum number of CPUs a single jailed process can use (default: 0 'no limit')
+.TP
+\fB\-\-daemon\fR|\fB\-d\fR
+Daemonize after start
+.TP
+\fB\-\-verbose\fR|\fB\-v\fR
+Verbose output
+.TP
+\fB\-\-quiet\fR|\fB\-q\fR
+Only output warning and more important messages
+.TP
+\fB\-\-keep_env\fR|\fB\-e\fR
+Should all environment variables be passed to the child?
+.TP
+\fB\-\-env\fR|\fB\-E\fR VALUE
+Environment variable (can be used multiple times)
+.TP
+\fB\-\-keep_caps\fR
+Don't drop capabilities in the local namespace
+.TP
+\fB\-\-silent\fR
+Redirect child's fd:0/1/2 to /dev/null
+.TP
+\fB\-\-skip_setsid\fR
+Don't call setsid(), allows for terminal signal handling in the sandboxed process
+.TP
+\fB\-\-pass_fd\fR VALUE
+Don't close this FD before executing child (can be specified multiple times), by default: 0/1/2 are kept open
+.TP
+\fB\-\-disable_no_new_privs\fR
+Don't set the prctl(NO_NEW_PRIVS, 1) (DANGEROUS)
+.TP
+\fB\-\-cap\fR VALUE
+Retain this capability in local namespace (e.g. CAP_PTRACE). Can be specified multiple times
+.TP
+\fB\-\-rlimit_as\fR VALUE
+RLIMIT_AS in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 512)
+.TP
+\fB\-\-rlimit_core\fR VALUE
+RLIMIT_CORE in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 0)
+.TP
+\fB\-\-rlimit_cpu\fR VALUE
+RLIMIT_CPU, 'max' for RLIM_INFINITY, 'def' for the current value (default: 600)
+.TP
+\fB\-\-rlimit_fsize\fR VALUE
+RLIMIT_FSIZE in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 1)
+.TP
+\fB\-\-rlimit_nofile\fR VALUE
+RLIMIT_NOFILE, 'max' for RLIM_INFINITY, 'def' for the current value (default: 32)
+.TP
+\fB\-\-rlimit_nproc\fR VALUE
+RLIMIT_NPROC, 'max' for RLIM_INFINITY, 'def' for the current value (default: 'def')
+.TP
+\fB\-\-rlimit_stack\fR VALUE
+RLIMIT_STACK in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 'def')
+.TP
+\fB\-\-persona_addr_compat_layout\fR
+personality(ADDR_COMPAT_LAYOUT)
+.TP
+\fB\-\-persona_mmap_page_zero\fR
+personality(MMAP_PAGE_ZERO)
+.TP
+\fB\-\-persona_read_implies_exec\fR
+personality(READ_IMPLIES_EXEC)
+.TP
+\fB\-\-persona_addr_limit_3gb\fR
+personality(ADDR_LIMIT_3GB)
+.TP
+\fB\-\-persona_addr_no_randomize\fR
+personality(ADDR_NO_RANDOMIZE)
+.TP
+\fB\-\-disable_clone_newnet\fR|\-N
+Don't use CLONE_NEWNET. Enable networking inside the jail
+.TP
+\fB\-\-disable_clone_newuser\fR
+Don't use CLONE_NEWUSER. Requires euid==0
+.TP
+\fB\-\-disable_clone_newns\fR
+Don't use CLONE_NEWNS
+.TP
+\fB\-\-disable_clone_newpid\fR
+Don't use CLONE_NEWPID
+.TP
+\fB\-\-disable_clone_newipc\fR
+Don't use CLONE_NEWIPC
+.TP
+\fB\-\-disable_clone_newuts\fR
+Don't use CLONE_NEWUTS
+.TP
+\fB\-\-enable_clone_newcgroup\fR
+Use CLONE_NEWCGROUP
+.TP
+\fB\-\-uid_mapping\fR|\fB\-U\fR VALUE
+Add a custom uid mapping of the form inside_uid:outside_uid:count. Setting this requires newuidmap to be present
+.TP
+\fB\-\-gid_mapping\fR|\fB\-G\fR VALUE
+Add a custom gid mapping of the form inside_gid:outside_gid:count. Setting this requires newgidmap to be present
+.TP
+\fB\-\-bindmount_ro\fR|\fB\-R\fR VALUE
+List of mountpoints to be mounted \fB\-\-bind\fR (ro) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'
+.TP
+\fB\-\-bindmount\fR|\fB\-B\fR VALUE
+List of mountpoints to be mounted \fB\-\-bind\fR (rw) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'
+.TP
+\fB\-\-tmpfsmount\fR|\fB\-T\fR VALUE
+List of mountpoints to be mounted as RW/tmpfs inside the container. Can be specified multiple times. Supports 'dest' syntax
+.TP
+\fB\-\-tmpfs_size\fR VALUE
+Number of bytes to allocate for tmpfsmounts (default: 4194304)
+.TP
+\fB\-\-disable_proc\fR
+Disable mounting \fI/proc\fP in the jail
+.TP
+\fB\-\-seccomp_policy\fR|\fB\-P\fR VALUE
+Path to file containing seccomp\-bpf policy (see kafel/)
+.TP
+\fB\-\-seccomp_string\fR VALUE
+String with kafel seccomp\-bpf policy (see kafel/)
+.TP
+\fB\-\-cgroup_mem_max\fR VALUE
+Maximum number of bytes to use in the group (default: '0' \- disabled)
+.TP
+\fB\-\-cgroup_mem_mount\fR VALUE
+Location of memory cgroup FS (default: '/sys/fs/cgroup/memory')
+.TP
+\fB\-\-cgroup_mem_parent\fR VALUE
+Which pre\-existing memory cgroup to use as a parent (default: 'NSJAIL')
+.TP
+\fB\-\-cgroup_pids_max\fR VALUE
+Maximum number of pids in a cgroup (default: '0' \- disabled)
+.TP
+\fB\-\-cgroup_pids_mount\fR VALUE
+Location of pids cgroup FS (default: '/sys/fs/cgroup/pids')
+.TP
+\fB\-\-cgroup_pids_parent\fR VALUE
+Which pre\-existing pids cgroup to use as a parent (default: 'NSJAIL')
+.TP
+\fB\-\-iface_no_lo\fR
+Don't bring up the 'lo' interface
+.TP
+\fB\-\-macvlan_iface\fR|\fB\-I\fR VALUE
+Interface which will be cloned (MACVLAN) and put inside the subprocess' namespace as 'vs'
+.TP
+\fB\-\-macvlan_vs_ip\fR VALUE
+IP of the 'vs' interface (e.g. "192.168.0.1")
+.TP
+\fB\-\-macvlan_vs_nm\fR VALUE
+Netmask of the 'vs' interface (e.g. "255.255.255.0")
+.TP
+\fB\-\-macvlan_vs_gw\fR VALUE
+Default GW for the 'vs' interface (e.g. "192.168.0.1")
+\"
+.SH Deprecated options
+.TP
+\fB\-\-iface\fR|\fB\-I\fR VALUE
+Interface which will be cloned (MACVLAN) and put inside the subprocess' namespace as 'vs'
+DEPRECATED: Use macvlan_iface instead.
+.TP
+\fB\-\-iface_vs_ip\fR VALUE
+IP of the 'vs' interface (e.g. "192.168.0.1")
+DEPRECATED: Use macvlan_vs_ip instead.
+.TP
+\fB\-\-iface_vs_nm\fR VALUE
+Netmask of the 'vs' interface (e.g. "255.255.255.0")
+DEPRECATED: Use macvlan_vs_nm instead.
+\fB\-\-iface_vs_gw\fR VALUE
+Default GW for the 'vs' interface (e.g. "192.168.0.1")
+DEPRECATED: Use macvlan_vs_gw instead.
+\"
+.SH Examples
+.PP
+Wait on a port 31337 for connections, and run /bin/sh:
+.IP
+nsjail \-Ml \-\-port 31337 \-\-chroot / \-\- /bin/sh \-i
+.PP
+Re\-run echo command as a sub\-process:
+.IP
+nsjail \-Mr \-\-chroot / \-\- /bin/echo "ABC"
+.PP
+Run echo command once only, as a sub\-process:
+.IP
+nsjail \-Mo \-\-chroot / \-\- /bin/echo "ABC"
+.PP
+Execute echo command directly, without a supervising process:
+.IP
+nsjail \-Me \-\-chroot / \-\-disable_proc \-\- /bin/echo "ABC"
+\"
+.SH SEE ALSO
+The full documentation for
+.B nsjail
+is maintained as a Texinfo manual.  If the
+.B info
+and
+.B nsjail
+programs are properly installed at your site, the command
+.IP
+.B info nsjail
+.PP
+should give you access to the complete manual.
