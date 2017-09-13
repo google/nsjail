@@ -45,8 +45,8 @@
 #include "config.h"
 #include "log.h"
 #include "mount.h"
-#include "util.h"
 #include "user.h"
+#include "util.h"
 
 struct custom_option {
 	struct option opt;
@@ -55,91 +55,91 @@ struct custom_option {
 
 /* *INDENT-OFF* */
 struct custom_option custom_opts[] = {
-    {{"help", no_argument, NULL, 'h'}, "Help plz.."},
-    {{"mode", required_argument, NULL, 'M'},
-     "Execution mode (default: o [MODE_STANDALONE_ONCE]):\n"
-     "\tl: Wait for connections on a TCP port (specified with --port) "
-     "[MODE_LISTEN_TCP]\n"
-     "\to: Immediately launch a single process on the console using "
-     "clone/execve [MODE_STANDALONE_ONCE]\n"
-     "\te: Immediately launch a single process on the console using execve "
-     "[MODE_STANDALONE_EXECVE]\n"
-     "\tr: Immediately launch a single process on the console, keep doing it "
-     "forever [MODE_STANDALONE_RERUN]"},
-    {{"config", required_argument, NULL, 'C'}, "Configuration file in the config.proto ProtoBuf format"},
-    {{"exec_file", required_argument, NULL, 'x'}, "File to exec (default: argv[0])"},
-    {{"chroot", required_argument, NULL, 'c'}, "Directory containing / of the jail (default: none)"},
-    {{"rw", no_argument, NULL, 0x601}, "Mount / and /proc as RW (default: RO)"},
-    {{"user", required_argument, NULL, 'u'}, "Username/uid of processess inside the jail (default: your current uid). You can also use inside_ns_uid:outside_ns_uid:count convention here. Can be specified multiple times"},
-    {{"group", required_argument, NULL, 'g'}, "Groupname/gid of processess inside the jail (default: your current gid). You can also use inside_ns_gid:global_ns_gid:count convention here. Can be specified multiple times"},
-    {{"hostname", required_argument, NULL, 'H'}, "UTS name (hostname) of the jail (default: 'NSJAIL')"},
-    {{"cwd", required_argument, NULL, 'D'}, "Directory in the namespace the process will run (default: '/')"},
-    {{"port", required_argument, NULL, 'p'}, "TCP port to bind to (enables MODE_LISTEN_TCP) (default: 0)"},
-    {{"bindhost", required_argument, NULL, 0x604}, "IP address to bind the port to (only in [MODE_LISTEN_TCP]), (default: '::')"},
-    {{"max_conns_per_ip", required_argument, NULL, 'i'}, "Maximum number of connections per one IP (only in [MODE_LISTEN_TCP]), (default: 0 (unlimited))"},
-    {{"log", required_argument, NULL, 'l'}, "Log file (default: use log_fd)"},
-    {{"log_fd", required_argument, NULL, 'L'}, "Log FD (default: 2)"},
-    {{"time_limit", required_argument, NULL, 't'}, "Maximum time that a jail can exist, in seconds (default: 600)"},
-    {{"max_cpus", required_argument, NULL, 0x508}, "Maximum number of CPUs a single jailed process can use (default: 0 'no limit')"},
-    {{"daemon", no_argument, NULL, 'd'}, "Daemonize after start"},
-    {{"verbose", no_argument, NULL, 'v'}, "Verbose output"},
-    {{"quiet", no_argument, NULL, 'q'}, "Only output warning and more important messages"},
-    {{"keep_env", no_argument, NULL, 'e'}, "Should all environment variables be passed to the child?"},
-    {{"env", required_argument, NULL, 'E'}, "Environment variable (can be used multiple times)"},
-    {{"keep_caps", no_argument, NULL, 0x0501}, "Don't drop capabilities in the local namespace"},
-    {{"silent", no_argument, NULL, 0x0502}, "Redirect child's fd:0/1/2 to /dev/null"},
-    {{"skip_setsid", no_argument, NULL, 0x0504}, "Don't call setsid(), allows for terminal signal handling in the sandboxed process"},
-    {{"pass_fd", required_argument, NULL, 0x0505}, "Don't close this FD before executing child (can be specified multiple times), by default: 0/1/2 are kept open"},
-    {{"disable_no_new_privs", no_argument, NULL, 0x0507}, "Don't set the prctl(NO_NEW_PRIVS, 1) (DANGEROUS)"},
-    {{"cap", required_argument, NULL, 0x0509}, "Retain this capability in local namespace (e.g. CAP_PTRACE). Can be specified multiple times"},
-    {{"rlimit_as", required_argument, NULL, 0x0201}, "RLIMIT_AS in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 512)"},
-    {{"rlimit_core", required_argument, NULL, 0x0202}, "RLIMIT_CORE in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 0)"},
-    {{"rlimit_cpu", required_argument, NULL, 0x0203}, "RLIMIT_CPU, 'max' for RLIM_INFINITY, 'def' for the current value (default: 600)"},
-    {{"rlimit_fsize", required_argument, NULL, 0x0204}, "RLIMIT_FSIZE in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 1)"},
-    {{"rlimit_nofile", required_argument, NULL, 0x0205}, "RLIMIT_NOFILE, 'max' for RLIM_INFINITY, 'def' for the current value (default: 32)"},
-    {{"rlimit_nproc", required_argument, NULL, 0x0206}, "RLIMIT_NPROC, 'max' for RLIM_INFINITY, 'def' for the current value (default: 'def')"},
-    {{"rlimit_stack", required_argument, NULL, 0x0207}, "RLIMIT_STACK in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 'def')"},
-    {{"persona_addr_compat_layout", no_argument, NULL, 0x0301}, "personality(ADDR_COMPAT_LAYOUT)"},
-    {{"persona_mmap_page_zero", no_argument, NULL, 0x0302}, "personality(MMAP_PAGE_ZERO)"},
-    {{"persona_read_implies_exec", no_argument, NULL, 0x0303}, "personality(READ_IMPLIES_EXEC)"},
-    {{"persona_addr_limit_3gb", no_argument, NULL, 0x0304}, "personality(ADDR_LIMIT_3GB)"},
-    {{"persona_addr_no_randomize", no_argument, NULL, 0x0305}, "personality(ADDR_NO_RANDOMIZE)"},
-    {{"disable_clone_newnet", no_argument, NULL, 'N'}, "Don't use CLONE_NEWNET. Enable networking inside the jail"},
-    {{"disable_clone_newuser", no_argument, NULL, 0x0402}, "Don't use CLONE_NEWUSER. Requires euid==0"},
-    {{"disable_clone_newns", no_argument, NULL, 0x0403}, "Don't use CLONE_NEWNS"},
-    {{"disable_clone_newpid", no_argument, NULL, 0x0404}, "Don't use CLONE_NEWPID"},
-    {{"disable_clone_newipc", no_argument, NULL, 0x0405}, "Don't use CLONE_NEWIPC"},
-    {{"disable_clone_newuts", no_argument, NULL, 0x0406}, "Don't use CLONE_NEWUTS"},
-    {{"enable_clone_newcgroup", no_argument, NULL, 0x0407}, "Use CLONE_NEWCGROUP"},
-    {{"uid_mapping", required_argument, NULL, 'U'}, "Add a custom uid mapping of the form inside_uid:outside_uid:count. Setting this requires newuidmap to be present"},
-    {{"gid_mapping", required_argument, NULL, 'G'}, "Add a custom gid mapping of the form inside_gid:outside_gid:count. Setting this requires newgidmap to be present"},
-    {{"bindmount_ro", required_argument, NULL, 'R'}, "List of mountpoints to be mounted --bind (ro) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'"},
-    {{"bindmount", required_argument, NULL, 'B'}, "List of mountpoints to be mounted --bind (rw) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'"},
-    {{"tmpfsmount", required_argument, NULL, 'T'}, "List of mountpoints to be mounted as RW/tmpfs inside the container. Can be specified multiple times. Supports 'dest' syntax"},
-    {{"tmpfs_size", required_argument, NULL, 0x0602}, "Number of bytes to allocate for tmpfsmounts (default: 4194304)"},
-    {{"disable_proc", no_argument, NULL, 0x0603}, "Disable mounting /proc in the jail"},
-    {{"seccomp_policy", required_argument, NULL, 'P'}, "Path to file containing seccomp-bpf policy (see kafel/)"},
-    {{"seccomp_string", required_argument, NULL, 0x0901}, "String with kafel seccomp-bpf policy (see kafel/)"},
-    {{"cgroup_mem_max", required_argument, NULL, 0x0801}, "Maximum number of bytes to use in the group (default: '0' - disabled)"},
-    {{"cgroup_mem_mount", required_argument, NULL, 0x0802}, "Location of memory cgroup FS (default: '/sys/fs/cgroup/memory')"},
-    {{"cgroup_mem_parent", required_argument, NULL, 0x0803}, "Which pre-existing memory cgroup to use as a parent (default: 'NSJAIL')"},
-    {{"cgroup_pids_max", required_argument, NULL, 0x0811}, "Maximum number of pids in a cgroup (default: '0' - disabled)"},
-    {{"cgroup_pids_mount", required_argument, NULL, 0x0812}, "Location of pids cgroup FS (default: '/sys/fs/cgroup/pids')"},
-    {{"cgroup_pids_parent", required_argument, NULL, 0x0813}, "Which pre-existing pids cgroup to use as a parent (default: 'NSJAIL')"},
-    {{"iface_no_lo", no_argument, NULL, 0x700}, "Don't bring up the 'lo' interface"},
-    {{"macvlan_iface", required_argument, NULL, 'I'}, "Interface which will be cloned (MACVLAN) and put inside the subprocess' namespace as 'vs'"},
-    {{"macvlan_vs_ip", required_argument, NULL, 0x701}, "IP of the 'vs' interface (e.g. \"192.168.0.1\")"},
-    {{"macvlan_vs_nm", required_argument, NULL, 0x702}, "Netmask of the 'vs' interface (e.g. \"255.255.255.0\")"},
-    {{"macvlan_vs_gw", required_argument, NULL, 0x703}, "Default GW for the 'vs' interface (e.g. \"192.168.0.1\")"},
+    { { "help", no_argument, NULL, 'h' }, "Help plz.." },
+    { { "mode", required_argument, NULL, 'M' },
+        "Execution mode (default: o [MODE_STANDALONE_ONCE]):\n"
+        "\tl: Wait for connections on a TCP port (specified with --port) "
+        "[MODE_LISTEN_TCP]\n"
+        "\to: Immediately launch a single process on the console using "
+        "clone/execve [MODE_STANDALONE_ONCE]\n"
+        "\te: Immediately launch a single process on the console using execve "
+        "[MODE_STANDALONE_EXECVE]\n"
+        "\tr: Immediately launch a single process on the console, keep doing it "
+        "forever [MODE_STANDALONE_RERUN]" },
+    { { "config", required_argument, NULL, 'C' }, "Configuration file in the config.proto ProtoBuf format" },
+    { { "exec_file", required_argument, NULL, 'x' }, "File to exec (default: argv[0])" },
+    { { "chroot", required_argument, NULL, 'c' }, "Directory containing / of the jail (default: none)" },
+    { { "rw", no_argument, NULL, 0x601 }, "Mount / and /proc as RW (default: RO)" },
+    { { "user", required_argument, NULL, 'u' }, "Username/uid of processess inside the jail (default: your current uid). You can also use inside_ns_uid:outside_ns_uid:count convention here. Can be specified multiple times" },
+    { { "group", required_argument, NULL, 'g' }, "Groupname/gid of processess inside the jail (default: your current gid). You can also use inside_ns_gid:global_ns_gid:count convention here. Can be specified multiple times" },
+    { { "hostname", required_argument, NULL, 'H' }, "UTS name (hostname) of the jail (default: 'NSJAIL')" },
+    { { "cwd", required_argument, NULL, 'D' }, "Directory in the namespace the process will run (default: '/')" },
+    { { "port", required_argument, NULL, 'p' }, "TCP port to bind to (enables MODE_LISTEN_TCP) (default: 0)" },
+    { { "bindhost", required_argument, NULL, 0x604 }, "IP address to bind the port to (only in [MODE_LISTEN_TCP]), (default: '::')" },
+    { { "max_conns_per_ip", required_argument, NULL, 'i' }, "Maximum number of connections per one IP (only in [MODE_LISTEN_TCP]), (default: 0 (unlimited))" },
+    { { "log", required_argument, NULL, 'l' }, "Log file (default: use log_fd)" },
+    { { "log_fd", required_argument, NULL, 'L' }, "Log FD (default: 2)" },
+    { { "time_limit", required_argument, NULL, 't' }, "Maximum time that a jail can exist, in seconds (default: 600)" },
+    { { "max_cpus", required_argument, NULL, 0x508 }, "Maximum number of CPUs a single jailed process can use (default: 0 'no limit')" },
+    { { "daemon", no_argument, NULL, 'd' }, "Daemonize after start" },
+    { { "verbose", no_argument, NULL, 'v' }, "Verbose output" },
+    { { "quiet", no_argument, NULL, 'q' }, "Only output warning and more important messages" },
+    { { "keep_env", no_argument, NULL, 'e' }, "Should all environment variables be passed to the child?" },
+    { { "env", required_argument, NULL, 'E' }, "Environment variable (can be used multiple times)" },
+    { { "keep_caps", no_argument, NULL, 0x0501 }, "Don't drop capabilities in the local namespace" },
+    { { "silent", no_argument, NULL, 0x0502 }, "Redirect child's fd:0/1/2 to /dev/null" },
+    { { "skip_setsid", no_argument, NULL, 0x0504 }, "Don't call setsid(), allows for terminal signal handling in the sandboxed process" },
+    { { "pass_fd", required_argument, NULL, 0x0505 }, "Don't close this FD before executing child (can be specified multiple times), by default: 0/1/2 are kept open" },
+    { { "disable_no_new_privs", no_argument, NULL, 0x0507 }, "Don't set the prctl(NO_NEW_PRIVS, 1) (DANGEROUS)" },
+    { { "cap", required_argument, NULL, 0x0509 }, "Retain this capability in local namespace (e.g. CAP_PTRACE). Can be specified multiple times" },
+    { { "rlimit_as", required_argument, NULL, 0x0201 }, "RLIMIT_AS in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 512)" },
+    { { "rlimit_core", required_argument, NULL, 0x0202 }, "RLIMIT_CORE in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 0)" },
+    { { "rlimit_cpu", required_argument, NULL, 0x0203 }, "RLIMIT_CPU, 'max' for RLIM_INFINITY, 'def' for the current value (default: 600)" },
+    { { "rlimit_fsize", required_argument, NULL, 0x0204 }, "RLIMIT_FSIZE in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 1)" },
+    { { "rlimit_nofile", required_argument, NULL, 0x0205 }, "RLIMIT_NOFILE, 'max' for RLIM_INFINITY, 'def' for the current value (default: 32)" },
+    { { "rlimit_nproc", required_argument, NULL, 0x0206 }, "RLIMIT_NPROC, 'max' for RLIM_INFINITY, 'def' for the current value (default: 'def')" },
+    { { "rlimit_stack", required_argument, NULL, 0x0207 }, "RLIMIT_STACK in MB, 'max' for RLIM_INFINITY, 'def' for the current value (default: 'def')" },
+    { { "persona_addr_compat_layout", no_argument, NULL, 0x0301 }, "personality(ADDR_COMPAT_LAYOUT)" },
+    { { "persona_mmap_page_zero", no_argument, NULL, 0x0302 }, "personality(MMAP_PAGE_ZERO)" },
+    { { "persona_read_implies_exec", no_argument, NULL, 0x0303 }, "personality(READ_IMPLIES_EXEC)" },
+    { { "persona_addr_limit_3gb", no_argument, NULL, 0x0304 }, "personality(ADDR_LIMIT_3GB)" },
+    { { "persona_addr_no_randomize", no_argument, NULL, 0x0305 }, "personality(ADDR_NO_RANDOMIZE)" },
+    { { "disable_clone_newnet", no_argument, NULL, 'N' }, "Don't use CLONE_NEWNET. Enable networking inside the jail" },
+    { { "disable_clone_newuser", no_argument, NULL, 0x0402 }, "Don't use CLONE_NEWUSER. Requires euid==0" },
+    { { "disable_clone_newns", no_argument, NULL, 0x0403 }, "Don't use CLONE_NEWNS" },
+    { { "disable_clone_newpid", no_argument, NULL, 0x0404 }, "Don't use CLONE_NEWPID" },
+    { { "disable_clone_newipc", no_argument, NULL, 0x0405 }, "Don't use CLONE_NEWIPC" },
+    { { "disable_clone_newuts", no_argument, NULL, 0x0406 }, "Don't use CLONE_NEWUTS" },
+    { { "enable_clone_newcgroup", no_argument, NULL, 0x0407 }, "Use CLONE_NEWCGROUP" },
+    { { "uid_mapping", required_argument, NULL, 'U' }, "Add a custom uid mapping of the form inside_uid:outside_uid:count. Setting this requires newuidmap to be present" },
+    { { "gid_mapping", required_argument, NULL, 'G' }, "Add a custom gid mapping of the form inside_gid:outside_gid:count. Setting this requires newgidmap to be present" },
+    { { "bindmount_ro", required_argument, NULL, 'R' }, "List of mountpoints to be mounted --bind (ro) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'" },
+    { { "bindmount", required_argument, NULL, 'B' }, "List of mountpoints to be mounted --bind (rw) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'" },
+    { { "tmpfsmount", required_argument, NULL, 'T' }, "List of mountpoints to be mounted as RW/tmpfs inside the container. Can be specified multiple times. Supports 'dest' syntax" },
+    { { "tmpfs_size", required_argument, NULL, 0x0602 }, "Number of bytes to allocate for tmpfsmounts (default: 4194304)" },
+    { { "disable_proc", no_argument, NULL, 0x0603 }, "Disable mounting /proc in the jail" },
+    { { "seccomp_policy", required_argument, NULL, 'P' }, "Path to file containing seccomp-bpf policy (see kafel/)" },
+    { { "seccomp_string", required_argument, NULL, 0x0901 }, "String with kafel seccomp-bpf policy (see kafel/)" },
+    { { "cgroup_mem_max", required_argument, NULL, 0x0801 }, "Maximum number of bytes to use in the group (default: '0' - disabled)" },
+    { { "cgroup_mem_mount", required_argument, NULL, 0x0802 }, "Location of memory cgroup FS (default: '/sys/fs/cgroup/memory')" },
+    { { "cgroup_mem_parent", required_argument, NULL, 0x0803 }, "Which pre-existing memory cgroup to use as a parent (default: 'NSJAIL')" },
+    { { "cgroup_pids_max", required_argument, NULL, 0x0811 }, "Maximum number of pids in a cgroup (default: '0' - disabled)" },
+    { { "cgroup_pids_mount", required_argument, NULL, 0x0812 }, "Location of pids cgroup FS (default: '/sys/fs/cgroup/pids')" },
+    { { "cgroup_pids_parent", required_argument, NULL, 0x0813 }, "Which pre-existing pids cgroup to use as a parent (default: 'NSJAIL')" },
+    { { "iface_no_lo", no_argument, NULL, 0x700 }, "Don't bring up the 'lo' interface" },
+    { { "macvlan_iface", required_argument, NULL, 'I' }, "Interface which will be cloned (MACVLAN) and put inside the subprocess' namespace as 'vs'" },
+    { { "macvlan_vs_ip", required_argument, NULL, 0x701 }, "IP of the 'vs' interface (e.g. \"192.168.0.1\")" },
+    { { "macvlan_vs_nm", required_argument, NULL, 0x702 }, "Netmask of the 'vs' interface (e.g. \"255.255.255.0\")" },
+    { { "macvlan_vs_gw", required_argument, NULL, 0x703 }, "Default GW for the 'vs' interface (e.g. \"192.168.0.1\")" },
 };
 
 struct custom_option deprecated_opts[] = {
     // Compatibilty flags for MACVLAN.
     // TODO(rswiecki): Remove this at some point.
-    {{"iface", required_argument, NULL, 'I'}, "Interface which will be cloned (MACVLAN) and put inside the subprocess' namespace as 'vs'"},
-    {{"iface_vs_ip", required_argument, NULL, 0x701}, "IP of the 'vs' interface (e.g. \"192.168.0.1\")"},
-    {{"iface_vs_nm", required_argument, NULL, 0x702}, "Netmask of the 'vs' interface (e.g. \"255.255.255.0\")"},
-    {{"iface_vs_gw", required_argument, NULL, 0x703}, "Default GW for the 'vs' interface (e.g. \"192.168.0.1\")"},
+    { { "iface", required_argument, NULL, 'I' }, "Interface which will be cloned (MACVLAN) and put inside the subprocess' namespace as 'vs'" },
+    { { "iface_vs_ip", required_argument, NULL, 0x701 }, "IP of the 'vs' interface (e.g. \"192.168.0.1\")" },
+    { { "iface_vs_nm", required_argument, NULL, 0x702 }, "Netmask of the 'vs' interface (e.g. \"255.255.255.0\")" },
+    { { "iface_vs_gw", required_argument, NULL, 0x703 }, "Default GW for the 'vs' interface (e.g. \"192.168.0.1\")" },
 };
 /*  *INDENT-ON* */
 
@@ -306,61 +306,61 @@ static char *cmdlineSplitStrByColon(char *spec)
 
 bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 {
-  /*  *INDENT-OFF* */
-  (*nsjconf) = (const struct nsjconf_t){
-      .exec_file = NULL,
-      .hostname = "NSJAIL",
-      .cwd = "/",
-      .chroot = NULL,
-      .argv = NULL,
-      .port = 0,
-      .bindhost = "::",
-      .log_fd = STDERR_FILENO,
-      .logfile = NULL,
-      .loglevel = INFO,
-      .daemonize = false,
-      .tlimit = 0,
-      .max_cpus = 0,
-      .keep_caps = false,
-      .disable_no_new_privs = false,
-      .rl_as = 512 * (1024 * 1024),
-      .rl_core = 0,
-      .rl_cpu = 600,
-      .rl_fsize = 1 * (1024 * 1024),
-      .rl_nofile = 32,
-      .rl_nproc = cmdlineParseRLimit(RLIMIT_NPROC, "def", 1),
-      .rl_stack = cmdlineParseRLimit(RLIMIT_STACK, "def", 1),
-      .personality = 0,
-      .clone_newnet = true,
-      .clone_newuser = true,
-      .clone_newns = true,
-      .clone_newpid = true,
-      .clone_newipc = true,
-      .clone_newuts = true,
-      .clone_newcgroup = false,
-      .mode = MODE_STANDALONE_ONCE,
-      .is_root_rw = false,
-      .is_silent = false,
-      .skip_setsid = false,
-      .max_conns_per_ip = 0,
-      .tmpfs_size = 4 * (1024 * 1024),
-      .mount_proc = true,
-      .cgroup_mem_mount = "/sys/fs/cgroup/memory",
-      .cgroup_mem_parent = "NSJAIL",
-      .cgroup_mem_max = (size_t)0,
-      .cgroup_pids_mount = "/sys/fs/cgroup/pids",
-      .cgroup_pids_parent = "NSJAIL",
-      .cgroup_pids_max = (size_t)0,
-      .iface_no_lo = false,
-      .iface_vs = NULL,
-      .iface_vs_ip = "0.0.0.0",
-      .iface_vs_nm = "255.255.255.0",
-      .iface_vs_gw = "0.0.0.0",
-      .kafel_file = NULL,
-      .kafel_string = NULL,
-      .num_cpus = sysconf(_SC_NPROCESSORS_ONLN),
-  };
-  /*  *INDENT-ON* */
+    /*  *INDENT-OFF* */
+    (*nsjconf) = (const struct nsjconf_t){
+        .exec_file = NULL,
+        .hostname = "NSJAIL",
+        .cwd = "/",
+        .chroot = NULL,
+        .argv = NULL,
+        .port = 0,
+        .bindhost = "::",
+        .log_fd = STDERR_FILENO,
+        .logfile = NULL,
+        .loglevel = INFO,
+        .daemonize = false,
+        .tlimit = 0,
+        .max_cpus = 0,
+        .keep_caps = false,
+        .disable_no_new_privs = false,
+        .rl_as = 512 * (1024 * 1024),
+        .rl_core = 0,
+        .rl_cpu = 600,
+        .rl_fsize = 1 * (1024 * 1024),
+        .rl_nofile = 32,
+        .rl_nproc = cmdlineParseRLimit(RLIMIT_NPROC, "def", 1),
+        .rl_stack = cmdlineParseRLimit(RLIMIT_STACK, "def", 1),
+        .personality = 0,
+        .clone_newnet = true,
+        .clone_newuser = true,
+        .clone_newns = true,
+        .clone_newpid = true,
+        .clone_newipc = true,
+        .clone_newuts = true,
+        .clone_newcgroup = false,
+        .mode = MODE_STANDALONE_ONCE,
+        .is_root_rw = false,
+        .is_silent = false,
+        .skip_setsid = false,
+        .max_conns_per_ip = 0,
+        .tmpfs_size = 4 * (1024 * 1024),
+        .mount_proc = true,
+        .cgroup_mem_mount = "/sys/fs/cgroup/memory",
+        .cgroup_mem_parent = "NSJAIL",
+        .cgroup_mem_max = (size_t)0,
+        .cgroup_pids_mount = "/sys/fs/cgroup/pids",
+        .cgroup_pids_parent = "NSJAIL",
+        .cgroup_pids_max = (size_t)0,
+        .iface_no_lo = false,
+        .iface_vs = NULL,
+        .iface_vs_ip = "0.0.0.0",
+        .iface_vs_nm = "255.255.255.0",
+        .iface_vs_gw = "0.0.0.0",
+        .kafel_file = NULL,
+        .kafel_string = NULL,
+        .num_cpus = sysconf(_SC_NPROCESSORS_ONLN),
+    };
+    /*  *INDENT-ON* */
 
 	TAILQ_INIT(&nsjconf->pids);
 	TAILQ_INIT(&nsjconf->mountpts);
@@ -576,12 +576,13 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				char *i_id = optarg;
 				char *o_id = cmdlineSplitStrByColon(i_id);
 				char *cnt = cmdlineSplitStrByColon(o_id);
-				size_t count = (cnt == NULL
-						|| strlen(cnt) == 0) ? 1U : (size_t) strtoull(cnt,
-											      NULL,
-											      0);
+				size_t count = (cnt == NULL || strlen(cnt) == 0)
+				    ? 1U : (size_t) strtoull(cnt,
+							     NULL,
+							     0);
 				if (userParseId(nsjconf, i_id, o_id, count, false /* is_gid */ ,
-						false /* is_newidmap */ ) == false) {
+						false /* is_newidmap */ )
+				    == false) {
 					return false;
 				}
 			}
@@ -590,12 +591,13 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				char *i_id = optarg;
 				char *o_id = cmdlineSplitStrByColon(i_id);
 				char *cnt = cmdlineSplitStrByColon(o_id);
-				size_t count = (cnt == NULL
-						|| strlen(cnt) == 0) ? 1U : (size_t) strtoull(cnt,
-											      NULL,
-											      0);
+				size_t count = (cnt == NULL || strlen(cnt) == 0)
+				    ? 1U : (size_t) strtoull(cnt,
+							     NULL,
+							     0);
 				if (userParseId(nsjconf, i_id, o_id, count, true /* is_gid */ ,
-						false /* is_newidmap */ ) == false) {
+						false /* is_newidmap */ )
+				    == false) {
 					return false;
 				}
 			}
@@ -604,12 +606,13 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				char *i_id = optarg;
 				char *o_id = cmdlineSplitStrByColon(i_id);
 				char *cnt = cmdlineSplitStrByColon(o_id);
-				size_t count = (cnt == NULL
-						|| strlen(cnt) == 0) ? 1U : (size_t) strtoull(cnt,
-											      NULL,
-											      0);
+				size_t count = (cnt == NULL || strlen(cnt) == 0)
+				    ? 1U : (size_t) strtoull(cnt,
+							     NULL,
+							     0);
 				if (userParseId(nsjconf, i_id, o_id, count, false /* is_gid */ ,
-						true /* is_newidmap */ ) == false) {
+						true /* is_newidmap */ )
+				    == false) {
 					return false;
 				}
 			}
@@ -618,12 +621,13 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 				char *i_id = optarg;
 				char *o_id = cmdlineSplitStrByColon(i_id);
 				char *cnt = cmdlineSplitStrByColon(o_id);
-				size_t count = (cnt == NULL
-						|| strlen(cnt) == 0) ? 1U : (size_t) strtoull(cnt,
-											      NULL,
-											      0);
+				size_t count = (cnt == NULL || strlen(cnt) == 0)
+				    ? 1U : (size_t) strtoull(cnt,
+							     NULL,
+							     0);
 				if (userParseId(nsjconf, i_id, o_id, count, true /* is_gid */ ,
-						true /* is_newidmap */ ) == false) {
+						true /* is_newidmap */ )
+				    == false) {
 					return false;
 				}
 			}

@@ -29,8 +29,8 @@
 #include <sched.h>
 #include <setjmp.h>
 #include <signal.h>
-#include <stdio.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/prctl.h>
@@ -41,8 +41,8 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "common.h"
 #include "cgroup.h"
+#include "common.h"
 #include "contain.h"
 #include "log.h"
 #include "net.h"
@@ -52,7 +52,10 @@
 
 static const char subprocDoneChar = 'D';
 
-#define VALSTR_STRUCT(x) { x, #x }
+#define VALSTR_STRUCT(x) \
+    {                    \
+        x, #x            \
+    }
 
 #if !defined(CLONE_NEWCGROUP)
 #define CLONE_NEWCGROUP 0x02000000
@@ -63,36 +66,36 @@ static const char *subprocCloneFlagsToStr(uintptr_t flags)
 	static __thread char cloneFlagName[1024];
 	cloneFlagName[0] = '\0';
 
-	/*  *INDENT-OFF* */
-	static struct {
-		const uintptr_t flag;
-		const char* const name;
-	} const cloneFlags[] = {
-		VALSTR_STRUCT(CLONE_VM),
-		VALSTR_STRUCT(CLONE_FS),
-		VALSTR_STRUCT(CLONE_FILES),
-		VALSTR_STRUCT(CLONE_SIGHAND),
-		VALSTR_STRUCT(CLONE_PTRACE),
-		VALSTR_STRUCT(CLONE_VFORK),
-		VALSTR_STRUCT(CLONE_PARENT),
-		VALSTR_STRUCT(CLONE_THREAD),
-		VALSTR_STRUCT(CLONE_NEWNS),
-		VALSTR_STRUCT(CLONE_SYSVSEM),
-		VALSTR_STRUCT(CLONE_SETTLS),
-		VALSTR_STRUCT(CLONE_PARENT_SETTID),
-		VALSTR_STRUCT(CLONE_CHILD_CLEARTID),
-		VALSTR_STRUCT(CLONE_DETACHED),
-		VALSTR_STRUCT(CLONE_UNTRACED),
-		VALSTR_STRUCT(CLONE_CHILD_SETTID),
-		VALSTR_STRUCT(CLONE_NEWCGROUP),
-		VALSTR_STRUCT(CLONE_NEWUTS),
-		VALSTR_STRUCT(CLONE_NEWIPC),
-		VALSTR_STRUCT(CLONE_NEWUSER),
-		VALSTR_STRUCT(CLONE_NEWPID),
-		VALSTR_STRUCT(CLONE_NEWNET),
-		VALSTR_STRUCT(CLONE_IO),
-	};
-	/*  *INDENT-ON* */
+    /*  *INDENT-OFF* */
+    static struct {
+        const uintptr_t flag;
+        const char* const name;
+    } const cloneFlags[] = {
+        VALSTR_STRUCT(CLONE_VM),
+        VALSTR_STRUCT(CLONE_FS),
+        VALSTR_STRUCT(CLONE_FILES),
+        VALSTR_STRUCT(CLONE_SIGHAND),
+        VALSTR_STRUCT(CLONE_PTRACE),
+        VALSTR_STRUCT(CLONE_VFORK),
+        VALSTR_STRUCT(CLONE_PARENT),
+        VALSTR_STRUCT(CLONE_THREAD),
+        VALSTR_STRUCT(CLONE_NEWNS),
+        VALSTR_STRUCT(CLONE_SYSVSEM),
+        VALSTR_STRUCT(CLONE_SETTLS),
+        VALSTR_STRUCT(CLONE_PARENT_SETTID),
+        VALSTR_STRUCT(CLONE_CHILD_CLEARTID),
+        VALSTR_STRUCT(CLONE_DETACHED),
+        VALSTR_STRUCT(CLONE_UNTRACED),
+        VALSTR_STRUCT(CLONE_CHILD_SETTID),
+        VALSTR_STRUCT(CLONE_NEWCGROUP),
+        VALSTR_STRUCT(CLONE_NEWUTS),
+        VALSTR_STRUCT(CLONE_NEWIPC),
+        VALSTR_STRUCT(CLONE_NEWUSER),
+        VALSTR_STRUCT(CLONE_NEWPID),
+        VALSTR_STRUCT(CLONE_NEWNET),
+        VALSTR_STRUCT(CLONE_IO),
+    };
+    /*  *INDENT-ON* */
 
 	for (size_t i = 0; i < ARRAYSIZE(cloneFlags); i++) {
 		if (flags & cloneFlags[i].flag) {

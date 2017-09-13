@@ -28,8 +28,8 @@
 #include <netinet/ip6.h>
 #include <netinet/tcp.h>
 #include <sched.h>
-#include <stdio.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
@@ -171,9 +171,9 @@ bool netLimitConns(struct nsjconf_t * nsjconf, int connsock)
 	unsigned int cnt = 0;
 	struct pids_t *p;
 	TAILQ_FOREACH(p, &nsjconf->pids, pointers) {
-		if (memcmp
-		    (addr.sin6_addr.s6_addr, p->remote_addr.sin6_addr.s6_addr,
-		     sizeof(*p->remote_addr.sin6_addr.s6_addr)) == 0) {
+		if (memcmp(addr.sin6_addr.s6_addr, p->remote_addr.sin6_addr.s6_addr,
+			   sizeof(*p->remote_addr.sin6_addr.s6_addr))
+		    == 0) {
 			cnt++;
 		}
 	}

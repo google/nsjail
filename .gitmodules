@@ -1,6 +1,3 @@
 [submodule "kafel"]
 	path = kafel
 	url = https://github.com/google/kafel.git
-[submodule "protobuf-c-text"]
-	path = protobuf-c-text
-	url = https://github.com/protobuf-c/protobuf-c-text.git

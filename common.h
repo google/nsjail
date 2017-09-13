@@ -47,10 +47,10 @@ static void __attribute__ ((unused)) __clang_cleanup_func(void (^*dfunc) (void))
 #define defer void (^_STRMERGE(__defer_f_, __COUNTER__))(void) __attribute__((cleanup(__clang_cleanup_func))) __attribute__((unused)) = ^
 #else
 #define __block
-#define _DEFER(a, count) \
-    auto void _STRMERGE(__defer_f_, count)(void *_defer_arg __attribute__((unused))); \
+#define _DEFER(a, count)                                                                                               \
+    auto void _STRMERGE(__defer_f_, count)(void* _defer_arg __attribute__((unused)));                                  \
     int _STRMERGE(__defer_var_, count) __attribute__((cleanup(_STRMERGE(__defer_f_, count)))) __attribute__((unused)); \
-    void _STRMERGE(__defer_f_, count)(void *_defer_arg __attribute__((unused)))
+    void _STRMERGE(__defer_f_, count)(void* _defer_arg __attribute__((unused)))
 #define defer _DEFER(a, __COUNTER__)
 #endif
 #endif
@@ -61,7 +61,8 @@ struct pids_t {
 	char remote_txt[64];
 	struct sockaddr_in6 remote_addr;
 	int pid_syscall_fd;
-	 TAILQ_ENTRY(pids_t) pointers;
+	 TAILQ_ENTRY(pids_t)
+	 pointers;
 };
 
 struct mounts_t {
@@ -75,7 +76,8 @@ struct mounts_t {
 	bool isDir;
 	bool isSymlink;
 	bool mandatory;
-	 TAILQ_ENTRY(mounts_t) pointers;
+	 TAILQ_ENTRY(mounts_t)
+	 pointers;
 };
 
 struct idmap_t {
@@ -83,12 +85,14 @@ struct idmap_t {
 	uid_t outside_id;
 	size_t count;
 	bool is_newidmap;
-	 TAILQ_ENTRY(idmap_t) pointers;
+	 TAILQ_ENTRY(idmap_t)
+	 pointers;
 };
 
 struct ints_t {
 	int val;
-	 TAILQ_ENTRY(ints_t) pointers;
+	 TAILQ_ENTRY(ints_t)
+	 pointers;
 };
 
 enum ns_mode_t {
@@ -100,7 +104,8 @@ enum ns_mode_t {
 
 struct charptr_t {
 	char *val;
-	 TAILQ_ENTRY(charptr_t) pointers;
+	 TAILQ_ENTRY(charptr_t)
+	 pointers;
 };
 
 enum llevel_t {
@@ -167,13 +172,20 @@ struct nsjconf_t {
 	char *kafel_string;
 	uid_t orig_euid;
 	long num_cpus;
-	 TAILQ_HEAD(udmaplist, idmap_t) uids;
-	 TAILQ_HEAD(gdmaplist, idmap_t) gids;
-	 TAILQ_HEAD(envlist, charptr_t) envs;
-	 TAILQ_HEAD(pidslist, pids_t) pids;
-	 TAILQ_HEAD(mountptslist, mounts_t) mountpts;
-	 TAILQ_HEAD(fdslistt, ints_t) open_fds;
-	 TAILQ_HEAD(capslistt, ints_t) caps;
+	 TAILQ_HEAD(udmaplist, idmap_t)
+	 uids;
+	 TAILQ_HEAD(gdmaplist, idmap_t)
+	 gids;
+	 TAILQ_HEAD(envlist, charptr_t)
+	 envs;
+	 TAILQ_HEAD(pidslist, pids_t)
+	 pids;
+	 TAILQ_HEAD(mountptslist, mounts_t)
+	 mountpts;
+	 TAILQ_HEAD(fdslistt, ints_t)
+	 open_fds;
+	 TAILQ_HEAD(capslistt, ints_t)
+	 caps;
 };
 
 #endif				/* NS_COMMON_H */

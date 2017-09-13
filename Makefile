@@ -18,25 +18,31 @@
 #
 
 CC ?= gcc
+CXX ?= g++
 
-EXTRA_CFLAGS := $(CFLAGS)
-
-CFLAGS += -O2 -c -std=gnu11 \
+COMMON_FLAGS += -O2 -c \
 	-D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 \
 	-Wformat -Wformat=2 -Wformat-security -fPIE \
 	-Wno-format-nonliteral \
 	-Wall -Wextra -Werror \
 	-Ikafel/include
 
-LDFLAGS += -Wl,-z,now -Wl,-z,relro -pie -Wl,-z,noexecstack -lpthread -lcap
+CFLAGS += $(COMMON_FLAGS) -std=gnu11 
+CXXFLAGS += $(COMMON_FLAGS) $(shell pkg-config --cflags protobuf) -std=c++11 -Wno-unused
+
+LDFLAGS += -Wl,-z,now -Wl,-z,relro -pie -Wl,-z,noexecstack -lpthread -lcap $(shell pkg-config --libs protobuf)
 
 BIN = nsjail
 LIBS = kafel/libkafel.a
-SRCS = nsjail.c caps.c cmdline.c config.c contain.c log.c cgroup.c mount.c net.c pid.c sandbox.c subproc.c user.c util.c uts.c cpu.c
-OBJS = $(SRCS:.c=.o)
+SRCS_C = nsjail.c caps.c cmdline.c contain.c log.c cgroup.c mount.c net.c pid.c sandbox.c subproc.c user.c util.c uts.c cpu.c
+SRCS_CXX = config.cc
+SRCS_PB = config.proto
+OBJS = $(SRCS_C:.c=.o) $(SRCS_CXX:.cc=.o) $(SRCS_PB:.proto=.pb.o)
+PROTO_DEPS = config.pb.cc config.pb.h
 
 ifdef DEBUG
 	CFLAGS += -g -ggdb -gdwarf-4
+	CXXFLAGS += -g -ggdb -gdwarf-4
 endif
 
 USE_NL3 ?= yes
@@ -48,58 +54,18 @@ ifeq ($(NL3_EXISTS), yes)
 endif
 endif
 
-USE_PROTOBUF ?= yes
-ifeq ($(USE_PROTOBUF), yes)
-ifeq ("$(shell which protoc-c)", "")
-	USE_PROTOBUF := no
-	PROTOC_WARNING := yes
-endif
-endif
-
-ifeq ($(USE_PROTOBUF), no)
-else ifeq ($(shell pkg-config --exists libprotobuf-c && echo yes), yes)
-	PROTO_DEPS = config.pb-c.h config.pb-c.c
-	SRCS += config.pb-c.c
-	CFLAGS += -DNSJAIL_WITH_PROTOBUF -Iprotobuf-c-text/protobuf-c-text $(shell pkg-config --cflags libprotobuf-c)
-	LIBS += protobuf-c-text/protobuf-c-text/.libs/libprotobuf-c-text.a
-	LDFLAGS += $(shell pkg-config --libs libprotobuf-c)
-else ifneq ("$(wildcard /usr/include/google/protobuf-c/protobuf-c.h)", "")
-	PROTO_DEPS = config.pb-c.h config.pb-c.c
-	SRCS += config.pb-c.c
-	CFLAGS += -DNSJAIL_WITH_PROTOBUF -Iprotobuf-c-text/protobuf-c-text -I/usr/include/google
-	LIBS += protobuf-c-text/protobuf-c-text/.libs/libprotobuf-c-text.a
-	LDFLAGS += -Wl,-lprotobuf-c
-else ifneq ("$(wildcard /usr/local/include/google/protobuf-c/protobuf-c.h)", "")
-	PROTO_DEPS = config.pb-c.h config.pb-c.c
-	SRCS += config.pb-c.c
-	CFLAGS += -DNSJAIL_WITH_PROTOBUF -Iprotobuf-c-text/protobuf-c-text -I/usr/local/include/google
-	LIBS += protobuf-c-text/protobuf-c-text/.libs/libprotobuf-c-text.a
-	LDFLAGS += -Wl,--library-path=/usr/local/lib -Wl,-lprotobuf-c
-else
-	USE_PROTOBUF := no
-endif
-
 .PHONY: all clear depend indent
 
 .c.o: %.c
 	$(CC) $(CFLAGS) $< -o $@
 
+.cc.o: %.cc
+	$(CXX) $(CXXFLAGS) $< -o $@
+
 all: $(PROTO_DEPS) $(BIN)
-ifeq ($(PROTOC_WARNING), yes)
-	$(info *********************************************************)
-	$(info *        'protoc-c' is missing on your system           *)
-	$(info *  Install 'protobuf-c-compiler' or a similar package   *)
-	$(info *********************************************************)
-endif
-ifeq ($(USE_PROTOBUF), no)
-	$(info *********************************************************)
-	$(info * Code compiled without libprotobuf-c/libprotobuf-c-dev *)
-	$(info *  The --config commandline option will be unavailable  *)
-	$(info *********************************************************)
-endif
 
 $(BIN): $(LIBS) $(OBJS)
-	$(CC) -o $(BIN) $(OBJS) $(LIBS) $(LDFLAGS)
+	$(CXX) -o $(BIN) $(OBJS) $(LIBS) $(LDFLAGS)
 
 kafel/libkafel.a:
 ifeq ("$(wildcard kafel/Makefile)","")
@@ -107,39 +73,27 @@ ifeq ("$(wildcard kafel/Makefile)","")
 endif
 	$(MAKE) -C kafel
 
-protobuf-c-text/protobuf-c-text/.libs/libprotobuf-c-text.a:
-ifeq ("$(wildcard protobuf-c-text/configure)","")
-	git submodule update --init
-endif
-ifeq ("$(wildcard protobuf-c-text/Makefile)","")
-	sh -c "cd protobuf-c-text; CFLAGS=\"-fPIC -I/usr/include/google $(EXTRA_CFLAGS)\" ./autogen.sh --enable-shared=no --disable-doxygen-doc;"
-endif
-	$(MAKE) -C protobuf-c-text
-
-$(PROTO_DEPS): config.proto
-	protoc-c --c_out=. config.proto
+$(PROTO_DEPS): $(SRCS_PB)
+	protoc --cpp_out=. $(SRCS_PB)
 
 clean:
 	$(RM) core Makefile.bak $(OBJS) $(BIN) $(PROTO_DEPS)
 ifneq ("$(wildcard kafel/Makefile)","")
 	$(MAKE) -C kafel clean
 endif
-ifneq ("$(wildcard protobuf-c-text/Makefile)","")
-	$(MAKE) -C protobuf-c-text clean
-endif
 
 depend:
-	makedepend -Y -Ykafel/include -- -- $(SRCS)
+	makedepend -Y -Ykafel/include -- -- $(SRCS_C) $(SRCS_CXX)
 
 indent:
+	clang-format --style=WebKit -i -sort-includes *.c *.h $(SRCS_CXX)
 	indent -linux -l100 -lc100 *.c *.h; rm -f *~
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 
 nsjail.o: nsjail.h common.h caps.h cmdline.h log.h net.h subproc.h util.h
 caps.o: caps.h common.h log.h util.h
-cmdline.o: cmdline.h common.h caps.h config.h log.h mount.h util.h user.h
-config.o: common.h caps.h config.h log.h mount.h user.h util.h
+cmdline.o: cmdline.h common.h caps.h config.h log.h mount.h user.h util.h
 contain.o: contain.h common.h caps.h cgroup.h cpu.h log.h mount.h net.h pid.h
 contain.o: user.h util.h uts.h
 log.o: log.h common.h
@@ -154,3 +108,4 @@ user.o: user.h common.h log.h subproc.h util.h
 util.o: util.h common.h log.h
 uts.o: uts.h common.h log.h
 cpu.o: cpu.h common.h log.h util.h
+config.o: common.h caps.h config.h log.h mount.h user.h util.h

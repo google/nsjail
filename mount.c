@@ -25,8 +25,8 @@
 #include <fcntl.h>
 #include <linux/sched.h>
 #include <sched.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
@@ -40,10 +40,13 @@
 #include "subproc.h"
 #include "util.h"
 
-#define VALSTR_STRUCT(x) { x, #x }
+#define VALSTR_STRUCT(x) \
+    {                    \
+        x, #x            \
+    }
 
 #if !defined(MS_LAZYTIME)
-#define MS_LAZYTIME (1<<25)
+#define MS_LAZYTIME (1 << 25)
 #endif				/* if !defined(MS_LAZYTIME) */
 
 const char *mountFlagsToStr(uintptr_t flags)
@@ -51,37 +54,37 @@ const char *mountFlagsToStr(uintptr_t flags)
 	static __thread char mountFlagsStr[1024];
 	mountFlagsStr[0] = '\0';
 
-	/*  *INDENT-OFF* */
-	static struct {
-		const uintptr_t flag;
-		const char* const name;
-	} const mountFlags[] = {
-			VALSTR_STRUCT(MS_RDONLY),
-			VALSTR_STRUCT(MS_NOSUID),
-			VALSTR_STRUCT(MS_NODEV),
-			VALSTR_STRUCT(MS_NOEXEC),
-			VALSTR_STRUCT(MS_SYNCHRONOUS),
-			VALSTR_STRUCT(MS_REMOUNT),
-			VALSTR_STRUCT(MS_MANDLOCK),
-			VALSTR_STRUCT(MS_DIRSYNC),
-			VALSTR_STRUCT(MS_NOATIME),
-			VALSTR_STRUCT(MS_NODIRATIME),
-			VALSTR_STRUCT(MS_BIND),
-			VALSTR_STRUCT(MS_MOVE),
-			VALSTR_STRUCT(MS_REC),
-			VALSTR_STRUCT(MS_SILENT),
-			VALSTR_STRUCT(MS_POSIXACL),
-			VALSTR_STRUCT(MS_UNBINDABLE),
-			VALSTR_STRUCT(MS_PRIVATE),
-			VALSTR_STRUCT(MS_SLAVE),
-			VALSTR_STRUCT(MS_SHARED),
-			VALSTR_STRUCT(MS_RELATIME),
-			VALSTR_STRUCT(MS_KERNMOUNT),
-			VALSTR_STRUCT(MS_I_VERSION),
-			VALSTR_STRUCT(MS_STRICTATIME),
-			VALSTR_STRUCT(MS_LAZYTIME),
-	};
-	/*  *INDENT-ON* */
+    /*  *INDENT-OFF* */
+    static struct {
+        const uintptr_t flag;
+        const char* const name;
+    } const mountFlags[] = {
+        VALSTR_STRUCT(MS_RDONLY),
+        VALSTR_STRUCT(MS_NOSUID),
+        VALSTR_STRUCT(MS_NODEV),
+        VALSTR_STRUCT(MS_NOEXEC),
+        VALSTR_STRUCT(MS_SYNCHRONOUS),
+        VALSTR_STRUCT(MS_REMOUNT),
+        VALSTR_STRUCT(MS_MANDLOCK),
+        VALSTR_STRUCT(MS_DIRSYNC),
+        VALSTR_STRUCT(MS_NOATIME),
+        VALSTR_STRUCT(MS_NODIRATIME),
+        VALSTR_STRUCT(MS_BIND),
+        VALSTR_STRUCT(MS_MOVE),
+        VALSTR_STRUCT(MS_REC),
+        VALSTR_STRUCT(MS_SILENT),
+        VALSTR_STRUCT(MS_POSIXACL),
+        VALSTR_STRUCT(MS_UNBINDABLE),
+        VALSTR_STRUCT(MS_PRIVATE),
+        VALSTR_STRUCT(MS_SLAVE),
+        VALSTR_STRUCT(MS_SHARED),
+        VALSTR_STRUCT(MS_RELATIME),
+        VALSTR_STRUCT(MS_KERNMOUNT),
+        VALSTR_STRUCT(MS_I_VERSION),
+        VALSTR_STRUCT(MS_STRICTATIME),
+        VALSTR_STRUCT(MS_LAZYTIME),
+    };
+    /*  *INDENT-ON* */
 
 	for (size_t i = 0; i < ARRAYSIZE(mountFlags); i++) {
 		if (flags & mountFlags[i].flag) {
@@ -387,7 +390,7 @@ bool mountInitNs(struct nsjconf_t * nsjconf)
 bool mountAddMountPt(struct nsjconf_t * nsjconf, const char *src, const char *dst,
 		     const char *fstype, const char *options, uintptr_t flags, const bool * isDir,
 		     bool mandatory, const char *src_env, const char *dst_env,
-		     const uint8_t * src_content, size_t src_content_len, bool is_symlink)
+		     const char *src_content, size_t src_content_len, bool is_symlink)
 {
 	struct mounts_t *p = utilCalloc(sizeof(struct mounts_t));
 
@@ -455,7 +458,7 @@ bool mountAddMountPt(struct nsjconf_t * nsjconf, const char *src, const char *ds
 		}
 	}
 
-	p->src_content = utilMemDup(src_content, src_content_len);
+	p->src_content = utilMemDup((const uint8_t *)src_content, src_content_len);
 	p->src_content_len = src_content_len;
 
 	TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);

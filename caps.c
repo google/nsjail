@@ -21,8 +21,8 @@
 
 #include "caps.h"
 
-#include <sys/capability.h>
 #include <string.h>
+#include <sys/capability.h>
 #include <sys/prctl.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -30,12 +30,15 @@
 #include "log.h"
 #include "util.h"
 
-#define VALSTR_STRUCT(x) { x, #x }
+#define VALSTR_STRUCT(x) \
+    {                    \
+        x, #x            \
+    }
 
 /*  *INDENT-OFF* */
 static struct {
-	const int val;
-	const char* const name;
+    const int val;
+    const char* const name;
 } const capNames[] = {
     VALSTR_STRUCT(CAP_CHOWN),
     VALSTR_STRUCT(CAP_DAC_OVERRIDE),
@@ -76,7 +79,7 @@ static struct {
     VALSTR_STRUCT(CAP_BLOCK_SUSPEND),
 #if defined(CAP_AUDIT_READ)
     VALSTR_STRUCT(CAP_AUDIT_READ),
-#endif  /* defined(CAP_AUDIT_READ) */
+#endif /* defined(CAP_AUDIT_READ) */
 };
 /*  *INDENT-ON* */
 
@@ -209,7 +212,8 @@ bool capsInitNs(struct nsjconf_t *nsjconf)
 			}
 			if (prctl
 			    (PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)capNames[i].val,
-			     0UL, 0UL) == -1) {
+			     0UL, 0UL)
+			    == -1) {
 				PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s)",
 				       capNames[i].name);
 			} else {
@@ -219,9 +223,9 @@ bool capsInitNs(struct nsjconf_t *nsjconf)
 	} else {
 		struct ints_t *p;
 		TAILQ_FOREACH(p, &nsjconf->caps, pointers) {
-			if (prctl
-			    (PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)p->val, 0UL,
-			     0UL) == -1) {
+			if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)p->val, 0UL,
+				  0UL)
+			    == -1) {
 				PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s)",
 				       capsValToStr(p->val));
 			} else {
