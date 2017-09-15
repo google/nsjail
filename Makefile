@@ -35,9 +35,9 @@ BIN = nsjail
 LIBS = kafel/libkafel.a
 SRCS_C = nsjail.c caps.c cmdline.c contain.c log.c cgroup.c mount.c net.c pid.c sandbox.c subproc.c user.c util.c uts.c cpu.c
 SRCS_CXX = config.cc
-SRCS_PB = config.proto
-OBJS = $(SRCS_C:.c=.o) $(SRCS_CXX:.cc=.o) $(SRCS_PB:.proto=.pb.o)
-PROTO_DEPS = config.pb.cc config.pb.h
+SRCS_PROTO = config.proto
+SRCS_PB = $(SRCS_PROTO:.proto=.pb.cc)
+OBJS = $(SRCS_C:.c=.o) $(SRCS_CXX:.cc=.o) $(SRCS_PB:.cc=.o)
 
 ifdef DEBUG
 	CFLAGS += -g -ggdb -gdwarf-4
@@ -61,7 +61,7 @@ endif
 .cc.o: %.cc
 	$(CXX) $(CXXFLAGS) $< -o $@
 
-all: $(PROTO_DEPS) $(BIN)
+all: $(BIN)
 
 $(BIN): $(LIBS) $(OBJS)
 	$(CXX) -o $(BIN) $(OBJS) $(LIBS) $(LDFLAGS)
@@ -72,17 +72,17 @@ ifeq ("$(wildcard kafel/Makefile)","")
 endif
 	$(MAKE) -C kafel
 
-$(PROTO_DEPS): $(SRCS_PB)
-	protoc --cpp_out=. $(SRCS_PB)
+$(SRCS_PB): $(SRCS_PROTO)
+	protoc --cpp_out=. $(SRCS_PROTO)
 
 clean:
-	$(RM) core Makefile.bak $(OBJS) $(BIN) $(PROTO_DEPS)
+	$(RM) core Makefile.bak $(OBJS) $(SRCS_PB) $(BIN)
 ifneq ("$(wildcard kafel/Makefile)","")
 	$(MAKE) -C kafel clean
 endif
 
 depend:
-	makedepend -Y -Ykafel/include -- -- $(SRCS_C) $(SRCS_CXX)
+	makedepend -Y -Ykafel/include -- -- $(SRCS_C) $(SRCS_CXX) $(SRCS_PB)
 
 indent:
 	clang-format --style=WebKit -i -sort-includes *.c *.h $(SRCS_CXX)
@@ -107,4 +107,5 @@ user.o: user.h common.h log.h subproc.h util.h
 util.o: util.h common.h log.h
 uts.o: uts.h common.h log.h
 cpu.o: cpu.h common.h log.h util.h
-config.o: common.h caps.h config.h log.h mount.h user.h util.h
+config.o: common.h caps.h config.h log.h mount.h user.h util.h config.pb.h
+config.pb.o: config.pb.h
