@@ -26,7 +26,7 @@
 
 #include "common.h"
 
-bool containSetupFD(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_err);
+bool containSetupFD(struct nsjconf_t * nsjconf, int fd_in, int fd_out, int fd_err);
 bool containContain(struct nsjconf_t *nsjconf);
 
 #endif				/* NS_CONTAIN_H */

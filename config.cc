@@ -44,6 +44,8 @@ extern "C" {
 
 #include "config.pb.h"
 
+#define DUP_IF_SET(njc, val) (njc.has_##val() ? utilStrDup(njc.val().c_str()) : NULL)
+
 static bool configParseInternal(struct nsjconf_t* nsjconf,
     const nsjail::NsJailConfig& njc)
 {
@@ -64,12 +66,12 @@ static bool configParseInternal(struct nsjconf_t* nsjconf,
         LOG_E("Uknown running mode: %d", njc.mode());
         return false;
     }
-    nsjconf->chroot = njc.has_chroot_dir() ? utilStrDup(njc.chroot_dir().c_str()) : NULL;
+    nsjconf->chroot = DUP_IF_SET(njc, chroot_dir);
     nsjconf->is_root_rw = njc.is_root_rw();
-    nsjconf->hostname = njc.has_hostname() ? utilStrDup(njc.hostname().c_str()) : NULL;
-    nsjconf->cwd = njc.has_cwd() ? utilStrDup(njc.cwd().c_str()) : NULL;
+    nsjconf->hostname = DUP_IF_SET(njc, hostname);
+    nsjconf->cwd = DUP_IF_SET(njc, cwd);
     nsjconf->port = njc.port();
-    nsjconf->bindhost = njc.has_bindhost() ? utilStrDup(njc.bindhost().c_str()) : NULL;
+    nsjconf->bindhost = DUP_IF_SET(njc, bindhost);
     nsjconf->max_conns_per_ip = njc.max_conns_per_ip();
     nsjconf->tlimit = njc.time_limit();
     nsjconf->max_cpus = njc.max_cpus();
@@ -78,7 +80,7 @@ static bool configParseInternal(struct nsjconf_t* nsjconf,
     if (njc.has_log_fd()) {
         nsjconf->log_fd = njc.log_fd();
     }
-    nsjconf->logfile = njc.has_log_file() ? utilStrDup(njc.log_file().c_str()) : NULL;
+    nsjconf->logfile = DUP_IF_SET(njc, log_file);
     if (njc.has_log_level()) {
         switch (njc.log_level()) {
         case nsjail::LogLevel::DEBUG:
@@ -173,12 +175,7 @@ static bool configParseInternal(struct nsjconf_t* nsjconf,
     nsjconf->clone_newcgroup = njc.clone_newcgroup();
 
     for (ssize_t i = 0; i < njc.uidmap_size(); i++) {
-        if (userParseId(
-                nsjconf,
-                njc.uidmap(i).has_inside_id() ? njc.uidmap(i).inside_id().c_str()
-                                              : NULL,
-                njc.uidmap(i).has_outside_id() ? njc.uidmap(i).outside_id().c_str()
-                                               : NULL,
+        if (userParseId(nsjconf, DUP_IF_SET(njc.uidmap(i), inside_id), DUP_IF_SET(njc.uidmap(i), outside_id),
                 njc.uidmap(i).count(), false /* is_gid */,
                 njc.uidmap(i).use_newidmap())
             == false) {
@@ -186,12 +183,7 @@ static bool configParseInternal(struct nsjconf_t* nsjconf,
         }
     }
     for (ssize_t i = 0; i < njc.gidmap_size(); i++) {
-        if (userParseId(
-                nsjconf,
-                njc.gidmap(i).has_inside_id() ? njc.gidmap(i).inside_id().c_str()
-                                              : NULL,
-                njc.gidmap(i).has_outside_id() ? njc.gidmap(i).outside_id().c_str()
-                                               : NULL,
+        if (userParseId(nsjconf, DUP_IF_SET(njc.gidmap(i), inside_id), DUP_IF_SET(njc.gidmap(i), outside_id),
                 njc.gidmap(i).count(), true /* is_gid */,
                 njc.gidmap(i).use_newidmap())
             == false) {
@@ -248,26 +240,17 @@ static bool configParseInternal(struct nsjconf_t* nsjconf,
         : NULL;
 
     nsjconf->cgroup_mem_max = njc.cgroup_mem_max();
-    nsjconf->cgroup_mem_mount = njc.has_cgroup_mem_mount()
-        ? utilStrDup(njc.cgroup_mem_mount().c_str())
-        : NULL;
-    nsjconf->cgroup_mem_parent = njc.has_cgroup_mem_parent()
-        ? utilStrDup(njc.cgroup_mem_parent().c_str())
-        : NULL;
-
+    nsjconf->cgroup_mem_mount = DUP_IF_SET(njc, cgroup_mem_mount);
+    nsjconf->cgroup_mem_parent = DUP_IF_SET(njc, cgroup_mem_parent);
     nsjconf->cgroup_pids_max = njc.cgroup_pids_max();
-    nsjconf->cgroup_pids_mount = njc.has_cgroup_pids_mount()
-        ? utilStrDup(njc.cgroup_pids_mount().c_str())
-        : NULL;
-    nsjconf->cgroup_pids_parent = njc.has_cgroup_pids_parent()
-        ? utilStrDup(njc.cgroup_pids_parent().c_str())
-        : NULL;
+    nsjconf->cgroup_pids_mount = DUP_IF_SET(njc, cgroup_pids_mount);
+    nsjconf->cgroup_pids_parent = DUP_IF_SET(njc, cgroup_pids_parent);
 
     nsjconf->iface_no_lo = njc.iface_no_lo();
-    nsjconf->iface_vs = njc.has_macvlan_iface() ? utilStrDup(njc.macvlan_iface().c_str()) : NULL;
-    nsjconf->iface_vs_ip = njc.has_macvlan_vs_ip() ? utilStrDup(njc.macvlan_vs_ip().c_str()) : NULL;
-    nsjconf->iface_vs_nm = njc.has_macvlan_vs_nm() ? utilStrDup(njc.macvlan_vs_nm().c_str()) : NULL;
-    nsjconf->iface_vs_gw = njc.has_macvlan_vs_gw() ? utilStrDup(njc.macvlan_vs_gw().c_str()) : NULL;
+    nsjconf->iface_vs = DUP_IF_SET(njc, macvlan_iface);
+    nsjconf->iface_vs_ip = DUP_IF_SET(njc, macvlan_vs_ip);
+    nsjconf->iface_vs_nm = DUP_IF_SET(njc, macvlan_vs_nm);
+    nsjconf->iface_vs_gw = DUP_IF_SET(njc, macvlan_vs_gw);
 
     if (njc.has_exec_bin()) {
         char** argv = reinterpret_cast<char**>(utilCalloc(sizeof(const char*) * (njc.exec_bin().arg().size() + 2)));
@@ -280,9 +263,7 @@ static bool configParseInternal(struct nsjconf_t* nsjconf,
             argv[i + 1] = utilStrDup(njc.exec_bin().arg(i).c_str());
         }
         argv[njc.exec_bin().arg().size() + 1] = NULL;
-        nsjconf->exec_file = njc.exec_bin().has_path()
-            ? utilStrDup(njc.exec_bin().path().c_str())
-            : NULL;
+        nsjconf->exec_file = DUP_IF_SET(njc.exec_bin(), path);
         nsjconf->argv = argv;
     }
 
