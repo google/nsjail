@@ -55,7 +55,7 @@ ifeq ($(NL3_EXISTS), yes)
 endif
 endif
 
-.PHONY: all clear depend indent
+.PHONY: all clean depend indent
 
 .c.o: %.c
 	$(CC) $(CFLAGS) $< -o $@
