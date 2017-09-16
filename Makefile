@@ -36,8 +36,9 @@ LIBS = kafel/libkafel.a
 SRCS_C = nsjail.c caps.c cmdline.c contain.c log.c cgroup.c mount.c net.c pid.c sandbox.c subproc.c user.c util.c uts.c cpu.c
 SRCS_CXX = config.cc
 SRCS_PROTO = config.proto
-SRCS_PB = $(SRCS_PROTO:.proto=.pb.cc)
-OBJS = $(SRCS_C:.c=.o) $(SRCS_CXX:.cc=.o) $(SRCS_PB:.cc=.o)
+SRCS_PB_CXX = $(SRCS_PROTO:.proto=.pb.cc)
+SRCS_PB_H = $(SRCS_PROTO:.proto=.pb.h)
+OBJS = $(SRCS_C:.c=.o) $(SRCS_CXX:.cc=.o) $(SRCS_PB_CXX:.cc=.o)
 
 ifdef DEBUG
 	CFLAGS += -g -ggdb -gdwarf-4
@@ -72,11 +73,16 @@ ifeq ("$(wildcard kafel/Makefile)","")
 endif
 	$(MAKE) -C kafel
 
-$(SRCS_PB): $(SRCS_PROTO)
+config.pb.o: $(SRCS_PB_CXX) $(SRCS_PB_H)
+
+$(SRCS_PB_CXX): $(SRCS_PROTO)
+	protoc --cpp_out=. $(SRCS_PROTO)
+
+$(SRCS_PB_H): $(SRCS_PROTO)
 	protoc --cpp_out=. $(SRCS_PROTO)
 
 clean:
-	$(RM) core Makefile.bak $(OBJS) $(SRCS_PB) $(BIN)
+	$(RM) core Makefile.bak $(OBJS) $(SRCS_PB_CXX) $(SRCS_PB_H) $(BIN)
 ifneq ("$(wildcard kafel/Makefile)","")
 	$(MAKE) -C kafel clean
 endif
