@@ -38,6 +38,7 @@ SRCS_CXX = config.cc
 SRCS_PROTO = config.proto
 SRCS_PB_CXX = $(SRCS_PROTO:.proto=.pb.cc)
 SRCS_PB_H = $(SRCS_PROTO:.proto=.pb.h)
+SRCS_PB_O = $(SRCS_PROTO:.proto=.pb.o)
 OBJS = $(SRCS_C:.c=.o) $(SRCS_CXX:.cc=.o) $(SRCS_PB_CXX:.cc=.o)
 
 ifdef DEBUG
@@ -73,12 +74,9 @@ ifeq ("$(wildcard kafel/Makefile)","")
 endif
 	$(MAKE) -C kafel
 
-config.pb.o: $(SRCS_PB_CXX) $(SRCS_PB_H)
+$(SRCS_PB_O): $(SRCS_PB_CXX) $(SRCS_PB_H)
 
-$(SRCS_PB_CXX): $(SRCS_PROTO)
-	protoc --cpp_out=. $(SRCS_PROTO)
-
-$(SRCS_PB_H): $(SRCS_PROTO)
+$(SRCS_PB_CXX) $(SRCS_PB_H): $(SRCS_PROTO)
 	protoc --cpp_out=. $(SRCS_PROTO)
 
 clean:
