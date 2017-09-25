@@ -119,29 +119,29 @@ static const char *subprocCloneFlagsToStr(uintptr_t flags)
 static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_err, int pipefd)
 {
 	if (containSetupFD(nsjconf, fd_in, fd_out, fd_err) == false) {
-		exit(1);
+		exit(0xff);
 	}
 
 	if (pipefd == -1) {
 		if (userInitNsFromParent(nsjconf, getpid()) == false) {
 			LOG_E("Couldn't initialize net user namespace");
-			exit(1);
+			exit(0xff);
 		}
 		if (cgroupInitNsFromParent(nsjconf, getpid()) == false) {
 			LOG_E("Couldn't initialize net user namespace");
-			exit(1);
+			exit(0xff);
 		}
 	} else {
 		char doneChar;
 		if (utilReadFromFd(pipefd, &doneChar, sizeof(doneChar)) != sizeof(doneChar)) {
-			exit(1);
+			exit(0xff);
 		}
 		if (doneChar != subprocDoneChar) {
-			exit(1);
+			exit(0xff);
 		}
 	}
 	if (containContain(nsjconf) == false) {
-		exit(1);
+		exit(0xff);
 	}
 	if (nsjconf->keep_env == false) {
 		clearenv();
@@ -161,13 +161,13 @@ static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int 
 
 	/* Should be the last one in the sequence */
 	if (sandboxApply(nsjconf) == false) {
-		exit(1);
+		exit(0xff);
 	}
 	execv(nsjconf->exec_file, &nsjconf->argv[0]);
 
 	PLOG_E("execve('%s') failed", nsjconf->exec_file);
 
-	_exit(1);
+	_exit(0xff);
 }
 
 static void subprocAdd(struct nsjconf_t *nsjconf, pid_t pid, int sock)
@@ -359,7 +359,7 @@ static bool subprocInitParent(struct nsjconf_t *nsjconf, pid_t pid, int pipefd)
 	}
 	if (cgroupInitNsFromParent(nsjconf, pid) == false) {
 		LOG_E("Couldn't initialize cgroup user namespace");
-		exit(1);
+		exit(0xff);
 	}
 	if (userInitNsFromParent(nsjconf, pid) == false) {
 		LOG_E("Couldn't initialize user namespaces for pid %d", pid);
@@ -428,7 +428,7 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 		LOG_D("Entering namespace with flags:%s", subprocCloneFlagsToStr(flags));
 		if (unshare(flags) == -1) {
 			PLOG_E("unshare(%#lx)", flags);
-			_exit(EXIT_FAILURE);
+			_exit(0xff);
 		}
 		subprocNewProc(nsjconf, fd_in, fd_out, fd_err, -1);
 	}

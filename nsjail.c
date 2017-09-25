@@ -170,7 +170,7 @@ int main(int argc, char *argv[])
 	struct nsjconf_t nsjconf;
 	if (!cmdlineParse(argc, argv, &nsjconf)) {
 		LOG_E("Couldn't parse cmdline options");
-		exit(1);
+		exit(0xff);
 	}
 	if (nsjconf.clone_newuser == false && geteuid() != 0) {
 		LOG_W("--disable_clone_newuser requires root() privs");
@@ -180,10 +180,10 @@ int main(int argc, char *argv[])
 	}
 	cmdlineLogParams(&nsjconf);
 	if (nsjailSetSigHandlers() == false) {
-		exit(1);
+		exit(0xff);
 	}
 	if (nsjailSetTimer(&nsjconf) == false) {
-		exit(1);
+		exit(0xff);
 	}
 
 	if (nsjconf.mode == MODE_LISTEN_TCP) {
