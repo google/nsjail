@@ -76,6 +76,8 @@ ifeq ("$(wildcard kafel/Makefile)","")
 endif
 	$(MAKE) -C kafel
 
+$(SRCS_CXX): $(SRCS_PB_O)
+
 $(SRCS_PB_O): $(SRCS_PB_CXX) $(SRCS_PB_H)
 
 $(SRCS_PB_CXX) $(SRCS_PB_H): $(SRCS_PROTO)
