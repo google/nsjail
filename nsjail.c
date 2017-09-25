@@ -169,21 +169,20 @@ int main(int argc, char *argv[])
 {
 	struct nsjconf_t nsjconf;
 	if (!cmdlineParse(argc, argv, &nsjconf)) {
-		LOG_E("Couldn't parse cmdline options");
-		exit(0xff);
+		LOG_F("Couldn't parse cmdline options");
 	}
 	if (nsjconf.clone_newuser == false && geteuid() != 0) {
-		LOG_W("--disable_clone_newuser requires root() privs");
+		LOG_F("--disable_clone_newuser requires root() privs");
 	}
 	if (nsjconf.daemonize && (daemon(0, 0) == -1)) {
 		PLOG_F("daemon");
 	}
 	cmdlineLogParams(&nsjconf);
 	if (nsjailSetSigHandlers() == false) {
-		exit(0xff);
+		LOG_F("nsjailSetSigHandlers() failed");
 	}
 	if (nsjailSetTimer(&nsjconf) == false) {
-		exit(0xff);
+		LOG_F("nsjailSetTimer() failed");
 	}
 
 	if (nsjconf.mode == MODE_LISTEN_TCP) {
