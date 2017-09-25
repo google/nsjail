@@ -376,7 +376,7 @@ bool mountInitNs(struct nsjconf_t * nsjconf)
 	}
 
 	if (pid == 0) {
-		exit(mountInitNsInternal(nsjconf) ? 0 : 1);
+		exit(mountInitNsInternal(nsjconf) ? 0 : 0xff);
 	}
 
 	int status;
