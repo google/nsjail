@@ -66,7 +66,7 @@ struct custom_option custom_opts[] = {
         "[MODE_STANDALONE_EXECVE]\n"
         "\tr: Immediately launch a single process on the console, keep doing it "
         "forever [MODE_STANDALONE_RERUN]" },
-    { { "config", required_argument, NULL, 'C' }, "Configuration file in the config.proto ProtoBuf format" },
+    { { "config", required_argument, NULL, 'C' }, "Configuration file in the config.proto ProtoBuf format (see configs/ directory for examples)" },
     { { "exec_file", required_argument, NULL, 'x' }, "File to exec (default: argv[0])" },
     { { "chroot", required_argument, NULL, 'c' }, "Directory containing / of the jail (default: none)" },
     { { "rw", no_argument, NULL, 0x601 }, "Mount / and /proc as RW (default: RO)" },
