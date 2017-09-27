@@ -68,10 +68,10 @@ static bool configParseInternal(struct nsjconf_t* nsjconf,
     }
     nsjconf->chroot = DUP_IF_SET(njc, chroot_dir);
     nsjconf->is_root_rw = njc.is_root_rw();
-    nsjconf->hostname = DUP_IF_SET(njc, hostname);
-    nsjconf->cwd = DUP_IF_SET(njc, cwd);
+    nsjconf->hostname = utilStrDup(njc.hostname().c_str());
+    nsjconf->cwd = utilStrDup(njc.cwd().c_str());
     nsjconf->port = njc.port();
-    nsjconf->bindhost = DUP_IF_SET(njc, bindhost);
+    nsjconf->bindhost = utilStrDup(njc.bindhost().c_str());
     nsjconf->max_conns_per_ip = njc.max_conns_per_ip();
     nsjconf->tlimit = njc.time_limit();
     nsjconf->max_cpus = njc.max_cpus();
@@ -240,17 +240,17 @@ static bool configParseInternal(struct nsjconf_t* nsjconf,
         : NULL;
 
     nsjconf->cgroup_mem_max = njc.cgroup_mem_max();
-    nsjconf->cgroup_mem_mount = DUP_IF_SET(njc, cgroup_mem_mount);
-    nsjconf->cgroup_mem_parent = DUP_IF_SET(njc, cgroup_mem_parent);
+    nsjconf->cgroup_mem_mount = utilStrDup(njc.cgroup_mem_mount().c_str());
+    nsjconf->cgroup_mem_parent = utilStrDup(njc.cgroup_mem_parent().c_str());
     nsjconf->cgroup_pids_max = njc.cgroup_pids_max();
-    nsjconf->cgroup_pids_mount = DUP_IF_SET(njc, cgroup_pids_mount);
-    nsjconf->cgroup_pids_parent = DUP_IF_SET(njc, cgroup_pids_parent);
+    nsjconf->cgroup_pids_mount = utilStrDup(njc.cgroup_pids_mount().c_str());
+    nsjconf->cgroup_pids_parent = utilStrDup(njc.cgroup_pids_parent().c_str());
 
     nsjconf->iface_no_lo = njc.iface_no_lo();
     nsjconf->iface_vs = DUP_IF_SET(njc, macvlan_iface);
-    nsjconf->iface_vs_ip = DUP_IF_SET(njc, macvlan_vs_ip);
-    nsjconf->iface_vs_nm = DUP_IF_SET(njc, macvlan_vs_nm);
-    nsjconf->iface_vs_gw = DUP_IF_SET(njc, macvlan_vs_gw);
+    nsjconf->iface_vs_ip = utilStrDup(njc.macvlan_vs_ip().c_str());
+    nsjconf->iface_vs_nm = utilStrDup(njc.macvlan_vs_nm().c_str());
+    nsjconf->iface_vs_gw = utilStrDup(njc.macvlan_vs_gw().c_str());
 
     if (njc.has_exec_bin()) {
         char** argv = reinterpret_cast<char**>(utilCalloc(sizeof(const char*) * (njc.exec_bin().arg().size() + 2)));

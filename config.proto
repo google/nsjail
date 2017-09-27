@@ -51,8 +51,8 @@ message MountPt
     optional bool is_dir = 10;
     /* Should the sandboxing fail if we cannot mount this resource? */
     optional bool mandatory = 11 [ default = true ];
-	/* Is it a symlink (instead of real mount point)? */
-	optional bool is_symlink = 12 [ default = false ];
+    /* Is it a symlink (instead of real mount point)? */
+    optional bool is_symlink = 12 [ default = false ];
 }
 message Exe
 {
@@ -112,7 +112,7 @@ message NsJailConfig
     optional bool keep_caps = 21 [ default = false ];
     /* Which capabilities should be preserved if keep_caps == false.
        Format: "CAP_SYS_PTRACE" */
-	repeated string cap = 63;
+    repeated string cap = 63;
     /* Should nsjail close FD=0,1,2 before executing the process */
     optional bool silent = 22 [ default = false ];
     /* Should the child process have control over terminal?
