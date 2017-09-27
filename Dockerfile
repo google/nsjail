@@ -5,14 +5,16 @@ RUN apt-get -y update && apt-get install -y \
     bison \
     check \
     flex \
+    g++ \
     gcc \
     git \
+    libcap-dev \
+    libprotobuf-dev \
     libtool \
     make \
     pkg-config \
-    protobuf-c-compiler \
+    protobuf-compiler \
     re2c \
-    libcap-dev \
     && rm -rf /var/lib/apt/lists/*
 
 RUN git clone https://github.com/google/nsjail.git
