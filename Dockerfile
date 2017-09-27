@@ -6,16 +6,17 @@ RUN apt-get -y update && apt-get install -y \
     check \
     flex \
     gcc \
+    g++ \
     git \
+    libprotobuf-dev \
     libtool \
     make \
     pkg-config \
-    protobuf-c-compiler \
-    re2c \
+    protobuf-compiler \
     libcap-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN git clone https://github.com/google/nsjail.git
+RUN git clone --depth=1 https://github.com/google/nsjail.git
 
 WORKDIR /nsjail
 
