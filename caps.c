@@ -21,9 +21,10 @@
 
 #include "caps.h"
 
+#include <linux/capability.h>
 #include <string.h>
-#include <sys/capability.h>
 #include <sys/prctl.h>
+#include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -108,106 +109,105 @@ static const char *capsValToStr(int val)
 	return capsStr;
 }
 
-static cap_t capsGet(void)
+static cap_user_data_t capsGet()
 {
-	cap_t cap = cap_get_pid(getpid());
-	if (cap == NULL) {
-		PLOG_F("cap_get_pit(PID=%d)", (int)getpid());
+	static __thread struct __user_cap_data_struct cap_data[_LINUX_CAPABILITY_U32S_3];
+	const struct __user_cap_header_struct cap_hdr = {
+		.version = _LINUX_CAPABILITY_VERSION_3,
+		.pid = 0,
+	};
+	if (syscall(__NR_capget, &cap_hdr, &cap_data) == -1) {
+		PLOG_W("capget() failed");
+		return NULL;
 	}
-	return cap;
+	return cap_data;
 }
 
-static void capsFree(cap_t cap)
+static bool capsSet(const cap_user_data_t cap_data)
 {
-	if (cap_free(cap) == -1) {
-		PLOG_F("cap_free()");
+	const struct __user_cap_header_struct cap_hdr = {
+		.version = _LINUX_CAPABILITY_VERSION_3,
+		.pid = 0,
+	};
+	if (syscall(__NR_capset, &cap_hdr, cap_data) == -1) {
+		PLOG_W("capset() failed");
+		return false;
+	}
+	return true;
+}
+
+static void capsClearInheritable(cap_user_data_t cap_data)
+{
+	for (size_t i = 0; i < _LINUX_CAPABILITY_U32S_3; i++) {
+		cap_data[i].inheritable = 0U;
 	}
 }
 
-static void capsClearType(cap_t cap, cap_flag_t type)
+static bool capsGetPermitted(cap_user_data_t cap_data, unsigned int cap)
 {
-	if (cap_clear_flag(cap, type) == -1) {
-		PLOG_F("cap_clear_flag(flag=%d)", (int)type);
-	}
+	size_t off_byte = cap / (sizeof(cap_data->permitted) * 8);
+	size_t off_bit = cap % (sizeof(cap_data->permitted) * 8);
+	return cap_data[off_byte].permitted & (1U << off_bit);
 }
 
-static cap_flag_value_t capsGetCap(cap_t cap, cap_value_t id, cap_flag_t type)
+static bool capsGetInheritable(cap_user_data_t cap_data, unsigned int cap)
 {
-	cap_flag_value_t v;
-	if (cap_get_flag(cap, id, type, &v) == -1) {
-#if defined(CAP_AUDIT_READ)
-		if (id == CAP_AUDIT_READ) {
-			PLOG_D
-			    ("CAP_AUDIT_READ requested to be read but your libcap doesn't understand this capability");
-			return CAP_CLEAR;
-		}
-#endif
-		PLOG_F("cap_get_flag(id=%s, type=%d)", capsValToStr((int)id), (int)type);
-	}
-	return v;
+	size_t off_byte = cap / (sizeof(cap_data->inheritable) * 8);
+	size_t off_bit = cap % (sizeof(cap_data->inheritable) * 8);
+	return cap_data[off_byte].inheritable & (1U << off_bit);
 }
 
-static void capsSetCap(cap_t cap, cap_value_t id, cap_value_t type, cap_flag_value_t val)
+static void capsSetInheritable(cap_user_data_t cap_data, unsigned int cap)
 {
-	if (cap_set_flag(cap, type, 1, &id, val) == -1) {
-#if defined(CAP_AUDIT_READ)
-		if (id == CAP_AUDIT_READ) {
-			PLOG_W
-			    ("CAP_AUDIT_READ requested to be set but your libcap doesn't understand this capability");
-			return;
-		}
-#endif
-		PLOG_F("cap_set_flag(id=%s, type=%d, val=%d)", capsValToStr((int)id), (int)type,
-		       (int)val);
-	}
+	size_t off_byte = cap / (sizeof(cap_data->inheritable) * 8);
+	size_t off_bit = cap % (sizeof(cap_data->inheritable) * 8);
+	cap_data[off_byte].inheritable |= (1U << off_bit);
 }
 
 bool capsInitNs(struct nsjconf_t *nsjconf)
 {
-	cap_t cap_orig = capsGet();
-	cap_t cap_new = capsGet();
+	cap_user_data_t cap_data = capsGet();
+	if (cap_data == NULL) {
+		return false;
+	}
+	capsClearInheritable(cap_data);
 
 	char dbgmsg[4096];
 	dbgmsg[0] = '\0';
 
 	if (nsjconf->keep_caps) {
 		for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
-			cap_flag_value_t v = capsGetCap(cap_orig, capNames[i].val, CAP_PERMITTED);
-			if (v == CAP_SET) {
+			if (capsGetPermitted(cap_data, capNames[i].val) == true) {
 				utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capNames[i].name);
+				capsSetInheritable(cap_data, capNames[i].val);
 			}
-			capsSetCap(cap_new, capNames[i].val, CAP_INHERITABLE, v);
 		}
 	} else {
-		capsClearType(cap_new, CAP_INHERITABLE);
 		struct ints_t *p;
 		TAILQ_FOREACH(p, &nsjconf->caps, pointers) {
-			if (capsGetCap(cap_orig, p->val, CAP_PERMITTED) != CAP_SET) {
+			if (capsGetPermitted(cap_data, p->val) == false) {
 				LOG_W("Capability %s is not permitted in the namespace",
 				      capsValToStr(p->val));
-				capsFree(cap_orig);
-				capsFree(cap_new);
 				return false;
 			}
 			utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capsValToStr(p->val));
-			capsSetCap(cap_new, p->val, CAP_INHERITABLE, CAP_SET);
+			capsSetInheritable(cap_data, p->val);
 		}
 	}
 	LOG_D("Adding the following capabilities to the inheritable set:%s", dbgmsg);
 	dbgmsg[0] = '\0';
 
-	if (cap_set_proc(cap_new) == -1) {
-		capsFree(cap_orig);
-		capsFree(cap_new);
+	if (capsSet(cap_data) == false) {
 		return false;
 	}
+
 #if !defined(PR_CAP_AMBIENT)
 #define PR_CAP_AMBIENT 47
 #define PR_CAP_AMBIENT_RAISE 2
 #endif				/* !defined(PR_CAP_AMBIENT) */
 	if (nsjconf->keep_caps) {
 		for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
-			if (capsGetCap(cap_orig, capNames[i].val, CAP_PERMITTED) != CAP_SET) {
+			if (capsGetPermitted(cap_data, capNames[i].val) == false) {
 				continue;
 			}
 			if (prctl
@@ -238,7 +238,7 @@ bool capsInitNs(struct nsjconf_t *nsjconf)
 
 	if (nsjconf->keep_caps == false) {
 		for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
-			if (capsGetCap(cap_new, capNames[i].val, CAP_INHERITABLE) == CAP_SET) {
+			if (capsGetInheritable(cap_data, capNames[i].val) == true) {
 				continue;
 			}
 			utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capNames[i].name);
@@ -252,7 +252,5 @@ bool capsInitNs(struct nsjconf_t *nsjconf)
 		dbgmsg[0] = '\0';
 	}
 
-	capsFree(cap_orig);
-	capsFree(cap_new);
 	return true;
 }

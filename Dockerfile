@@ -3,7 +3,6 @@ FROM ubuntu:16.04
 RUN apt-get -y update && apt-get install -y \
     autoconf \
     bison \
-    check \
     flex \
     gcc \
     g++ \
@@ -13,7 +12,6 @@ RUN apt-get -y update && apt-get install -y \
     make \
     pkg-config \
     protobuf-compiler \
-    libcap-dev \
     && rm -rf /var/lib/apt/lists/*
 
 RUN git clone --depth=1 https://github.com/google/nsjail.git

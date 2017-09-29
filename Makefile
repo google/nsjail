@@ -31,7 +31,7 @@ CFLAGS += $(COMMON_FLAGS) \
 	-std=gnu11
 CXXFLAGS += $(COMMON_FLAGS) $(shell pkg-config --cflags protobuf) \
 	-std=c++11 -Wno-unused -Wno-unused-parameter
-LDFLAGS += -Wl,-z,now -Wl,-z,relro -pie -Wl,-z,noexecstack -lpthread -lcap $(shell pkg-config --libs protobuf)
+LDFLAGS += -Wl,-z,now -Wl,-z,relro -pie -Wl,-z,noexecstack -lpthread $(shell pkg-config --libs protobuf)
 
 BIN = nsjail
 LIBS = kafel/libkafel.a
