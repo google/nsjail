@@ -168,7 +168,7 @@ static void capsSetInheritable(cap_user_data_t cap_data, unsigned int cap)
 #define PR_CAP_AMBIENT 47
 #define PR_CAP_AMBIENT_RAISE 2
 #endif				/* !defined(PR_CAP_AMBIENT) */
-bool CapsInitNsKeepCaps(cap_user_data_t cap_data)
+static bool CapsInitNsKeepCaps(cap_user_data_t cap_data)
 {
 	char dbgmsg[4096];
 
@@ -190,9 +190,9 @@ bool CapsInitNsKeepCaps(cap_user_data_t cap_data)
 		if (capsGetPermitted(cap_data, capNames[i].val) == false) {
 			continue;
 		}
-		if (prctl
-		    (PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)capNames[i].val, 0UL,
-		     0UL) == -1) {
+		if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)capNames[i].val, 0UL,
+			  0UL)
+		    == -1) {
 			PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s)", capNames[i].name);
 		} else {
 			utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capNames[i].name);
