@@ -164,7 +164,46 @@ static void capsSetInheritable(cap_user_data_t cap_data, unsigned int cap)
 	cap_data[off_byte].inheritable |= (1U << off_bit);
 }
 
-bool capsInitNs(struct nsjconf_t *nsjconf)
+#if !defined(PR_CAP_AMBIENT)
+#define PR_CAP_AMBIENT 47
+#define PR_CAP_AMBIENT_RAISE 2
+#endif				/* !defined(PR_CAP_AMBIENT) */
+bool CapsInitNsKeepCaps(cap_user_data_t cap_data)
+{
+	char dbgmsg[4096];
+
+	dbgmsg[0] = '\0';
+	for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
+		if (capsGetPermitted(cap_data, capNames[i].val) == true) {
+			utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capNames[i].name);
+			capsSetInheritable(cap_data, capNames[i].val);
+		}
+	}
+	LOG_D("Adding the following capabilities to the inheritable set:%s", dbgmsg);
+
+	if (capsSet(cap_data) == false) {
+		return false;
+	}
+
+	dbgmsg[0] = '\0';
+	for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
+		if (capsGetPermitted(cap_data, capNames[i].val) == false) {
+			continue;
+		}
+		if (prctl
+		    (PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)capNames[i].val, 0UL,
+		     0UL) == -1) {
+			PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s)", capNames[i].name);
+		} else {
+			utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capNames[i].name);
+		}
+	}
+	LOG_D("Added the following capabilities to the ambient set:%s", dbgmsg);
+
+	return true;
+}
+
+bool capsInitNs(struct nsjconf_t * nsjconf)
 {
 	cap_user_data_t cap_data = capsGet();
 	if (cap_data == NULL) {
@@ -172,85 +211,51 @@ bool capsInitNs(struct nsjconf_t *nsjconf)
 	}
 	capsClearInheritable(cap_data);
 
+	if (nsjconf->keep_caps) {
+		return CapsInitNsKeepCaps(cap_data);
+	}
+
 	char dbgmsg[4096];
 	dbgmsg[0] = '\0';
-
-	if (nsjconf->keep_caps) {
-		for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
-			if (capsGetPermitted(cap_data, capNames[i].val) == true) {
-				utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capNames[i].name);
-				capsSetInheritable(cap_data, capNames[i].val);
-			}
+	struct ints_t *p;
+	TAILQ_FOREACH(p, &nsjconf->caps, pointers) {
+		if (capsGetPermitted(cap_data, p->val) == false) {
+			LOG_W("Capability %s is not permitted in the namespace",
+			      capsValToStr(p->val));
+			return false;
 		}
-	} else {
-		struct ints_t *p;
-		TAILQ_FOREACH(p, &nsjconf->caps, pointers) {
-			if (capsGetPermitted(cap_data, p->val) == false) {
-				LOG_W("Capability %s is not permitted in the namespace",
-				      capsValToStr(p->val));
-				return false;
-			}
-			utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capsValToStr(p->val));
-			capsSetInheritable(cap_data, p->val);
-		}
+		utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capsValToStr(p->val));
+		capsSetInheritable(cap_data, p->val);
 	}
 	LOG_D("Adding the following capabilities to the inheritable set:%s", dbgmsg);
-	dbgmsg[0] = '\0';
-
 	if (capsSet(cap_data) == false) {
 		return false;
 	}
 
-#if !defined(PR_CAP_AMBIENT)
-#define PR_CAP_AMBIENT 47
-#define PR_CAP_AMBIENT_RAISE 2
-#endif				/* !defined(PR_CAP_AMBIENT) */
-	if (nsjconf->keep_caps) {
-		for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
-			if (capsGetPermitted(cap_data, capNames[i].val) == false) {
-				continue;
-			}
-			if (prctl
-			    (PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)capNames[i].val,
-			     0UL, 0UL)
-			    == -1) {
-				PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s)",
-				       capNames[i].name);
-			} else {
-				utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capNames[i].name);
-			}
-		}
-	} else {
-		struct ints_t *p;
-		TAILQ_FOREACH(p, &nsjconf->caps, pointers) {
-			if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)p->val, 0UL,
-				  0UL)
-			    == -1) {
-				PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s)",
-				       capsValToStr(p->val));
-			} else {
-				utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capsValToStr(p->val));
-			}
+	dbgmsg[0] = '\0';
+	TAILQ_FOREACH(p, &nsjconf->caps, pointers) {
+		if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)p->val, 0UL, 0UL) ==
+		    -1) {
+			PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s)",
+			       capsValToStr(p->val));
+		} else {
+			utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capsValToStr(p->val));
 		}
 	}
 	LOG_D("Added the following capabilities to the ambient set:%s", dbgmsg);
-	dbgmsg[0] = '\0';
 
-	if (nsjconf->keep_caps == false) {
-		for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
-			if (capsGetInheritable(cap_data, capNames[i].val) == true) {
-				continue;
-			}
-			utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capNames[i].name);
-			if (prctl(PR_CAPBSET_DROP, (unsigned long)capNames[i].val, 0UL, 0UL, 0UL) ==
-			    -1) {
-				PLOG_W("prctl(PR_CAPBSET_DROP, %s)", capNames[i].name);
-				return false;
-			}
+	dbgmsg[0] = '\0';
+	for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
+		if (capsGetInheritable(cap_data, capNames[i].val) == true) {
+			continue;
 		}
-		LOG_D("Dropped the following capabilities from the bounding set:%s", dbgmsg);
-		dbgmsg[0] = '\0';
+		utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capNames[i].name);
+		if (prctl(PR_CAPBSET_DROP, (unsigned long)capNames[i].val, 0UL, 0UL, 0UL) == -1) {
+			PLOG_W("prctl(PR_CAPBSET_DROP, %s)", capNames[i].name);
+			return false;
+		}
 	}
+	LOG_D("Dropped the following capabilities from the bounding set:%s", dbgmsg);
 
 	return true;
 }
