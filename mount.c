@@ -175,11 +175,14 @@ static bool mountMount(struct mounts_t *mpt, const char *newroot, const char *tm
 	}
 
 	if (mpt->src_content) {
-		snprintf(srcpath, sizeof(srcpath), "%s/file.XXXXXX", tmpdir);
-		int fd = mkostemp(srcpath, O_CLOEXEC);
+		static uint64_t df_counter = 0;
+		snprintf(srcpath, sizeof(srcpath), "%s/dynamic_file.%" PRIu64, tmpdir,
+			 ++df_counter);
+		int fd =
+		    TEMP_FAILURE_RETRY(open
+				       (srcpath, O_CREAT | O_EXCL | O_CLOEXEC | O_WRONLY, 0644));
 		if (fd < 0) {
-			PLOG_W("mkostemp('%s')", srcpath);
-			close(fd);
+			PLOG_W("open(srcpath, O_CREAT|O_EXCL|O_CLOEXEC|O_WRONLY, 0644) failed");
 			return false;
 		}
 		if (utilWriteToFd(fd, mpt->src_content, mpt->src_content_len) == false) {

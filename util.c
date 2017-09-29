@@ -255,19 +255,64 @@ uint64_t utilRnd64(void)
 	return rndX;
 }
 
-extern const char *sys_sigabbrev[];
-static __thread char sigstr[32];
+#define VALSTR_STRUCT(x)	\
+	{						\
+		x, #x				\
+	}
 const char *utilSigName(int signo)
 {
-	if (signo < 0 || signo > _NSIG) {
-		snprintf(sigstr, sizeof(sigstr), "UNKNOWN-%d", signo);
-		return sigstr;
+	static __thread char sigstr[32];
+	sigstr[0] = '\0';
+
+	/*  *INDENT-OFF* */
+	static struct {
+		const int signo;
+		const char* const name;
+	} const sigNames[] = {
+		VALSTR_STRUCT(SIGINT),
+		VALSTR_STRUCT(SIGILL),
+		VALSTR_STRUCT(SIGABRT),
+		VALSTR_STRUCT(SIGFPE),
+		VALSTR_STRUCT(SIGSEGV),
+		VALSTR_STRUCT(SIGTERM),
+		VALSTR_STRUCT(SIGHUP),
+		VALSTR_STRUCT(SIGQUIT),
+		VALSTR_STRUCT(SIGTRAP),
+		VALSTR_STRUCT(SIGKILL),
+		VALSTR_STRUCT(SIGBUS),
+		VALSTR_STRUCT(SIGSYS),
+		VALSTR_STRUCT(SIGPIPE),
+		VALSTR_STRUCT(SIGALRM),
+		VALSTR_STRUCT(SIGURG),
+		VALSTR_STRUCT(SIGSTOP),
+		VALSTR_STRUCT(SIGTSTP),
+		VALSTR_STRUCT(SIGCONT),
+		VALSTR_STRUCT(SIGCHLD),
+		VALSTR_STRUCT(SIGTTIN),
+		VALSTR_STRUCT(SIGTTOU),
+		VALSTR_STRUCT(SIGPOLL),
+		VALSTR_STRUCT(SIGXCPU),
+		VALSTR_STRUCT(SIGXFSZ),
+		VALSTR_STRUCT(SIGVTALRM),
+		VALSTR_STRUCT(SIGPROF),
+		VALSTR_STRUCT(SIGUSR1),
+		VALSTR_STRUCT(SIGUSR2),
+		VALSTR_STRUCT(SIGWINCH),
+	};
+	/*  *INDENT-ON* */
+
+	for (size_t i = 0; i < ARRAYSIZE(sigNames); i++) {
+		if (signo == sigNames[i].signo) {
+			snprintf(sigstr, sizeof(sigstr), "%s", sigNames[i].name);
+			return sigstr;
+		}
 	}
+
 	if (signo > __SIGRTMIN) {
 		snprintf(sigstr, sizeof(sigstr), "SIG%d-RTMIN+%d", signo, signo - __SIGRTMIN);
 		return sigstr;
 	}
-	snprintf(sigstr, sizeof(sigstr), "SIG%s", sys_sigabbrev[signo]);
+	snprintf(sigstr, sizeof(sigstr), "UNKNOWN-%d", signo);
 	return sigstr;
 }
 
