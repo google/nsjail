@@ -258,7 +258,7 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 __rlim64_t cmdlineParseRLimit(int res, const char *optarg, unsigned long mul)
 {
 	struct rlimit64 cur;
-	if (prlimit64(0, res, NULL, &cur) == -1) {
+	if (getrlimit64(res, &cur) == -1) {
 		PLOG_F("getrlimit(%d)", res);
 	}
 	if (strcasecmp(optarg, "max") == 0) {
