@@ -137,7 +137,7 @@ static cap_flag_value_t capsGetCap(cap_t cap, cap_value_t id, cap_flag_t type)
 	if (cap_get_flag(cap, id, type, &v) == -1) {
 #if defined(CAP_AUDIT_READ)
 		if (id == CAP_AUDIT_READ) {
-			PLOG_W
+			PLOG_D
 			    ("CAP_AUDIT_READ requested to be read but your libcap doesn't understand this capability");
 			return CAP_CLEAR;
 		}
