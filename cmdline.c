@@ -57,15 +57,11 @@ struct custom_option {
 struct custom_option custom_opts[] = {
     { { "help", no_argument, NULL, 'h' }, "Help plz.." },
     { { "mode", required_argument, NULL, 'M' },
-        "Execution mode (default: o [MODE_STANDALONE_ONCE]):\n"
-        "\tl: Wait for connections on a TCP port (specified with --port) "
-        "[MODE_LISTEN_TCP]\n"
-        "\to: Immediately launch a single process on the console using "
-        "clone/execve [MODE_STANDALONE_ONCE]\n"
-        "\te: Immediately launch a single process on the console using execve "
-        "[MODE_STANDALONE_EXECVE]\n"
-        "\tr: Immediately launch a single process on the console, keep doing it "
-        "forever [MODE_STANDALONE_RERUN]" },
+        "Execution mode (default: 'o' [MODE_STANDALONE_ONCE]):\n"
+        "\tl: Wait for connections on a TCP port (specified with --port) [MODE_LISTEN_TCP]\n"
+        "\to: Launch a single process on the console using clone/execve [MODE_STANDALONE_ONCE]\n"
+        "\te: Launch a single process on the console using execve [MODE_STANDALONE_EXECVE]\n"
+        "\tr: Launch a single process on the console with clone/execve, keep doing it forever [MODE_STANDALONE_RERUN]" },
     { { "config", required_argument, NULL, 'C' }, "Configuration file in the config.proto ProtoBuf format (see configs/ directory for examples)" },
     { { "exec_file", required_argument, NULL, 'x' }, "File to exec (default: argv[0])" },
     { { "chroot", required_argument, NULL, 'c' }, "Directory containing / of the jail (default: none)" },
@@ -85,8 +81,8 @@ struct custom_option custom_opts[] = {
     { { "verbose", no_argument, NULL, 'v' }, "Verbose output" },
     { { "quiet", no_argument, NULL, 'q' }, "Only output warning and more important messages" },
     { { "keep_env", no_argument, NULL, 'e' }, "Should all environment variables be passed to the child?" },
-    { { "env", required_argument, NULL, 'E' }, "Environment variable (can be used multiple times)" },
-    { { "keep_caps", no_argument, NULL, 0x0501 }, "Don't drop capabilities in the local namespace" },
+    { { "env", required_argument, NULL, 'E' }, "Additional environment variable (can be used multiple times)" },
+    { { "keep_caps", no_argument, NULL, 0x0501 }, "Don't drop capabilities" },
     { { "silent", no_argument, NULL, 0x0502 }, "Redirect child's fd:0/1/2 to /dev/null" },
     { { "skip_setsid", no_argument, NULL, 0x0504 }, "Don't call setsid(), allows for terminal signal handling in the sandboxed process" },
     { { "pass_fd", required_argument, NULL, 0x0505 }, "Don't close this FD before executing child (can be specified multiple times), by default: 0/1/2 are kept open" },
@@ -104,15 +100,15 @@ struct custom_option custom_opts[] = {
     { { "persona_read_implies_exec", no_argument, NULL, 0x0303 }, "personality(READ_IMPLIES_EXEC)" },
     { { "persona_addr_limit_3gb", no_argument, NULL, 0x0304 }, "personality(ADDR_LIMIT_3GB)" },
     { { "persona_addr_no_randomize", no_argument, NULL, 0x0305 }, "personality(ADDR_NO_RANDOMIZE)" },
-    { { "disable_clone_newnet", no_argument, NULL, 'N' }, "Don't use CLONE_NEWNET. Enable networking inside the jail" },
+    { { "disable_clone_newnet", no_argument, NULL, 'N' }, "Don't use CLONE_NEWNET. Enable global networking inside the jail" },
     { { "disable_clone_newuser", no_argument, NULL, 0x0402 }, "Don't use CLONE_NEWUSER. Requires euid==0" },
     { { "disable_clone_newns", no_argument, NULL, 0x0403 }, "Don't use CLONE_NEWNS" },
     { { "disable_clone_newpid", no_argument, NULL, 0x0404 }, "Don't use CLONE_NEWPID" },
     { { "disable_clone_newipc", no_argument, NULL, 0x0405 }, "Don't use CLONE_NEWIPC" },
     { { "disable_clone_newuts", no_argument, NULL, 0x0406 }, "Don't use CLONE_NEWUTS" },
     { { "enable_clone_newcgroup", no_argument, NULL, 0x0407 }, "Use CLONE_NEWCGROUP" },
-    { { "uid_mapping", required_argument, NULL, 'U' }, "Add a custom uid mapping of the form inside_uid:outside_uid:count. Setting this requires newuidmap to be present" },
-    { { "gid_mapping", required_argument, NULL, 'G' }, "Add a custom gid mapping of the form inside_gid:outside_gid:count. Setting this requires newgidmap to be present" },
+    { { "uid_mapping", required_argument, NULL, 'U' }, "Add a custom uid mapping of the form inside_uid:outside_uid:count. Setting this requires newuidmap (set-uid) to be present" },
+    { { "gid_mapping", required_argument, NULL, 'G' }, "Add a custom gid mapping of the form inside_gid:outside_gid:count. Setting this requires newgidmap (set-uid) to be present" },
     { { "bindmount_ro", required_argument, NULL, 'R' }, "List of mountpoints to be mounted --bind (ro) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'" },
     { { "bindmount", required_argument, NULL, 'B' }, "List of mountpoints to be mounted --bind (rw) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'" },
     { { "tmpfsmount", required_argument, NULL, 'T' }, "List of mountpoints to be mounted as RW/tmpfs inside the container. Can be specified multiple times. Supports 'dest' syntax" },
@@ -126,7 +122,7 @@ struct custom_option custom_opts[] = {
     { { "cgroup_pids_max", required_argument, NULL, 0x0811 }, "Maximum number of pids in a cgroup (default: '0' - disabled)" },
     { { "cgroup_pids_mount", required_argument, NULL, 0x0812 }, "Location of pids cgroup FS (default: '/sys/fs/cgroup/pids')" },
     { { "cgroup_pids_parent", required_argument, NULL, 0x0813 }, "Which pre-existing pids cgroup to use as a parent (default: 'NSJAIL')" },
-    { { "iface_no_lo", no_argument, NULL, 0x700 }, "Don't bring up the 'lo' interface" },
+    { { "iface_no_lo", no_argument, NULL, 0x700 }, "Don't bring the 'lo' interface up" },
     { { "macvlan_iface", required_argument, NULL, 'I' }, "Interface which will be cloned (MACVLAN) and put inside the subprocess' namespace as 'vs'" },
     { { "macvlan_vs_ip", required_argument, NULL, 0x701 }, "IP of the 'vs' interface (e.g. \"192.168.0.1\")" },
     { { "macvlan_vs_nm", required_argument, NULL, 0x702 }, "Netmask of the 'vs' interface (e.g. \"255.255.255.0\")" },
