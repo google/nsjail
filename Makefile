@@ -76,8 +76,9 @@ ifeq ("$(wildcard kafel/Makefile)","")
 endif
 	$(MAKE) -C kafel
 
+# Sequence of proto deps, which doesn't fit automatic make rules
+config.o: $(SRCS_PB_O) $(SRCS_PB_H)
 $(SRCS_PB_O): $(SRCS_PB_CXX) $(SRCS_PB_H)
-
 $(SRCS_PB_CXX) $(SRCS_PB_H): $(SRCS_PROTO)
 	protoc --cpp_out=. $(SRCS_PROTO)
 
@@ -88,7 +89,7 @@ ifneq ("$(wildcard kafel/Makefile)","")
 endif
 
 depend:
-	makedepend -Y -Ykafel/include -- -- $(SRCS_C) $(SRCS_CXX) $(SRCS_PB)
+	makedepend -Y -Ykafel/include -- -- $(SRCS_C) $(SRCS_CXX) $(SRCS_PB_CXX)
 
 indent:
 	clang-format --style=WebKit -i -sort-includes *.c *.h $(SRCS_CXX)
@@ -113,4 +114,4 @@ user.o: user.h common.h log.h subproc.h util.h
 util.o: util.h common.h log.h
 uts.o: uts.h common.h log.h
 cpu.o: cpu.h common.h log.h util.h
-config.o: common.h caps.h config.h log.h mount.h user.h util.h config.pb.h
+config.o: common.h caps.h config.h log.h mount.h user.h util.h

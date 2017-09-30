@@ -174,6 +174,7 @@ static bool CapsInitNsKeepCaps(cap_user_data_t cap_data)
 {
 	char dbgmsg[4096];
 
+	/* Copy all permitted caps to the inheritable set */
 	dbgmsg[0] = '\0';
 	for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
 		if (capsGetPermitted(cap_data, capNames[i].val) == true) {
@@ -187,6 +188,7 @@ static bool CapsInitNsKeepCaps(cap_user_data_t cap_data)
 		return false;
 	}
 
+	/* Make sure the inheritable set is preserved across execve via the ambient set */
 	dbgmsg[0] = '\0';
 	for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
 		if (capsGetPermitted(cap_data, capNames[i].val) == false) {
@@ -211,6 +213,7 @@ bool capsInitNs(struct nsjconf_t * nsjconf)
 	if (cap_data == NULL) {
 		return false;
 	}
+	/* Let's start with the empty inheritable set to avoid any mistakes */
 	capsClearInheritable(cap_data);
 
 	if (nsjconf->keep_caps) {
@@ -219,6 +222,8 @@ bool capsInitNs(struct nsjconf_t * nsjconf)
 
 	char dbgmsg[4096];
 	dbgmsg[0] = '\0';
+
+	/* Set all requested caps in the inheritable set if these are present in the permitted set */
 	struct ints_t *p;
 	TAILQ_FOREACH(p, &nsjconf->caps, pointers) {
 		if (capsGetPermitted(cap_data, p->val) == false) {
@@ -234,6 +239,7 @@ bool capsInitNs(struct nsjconf_t * nsjconf)
 		return false;
 	}
 
+	/* Make sure inheritable set is preserved across execve via the modified ambient set */
 	dbgmsg[0] = '\0';
 	TAILQ_FOREACH(p, &nsjconf->caps, pointers) {
 		if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)p->val, 0UL, 0UL) ==
@@ -246,6 +252,10 @@ bool capsInitNs(struct nsjconf_t * nsjconf)
 	}
 	LOG_D("Added the following capabilities to the ambient set:%s", dbgmsg);
 
+	/*
+	 * Make sure all other caps (those which were not explicitly requested) are removed from the
+	 * bounding set
+	 */
 	dbgmsg[0] = '\0';
 	for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
 		if (capsGetInheritable(cap_data, capNames[i].val) == true) {
