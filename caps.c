@@ -152,6 +152,13 @@ static bool capsGetPermitted(cap_user_data_t cap_data, unsigned int cap)
 	return cap_data[off_byte].permitted & (1U << off_bit);
 }
 
+static bool capsGetEffective(cap_user_data_t cap_data, unsigned int cap)
+{
+	size_t off_byte = cap / (sizeof(cap_data->effective) * 8);
+	size_t off_bit = cap % (sizeof(cap_data->effective) * 8);
+	return cap_data[off_byte].effective & (1U << off_bit);
+}
+
 static bool capsGetInheritable(cap_user_data_t cap_data, unsigned int cap)
 {
 	size_t off_byte = cap / (sizeof(cap_data->inheritable) * 8);
@@ -169,6 +176,7 @@ static void capsSetInheritable(cap_user_data_t cap_data, unsigned int cap)
 #if !defined(PR_CAP_AMBIENT)
 #define PR_CAP_AMBIENT 47
 #define PR_CAP_AMBIENT_RAISE 2
+#define PR_CAP_AMBIENT_CLEAR_ALL 4
 #endif				/* !defined(PR_CAP_AMBIENT) */
 static bool CapsInitNsKeepCaps(cap_user_data_t cap_data)
 {
@@ -236,30 +244,35 @@ bool capsInitNs(struct nsjconf_t * nsjconf)
 	}
 	LOG_D("Adding the following capabilities to the inheritable set:%s", dbgmsg);
 
-	/*
-	 * Make sure all other caps (those which were not explicitly requested) are removed from the
-	 * bounding set
-	 */
-	dbgmsg[0] = '\0';
-	for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
-		if (capsGetInheritable(cap_data, capNames[i].val) == true) {
-			continue;
-		}
-		utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capNames[i].name);
-		if (prctl(PR_CAPBSET_DROP, (unsigned long)capNames[i].val, 0UL, 0UL, 0UL) == -1) {
-			PLOG_W("prctl(PR_CAPBSET_DROP, %s)", capNames[i].name);
-			return false;
-		}
-	}
-	LOG_D("Dropped the following capabilities from the bounding set:%s", dbgmsg);
-
-	/* Must be performed after CAPBSET has been manipulated */
 	if (capsSet(cap_data) == false) {
 		return false;
 	}
 
+	/*
+	 * Make sure all other caps (those which were not explicitly requested) are removed from the
+	 * bounding set
+	 */
+	if (capsGetEffective(cap_data, CAP_SETPCAP) == true) {
+		dbgmsg[0] = '\0';
+		for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
+			if (capsGetInheritable(cap_data, capNames[i].val) == true) {
+				continue;
+			}
+			utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capNames[i].name);
+			if (prctl(PR_CAPBSET_DROP, (unsigned long)capNames[i].val, 0UL, 0UL, 0UL) ==
+			    -1) {
+				PLOG_W("prctl(PR_CAPBSET_DROP, %s)", capNames[i].name);
+				return false;
+			}
+		}
+		LOG_D("Dropped the following capabilities from the bounding set:%s", dbgmsg);
+	}
+
 	/* Make sure inheritable set is preserved across execve via the modified ambient set */
 	dbgmsg[0] = '\0';
+	if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0UL, 0UL, 0UL) == -1) {
+		PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL)");
+	}
 	TAILQ_FOREACH(p, &nsjconf->caps, pointers) {
 		if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)p->val, 0UL, 0UL) ==
 		    -1) {

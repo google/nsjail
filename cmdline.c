@@ -234,7 +234,7 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 			LOG_I("Uid map: inside_uid:%lu outside_uid:%lu count:%zu newuidmap:%s",
 			      (unsigned long)p->inside_id, (unsigned long)p->outside_id, p->count,
 			      p->is_newidmap ? "true" : "false");
-			if (p->outside_id == 0) {
+			if (p->outside_id == 0 && nsjconf->clone_newuser) {
 				LOG_W
 				    ("Process will be UID/EUID=0 in the global user namespace, and will have user root-level access to files");
 			}
@@ -243,7 +243,7 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 			LOG_I("Gid map: inside_gid:%lu outside_gid:%lu count:%zu newgidmap:%s",
 			      (unsigned long)p->inside_id, (unsigned long)p->outside_id, p->count,
 			      p->is_newidmap ? "true" : "false");
-			if (p->outside_id == 0) {
+			if (p->outside_id == 0 && nsjconf->clone_newuser) {
 				LOG_W
 				    ("Process will be GID/EGID=0 in the global user namespace, and will have group root-level access to files");
 			}
