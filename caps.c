@@ -224,8 +224,16 @@ bool capsInitNs(struct nsjconf_t * nsjconf)
 	if (cap_data == NULL) {
 		return false;
 	}
+
 	/* Let's start with the empty inheritable set to avoid any mistakes */
 	capsClearInheritable(cap_data);
+	/*
+	 * Remove all capabilities from the ambient set first. It works with newer kernel version only,
+	 * so don't fail if it fails
+	 */
+	if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0UL, 0UL, 0UL) == -1) {
+		PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL)");
+	}
 
 	if (nsjconf->keep_caps) {
 		return CapsInitNsKeepCaps(cap_data);
@@ -270,9 +278,6 @@ bool capsInitNs(struct nsjconf_t * nsjconf)
 
 	/* Make sure inheritable set is preserved across execve via the modified ambient set */
 	dbgmsg[0] = '\0';
-	if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0UL, 0UL, 0UL) == -1) {
-		PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL)");
-	}
 	TAILQ_FOREACH(p, &nsjconf->caps, pointers) {
 		if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)p->val, 0UL, 0UL) ==
 		    -1) {
