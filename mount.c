@@ -291,10 +291,14 @@ static bool mountGetDir(char *dir, const char *name)
 static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 {
 	if (nsjconf->clone_newns == false) {
+		if (nsjconf->chroot == NULL) {
+			PLOG_E
+			    ("--chroot was not specified, and it's required when not using CLONE_NEWNS");
+			return false;
+		}
 		if (chroot(nsjconf->chroot) == -1) {
-			PLOG_E("chroot('%s')", nsjconf->chroot) {
-				return false;
-			}
+			PLOG_E("chroot('%s')", nsjconf->chroot);
+			return false;
 		}
 		if (chdir("/") == -1) {
 			PLOG_E("chdir('/')");
