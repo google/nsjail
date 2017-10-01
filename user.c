@@ -269,7 +269,7 @@ bool userInitNsFromChild(struct nsjconf_t * nsjconf)
 	/* Make sure all capabilities are retained after the subsequent setuid/setgid */
 	if (prctl(PR_SET_SECUREBITS, SECBIT_KEEP_CAPS | SECBIT_NO_SETUID_FIXUP, 0UL, 0UL, 0UL) ==
 	    -1) {
-		PLOG_W("prctl(PR_SET_KEEPCAPS, 1UL)");
+		PLOG_W("prctl(PR_SET_SECUREBITS, SECBIT_KEEP_CAPS | SECBIT_NO_SETUID_FIXUP)");
 		return false;
 	}
 
