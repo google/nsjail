@@ -314,6 +314,10 @@ static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 		return false;
 	}
 
+	if (mount("/", "/", NULL, MS_BIND | MS_REC | MS_PRIVATE | MS_REMOUNT, NULL) == -1) {
+		PLOG_E("mount('/', '/', NULL, MS_BIND|MS_REC|MS_PRIVATE|MS_REMOUNT, NULL)");
+		return false;
+	}
 	if (mount(NULL, destdir, "tmpfs", 0, "size=16777216") == -1) {
 		PLOG_E("mount('%s', 'tmpfs')", destdir);
 		return false;
