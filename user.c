@@ -241,11 +241,11 @@ static bool userUidGidMap(struct nsjconf_t *nsjconf, pid_t pid)
 
 bool userInitNsFromParent(struct nsjconf_t * nsjconf, pid_t pid)
 {
-	if (nsjconf->clone_newuser == false) {
-		return true;
-	}
 	if (userSetGroups(pid) == false) {
 		return false;
+	}
+	if (nsjconf->clone_newuser == false) {
+		return true;
 	}
 	if (userUidGidMap(nsjconf, pid) == false) {
 		return false;
@@ -264,6 +264,11 @@ bool userInitNsFromChild(struct nsjconf_t * nsjconf)
 		PLOG_D("setgroups(NULL) failed");
 	}
 
+	/*
+	 * If we don't use CLONE_NEWUSER, then presumably this binary has been run with euid==0, in
+	 * which case we need to avoid calling setuid/setgid, in order to avoid loosing capabilities
+	 * which will be needed for uname/mount/etc.-like syscalls
+	 */
 	if (nsjconf->clone_newuser == false) {
 		return true;
 	}

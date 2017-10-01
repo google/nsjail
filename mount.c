@@ -290,6 +290,10 @@ static bool mountGetDir(char *dir, const char *name)
 
 static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 {
+	/*
+	 * If CLONE_NEWNS is not used, we would be changing the global mount namespace, so simply
+	 * use --chroot in this case
+	 */
 	if (nsjconf->clone_newns == false) {
 		if (nsjconf->chroot == NULL) {
 			PLOG_E
@@ -318,6 +322,7 @@ static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 		return false;
 	}
 
+	/* Make changes to / (recursively) private, to avoid changing the global mount ns */
 	if (mount("/", "/", NULL, MS_REC | MS_PRIVATE, NULL) == -1) {
 		PLOG_E("mount('/', '/', NULL, MS_REC|MS_PRIVATE, NULL)");
 		return false;
@@ -348,6 +353,13 @@ static bool mountInitNsInternal(struct nsjconf_t *nsjconf)
 		PLOG_E("umount2('%s', MNT_DETACH)", tmpdir);
 		return false;
 	}
+	/*
+	 * This requires some explanation: It's actually possible to pivot_root('/', '/'). After this
+	 * operation has been completed, the old root is mounted over the new root, and it's OK to
+	 * simply umount('/') now, and to have new_root as '/'. This allows us not care about
+	 * providing any special directory for old_root, which is sometimes not easy, given that e.g.
+	 * /tmp might not always be present inside new_root
+	 */
 	if (syscall(__NR_pivot_root, destdir, destdir) == -1) {
 		PLOG_E("pivot_root('%s', '%s')", destdir, destdir);
 		return false;
