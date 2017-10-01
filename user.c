@@ -139,7 +139,7 @@ static bool userGidMapExternal(struct nsjconf_t *nsjconf, pid_t pid UNUSED)
 			continue;
 		}
 		if ((idx + 4) >= ARRAYSIZE(argv)) {
-			LOG_W("Number of arguments to '/usr/bin/newgidmap' too big");
+			LOG_W("Too many arguments for '/usr/bin/newgidmap'");
 			return false;
 		}
 		use = true;
@@ -192,7 +192,7 @@ static bool userUidMapExternal(struct nsjconf_t *nsjconf, pid_t pid UNUSED)
 			continue;
 		}
 		if ((idx + 4) >= ARRAYSIZE(argv)) {
-			LOG_W("Number of arguments to '/usr/bin/newuidmap' too big");
+			LOG_W("Too many arguments for '/usr/bin/newuidmap'");
 			return false;
 		}
 		use = true;
@@ -266,10 +266,13 @@ bool userInitNsFromChild(struct nsjconf_t * nsjconf)
 		PLOG_D("setgroups(NULL) failed");
 	}
 
-	/* Make sure all capabilities are retained after the subsequent setuid/setgid */
+	/*
+	 * Make sure all capabilities are retained after the subsequent setuid/setgid, as they will be
+	 * needed for privileged operations: mounts, uts change etc.
+	 */
 	if (prctl(PR_SET_SECUREBITS, SECBIT_KEEP_CAPS | SECBIT_NO_SETUID_FIXUP, 0UL, 0UL, 0UL) ==
 	    -1) {
-		PLOG_W("prctl(PR_SET_SECUREBITS, SECBIT_KEEP_CAPS | SECBIT_NO_SETUID_FIXUP)");
+		PLOG_E("prctl(PR_SET_SECUREBITS, SECBIT_KEEP_CAPS | SECBIT_NO_SETUID_FIXUP)");
 		return false;
 	}
 
