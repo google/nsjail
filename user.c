@@ -24,12 +24,14 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <grp.h>
+#include <linux/securebits.h>
 #include <pwd.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/prctl.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -264,13 +266,11 @@ bool userInitNsFromChild(struct nsjconf_t * nsjconf)
 		PLOG_D("setgroups(NULL) failed");
 	}
 
-	/*
-	 * If we don't use CLONE_NEWUSER, then presumably this binary has been run with euid==0, in
-	 * which case we need to avoid calling setuid/setgid, in order to avoid loosing capabilities
-	 * which will be needed for uname/mount/etc.-like syscalls
-	 */
-	if (nsjconf->clone_newuser == false) {
-		return true;
+	/* Make sure all capabilities are retained after the subsequent setuid/setgid */
+	if (prctl(PR_SET_SECUREBITS, SECBIT_KEEP_CAPS | SECBIT_NO_SETUID_FIXUP, 0UL, 0UL, 0UL) ==
+	    -1) {
+		PLOG_W("prctl(PR_SET_KEEPCAPS, 1UL)");
+		return false;
 	}
 
 	LOG_D("setresgid(%d, %d, %d)", TAILQ_FIRST(&nsjconf->gids)->inside_id,

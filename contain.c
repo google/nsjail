@@ -90,29 +90,6 @@ static bool containDropPrivs(struct nsjconf_t *nsjconf)
 		}
 	}
 
-	if (nsjconf->clone_newuser == false) {
-		LOG_D("setresgid(%d, %d, %d)", TAILQ_FIRST(&nsjconf->gids)->inside_id,
-		      TAILQ_FIRST(&nsjconf->gids)->inside_id,
-		      TAILQ_FIRST(&nsjconf->gids)->inside_id);
-		if (syscall(__NR_setresgid, TAILQ_FIRST(&nsjconf->gids)->inside_id,
-			    TAILQ_FIRST(&nsjconf->gids)->inside_id,
-			    TAILQ_FIRST(&nsjconf->gids)->inside_id)
-		    == -1) {
-			PLOG_E("setresgid(%u)", TAILQ_FIRST(&nsjconf->gids)->inside_id);
-			return false;
-		}
-		LOG_D("setresuid(%d, %d, %d)", TAILQ_FIRST(&nsjconf->uids)->inside_id,
-		      TAILQ_FIRST(&nsjconf->uids)->inside_id,
-		      TAILQ_FIRST(&nsjconf->uids)->inside_id);
-		if (syscall(__NR_setresuid, TAILQ_FIRST(&nsjconf->uids)->inside_id,
-			    TAILQ_FIRST(&nsjconf->uids)->inside_id,
-			    TAILQ_FIRST(&nsjconf->uids)->inside_id)
-		    == -1) {
-			PLOG_E("setresuid(%u)", TAILQ_FIRST(&nsjconf->uids)->inside_id);
-			return false;
-		}
-	}
-
 	if (capsInitNs(nsjconf) == false) {
 		return false;
 	}
