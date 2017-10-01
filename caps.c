@@ -209,6 +209,9 @@ static bool CapsInitNsKeepCaps(cap_user_data_t cap_data)
 
 bool capsInitNs(struct nsjconf_t * nsjconf)
 {
+	char dbgmsg[4096];
+	struct ints_t *p;
+
 	cap_user_data_t cap_data = capsGet();
 	if (cap_data == NULL) {
 		return false;
@@ -220,11 +223,8 @@ bool capsInitNs(struct nsjconf_t * nsjconf)
 		return CapsInitNsKeepCaps(cap_data);
 	}
 
-	char dbgmsg[4096];
-	dbgmsg[0] = '\0';
-
 	/* Set all requested caps in the inheritable set if these are present in the permitted set */
-	struct ints_t *p;
+	dbgmsg[0] = '\0';
 	TAILQ_FOREACH(p, &nsjconf->caps, pointers) {
 		if (capsGetPermitted(cap_data, p->val) == false) {
 			LOG_W("Capability %s is not permitted in the namespace",
@@ -235,22 +235,6 @@ bool capsInitNs(struct nsjconf_t * nsjconf)
 		capsSetInheritable(cap_data, p->val);
 	}
 	LOG_D("Adding the following capabilities to the inheritable set:%s", dbgmsg);
-	if (capsSet(cap_data) == false) {
-		return false;
-	}
-
-	/* Make sure inheritable set is preserved across execve via the modified ambient set */
-	dbgmsg[0] = '\0';
-	TAILQ_FOREACH(p, &nsjconf->caps, pointers) {
-		if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)p->val, 0UL, 0UL) ==
-		    -1) {
-			PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s)",
-			       capsValToStr(p->val));
-		} else {
-			utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capsValToStr(p->val));
-		}
-	}
-	LOG_D("Added the following capabilities to the ambient set:%s", dbgmsg);
 
 	/*
 	 * Make sure all other caps (those which were not explicitly requested) are removed from the
@@ -268,6 +252,24 @@ bool capsInitNs(struct nsjconf_t * nsjconf)
 		}
 	}
 	LOG_D("Dropped the following capabilities from the bounding set:%s", dbgmsg);
+
+	/* Must be performed after CAPBSET has been manipulated */
+	if (capsSet(cap_data) == false) {
+		return false;
+	}
+
+	/* Make sure inheritable set is preserved across execve via the modified ambient set */
+	dbgmsg[0] = '\0';
+	TAILQ_FOREACH(p, &nsjconf->caps, pointers) {
+		if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)p->val, 0UL, 0UL) ==
+		    -1) {
+			PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s)",
+			       capsValToStr(p->val));
+		} else {
+			utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capsValToStr(p->val));
+		}
+	}
+	LOG_D("Added the following capabilities to the ambient set:%s", dbgmsg);
 
 	return true;
 }

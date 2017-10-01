@@ -263,6 +263,11 @@ bool userInitNsFromChild(struct nsjconf_t * nsjconf)
 	if (setgroups(0, group_list) == -1) {
 		PLOG_D("setgroups(NULL) failed");
 	}
+
+	if (nsjconf->clone_newuser == false) {
+		return true;
+	}
+
 	LOG_D("setresgid(%d, %d, %d)", TAILQ_FIRST(&nsjconf->gids)->inside_id,
 	      TAILQ_FIRST(&nsjconf->gids)->inside_id, TAILQ_FIRST(&nsjconf->gids)->inside_id);
 	if (syscall(__NR_setresgid, TAILQ_FIRST(&nsjconf->gids)->inside_id,
