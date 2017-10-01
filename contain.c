@@ -24,10 +24,6 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <grp.h>
-#include <inttypes.h>
-#include <linux/capability.h>
-#include <sched.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -38,8 +34,6 @@
 #include <sys/prctl.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
-#include <sys/syscall.h>
-#include <sys/time.h>
 #include <unistd.h>
 
 #include "caps.h"
