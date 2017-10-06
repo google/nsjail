@@ -39,6 +39,11 @@ bool pidInitNs(struct nsjconf_t *nsjconf)
 
 	LOG_D("Creating a dummy 'init' process");
 
+	/*
+	 * If -Me is used then we need to create permanent init inside PID ns, otherwise only the first
+	 * clone/fork will work, and the rest will fail with ENOMEM (see 'man pid_namespaces' for
+	 * details on this behavior)
+	 */
 	pid_t pid = subprocClone(CLONE_FS);
 	if (pid == -1) {
 		PLOG_E("Couldn't create a dummy init process");
@@ -51,7 +56,7 @@ bool pidInitNs(struct nsjconf_t *nsjconf)
 	if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0UL, 0UL, 0UL) == -1) {
 		PLOG_W("(prctl(PR_SET_PDEATHSIG, SIGKILL) failed");
 	}
-	if (prctl(PR_SET_NAME, "init", 0UL, 0UL, 0UL) == -1) {
+	if (prctl(PR_SET_NAME, "ns-init", 0UL, 0UL, 0UL) == -1) {
 		PLOG_W("(prctl(PR_SET_NAME, 'init') failed");
 	}
 	if (prctl(PR_SET_DUMPABLE, 0UL, 0UL, 0UL, 0UL) == -1) {
