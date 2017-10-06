@@ -148,7 +148,7 @@ static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int 
 	}
 	struct charptr_t *p;
 	TAILQ_FOREACH(p, &nsjconf->envs, pointers) {
-		putenv(p->val);
+		putenv((char *)p->val);
 	}
 
 	char cs_addr[64];
@@ -163,7 +163,7 @@ static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int 
 	if (sandboxApply(nsjconf) == false) {
 		exit(0xff);
 	}
-	execv(nsjconf->exec_file, &nsjconf->argv[0]);
+	execv(nsjconf->exec_file, (char *const *)&nsjconf->argv[0]);
 
 	PLOG_E("execve('%s') failed", nsjconf->exec_file);
 

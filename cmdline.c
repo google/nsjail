@@ -820,7 +820,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	}
 
 	if (argv[optind]) {
-		nsjconf->argv = &argv[optind];
+		nsjconf->argv = (const char *const *)&argv[optind];
 	}
 	if (nsjconf->argv == NULL || nsjconf->argv[0] == NULL) {
 		cmdlineUsage(argv[0]);

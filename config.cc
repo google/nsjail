@@ -42,10 +42,11 @@ extern "C" {
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/text_format.h>
 #include <string>
+#include <vector>
 
 #include "config.pb.h"
 
-#define DUP_IF_SET(njc, val) (njc.has_##val() ? utilStrDup(njc.val().c_str()) : NULL)
+#define DUP_IF_SET(njc, val) (njc.has_##val() ? njc.val().c_str() : NULL)
 
 static __rlim64_t configRLimit(int res, const nsjail::RLimit& rl, const uint64_t val, unsigned long mul = 1UL)
 {
@@ -87,10 +88,10 @@ static bool configParseInternal(struct nsjconf_t* nsjconf,
     }
     nsjconf->chroot = DUP_IF_SET(njc, chroot_dir);
     nsjconf->is_root_rw = njc.is_root_rw();
-    nsjconf->hostname = utilStrDup(njc.hostname().c_str());
-    nsjconf->cwd = utilStrDup(njc.cwd().c_str());
+    nsjconf->hostname = njc.hostname().c_str();
+    nsjconf->cwd = njc.cwd().c_str();
     nsjconf->port = njc.port();
-    nsjconf->bindhost = utilStrDup(njc.bindhost().c_str());
+    nsjconf->bindhost = njc.bindhost().c_str();
     nsjconf->max_conns_per_ip = njc.max_conns_per_ip();
     nsjconf->tlimit = njc.time_limit();
     nsjconf->max_cpus = njc.max_cpus();
@@ -132,7 +133,7 @@ static bool configParseInternal(struct nsjconf_t* nsjconf,
     nsjconf->keep_env = njc.keep_env();
     for (ssize_t i = 0; i < njc.envar_size(); i++) {
         struct charptr_t* p = reinterpret_cast<charptr_t*>(utilMalloc(sizeof(struct charptr_t)));
-        p->val = utilStrDup(njc.envar(i).c_str());
+        p->val = njc.envar(i).c_str();
         TAILQ_INSERT_TAIL(&nsjconf->envs, p, pointers);
     }
 
@@ -219,8 +220,10 @@ static bool configParseInternal(struct nsjconf_t* nsjconf,
         flags |= njc.mount(i).is_bind() ? (MS_BIND | MS_REC) : 0;
         bool mandatory = njc.mount(i).mandatory();
 
-        const bool isDir = (njc.mount(i).has_is_dir() && njc.mount(i).is_dir()) ? true : false;
-        const bool* isDirPtr = (njc.mount(i).has_is_dir()) ? &isDir : NULL;
+        isDir_t isDir = NS_DIR_MAYBE;
+        if (njc.mount(i).has_is_dir()) {
+            isDir = njc.mount(i).is_dir() ? NS_DIR_YES : NS_DIR_NO;
+        }
 
         const char* src_content = NULL;
         size_t src_content_len = 0;
@@ -229,7 +232,7 @@ static bool configParseInternal(struct nsjconf_t* nsjconf,
             src_content_len = njc.mount(i).src_content().size();
         }
 
-        if (mountAddMountPt(nsjconf, src, dst, fstype, options, flags, isDirPtr,
+        if (mountAddMountPt(nsjconf, src, dst, fstype, options, flags, isDir,
                 mandatory, src_env, dst_env, src_content,
                 src_content_len, njc.mount(i).is_symlink())
             == false) {
@@ -255,31 +258,31 @@ static bool configParseInternal(struct nsjconf_t* nsjconf,
         : NULL;
 
     nsjconf->cgroup_mem_max = njc.cgroup_mem_max();
-    nsjconf->cgroup_mem_mount = utilStrDup(njc.cgroup_mem_mount().c_str());
-    nsjconf->cgroup_mem_parent = utilStrDup(njc.cgroup_mem_parent().c_str());
+    nsjconf->cgroup_mem_mount = njc.cgroup_mem_mount().c_str();
+    nsjconf->cgroup_mem_parent = njc.cgroup_mem_parent().c_str();
     nsjconf->cgroup_pids_max = njc.cgroup_pids_max();
-    nsjconf->cgroup_pids_mount = utilStrDup(njc.cgroup_pids_mount().c_str());
-    nsjconf->cgroup_pids_parent = utilStrDup(njc.cgroup_pids_parent().c_str());
+    nsjconf->cgroup_pids_mount = njc.cgroup_pids_mount().c_str();
+    nsjconf->cgroup_pids_parent = njc.cgroup_pids_parent().c_str();
 
     nsjconf->iface_no_lo = njc.iface_no_lo();
     nsjconf->iface_vs = DUP_IF_SET(njc, macvlan_iface);
-    nsjconf->iface_vs_ip = utilStrDup(njc.macvlan_vs_ip().c_str());
-    nsjconf->iface_vs_nm = utilStrDup(njc.macvlan_vs_nm().c_str());
-    nsjconf->iface_vs_gw = utilStrDup(njc.macvlan_vs_gw().c_str());
+    nsjconf->iface_vs_ip = njc.macvlan_vs_ip().c_str();
+    nsjconf->iface_vs_nm = njc.macvlan_vs_nm().c_str();
+    nsjconf->iface_vs_gw = njc.macvlan_vs_gw().c_str();
 
     if (njc.has_exec_bin()) {
-        char** argv = reinterpret_cast<char**>(utilCalloc(sizeof(const char*) * (njc.exec_bin().arg().size() + 2)));
+			std::vector<const char*>* argv = new std::vector<const char*>;
         if (njc.exec_bin().has_arg0()) {
-            argv[0] = utilStrDup(njc.exec_bin().arg0().c_str());
+            argv->push_back(njc.exec_bin().arg0().c_str());
         } else {
-            argv[0] = utilStrDup(njc.exec_bin().path().c_str());
+            argv->push_back(njc.exec_bin().path().c_str());
         }
         for (ssize_t i = 0; i < njc.exec_bin().arg().size(); i++) {
-            argv[i + 1] = utilStrDup(njc.exec_bin().arg(i).c_str());
+            argv->push_back(njc.exec_bin().arg(i).c_str());
         }
-        argv[njc.exec_bin().arg().size() + 1] = NULL;
+        argv->push_back(nullptr);
         nsjconf->exec_file = DUP_IF_SET(njc.exec_bin(), path);
-        nsjconf->argv = argv;
+        nsjconf->argv = argv->data();
     }
 
     return true;
@@ -304,7 +307,7 @@ extern "C" bool configParse(struct nsjconf_t* nsjconf, const char* file)
     google::protobuf::io::FileInputStream input(fd);
     input.SetCloseOnDelete(true);
 
-    nsjail::NsJailConfig nsc;
+    static nsjail::NsJailConfig nsc;
 
     auto parser = google::protobuf::TextFormat::Parser();
 

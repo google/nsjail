@@ -411,7 +411,7 @@ bool mountInitNs(struct nsjconf_t * nsjconf)
 }
 
 bool mountAddMountPt(struct nsjconf_t * nsjconf, const char *src, const char *dst,
-		     const char *fstype, const char *options, uintptr_t flags, const bool * isDir,
+		     const char *fstype, const char *options, uintptr_t flags, isDir_t isDir,
 		     bool mandatory, const char *src_env, const char *dst_env,
 		     const char *src_content, size_t src_content_len, bool is_symlink)
 {
@@ -452,18 +452,28 @@ bool mountAddMountPt(struct nsjconf_t * nsjconf, const char *src, const char *ds
 	p->isSymlink = is_symlink;
 	p->mandatory = mandatory;
 
-	if (isDir) {
-		p->isDir = *isDir;
-	} else {
-		if (src_content) {
-			p->isDir = false;
-		} else if (p->src == NULL) {
-			p->isDir = true;
-		} else if (p->flags & MS_BIND) {
-			p->isDir = mountIsDir(p->src);
-		} else {
-			p->isDir = true;
+	switch (isDir) {
+	case NS_DIR_YES:
+		p->isDir = true;
+		break;
+	case NS_DIR_NO:
+		p->isDir = false;
+		break;
+	case NS_DIR_MAYBE:{
+			if (src_content) {
+				p->isDir = false;
+			} else if (p->src == NULL) {
+				p->isDir = true;
+			} else if (p->flags & MS_BIND) {
+				p->isDir = mountIsDir(p->src);
+			} else {
+				p->isDir = true;
+			}
 		}
+		break;
+	default:
+		LOG_F("Unknown isDir value: %d", isDir);
+		break;
 	}
 
 	p->src_content = utilMemDup((const uint8_t *)src_content, src_content_len);

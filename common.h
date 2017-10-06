@@ -103,7 +103,7 @@ enum ns_mode_t {
 };
 
 struct charptr_t {
-	char *val;
+	const char *val;
 	 TAILQ_ENTRY(charptr_t)
 	 pointers;
 };
@@ -122,7 +122,7 @@ struct nsjconf_t {
 	const char *exec_file;
 	const char *hostname;
 	const char *cwd;
-	char *const *argv;
+	const char *const *argv;
 	int port;
 	const char *bindhost;
 	int log_fd;

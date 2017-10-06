@@ -114,5 +114,4 @@ user.o: user.h common.h log.h subproc.h util.h
 util.o: util.h common.h log.h
 uts.o: uts.h common.h log.h
 cpu.o: cpu.h common.h log.h util.h
-config.o: common.h caps.h config.h log.h mount.h user.h util.h config.pb.h
-config.pb.o: config.pb.h
+config.o: common.h caps.h cmdline.h config.h log.h mount.h user.h util.h
