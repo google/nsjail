@@ -132,7 +132,7 @@ message NsJailConfig
        inside the jail */
     optional bool disable_no_new_privs = 25 [ default = false ];
 
-	/* Various rlimits, the rlimit_as/rlimit_core/... are used only if
+    /* Various rlimits, the rlimit_as/rlimit_core/... are used only if
        rlimit_as_type/rlimit_core_type/... are set to RLimit::VALUE */
     optional uint64 rlimit_as = 26 [ default = 512 ]; /* In MiB */
     optional RLimit rlimit_as_type = 64 [ default = VALUE ];
