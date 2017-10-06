@@ -271,18 +271,18 @@ static bool configParseInternal(struct nsjconf_t* nsjconf,
     nsjconf->iface_vs_gw = njc.macvlan_vs_gw().c_str();
 
     if (njc.has_exec_bin()) {
-			std::vector<const char*>* argv = new std::vector<const char*>;
+        static std::vector<const char*> argv;
         if (njc.exec_bin().has_arg0()) {
-            argv->push_back(njc.exec_bin().arg0().c_str());
+            argv.push_back(njc.exec_bin().arg0().c_str());
         } else {
-            argv->push_back(njc.exec_bin().path().c_str());
+            argv.push_back(njc.exec_bin().path().c_str());
         }
         for (ssize_t i = 0; i < njc.exec_bin().arg().size(); i++) {
-            argv->push_back(njc.exec_bin().arg(i).c_str());
+            argv.push_back(njc.exec_bin().arg(i).c_str());
         }
-        argv->push_back(nullptr);
+        argv.push_back(nullptr);
         nsjconf->exec_file = DUP_IF_SET(njc.exec_bin(), path);
-        nsjconf->argv = argv->data();
+        nsjconf->argv = argv.data();
     }
 
     return true;
