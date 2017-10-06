@@ -56,8 +56,8 @@ message MountPt
 }
 enum RLimit {
     VALUE = 0; /* Use the provided value */
-    SOFT = 1; /* Use current soft rlimit */
-    HARD = 2; /* Use current hard rlimit */
+    SOFT = 1; /* Use the current soft rlimit */
+    HARD = 2; /* Use the current hard rlimit */
     INF = 3; /* Use RLIM64_INFINITY */
 }
 message Exe
