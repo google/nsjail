@@ -54,6 +54,12 @@ message MountPt
     /* Is it a symlink (instead of real mount point)? */
     optional bool is_symlink = 12 [ default = false ];
 }
+enum RLimit {
+    VALUE = 0; /* Use the provided value */
+    SOFT = 1; /* Use current soft rlimit */
+    HARD = 2; /* Use current hard rlimit */
+    INF = 3; /* Use RLIM64_INFINITY */
+}
 message Exe
 {
     /* Will be used both as execv's path and as argv[0] */
@@ -126,13 +132,24 @@ message NsJailConfig
        inside the jail */
     optional bool disable_no_new_privs = 25 [ default = false ];
 
+	/* Various rlimits, the rlimit_as/rlimit_core/... are used only if
+       rlimit_as_type/rlimit_core_type/... are set to RLimit::VALUE */
     optional uint64 rlimit_as = 26 [ default = 512 ]; /* In MiB */
+    optional RLimit rlimit_as_type = 64 [ default = VALUE ];
     optional uint64 rlimit_core = 27 [ default = 0 ]; /* In MiB */
+    optional RLimit rlimit_core_type = 65 [ default = VALUE ];
     optional uint64 rlimit_cpu = 28 [ default = 600 ]; /* In seconds */
+    optional RLimit rlimit_cpu_type = 66 [ default = VALUE ];
     optional uint64 rlimit_fsize = 29 [ default = 1 ]; /* In MiB */
+    optional RLimit rlimit_fsize_type = 67 [ default = VALUE ];
     optional uint64 rlimit_nofile = 30 [ default = 32 ];
-    optional uint64 rlimit_nproc = 31; /* This is system-wide: tricky to use */
-    optional uint64 rlimit_stack = 32; /* In MiB */
+    optional RLimit rlimit_nofile_type = 68 [ default = VALUE ];
+    /* RLIMIT_NPROC is system-wide - tricky to use; use the soft limit value by default here */
+    optional uint64 rlimit_nproc = 31 [ default = 1024 ];
+    optional RLimit rlimit_nproc_type = 69 [ default = SOFT ];
+    /* In MiB, use the soft limit value by default */
+    optional uint64 rlimit_stack = 32 [ default = 1048576 ];
+    optional RLimit rlimit_stack_type = 70 [ default = SOFT ];
 
     /* See 'man personality' for more */
     optional bool persona_addr_compat_layout = 33 [ default = false ];

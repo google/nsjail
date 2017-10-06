@@ -30,6 +30,7 @@ extern "C" {
 #include <sys/types.h>
 
 #include "caps.h"
+#include "cmdline.h"
 #include "config.h"
 #include "log.h"
 #include "mount.h"
@@ -45,6 +46,24 @@ extern "C" {
 #include "config.pb.h"
 
 #define DUP_IF_SET(njc, val) (njc.has_##val() ? utilStrDup(njc.val().c_str()) : NULL)
+
+static __rlim64_t configRLimit(int res, const nsjail::RLimit& rl, const uint64_t val, unsigned long mul = 1UL)
+{
+    if (rl == nsjail::RLimit::VALUE) {
+        return (val * mul);
+    }
+    if (rl == nsjail::RLimit::SOFT) {
+        return cmdlineParseRLimit(res, "soft", mul);
+    }
+    if (rl == nsjail::RLimit::HARD) {
+        return cmdlineParseRLimit(res, "hard", mul);
+    }
+    if (rl == nsjail::RLimit::INF) {
+        return RLIM64_INFINITY;
+    }
+    LOG_F("Unknown rlimit value type for rlimit:%d", res);
+    abort();
+}
 
 static bool configParseInternal(struct nsjconf_t* nsjconf,
     const nsjail::NsJailConfig& njc)
@@ -138,17 +157,13 @@ static bool configParseInternal(struct nsjconf_t* nsjconf,
 
     nsjconf->disable_no_new_privs = njc.disable_no_new_privs();
 
-    nsjconf->rl_as = njc.rlimit_as() * 1024ULL * 1024ULL;
-    nsjconf->rl_core = njc.rlimit_core() * 1024ULL * 1024ULL;
-    nsjconf->rl_cpu = njc.rlimit_cpu();
-    nsjconf->rl_fsize = njc.rlimit_fsize() * 1024ULL * 1024ULL;
-    nsjconf->rl_nofile = njc.rlimit_nofile();
-    if (njc.has_rlimit_nproc()) {
-        nsjconf->rl_nproc = njc.rlimit_nproc();
-    }
-    if (njc.has_rlimit_stack()) {
-        nsjconf->rl_stack = njc.rlimit_stack() * 1024ULL * 1024ULL;
-    }
+    nsjconf->rl_as = configRLimit(RLIMIT_AS, njc.rlimit_as_type(), njc.rlimit_as(), 1024UL * 1024UL);
+    nsjconf->rl_core = configRLimit(RLIMIT_CORE, njc.rlimit_core_type(), njc.rlimit_core(), 1024UL * 1024UL);
+    nsjconf->rl_cpu = configRLimit(RLIMIT_CPU, njc.rlimit_cpu_type(), njc.rlimit_cpu());
+    nsjconf->rl_fsize = configRLimit(RLIMIT_FSIZE, njc.rlimit_fsize_type(), njc.rlimit_fsize(), 1024UL * 1024UL);
+    nsjconf->rl_nofile = configRLimit(RLIMIT_NOFILE, njc.rlimit_nofile_type(), njc.rlimit_nofile());
+    nsjconf->rl_nproc = configRLimit(RLIMIT_NPROC, njc.rlimit_nproc_type(), njc.rlimit_nproc());
+    nsjconf->rl_stack = configRLimit(RLIMIT_STACK, njc.rlimit_stack_type(), njc.rlimit_stack(), 1024UL * 1024UL);
 
     if (njc.persona_addr_compat_layout()) {
         nsjconf->personality |= ADDR_COMPAT_LAYOUT;
