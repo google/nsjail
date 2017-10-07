@@ -410,10 +410,10 @@ bool mountInitNs(struct nsjconf_t * nsjconf)
 	return false;
 }
 
-bool mountAddMountPt(struct nsjconf_t * nsjconf, const char *src, const char *dst,
-		     const char *fstype, const char *options, uintptr_t flags, isDir_t isDir,
-		     bool mandatory, const char *src_env, const char *dst_env,
-		     const char *src_content, size_t src_content_len, bool is_symlink)
+static bool mountAddMountPt(struct nsjconf_t *nsjconf, bool head, const char *src, const char *dst,
+			    const char *fstype, const char *options, uintptr_t flags, isDir_t isDir,
+			    bool mandatory, const char *src_env, const char *dst_env,
+			    const char *src_content, size_t src_content_len, bool is_symlink)
 {
 	struct mounts_t *p = utilCalloc(sizeof(struct mounts_t));
 
@@ -479,9 +479,33 @@ bool mountAddMountPt(struct nsjconf_t * nsjconf, const char *src, const char *ds
 	p->src_content = utilMemDup((const uint8_t *)src_content, src_content_len);
 	p->src_content_len = src_content_len;
 
-	TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
+	if (head) {
+		TAILQ_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
+	} else {
+		TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
+	}
 
 	return true;
+}
+
+bool mountAddMountPtHead(struct nsjconf_t * nsjconf, const char *src, const char *dst,
+			 const char *fstype, const char *options, uintptr_t flags, isDir_t isDir,
+			 bool mandatory, const char *src_env, const char *dst_env,
+			 const char *src_content, size_t src_content_len, bool is_symlink)
+{
+	return mountAddMountPt(nsjconf, /* head= */ true, src, dst, fstype, options, flags, isDir,
+			       mandatory, src_env, dst_env, src_content, src_content_len,
+			       is_symlink);
+}
+
+bool mountAddMountPtTail(struct nsjconf_t * nsjconf, const char *src, const char *dst,
+			 const char *fstype, const char *options, uintptr_t flags, isDir_t isDir,
+			 bool mandatory, const char *src_env, const char *dst_env,
+			 const char *src_content, size_t src_content_len, bool is_symlink)
+{
+	return mountAddMountPt(nsjconf, /* head= */ false, src, dst, fstype, options, flags, isDir,
+			       mandatory, src_env, dst_env, src_content, src_content_len,
+			       is_symlink);
 }
 
 const char *mountDescribeMountPt(struct mounts_t *mpt)

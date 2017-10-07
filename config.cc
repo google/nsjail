@@ -232,7 +232,7 @@ static bool configParseInternal(struct nsjconf_t* nsjconf,
             src_content_len = njc.mount(i).src_content().size();
         }
 
-        if (mountAddMountPt(nsjconf, src, dst, fstype, options, flags, isDir,
+        if (mountAddMountPtTail(nsjconf, src, dst, fstype, options, flags, isDir,
                 mandatory, src_env, dst_env, src_content,
                 src_content_len, njc.mount(i).is_symlink())
             == false) {
