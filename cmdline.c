@@ -640,49 +640,41 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			}
 			break;
 		case 'R':{
-				struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
-				p->src = optarg;
-				p->src_content = NULL;
-				p->src_content_len = 0;
 				const char *dst = cmdlineSplitStrByColon(optarg);
-				p->dst = dst ? dst : optarg;
-				p->flags = MS_BIND | MS_REC | MS_RDONLY;
-				p->options = "";
-				p->fs_type = "";
-				p->isDir = mountIsDir(optarg);
-				p->isSymlink = false;
-				p->mandatory = true;
-				TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
-			} break;
+				dst = dst ? dst : optarg;
+				if (!mountAddMountPtTail(nsjconf, /* src= */ optarg, dst,
+							 /* fs_type= */ "", /* options= */ "",
+							 MS_BIND | MS_REC | MS_RDONLY, /* isDir= */
+							 NS_DIR_MAYBE,
+							 /* mandatory= */ true, NULL, NULL, NULL, 0,
+							 /* is_symlink= */ false)) {
+					return false;
+				}
+			};
+			break;
 		case 'B':{
-				struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
-				p->src = optarg;
-				p->src_content = NULL;
-				p->src_content_len = 0;
 				const char *dst = cmdlineSplitStrByColon(optarg);
-				p->dst = dst ? dst : optarg;
-				p->flags = MS_BIND | MS_REC;
-				p->options = "";
-				p->fs_type = "";
-				p->isDir = mountIsDir(optarg);
-				p->isSymlink = false;
-				p->mandatory = true;
-				TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
-			} break;
+				dst = dst ? dst : optarg;
+				if (!mountAddMountPtTail(nsjconf, /* src= */ optarg, dst,
+							 /* fs_type= */ "", /* options= */ "",
+							 MS_BIND | MS_REC, /* isDir= */
+							 NS_DIR_MAYBE,
+							 /* mandatory= */ true, NULL, NULL, NULL, 0,
+							 /* is_symlink= */ false)) {
+					return false;
+				}
+			};
+			break;
 		case 'T':{
-				struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
-				p->src = NULL;
-				p->src_content = NULL;
-				p->src_content_len = 0;
-				p->dst = optarg;
-				p->flags = 0;
-				p->options = cmdlineTmpfsSz;
-				p->fs_type = "tmpfs";
-				p->isDir = true;
-				p->isSymlink = false;
-				p->mandatory = true;
-				TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
-			} break;
+				if (!mountAddMountPtTail(nsjconf, /* src= */ NULL, optarg, "tmpfs", /* options= */ "", /* flags= */ 0,	/* isDir= */
+							 true,
+							 /* mandatory= */ true, NULL, NULL, NULL, 0,
+							 /* is_symlink= */
+							 false)) {
+					return false;
+				}
+			};
+			break;
 		case 'M':
 			switch (optarg[0]) {
 			case 'l':
