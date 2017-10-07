@@ -268,8 +268,9 @@ __rlim64_t cmdlineParseRLimit(int res, const char *optarg, unsigned long mul)
 		return cur.rlim_max;
 	}
 	if (utilIsANumber(optarg) == false) {
-		LOG_F("RLIMIT %d needs a numeric or 'max'/'hard'/'def'/'soft'/'inf' value ('%s' provided)", res,
-		      optarg);
+		LOG_F
+		    ("RLIMIT %d needs a numeric or 'max'/'hard'/'def'/'soft'/'inf' value ('%s' provided)",
+		     res, optarg);
 	}
 	__rlim64_t val = strtoull(optarg, NULL, 0) * mul;
 	if (val == ULLONG_MAX && errno != 0) {
@@ -755,54 +756,31 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	}
 
 	if (nsjconf->mount_proc == true) {
-		struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
-		p->src = NULL;
-		p->src_content = NULL;
-		p->src_content_len = 0;
-		p->dst = "/proc";
-		p->flags = 0;
-		if (nsjconf->is_root_rw == false) {
-			p->flags |= MS_RDONLY;
+		if (!mountAddMountPt(nsjconf, /* src= */ NULL, "/proc", "proc", "",
+				     nsjconf->is_root_rw == false ? MS_RDONLY : 0,	/* isDir= */
+				     true,
+				     /* mandatory= */ true, NULL, NULL, NULL, 0,
+				     /* is_symlink= */
+				     false)) {
+			return false;
 		}
-		p->options = "";
-		p->fs_type = "proc";
-		p->isDir = true;
-		p->isSymlink = false;
-		p->mandatory = true;
-		TAILQ_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
 	}
 	if (nsjconf->chroot != NULL) {
-		struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
-		p->src = nsjconf->chroot;
-		p->src_content = NULL;
-		p->src_content_len = 0;
-		p->dst = "/";
-		p->flags = MS_BIND | MS_REC;
-		if (nsjconf->is_root_rw == false) {
-			p->flags |= MS_RDONLY;
+		if (!mountAddMountPt
+		    (nsjconf, nsjconf->chroot, "/", /* fs_type= */ "", /* options= */ "",
+		     nsjconf->is_root_rw == false ? MS_RDONLY : 0, /* isDir= */ true,
+		     /* mandatory= */ true, NULL, NULL, NULL, 0, /* is_symlink= */ false)) {
+			return false;
 		}
-		p->options = "";
-		p->fs_type = "";
-		p->isDir = true;
-		p->isSymlink = false;
-		p->mandatory = true;
-		TAILQ_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
 	} else {
-		struct mounts_t *p = utilMalloc(sizeof(struct mounts_t));
-		p->src = NULL;
-		p->src_content = NULL;
-		p->src_content_len = 0;
-		p->dst = "/";
-		p->flags = 0;
-		if (nsjconf->is_root_rw == false) {
-			p->flags |= MS_RDONLY;
+		if (!mountAddMountPt(nsjconf, /* src= */ NULL, "/", "tmpfs", /* options= */ "",
+				     nsjconf->is_root_rw == false ? MS_RDONLY : 0,	/* isDir= */
+				     true,
+				     /* mandatory= */ true, NULL, NULL, NULL, 0,
+				     /* is_symlink= */
+				     false)) {
+			return false;
 		}
-		p->options = "";
-		p->fs_type = "tmpfs";
-		p->isDir = true;
-		p->isSymlink = false;
-		p->mandatory = true;
-		TAILQ_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
 	}
 
 	if (TAILQ_EMPTY(&nsjconf->uids)) {
