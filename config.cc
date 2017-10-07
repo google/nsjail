@@ -307,10 +307,10 @@ extern "C" bool configParse(struct nsjconf_t* nsjconf, const char* file)
     google::protobuf::io::FileInputStream input(fd);
     input.SetCloseOnDelete(true);
 
+    /* Use static so we can get c_str() pointers, and copy them into the nsjconf struct */
     static nsjail::NsJailConfig nsc;
 
     auto parser = google::protobuf::TextFormat::Parser();
-
     if (!parser.Parse(&input, &nsc)) {
         LOG_W("Couldn't parse file '%s' from Text into ProtoBuf", file);
         return false;

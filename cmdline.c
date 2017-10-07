@@ -79,7 +79,8 @@ struct custom_option custom_opts[] = {
     { { "max_cpus", required_argument, NULL, 0x508 }, "Maximum number of CPUs a single jailed process can use (default: 0 'no limit')" },
     { { "daemon", no_argument, NULL, 'd' }, "Daemonize after start" },
     { { "verbose", no_argument, NULL, 'v' }, "Verbose output" },
-    { { "quiet", no_argument, NULL, 'q' }, "Only output warning and more important messages" },
+    { { "quiet", no_argument, NULL, 'q' }, "Log warning and more important messages only" },
+    { { "really_quiet", no_argument, NULL, 'Q' }, "Log fatal messages only" },
     { { "keep_env", no_argument, NULL, 'e' }, "Should all environment variables be passed to the child?" },
     { { "env", required_argument, NULL, 'E' }, "Additional environment variable (can be used multiple times)" },
     { { "keep_caps", no_argument, NULL, 0x0501 }, "Don't drop capabilities" },
@@ -398,7 +399,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	int opt_index = 0;
 	for (;;) {
 		int c = getopt_long(argc, argv,
-				    "x:H:D:C:c:p:i:u:g:l:L:t:M:Ndvqeh?E:R:B:T:P:I:U:G:", opts,
+				    "x:H:D:C:c:p:i:u:g:l:L:t:M:NdvqQeh?E:R:B:T:P:I:U:G:", opts,
 				    &opt_index);
 		if (c == -1) {
 			break;
@@ -454,6 +455,12 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 			break;
 		case 'q':
 			nsjconf->loglevel = WARNING;
+			if (logInitLogFile(nsjconf) == false) {
+				return false;
+			}
+			break;
+		case 'Q':
+			nsjconf->loglevel = FATAL;
 			if (logInitLogFile(nsjconf) == false) {
 				return false;
 			}
