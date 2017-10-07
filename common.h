@@ -122,7 +122,7 @@ struct nsjconf_t {
 	const char *exec_file;
 	const char *hostname;
 	const char *cwd;
-	const char *const *argv;
+	const char **argv;
 	int port;
 	const char *bindhost;
 	int log_fd;
