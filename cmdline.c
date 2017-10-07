@@ -757,7 +757,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 
 	if (nsjconf->mount_proc == true) {
 		if (!mountAddMountPt(nsjconf, /* src= */ NULL, "/proc", "proc", "",
-				     nsjconf->is_root_rw == false ? MS_RDONLY : 0,	/* isDir= */
+				     nsjconf->is_root_rw ? 0 : MS_RDONLY,	/* isDir= */
 				     true,
 				     /* mandatory= */ true, NULL, NULL, NULL, 0,
 				     /* is_symlink= */
@@ -768,13 +768,14 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 	if (nsjconf->chroot != NULL) {
 		if (!mountAddMountPt
 		    (nsjconf, nsjconf->chroot, "/", /* fs_type= */ "", /* options= */ "",
-		     nsjconf->is_root_rw == false ? MS_RDONLY : 0, /* isDir= */ true,
+		     nsjconf->is_root_rw ? (MS_BIND | MS_REC) : (MS_BIND | MS_REC | MS_RDONLY),
+		     /* isDir= */ true,
 		     /* mandatory= */ true, NULL, NULL, NULL, 0, /* is_symlink= */ false)) {
 			return false;
 		}
 	} else {
 		if (!mountAddMountPt(nsjconf, /* src= */ NULL, "/", "tmpfs", /* options= */ "",
-				     nsjconf->is_root_rw == false ? MS_RDONLY : 0,	/* isDir= */
+				     nsjconf->is_root_rw ? 0 : MS_RDONLY,	/* isDir= */
 				     true,
 				     /* mandatory= */ true, NULL, NULL, NULL, 0,
 				     /* is_symlink= */
