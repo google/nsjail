@@ -254,6 +254,9 @@ void cmdlineLogParams(struct nsjconf_t *nsjconf)
 
 __rlim64_t cmdlineParseRLimit(int res, const char *optarg, unsigned long mul)
 {
+	if (strcasecmp(optarg, "inf") == 0) {
+		return RLIM64_INFINITY;
+	}
 	struct rlimit64 cur;
 	if (getrlimit64(res, &cur) == -1) {
 		PLOG_F("getrlimit(%d)", res);
@@ -264,11 +267,8 @@ __rlim64_t cmdlineParseRLimit(int res, const char *optarg, unsigned long mul)
 	if (strcasecmp(optarg, "max") == 0 || strcasecmp(optarg, "hard")) {
 		return cur.rlim_max;
 	}
-	if (strcasecmp(optarg, "inf") == 0) {
-		return RLIM64_INFINITY;
-	}
 	if (utilIsANumber(optarg) == false) {
-		LOG_F("RLIMIT %d needs a numeric or 'max'/'def' value ('%s' provided)", res,
+		LOG_F("RLIMIT %d needs a numeric or 'max'/'hard'/'def'/'soft'/'inf' value ('%s' provided)", res,
 		      optarg);
 	}
 	__rlim64_t val = strtoull(optarg, NULL, 0) * mul;
