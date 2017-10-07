@@ -207,6 +207,8 @@ static bool mountMount(struct mounts_t *mpt, const char *newroot, const char *tm
 			PLOG_W("mount('%s') src:'%s' dst:'%s' failed", mountDescribeMountPt(mpt),
 			       srcpath, dst);
 		}
+	} else {
+		mpt->mounted = true;
 	}
 
 	if (mpt->src_content && unlink(srcpath) == -1) {
@@ -217,6 +219,9 @@ static bool mountMount(struct mounts_t *mpt, const char *newroot, const char *tm
 
 static bool mountRemountRO(struct mounts_t *mpt)
 {
+	if (!mpt->mounted) {
+		return true;
+	}
 	if (mpt->isSymlink == true) {
 		return true;
 	}
@@ -451,6 +456,7 @@ static bool mountAddMountPt(struct nsjconf_t *nsjconf, bool head, const char *sr
 	p->isDir = true;
 	p->isSymlink = is_symlink;
 	p->mandatory = mandatory;
+	p->mounted = false;
 
 	switch (isDir) {
 	case NS_DIR_YES:

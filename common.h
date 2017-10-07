@@ -76,6 +76,7 @@ struct mounts_t {
 	bool isDir;
 	bool isSymlink;
 	bool mandatory;
+	bool mounted;
 	 TAILQ_ENTRY(mounts_t)
 	 pointers;
 };
