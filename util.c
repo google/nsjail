@@ -264,7 +264,7 @@ const char *utilSigName(int signo)
 	static __thread char sigstr[32];
 	sigstr[0] = '\0';
 
-    /*  *INDENT-OFF* */
+// clang-format off
     static struct {
         const int signo;
         const char* const name;
@@ -299,7 +299,7 @@ const char *utilSigName(int signo)
         VALSTR_STRUCT(SIGUSR2),
         VALSTR_STRUCT(SIGWINCH),
     };
-    /*  *INDENT-ON* */
+// clang-format on
 
 	for (size_t i = 0; i < ARRAYSIZE(sigNames); i++) {
 		if (signo == sigNames[i].signo) {

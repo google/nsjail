@@ -53,7 +53,7 @@ struct custom_option {
 	const char *descr;
 };
 
-/* *INDENT-OFF* */
+// clang-format off
 struct custom_option custom_opts[] = {
     { { "help", no_argument, NULL, 'h' }, "Help plz.." },
     { { "mode", required_argument, NULL, 'M' },
@@ -138,7 +138,7 @@ struct custom_option deprecated_opts[] = {
     { { "iface_vs_nm", required_argument, NULL, 0x702 }, "Netmask of the 'vs' interface (e.g. \"255.255.255.0\")" },
     { { "iface_vs_gw", required_argument, NULL, 0x703 }, "Default GW for the 'vs' interface (e.g. \"192.168.0.1\")" },
 };
-/*  *INDENT-ON* */
+// clang-format on
 
 static const char *logYesNo(bool yes)
 {
@@ -307,7 +307,7 @@ static char *cmdlineSplitStrByColon(char *spec)
 
 bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
 {
-    /*  *INDENT-OFF* */
+// clang-format off
     (*nsjconf) = (const struct nsjconf_t){
         .exec_file = NULL,
         .hostname = "NSJAIL",
@@ -361,7 +361,7 @@ bool cmdlineParse(int argc, char *argv[], struct nsjconf_t * nsjconf)
         .kafel_string = NULL,
         .num_cpus = sysconf(_SC_NPROCESSORS_ONLN),
     };
-    /*  *INDENT-ON* */
+// clang-format on
 
 	TAILQ_INIT(&nsjconf->pids);
 	TAILQ_INIT(&nsjconf->mountpts);

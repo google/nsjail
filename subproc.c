@@ -66,7 +66,7 @@ static const char *subprocCloneFlagsToStr(uintptr_t flags)
 	static __thread char cloneFlagName[1024];
 	cloneFlagName[0] = '\0';
 
-    /*  *INDENT-OFF* */
+// clang-format off
     static struct {
         const uintptr_t flag;
         const char* const name;
@@ -95,7 +95,7 @@ static const char *subprocCloneFlagsToStr(uintptr_t flags)
         VALSTR_STRUCT(CLONE_NEWNET),
         VALSTR_STRUCT(CLONE_IO),
     };
-    /*  *INDENT-ON* */
+// clang-format on
 
 	for (size_t i = 0; i < ARRAYSIZE(cloneFlags); i++) {
 		if (flags & cloneFlags[i].flag) {

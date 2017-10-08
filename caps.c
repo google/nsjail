@@ -40,7 +40,7 @@
 #define CAP_AUDIT_READ 37
 #endif				/* !defined(CAP_AUDIT_READ) */
 
-/*  *INDENT-OFF* */
+// clang-format off
 static struct {
     const int val;
     const char* const name;
@@ -84,7 +84,7 @@ static struct {
     VALSTR_STRUCT(CAP_BLOCK_SUSPEND),
     VALSTR_STRUCT(CAP_AUDIT_READ),
 };
-/*  *INDENT-ON* */
+// clang-format on
 
 int capsNameToVal(const char *name)
 {

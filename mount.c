@@ -54,7 +54,7 @@ const char *mountFlagsToStr(uintptr_t flags)
 	static __thread char mountFlagsStr[1024];
 	mountFlagsStr[0] = '\0';
 
-    /*  *INDENT-OFF* */
+// clang-format off
     static struct {
         const uintptr_t flag;
         const char* const name;
@@ -84,7 +84,7 @@ const char *mountFlagsToStr(uintptr_t flags)
         VALSTR_STRUCT(MS_STRICTATIME),
         VALSTR_STRUCT(MS_LAZYTIME),
     };
-    /*  *INDENT-ON* */
+// clang-format on
 
 	for (size_t i = 0; i < ARRAYSIZE(mountFlags); i++) {
 		if (flags & mountFlags[i].flag) {

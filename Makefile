@@ -93,7 +93,6 @@ depend:
 
 indent:
 	clang-format --style=WebKit -i -sort-includes *.c *.h $(SRCS_CXX)
-	indent -linux -l100 -lc100 *.c *.h; rm -f *~
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 
