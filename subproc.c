@@ -240,10 +240,12 @@ static struct pids_t *subprocGetPidElem(struct nsjconf_t *nsjconf, pid_t pid)
 
 static void subprocSeccompViolation(struct nsjconf_t *nsjconf, siginfo_t * si)
 {
-	LOG_W("PID: %d commited syscall/seccomp violation and exited with SIGSYS", si->si_pid);
+	LOG_W("PID: %d commited a syscall/seccomp violation and exited with SIGSYS", si->si_pid);
 
 	struct pids_t *p = subprocGetPidElem(nsjconf, si->si_pid);
 	if (p == NULL) {
+		LOG_W("PID: %d, Syscall number: %#x, Seccomp reason: %#x", (int)si->si_pid,
+		      si->si_syscall, si->si_errno);
 		LOG_E("Couldn't find pid element in the subproc list for PID: %d", (int)si->si_pid);
 		return;
 	}
@@ -251,6 +253,8 @@ static void subprocSeccompViolation(struct nsjconf_t *nsjconf, siginfo_t * si)
 	char buf[4096];
 	ssize_t rdsize = utilReadFromFd(p->pid_syscall_fd, buf, sizeof(buf) - 1);
 	if (rdsize < 1) {
+		LOG_W("PID: %d, Syscall number: %#x, Seccomp reason: %#x", (int)si->si_pid,
+		      si->si_syscall, si->si_errno);
 		return;
 	}
 	buf[rdsize - 1] = '\0';
@@ -262,13 +266,15 @@ static void subprocSeccompViolation(struct nsjconf_t *nsjconf, siginfo_t * si)
 		   &arg5, &arg6, &sp, &pc);
 	if (ret == 9) {
 		LOG_W
-		    ("PID: %d, Syscall number: %td, Arguments: %#tx, %#tx, %#tx, %#tx, %#tx, %#tx, SP: %#tx, PC: %#tx, SI_SYSCALL: %#x",
+		    ("PID: %d, Syscall number: %td, Arguments: %#tx, %#tx, %#tx, %#tx, %#tx, %#tx, SP: %#tx, PC: %#tx, si_syscall: %#x, si_errno: %#x",
 		     (int)si->si_pid, sc, arg1, arg2, arg3, arg4, arg5, arg6, sp, pc,
-		     si->si_syscall);
+		     si->si_syscall, si->si_errno);
 	} else if (ret == 3) {
-		LOG_W("PID: %d, Syscall number: %#x, SP: %#tx, PC: %#tx", (int)si->si_pid, si->si_syscall, arg1, arg2);
+		LOG_W("PID: %d, Syscall number: %#x, Seccomp reason: %#x, SP: %#tx, PC: %#tx",
+		      (int)si->si_pid, si->si_syscall, si->si_errno, arg1, arg2);
 	} else {
-		LOG_W("PID: %d, Syscall number: %#x, Syscall string '%s'", (int)si->si_pid, si->si_syscall, buf);
+		LOG_W("PID: %d, Syscall number: %#x, Seccomp reason: %#x, Syscall string '%s'",
+		      (int)si->si_pid, si->si_syscall, si->si_errno, buf);
 	}
 }
 
