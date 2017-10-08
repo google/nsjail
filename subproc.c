@@ -262,12 +262,15 @@ static void subprocSeccompViolation(struct nsjconf_t *nsjconf, siginfo_t * si)
 		   &arg5, &arg6, &sp, &pc);
 	if (ret == 9) {
 		LOG_W
-		    ("PID: %d, Syscall number: %td, Arguments: %#tx, %#tx, %#tx, %#tx, %#tx, %#tx, SP: %#tx, PC: %#tx",
-		     (int)si->si_pid, sc, arg1, arg2, arg3, arg4, arg5, arg6, sp, pc);
+		    ("PID: %d, Syscall number: %td, Arguments: %#tx, %#tx, %#tx, %#tx, %#tx, %#tx, SP: %#tx, PC: %#tx, SI_SYSCALL: %#x",
+		     (int)si->si_pid, sc, arg1, arg2, arg3, arg4, arg5, arg6, sp, pc,
+		     si->si_syscall);
 	} else if (ret == 3) {
-		LOG_W("PID: %d, SP: %#tx, PC: %#tx", (int)si->si_pid, arg1, arg2);
+		LOG_W("PID: %d, SP: %#tx, PC: %#tx (SI_SYSCALL: %#x)", (int)si->si_pid, arg1, arg2,
+		      si->si_syscall);
 	} else {
-		LOG_W("PID: %d, Syscall string '%s'", (int)si->si_pid, buf);
+		LOG_W("PID: %d, Syscall string '%s' (SI_SYSCALL: %#x)", (int)si->si_pid, buf,
+		      si->si_syscall);
 	}
 }
 
