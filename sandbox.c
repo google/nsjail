@@ -29,11 +29,11 @@
 #include "kafel.h"
 #include "log.h"
 
-#ifndef PR_SET_NO_NEW_PRIVS
+#ifndef PR_SET_NO_NEW_PRIVS /* in prctl.h since Linux 3.5 */
 #define PR_SET_NO_NEW_PRIVS 38
 #endif				/* PR_SET_NO_NEW_PRIVS */
 
-static bool sandboxPrepareAndCommit(struct nsjconf_t *nsjconf __attribute__ ((unused)))
+static bool sandboxPrepareAndCommit(struct nsjconf_t *nsjconf)
 {
 	if (nsjconf->kafel_file == NULL && nsjconf->kafel_string == NULL) {
 		return true;
@@ -68,8 +68,5 @@ static bool sandboxPrepareAndCommit(struct nsjconf_t *nsjconf __attribute__ ((un
 
 bool sandboxApply(struct nsjconf_t * nsjconf)
 {
-	if (sandboxPrepareAndCommit(nsjconf) == false) {
-		return false;
-	}
-	return true;
+	return sandboxPrepareAndCommit(nsjconf);
 }
