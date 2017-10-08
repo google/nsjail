@@ -26,6 +26,6 @@
 
 #include "common.h"
 
-bool sandboxApply(struct nsjconf_t *nsjconf);
+bool sandboxApply(struct nsjconf_t* nsjconf);
 
-#endif				/* NS_SANDBOX_H */
+#endif /* NS_SANDBOX_H */

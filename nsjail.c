@@ -94,15 +94,15 @@ static bool nsjailSetSigHandlers(void)
 	return true;
 }
 
-static bool nsjailSetTimer(struct nsjconf_t *nsjconf)
+static bool nsjailSetTimer(struct nsjconf_t* nsjconf)
 {
 	if (nsjconf->mode == MODE_STANDALONE_EXECVE) {
 		return true;
 	}
 
 	struct itimerval it = {
-		.it_value = {.tv_sec = 1,.tv_usec = 0},
-		.it_interval = {.tv_sec = 1,.tv_usec = 0},
+		.it_value = {.tv_sec = 1, .tv_usec = 0 },
+		.it_interval = {.tv_sec = 1, .tv_usec = 0 },
 	};
 	if (setitimer(ITIMER_REAL, &it, NULL) == -1) {
 		PLOG_E("setitimer(ITIMER_REAL)");
@@ -111,7 +111,7 @@ static bool nsjailSetTimer(struct nsjconf_t *nsjconf)
 	return true;
 }
 
-static void nsjailListenMode(struct nsjconf_t *nsjconf)
+static void nsjailListenMode(struct nsjconf_t* nsjconf)
 {
 	int listenfd = netGetRecvSocket(nsjconf->bindhost, nsjconf->port);
 	if (listenfd == -1) {
@@ -137,7 +137,7 @@ static void nsjailListenMode(struct nsjconf_t *nsjconf)
 	}
 }
 
-static int nsjailStandaloneMode(struct nsjconf_t *nsjconf)
+static int nsjailStandaloneMode(struct nsjconf_t* nsjconf)
 {
 	subprocRunChild(nsjconf, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
 	for (;;) {
@@ -165,7 +165,7 @@ static int nsjailStandaloneMode(struct nsjconf_t *nsjconf)
 	// not reached
 }
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
 	struct nsjconf_t nsjconf;
 	if (!cmdlineParse(argc, argv, &nsjconf)) {
@@ -196,4 +196,4 @@ int main(int argc, char *argv[])
 /*
  * To satisfy requirement for BlocksRuntime in clang -fblocks
  */
-void *_NSConcreteStackBlock[32] = { 0 };
+void* _NSConcreteStackBlock[32] = { 0 };

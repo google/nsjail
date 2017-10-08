@@ -26,6 +26,6 @@
 
 #include "common.h"
 
-bool pidInitNs(struct nsjconf_t *nsjconf);
+bool pidInitNs(struct nsjconf_t* nsjconf);
 
-#endif				/* NS_PID_H */
+#endif /* NS_PID_H */

@@ -33,7 +33,7 @@
 #define ARRAYSIZE(array) (sizeof(array) / sizeof(*array))
 #define UNUSED __attribute__((unused))
 
-#if 0				/* Works, but needs -fblocks and libBlocksRuntime with clang */
+#if 0 /* Works, but needs -fblocks and libBlocksRuntime with clang */
 /* Go-style defer implementation */
 #define __STRMERGE(a, b) a##b
 #define _STRMERGE(a, b) __STRMERGE(a, b)
@@ -47,10 +47,10 @@ static void __attribute__ ((unused)) __clang_cleanup_func(void (^*dfunc) (void))
 #define defer void (^_STRMERGE(__defer_f_, __COUNTER__))(void) __attribute__((cleanup(__clang_cleanup_func))) __attribute__((unused)) = ^
 #else
 #define __block
-#define _DEFER(a, count)                                                                                               \
-    auto void _STRMERGE(__defer_f_, count)(void* _defer_arg __attribute__((unused)));                                  \
-    int _STRMERGE(__defer_var_, count) __attribute__((cleanup(_STRMERGE(__defer_f_, count)))) __attribute__((unused)); \
-    void _STRMERGE(__defer_f_, count)(void* _defer_arg __attribute__((unused)))
+#define _DEFER(a, count)                                                                                                   \
+	auto void _STRMERGE(__defer_f_, count)(void* _defer_arg __attribute__((unused)));                                  \
+	int _STRMERGE(__defer_var_, count) __attribute__((cleanup(_STRMERGE(__defer_f_, count)))) __attribute__((unused)); \
+	void _STRMERGE(__defer_f_, count)(void* _defer_arg __attribute__((unused)))
 #define defer _DEFER(a, __COUNTER__)
 #endif
 #endif
@@ -61,24 +61,24 @@ struct pids_t {
 	char remote_txt[64];
 	struct sockaddr_in6 remote_addr;
 	int pid_syscall_fd;
-	 TAILQ_ENTRY(pids_t)
-	 pointers;
+	TAILQ_ENTRY(pids_t)
+	pointers;
 };
 
 struct mounts_t {
-	const char *src;
-	const uint8_t *src_content;
+	const char* src;
+	const uint8_t* src_content;
 	size_t src_content_len;
-	const char *dst;
-	const char *fs_type;
-	const char *options;
+	const char* dst;
+	const char* fs_type;
+	const char* options;
 	uintptr_t flags;
 	bool isDir;
 	bool isSymlink;
 	bool mandatory;
 	bool mounted;
-	 TAILQ_ENTRY(mounts_t)
-	 pointers;
+	TAILQ_ENTRY(mounts_t)
+	pointers;
 };
 
 struct idmap_t {
@@ -86,14 +86,14 @@ struct idmap_t {
 	uid_t outside_id;
 	size_t count;
 	bool is_newidmap;
-	 TAILQ_ENTRY(idmap_t)
-	 pointers;
+	TAILQ_ENTRY(idmap_t)
+	pointers;
 };
 
 struct ints_t {
 	int val;
-	 TAILQ_ENTRY(ints_t)
-	 pointers;
+	TAILQ_ENTRY(ints_t)
+	pointers;
 };
 
 enum ns_mode_t {
@@ -104,9 +104,9 @@ enum ns_mode_t {
 };
 
 struct charptr_t {
-	const char *val;
-	 TAILQ_ENTRY(charptr_t)
-	 pointers;
+	const char* val;
+	TAILQ_ENTRY(charptr_t)
+	pointers;
 };
 
 enum llevel_t {
@@ -120,14 +120,14 @@ enum llevel_t {
 };
 
 struct nsjconf_t {
-	const char *exec_file;
-	const char *hostname;
-	const char *cwd;
-	const char **argv;
+	const char* exec_file;
+	const char* hostname;
+	const char* cwd;
+	const char** argv;
 	int port;
-	const char *bindhost;
+	const char* bindhost;
 	int log_fd;
-	const char *logfile;
+	const char* logfile;
 	enum llevel_t loglevel;
 	bool daemonize;
 	time_t tlimit;
@@ -151,7 +151,7 @@ struct nsjconf_t {
 	bool clone_newuts;
 	bool clone_newcgroup;
 	enum ns_mode_t mode;
-	const char *chroot;
+	const char* chroot;
 	bool is_root_rw;
 	bool is_silent;
 	bool skip_setsid;
@@ -159,34 +159,34 @@ struct nsjconf_t {
 	size_t tmpfs_size;
 	bool mount_proc;
 	bool iface_no_lo;
-	const char *iface_vs;
-	const char *iface_vs_ip;
-	const char *iface_vs_nm;
-	const char *iface_vs_gw;
-	const char *cgroup_mem_mount;
-	const char *cgroup_mem_parent;
+	const char* iface_vs;
+	const char* iface_vs_ip;
+	const char* iface_vs_nm;
+	const char* iface_vs_gw;
+	const char* cgroup_mem_mount;
+	const char* cgroup_mem_parent;
 	size_t cgroup_mem_max;
-	const char *cgroup_pids_mount;
-	const char *cgroup_pids_parent;
+	const char* cgroup_pids_mount;
+	const char* cgroup_pids_parent;
 	size_t cgroup_pids_max;
-	FILE *kafel_file;
-	char *kafel_string;
+	FILE* kafel_file;
+	char* kafel_string;
 	uid_t orig_euid;
 	long num_cpus;
-	 TAILQ_HEAD(udmaplist, idmap_t)
-	 uids;
-	 TAILQ_HEAD(gdmaplist, idmap_t)
-	 gids;
-	 TAILQ_HEAD(envlist, charptr_t)
-	 envs;
-	 TAILQ_HEAD(pidslist, pids_t)
-	 pids;
-	 TAILQ_HEAD(mountptslist, mounts_t)
-	 mountpts;
-	 TAILQ_HEAD(fdslistt, ints_t)
-	 open_fds;
-	 TAILQ_HEAD(capslistt, ints_t)
-	 caps;
+	TAILQ_HEAD(udmaplist, idmap_t)
+	uids;
+	TAILQ_HEAD(gdmaplist, idmap_t)
+	gids;
+	TAILQ_HEAD(envlist, charptr_t)
+	envs;
+	TAILQ_HEAD(pidslist, pids_t)
+	pids;
+	TAILQ_HEAD(mountptslist, mounts_t)
+	mountpts;
+	TAILQ_HEAD(fdslistt, ints_t)
+	open_fds;
+	TAILQ_HEAD(capslistt, ints_t)
+	caps;
 };
 
-#endif				/* NS_COMMON_H */
+#endif /* NS_COMMON_H */

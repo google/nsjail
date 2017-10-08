@@ -27,9 +27,9 @@ extern "C" {
 #endif
 
 #include "common.h"
-	bool configParse(struct nsjconf_t *nsjconf, const char *file);
+bool configParse(struct nsjconf_t* nsjconf, const char* file);
 
 #ifdef __cplusplus
-}				// extern "C"
+} // extern "C"
 #endif
-#endif				/*  NS_CONFIG_H */
+#endif /*  NS_CONFIG_H */

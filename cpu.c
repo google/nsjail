@@ -28,12 +28,11 @@
 #include "log.h"
 #include "util.h"
 
-static void cpuSetRandomCpu(cpu_set_t * mask, size_t mask_size, size_t cpu_num)
+static void cpuSetRandomCpu(cpu_set_t* mask, size_t mask_size, size_t cpu_num)
 {
-	if ((size_t) CPU_COUNT_S(mask_size, mask) >= cpu_num) {
-		LOG_F
-		    ("Number of CPUs in the mask '%d' is bigger than number of available CPUs '%zu'",
-		     CPU_COUNT(mask), cpu_num);
+	if ((size_t)CPU_COUNT_S(mask_size, mask) >= cpu_num) {
+		LOG_F("Number of CPUs in the mask '%d' is bigger than number of available CPUs '%zu'",
+		    CPU_COUNT(mask), cpu_num);
 	}
 
 	for (;;) {
@@ -46,18 +45,18 @@ static void cpuSetRandomCpu(cpu_set_t * mask, size_t mask_size, size_t cpu_num)
 	}
 }
 
-bool cpuInit(struct nsjconf_t *nsjconf)
+bool cpuInit(struct nsjconf_t* nsjconf)
 {
 	if (nsjconf->num_cpus < 0) {
 		PLOG_W("sysconf(_SC_NPROCESSORS_ONLN) returned %ld", nsjconf->num_cpus);
 		return false;
 	}
-	if (nsjconf->max_cpus > (size_t) nsjconf->num_cpus) {
+	if (nsjconf->max_cpus > (size_t)nsjconf->num_cpus) {
 		LOG_W("Requested number of CPUs:%zu is bigger than CPUs online:%ld",
-		      nsjconf->max_cpus, nsjconf->num_cpus);
+		    nsjconf->max_cpus, nsjconf->num_cpus);
 		return true;
 	}
-	if (nsjconf->max_cpus == (size_t) nsjconf->num_cpus) {
+	if (nsjconf->max_cpus == (size_t)nsjconf->num_cpus) {
 		LOG_D("All CPUs requested (%zu of %ld)", nsjconf->max_cpus, nsjconf->num_cpus);
 		return true;
 	}
@@ -66,7 +65,7 @@ bool cpuInit(struct nsjconf_t *nsjconf)
 		return true;
 	}
 
-	cpu_set_t *mask = CPU_ALLOC(nsjconf->num_cpus);
+	cpu_set_t* mask = CPU_ALLOC(nsjconf->num_cpus);
 	if (mask == NULL) {
 		PLOG_W("Failure allocating cpu_set_t for %ld CPUs", nsjconf->num_cpus);
 		return false;

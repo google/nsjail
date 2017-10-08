@@ -27,6 +27,6 @@
 
 #include "common.h"
 
-bool utsInitNs(struct nsjconf_t *nsjconf);
+bool utsInitNs(struct nsjconf_t* nsjconf);
 
-#endif				/* NS_UTS_H */
+#endif /* NS_UTS_H */

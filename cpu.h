@@ -27,6 +27,6 @@
 
 #include "common.h"
 
-bool cpuInit(struct nsjconf_t *nsjconf);
+bool cpuInit(struct nsjconf_t* nsjconf);
 
-#endif				/* NS_CPU_H */
+#endif /* NS_CPU_H */

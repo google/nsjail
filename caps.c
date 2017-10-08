@@ -32,13 +32,13 @@
 #include "util.h"
 
 #define VALSTR_STRUCT(x) \
-    {                    \
-        x, #x            \
-    }
+	{                \
+		x, #x    \
+	}
 
 #if !defined(CAP_AUDIT_READ)
 #define CAP_AUDIT_READ 37
-#endif				/* !defined(CAP_AUDIT_READ) */
+#endif /* !defined(CAP_AUDIT_READ) */
 
 // clang-format off
 static struct {
@@ -86,7 +86,7 @@ static struct {
 };
 // clang-format on
 
-int capsNameToVal(const char *name)
+int capsNameToVal(const char* name)
 {
 	for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
 		if (strcmp(name, capNames[i].name) == 0) {
@@ -97,7 +97,7 @@ int capsNameToVal(const char *name)
 	return -1;
 }
 
-static const char *capsValToStr(int val)
+static const char* capsValToStr(int val)
 {
 	static __thread char capsStr[1024];
 	for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
@@ -177,7 +177,7 @@ static void capsSetInheritable(cap_user_data_t cap_data, unsigned int cap)
 #define PR_CAP_AMBIENT 47
 #define PR_CAP_AMBIENT_RAISE 2
 #define PR_CAP_AMBIENT_CLEAR_ALL 4
-#endif				/* !defined(PR_CAP_AMBIENT) */
+#endif /* !defined(PR_CAP_AMBIENT) */
 static bool CapsInitNsKeepCaps(cap_user_data_t cap_data)
 {
 	char dbgmsg[4096];
@@ -203,7 +203,7 @@ static bool CapsInitNsKeepCaps(cap_user_data_t cap_data)
 			continue;
 		}
 		if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)capNames[i].val, 0UL,
-			  0UL)
+			0UL)
 		    == -1) {
 			PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s)", capNames[i].name);
 		} else {
@@ -215,10 +215,10 @@ static bool CapsInitNsKeepCaps(cap_user_data_t cap_data)
 	return true;
 }
 
-bool capsInitNs(struct nsjconf_t * nsjconf)
+bool capsInitNs(struct nsjconf_t* nsjconf)
 {
 	char dbgmsg[4096];
-	struct ints_t *p;
+	struct ints_t* p;
 
 	cap_user_data_t cap_data = capsGet();
 	if (cap_data == NULL) {
@@ -241,10 +241,11 @@ bool capsInitNs(struct nsjconf_t * nsjconf)
 
 	/* Set all requested caps in the inheritable set if these are present in the permitted set */
 	dbgmsg[0] = '\0';
-	TAILQ_FOREACH(p, &nsjconf->caps, pointers) {
+	TAILQ_FOREACH(p, &nsjconf->caps, pointers)
+	{
 		if (capsGetPermitted(cap_data, p->val) == false) {
 			LOG_W("Capability %s is not permitted in the namespace",
-			      capsValToStr(p->val));
+			    capsValToStr(p->val));
 			return false;
 		}
 		utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capsValToStr(p->val));
@@ -267,8 +268,7 @@ bool capsInitNs(struct nsjconf_t * nsjconf)
 				continue;
 			}
 			utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capNames[i].name);
-			if (prctl(PR_CAPBSET_DROP, (unsigned long)capNames[i].val, 0UL, 0UL, 0UL) ==
-			    -1) {
+			if (prctl(PR_CAPBSET_DROP, (unsigned long)capNames[i].val, 0UL, 0UL, 0UL) == -1) {
 				PLOG_W("prctl(PR_CAPBSET_DROP, %s)", capNames[i].name);
 				return false;
 			}
@@ -278,11 +278,11 @@ bool capsInitNs(struct nsjconf_t * nsjconf)
 
 	/* Make sure inheritable set is preserved across execve via the modified ambient set */
 	dbgmsg[0] = '\0';
-	TAILQ_FOREACH(p, &nsjconf->caps, pointers) {
-		if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)p->val, 0UL, 0UL) ==
-		    -1) {
+	TAILQ_FOREACH(p, &nsjconf->caps, pointers)
+	{
+		if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)p->val, 0UL, 0UL) == -1) {
 			PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s)",
-			       capsValToStr(p->val));
+			    capsValToStr(p->val));
 		} else {
 			utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capsValToStr(p->val));
 		}

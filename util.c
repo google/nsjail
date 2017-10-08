@@ -39,47 +39,47 @@
 
 #include "log.h"
 
-void *utilMalloc(size_t sz)
+void* utilMalloc(size_t sz)
 {
-	void *ret = malloc(sz);
+	void* ret = malloc(sz);
 	if (ret == NULL) {
 		LOG_F("malloc(sz=%zu) failed", sz);
 	}
 	return ret;
 }
 
-void *utilCalloc(size_t sz)
+void* utilCalloc(size_t sz)
 {
-	void *r = utilMalloc(sz);
+	void* r = utilMalloc(sz);
 	memset(r, '\0', sz);
 	return r;
 }
 
-char *utilStrDup(const char *str)
+char* utilStrDup(const char* str)
 {
 	if (str == NULL) {
 		return NULL;
 	}
-	char *ret = strdup(str);
+	char* ret = strdup(str);
 	if (ret == NULL) {
 		LOG_E("Cannot allocate memory for strdup(sz=%zu)", strlen(str));
 	}
 	return ret;
 }
 
-uint8_t *utilMemDup(const uint8_t * src, size_t len)
+uint8_t* utilMemDup(const uint8_t* src, size_t len)
 {
 	if (src == NULL) {
 		return NULL;
 	}
-	uint8_t *ret = utilMalloc(len);
+	uint8_t* ret = utilMalloc(len);
 	memcpy(ret, src, len);
 	return ret;
 }
 
-ssize_t utilReadFromFd(int fd, void *buf, size_t len)
+ssize_t utilReadFromFd(int fd, void* buf, size_t len)
 {
-	uint8_t *charbuf = (uint8_t *) buf;
+	uint8_t* charbuf = (uint8_t*)buf;
 
 	size_t readSz = 0;
 	while (readSz < len) {
@@ -95,7 +95,7 @@ ssize_t utilReadFromFd(int fd, void *buf, size_t len)
 	return readSz;
 }
 
-ssize_t utilReadFromFile(const char *fname, void *buf, size_t len)
+ssize_t utilReadFromFile(const char* fname, void* buf, size_t len)
 {
 	int fd;
 	TEMP_FAILURE_RETRY(fd = open(fname, O_RDONLY | O_CLOEXEC));
@@ -108,9 +108,9 @@ ssize_t utilReadFromFile(const char *fname, void *buf, size_t len)
 	return ret;
 }
 
-ssize_t utilWriteToFd(int fd, const void *buf, size_t len)
+ssize_t utilWriteToFd(int fd, const void* buf, size_t len)
 {
-	const uint8_t *charbuf = (const uint8_t *)buf;
+	const uint8_t* charbuf = (const uint8_t*)buf;
 
 	size_t writtenSz = 0;
 	while (writtenSz < len) {
@@ -126,7 +126,7 @@ ssize_t utilWriteToFd(int fd, const void *buf, size_t len)
 	return true;
 }
 
-bool utilWriteBufToFile(const char *filename, const void *buf, size_t len, int open_flags)
+bool utilWriteBufToFile(const char* filename, const void* buf, size_t len, int open_flags)
 {
 	int fd;
 	TEMP_FAILURE_RETRY(fd = open(filename, open_flags, 0644));
@@ -148,7 +148,7 @@ bool utilWriteBufToFile(const char *filename, const void *buf, size_t len, int o
 	return true;
 }
 
-bool utilCreateDirRecursively(const char *dir)
+bool utilCreateDirRecursively(const char* dir)
 {
 	if (dir[0] != '/') {
 		LOG_W("The directory path must start with '/': '%s' provided", dir);
@@ -163,13 +163,13 @@ bool utilCreateDirRecursively(const char *dir)
 
 	char path[PATH_MAX];
 	snprintf(path, sizeof(path), "%s", dir);
-	char *curr = path;
+	char* curr = path;
 	for (;;) {
 		while (*curr == '/') {
 			curr++;
 		}
 
-		char *next = strchr(curr, '/');
+		char* next = strchr(curr, '/');
 		if (next == NULL) {
 			close(prev_dir_fd);
 			return true;
@@ -194,7 +194,7 @@ bool utilCreateDirRecursively(const char *dir)
 	}
 }
 
-int utilSSnPrintf(char *str, size_t size, const char *format, ...)
+int utilSSnPrintf(char* str, size_t size, const char* format, ...)
 {
 	char buf1[size];
 	char buf2[size];
@@ -209,7 +209,7 @@ int utilSSnPrintf(char *str, size_t size, const char *format, ...)
 	return snprintf(str, size, "%s%s", buf1, buf2);
 }
 
-bool utilIsANumber(const char *s)
+bool utilIsANumber(const char* s)
 {
 	for (int i = 0; s[i]; s++) {
 		if (!isdigit(s[i]) && s[i] != 'x') {
@@ -232,16 +232,16 @@ static void utilRndInitThread(void)
 	if (syscall(__NR_getrandom, &rndX, sizeof(rndX), 0) == sizeof(rndX)) {
 		return;
 	}
-#endif				/* defined(__NR_getrandom) */
+#endif /* defined(__NR_getrandom) */
 	int fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
 	if (fd == -1) {
 		PLOG_D("Couldn't open /dev/urandom for reading. Using gettimeofday fall-back");
 		struct timeval tv;
 		gettimeofday(&tv, NULL);
-		rndX = tv.tv_usec + ((uint64_t) tv.tv_sec << 32);
+		rndX = tv.tv_usec + ((uint64_t)tv.tv_sec << 32);
 		return;
 	}
-	if (utilReadFromFd(fd, (uint8_t *) & rndX, sizeof(rndX)) != sizeof(rndX)) {
+	if (utilReadFromFd(fd, (uint8_t*)&rndX, sizeof(rndX)) != sizeof(rndX)) {
 		PLOG_F("Couldn't read '%zu' bytes from /dev/urandom", sizeof(rndX));
 		close(fd);
 	}
@@ -256,15 +256,15 @@ uint64_t utilRnd64(void)
 }
 
 #define VALSTR_STRUCT(x) \
-    {                    \
-        x, #x            \
-    }
-const char *utilSigName(int signo)
+	{                \
+		x, #x    \
+	}
+const char* utilSigName(int signo)
 {
 	static __thread char sigstr[32];
 	sigstr[0] = '\0';
 
-// clang-format off
+	// clang-format off
     static struct {
         const int signo;
         const char* const name;
@@ -299,7 +299,7 @@ const char *utilSigName(int signo)
         VALSTR_STRUCT(SIGUSR2),
         VALSTR_STRUCT(SIGWINCH),
     };
-// clang-format on
+	// clang-format on
 
 	for (size_t i = 0; i < ARRAYSIZE(sigNames); i++) {
 		if (signo == sigNames[i].signo) {
@@ -317,7 +317,7 @@ const char *utilSigName(int signo)
 }
 
 static __thread char timestr[64];
-const char *utilTimeToStr(time_t t)
+const char* utilTimeToStr(time_t t)
 {
 	struct tm utctime;
 	localtime_r(&t, &utctime);

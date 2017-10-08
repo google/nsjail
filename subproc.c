@@ -53,20 +53,20 @@
 static const char subprocDoneChar = 'D';
 
 #define VALSTR_STRUCT(x) \
-    {                    \
-        x, #x            \
-    }
+	{                \
+		x, #x    \
+	}
 
 #if !defined(CLONE_NEWCGROUP)
 #define CLONE_NEWCGROUP 0x02000000
-#endif				/* !defined(CLONE_NEWCGROUP) */
+#endif /* !defined(CLONE_NEWCGROUP) */
 
-static const char *subprocCloneFlagsToStr(uintptr_t flags)
+static const char* subprocCloneFlagsToStr(uintptr_t flags)
 {
 	static __thread char cloneFlagName[1024];
 	cloneFlagName[0] = '\0';
 
-// clang-format off
+	// clang-format off
     static struct {
         const uintptr_t flag;
         const char* const name;
@@ -95,12 +95,12 @@ static const char *subprocCloneFlagsToStr(uintptr_t flags)
         VALSTR_STRUCT(CLONE_NEWNET),
         VALSTR_STRUCT(CLONE_IO),
     };
-// clang-format on
+	// clang-format on
 
 	for (size_t i = 0; i < ARRAYSIZE(cloneFlags); i++) {
 		if (flags & cloneFlags[i].flag) {
 			utilSSnPrintf(cloneFlagName, sizeof(cloneFlagName), "%s|",
-				      cloneFlags[i].name);
+			    cloneFlags[i].name);
 		}
 	}
 
@@ -110,13 +110,13 @@ static const char *subprocCloneFlagsToStr(uintptr_t flags)
 	}
 	if (flags & ~(knownFlagMask)) {
 		utilSSnPrintf(cloneFlagName, sizeof(cloneFlagName), "%#tx|",
-			      flags & ~(knownFlagMask));
+		    flags & ~(knownFlagMask));
 	}
 	utilSSnPrintf(cloneFlagName, sizeof(cloneFlagName), "%s", utilSigName(flags & CSIGNAL));
 	return cloneFlagName;
 }
 
-static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_err, int pipefd)
+static int subprocNewProc(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err, int pipefd)
 {
 	if (containSetupFD(nsjconf, fd_in, fd_out, fd_err) == false) {
 		exit(0xff);
@@ -146,13 +146,14 @@ static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int 
 	if (nsjconf->keep_env == false) {
 		clearenv();
 	}
-	struct charptr_t *p;
-	TAILQ_FOREACH(p, &nsjconf->envs, pointers) {
-		putenv((char *)p->val);
+	struct charptr_t* p;
+	TAILQ_FOREACH(p, &nsjconf->envs, pointers)
+	{
+		putenv((char*)p->val);
 	}
 
 	char cs_addr[64];
-	netConnToText(fd_in, true /* remote */ , cs_addr, sizeof(cs_addr), NULL);
+	netConnToText(fd_in, true /* remote */, cs_addr, sizeof(cs_addr), NULL);
 	LOG_I("Executing '%s' for '%s'", nsjconf->exec_file, cs_addr);
 
 	for (size_t i = 0; nsjconf->argv[i]; i++) {
@@ -163,20 +164,20 @@ static int subprocNewProc(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int 
 	if (sandboxApply(nsjconf) == false) {
 		exit(0xff);
 	}
-	execv(nsjconf->exec_file, (char *const *)&nsjconf->argv[0]);
+	execv(nsjconf->exec_file, (char* const*)&nsjconf->argv[0]);
 
 	PLOG_E("execve('%s') failed", nsjconf->exec_file);
 
 	_exit(0xff);
 }
 
-static void subprocAdd(struct nsjconf_t *nsjconf, pid_t pid, int sock)
+static void subprocAdd(struct nsjconf_t* nsjconf, pid_t pid, int sock)
 {
-	struct pids_t *p = utilMalloc(sizeof(struct pids_t));
+	struct pids_t* p = utilMalloc(sizeof(struct pids_t));
 	p->pid = pid;
 	p->start = time(NULL);
-	netConnToText(sock, true /* remote */ , p->remote_txt, sizeof(p->remote_txt),
-		      &p->remote_addr);
+	netConnToText(sock, true /* remote */, p->remote_txt, sizeof(p->remote_txt),
+	    &p->remote_addr);
 
 	char fname[PATH_MAX];
 	snprintf(fname, sizeof(fname), "/proc/%d/syscall", (int)pid);
@@ -185,16 +186,17 @@ static void subprocAdd(struct nsjconf_t *nsjconf, pid_t pid, int sock)
 	TAILQ_INSERT_HEAD(&nsjconf->pids, p, pointers);
 
 	LOG_D("Added pid '%d' with start time '%u' to the queue for IP: '%s'", pid,
-	      (unsigned int)p->start, p->remote_txt);
+	    (unsigned int)p->start, p->remote_txt);
 }
 
-static void subprocRemove(struct nsjconf_t *nsjconf, pid_t pid)
+static void subprocRemove(struct nsjconf_t* nsjconf, pid_t pid)
 {
-	struct pids_t *p;
-	TAILQ_FOREACH(p, &nsjconf->pids, pointers) {
+	struct pids_t* p;
+	TAILQ_FOREACH(p, &nsjconf->pids, pointers)
+	{
 		if (p->pid == pid) {
 			LOG_D("Removing pid '%d' from the queue (IP:'%s', start time:'%s')", p->pid,
-			      p->remote_txt, utilTimeToStr(p->start));
+			    p->remote_txt, utilTimeToStr(p->start));
 			close(p->pid_syscall_fd);
 			TAILQ_REMOVE(&nsjconf->pids, p, pointers);
 			free(p);
@@ -204,33 +206,36 @@ static void subprocRemove(struct nsjconf_t *nsjconf, pid_t pid)
 	LOG_W("PID: %d not found (?)", pid);
 }
 
-int subprocCount(struct nsjconf_t *nsjconf)
+int subprocCount(struct nsjconf_t* nsjconf)
 {
 	int cnt = 0;
-	struct pids_t *p;
-	TAILQ_FOREACH(p, &nsjconf->pids, pointers) {
+	struct pids_t* p;
+	TAILQ_FOREACH(p, &nsjconf->pids, pointers)
+	{
 		cnt++;
 	}
 	return cnt;
 }
 
-void subprocDisplay(struct nsjconf_t *nsjconf)
+void subprocDisplay(struct nsjconf_t* nsjconf)
 {
 	LOG_I("Total number of spawned namespaces: %d", subprocCount(nsjconf));
 	time_t now = time(NULL);
-	struct pids_t *p;
-	TAILQ_FOREACH(p, &nsjconf->pids, pointers) {
+	struct pids_t* p;
+	TAILQ_FOREACH(p, &nsjconf->pids, pointers)
+	{
 		time_t diff = now - p->start;
 		time_t left = nsjconf->tlimit ? nsjconf->tlimit - diff : 0;
 		LOG_I("PID: %d, Remote host: %s, Run time: %ld sec. (time left: %ld sec.)", p->pid,
-		      p->remote_txt, (long)diff, (long)left);
+		    p->remote_txt, (long)diff, (long)left);
 	}
 }
 
-static struct pids_t *subprocGetPidElem(struct nsjconf_t *nsjconf, pid_t pid)
+static struct pids_t* subprocGetPidElem(struct nsjconf_t* nsjconf, pid_t pid)
 {
-	struct pids_t *p;
-	TAILQ_FOREACH(p, &nsjconf->pids, pointers) {
+	struct pids_t* p;
+	TAILQ_FOREACH(p, &nsjconf->pids, pointers)
+	{
 		if (p->pid == pid) {
 			return p;
 		}
@@ -238,14 +243,14 @@ static struct pids_t *subprocGetPidElem(struct nsjconf_t *nsjconf, pid_t pid)
 	return NULL;
 }
 
-static void subprocSeccompViolation(struct nsjconf_t *nsjconf, siginfo_t * si)
+static void subprocSeccompViolation(struct nsjconf_t* nsjconf, siginfo_t* si)
 {
 	LOG_W("PID: %d commited a syscall/seccomp violation and exited with SIGSYS", si->si_pid);
 
-	struct pids_t *p = subprocGetPidElem(nsjconf, si->si_pid);
+	struct pids_t* p = subprocGetPidElem(nsjconf, si->si_pid);
 	if (p == NULL) {
 		LOG_W("PID: %d, Syscall number: %d, Seccomp reason: %d", (int)si->si_pid,
-		      si->si_syscall, si->si_errno);
+		    si->si_syscall, si->si_errno);
 		LOG_E("Couldn't find pid element in the subproc list for PID: %d", (int)si->si_pid);
 		return;
 	}
@@ -254,31 +259,29 @@ static void subprocSeccompViolation(struct nsjconf_t *nsjconf, siginfo_t * si)
 	ssize_t rdsize = utilReadFromFd(p->pid_syscall_fd, buf, sizeof(buf) - 1);
 	if (rdsize < 1) {
 		LOG_W("PID: %d, Syscall number: %d, Seccomp reason: %d", (int)si->si_pid,
-		      si->si_syscall, si->si_errno);
+		    si->si_syscall, si->si_errno);
 		return;
 	}
 	buf[rdsize - 1] = '\0';
 
 	uintptr_t arg1, arg2, arg3, arg4, arg5, arg6, sp, pc;
 	ptrdiff_t sc;
-	int ret =
-	    sscanf(buf, "%td %tx %tx %tx %tx %tx %tx %tx %tx", &sc, &arg1, &arg2, &arg3, &arg4,
-		   &arg5, &arg6, &sp, &pc);
+	int ret = sscanf(buf, "%td %tx %tx %tx %tx %tx %tx %tx %tx", &sc, &arg1, &arg2, &arg3, &arg4,
+	    &arg5, &arg6, &sp, &pc);
 	if (ret == 9) {
-		LOG_W
-		    ("PID: %d, Syscall number: %td, Arguments: %#tx, %#tx, %#tx, %#tx, %#tx, %#tx, SP: %#tx, PC: %#tx, si_syscall: %d, si_errno: %#x",
-		     (int)si->si_pid, sc, arg1, arg2, arg3, arg4, arg5, arg6, sp, pc,
-		     si->si_syscall, si->si_errno);
+		LOG_W("PID: %d, Syscall number: %td, Arguments: %#tx, %#tx, %#tx, %#tx, %#tx, %#tx, SP: %#tx, PC: %#tx, si_syscall: %d, si_errno: %#x",
+		    (int)si->si_pid, sc, arg1, arg2, arg3, arg4, arg5, arg6, sp, pc,
+		    si->si_syscall, si->si_errno);
 	} else if (ret == 3) {
 		LOG_W("PID: %d, Syscall number: %d, Seccomp reason: %d, SP: %#tx, PC: %#tx",
-		      (int)si->si_pid, si->si_syscall, si->si_errno, arg1, arg2);
+		    (int)si->si_pid, si->si_syscall, si->si_errno, arg1, arg2);
 	} else {
 		LOG_W("PID: %d, Syscall number: %d, Seccomp reason: %d, Syscall string '%s'",
-		      (int)si->si_pid, si->si_syscall, si->si_errno, buf);
+		    (int)si->si_pid, si->si_syscall, si->si_errno, buf);
 	}
 }
 
-int subprocReap(struct nsjconf_t *nsjconf)
+int subprocReap(struct nsjconf_t* nsjconf)
 {
 	int status;
 	int rv = 0;
@@ -299,16 +302,16 @@ int subprocReap(struct nsjconf_t *nsjconf)
 		if (wait4(si.si_pid, &status, WNOHANG, NULL) == si.si_pid) {
 			cgroupFinishFromParent(nsjconf, si.si_pid);
 
-			const char *remote_txt = "[UNKNOWN]";
-			struct pids_t *elem = subprocGetPidElem(nsjconf, si.si_pid);
+			const char* remote_txt = "[UNKNOWN]";
+			struct pids_t* elem = subprocGetPidElem(nsjconf, si.si_pid);
 			if (elem) {
 				remote_txt = elem->remote_txt;
 			}
 
 			if (WIFEXITED(status)) {
 				LOG_I("PID: %d (%s) exited with status: %d, (PIDs left: %d)",
-				      si.si_pid, remote_txt, WEXITSTATUS(status),
-				      subprocCount(nsjconf) - 1);
+				    si.si_pid, remote_txt, WEXITSTATUS(status),
+				    subprocCount(nsjconf) - 1);
 				subprocRemove(nsjconf, si.si_pid);
 				rv = WEXITSTATUS(status) % 100;
 				if (rv == 0 && WEXITSTATUS(status) != 0) {
@@ -316,10 +319,9 @@ int subprocReap(struct nsjconf_t *nsjconf)
 				}
 			}
 			if (WIFSIGNALED(status)) {
-				LOG_I
-				    ("PID: %d (%s) terminated with signal: %s (%d), (PIDs left: %d)",
-				     si.si_pid, remote_txt, utilSigName(WTERMSIG(status)),
-				     WTERMSIG(status), subprocCount(nsjconf) - 1);
+				LOG_I("PID: %d (%s) terminated with signal: %s (%d), (PIDs left: %d)",
+				    si.si_pid, remote_txt, utilSigName(WTERMSIG(status)),
+				    WTERMSIG(status), subprocCount(nsjconf) - 1);
 				subprocRemove(nsjconf, si.si_pid);
 				rv = 100 + WTERMSIG(status);
 			}
@@ -327,8 +329,9 @@ int subprocReap(struct nsjconf_t *nsjconf)
 	}
 
 	time_t now = time(NULL);
-	struct pids_t *p;
-	TAILQ_FOREACH(p, &nsjconf->pids, pointers) {
+	struct pids_t* p;
+	TAILQ_FOREACH(p, &nsjconf->pids, pointers)
+	{
 		if (nsjconf->tlimit == 0) {
 			continue;
 		}
@@ -336,7 +339,7 @@ int subprocReap(struct nsjconf_t *nsjconf)
 		time_t diff = now - p->start;
 		if (diff >= nsjconf->tlimit) {
 			LOG_I("PID: %d run time >= time limit (%ld >= %ld) (%s). Killing it", pid,
-			      (long)diff, (long)nsjconf->tlimit, p->remote_txt);
+			    (long)diff, (long)nsjconf->tlimit, p->remote_txt);
 			/*
 			 * Probably a kernel bug - some processes cannot be killed with KILL if
 			 * they're namespaced, and in a stopped state
@@ -350,15 +353,16 @@ int subprocReap(struct nsjconf_t *nsjconf)
 	return rv;
 }
 
-void subprocKillAll(struct nsjconf_t *nsjconf)
+void subprocKillAll(struct nsjconf_t* nsjconf)
 {
-	struct pids_t *p;
-	TAILQ_FOREACH(p, &nsjconf->pids, pointers) {
+	struct pids_t* p;
+	TAILQ_FOREACH(p, &nsjconf->pids, pointers)
+	{
 		kill(p->pid, SIGKILL);
 	}
 }
 
-static bool subprocInitParent(struct nsjconf_t *nsjconf, pid_t pid, int pipefd)
+static bool subprocInitParent(struct nsjconf_t* nsjconf, pid_t pid, int pipefd)
 {
 	if (netInitNsFromParent(nsjconf, pid) == false) {
 		LOG_E("Couldn't create and put MACVTAP interface into NS of PID '%d'", pid);
@@ -372,8 +376,7 @@ static bool subprocInitParent(struct nsjconf_t *nsjconf, pid_t pid, int pipefd)
 		LOG_E("Couldn't initialize user namespaces for pid %d", pid);
 		return false;
 	}
-	if (utilWriteToFd(pipefd, &subprocDoneChar, sizeof(subprocDoneChar)) !=
-	    sizeof(subprocDoneChar)) {
+	if (utilWriteToFd(pipefd, &subprocDoneChar, sizeof(subprocDoneChar)) != sizeof(subprocDoneChar)) {
 		LOG_E("Couldn't signal the new process via a socketpair");
 		return false;
 	}
@@ -381,11 +384,11 @@ static bool subprocInitParent(struct nsjconf_t *nsjconf, pid_t pid, int pipefd)
 }
 
 /* Will be used inside the child process only, so it's save to have it in BSS */
-static uint8_t subprocCloneStack[128 * 1024];	/* 128 KiB */
+static uint8_t subprocCloneStack[128 * 1024]; /* 128 KiB */
 /* Cannot be on the stack, as the child's stack pointer will change after clone() */
 static __thread jmp_buf env;
 
-static int subprocCloneFunc(void *arg __attribute__ ((unused)))
+static int subprocCloneFunc(void* arg __attribute__((unused)))
 {
 	longjmp(env, 1);
 	return 0;
@@ -409,7 +412,7 @@ pid_t subprocClone(uintptr_t flags)
 		 * Avoid the problem of the stack growing up/down under different CPU architectures, by using
 		 * middle of the static stack buffer (which is temporary, and used only inside of subprocCloneFunc
 		 */
-		void *stack = &subprocCloneStack[sizeof(subprocCloneStack) / 2];
+		void* stack = &subprocCloneStack[sizeof(subprocCloneStack) / 2];
 		/* Parent */
 		return clone(subprocCloneFunc, stack, flags, NULL, NULL, NULL);
 	}
@@ -417,7 +420,7 @@ pid_t subprocClone(uintptr_t flags)
 	return 0;
 }
 
-void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_err)
+void subprocRunChild(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err)
 {
 	if (netLimitConns(nsjconf, fd_in) == false) {
 		return;
@@ -461,7 +464,8 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 		PLOG_E("clone(flags=%s) failed. You probably need root privileges if your system "
 		       "doesn't support CLONE_NEWUSER. Alternatively, you might want to recompile your "
 		       "kernel with support for namespaces or check the setting of the "
-		       "kernel.unprivileged_userns_clone sysctl", subprocCloneFlagsToStr(flags));
+		       "kernel.unprivileged_userns_clone sysctl",
+		    subprocCloneFlagsToStr(flags));
 		close(parent_fd);
 		return;
 	}
@@ -474,10 +478,10 @@ void subprocRunChild(struct nsjconf_t *nsjconf, int fd_in, int fd_out, int fd_er
 
 	close(parent_fd);
 	char cs_addr[64];
-	netConnToText(fd_in, true /* remote */ , cs_addr, sizeof(cs_addr), NULL);
+	netConnToText(fd_in, true /* remote */, cs_addr, sizeof(cs_addr), NULL);
 }
 
-int subprocSystem(const char **argv, char **env)
+int subprocSystem(const char** argv, char** env)
 {
 	bool exec_failed = false;
 
@@ -497,7 +501,7 @@ int subprocSystem(const char **argv, char **env)
 
 	if (pid == 0) {
 		close(sv[0]);
-		execve(argv[0], (char *const *)argv, (char *const *)env);
+		execve(argv[0], (char* const*)argv, (char* const*)env);
 		PLOG_W("execve('%s')", argv[0]);
 		utilWriteToFd(sv[1], "A", 1);
 		exit(0);
@@ -535,7 +539,7 @@ int subprocSystem(const char **argv, char **env)
 		if (WIFSIGNALED(status)) {
 			int exit_signal = WTERMSIG(status);
 			LOG_W("PID %d killed by signal: %d (%s)", pid, exit_signal,
-			      utilSigName(exit_signal));
+			    utilSigName(exit_signal));
 			return 2;
 		}
 		LOG_W("Unknown exit status: %d", status);

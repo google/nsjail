@@ -25,4 +25,4 @@
 
 #include "common.h"
 
-#endif				/* _NSJAIL_H */
+#endif /* _NSJAIL_H */

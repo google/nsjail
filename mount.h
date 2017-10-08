@@ -32,16 +32,16 @@ typedef enum {
 	NS_DIR_MAYBE,
 } isDir_t;
 
-const char *mountFlagsToStr(uintptr_t flags);
-bool mountInitNs(struct nsjconf_t *nsjconf);
-bool mountAddMountPtHead(struct nsjconf_t *nsjconf, const char *src, const char *dst,
-			 const char *fstype, const char *options, uintptr_t flags, isDir_t isDir,
-			 bool mandatory, const char *src_env, const char *dst_env,
-			 const char *src_content, size_t src_content_len, bool is_symlink);
-bool mountAddMountPtTail(struct nsjconf_t *nsjconf, const char *src, const char *dst,
-			 const char *fstype, const char *options, uintptr_t flags, isDir_t isDir,
-			 bool mandatory, const char *src_env, const char *dst_env,
-			 const char *src_content, size_t src_content_len, bool is_symlink);
-const char *mountDescribeMountPt(struct mounts_t *mpt);
+const char* mountFlagsToStr(uintptr_t flags);
+bool mountInitNs(struct nsjconf_t* nsjconf);
+bool mountAddMountPtHead(struct nsjconf_t* nsjconf, const char* src, const char* dst,
+    const char* fstype, const char* options, uintptr_t flags, isDir_t isDir,
+    bool mandatory, const char* src_env, const char* dst_env,
+    const char* src_content, size_t src_content_len, bool is_symlink);
+bool mountAddMountPtTail(struct nsjconf_t* nsjconf, const char* src, const char* dst,
+    const char* fstype, const char* options, uintptr_t flags, isDir_t isDir,
+    bool mandatory, const char* src_env, const char* dst_env,
+    const char* src_content, size_t src_content_len, bool is_symlink);
+const char* mountDescribeMountPt(struct mounts_t* mpt);
 
-#endif				/* NS_MOUNT_H */
+#endif /* NS_MOUNT_H */

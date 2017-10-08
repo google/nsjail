@@ -27,8 +27,8 @@
 
 #include "common.h"
 
-bool cgroupInitNsFromParent(struct nsjconf_t *nsjconf, pid_t pid);
+bool cgroupInitNsFromParent(struct nsjconf_t* nsjconf, pid_t pid);
 bool cgroupInitNs(void);
-void cgroupFinishFromParent(struct nsjconf_t *nsjconf, pid_t pid);
+void cgroupFinishFromParent(struct nsjconf_t* nsjconf, pid_t pid);
 
-#endif				/* _CGROUP_H */
+#endif /* _CGROUP_H */

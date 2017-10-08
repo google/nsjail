@@ -28,19 +28,19 @@
 
 #include "common.h"
 
-void *utilMalloc(size_t sz);
-void *utilCalloc(size_t sz);
-char *utilStrDup(const char *str);
-uint8_t *utilMemDup(const uint8_t * src, size_t len);
-ssize_t utilReadFromFd(int fd, void *buf, size_t len);
-ssize_t utilReadFromFile(const char *fname, void *buf, size_t len);
-ssize_t utilWriteToFd(int fd, const void *buf, size_t len);
-bool utilWriteBufToFile(const char *filename, const void *buf, size_t len, int open_flags);
-bool utilCreateDirRecursively(const char *dir);
-int utilSSnPrintf(char *str, size_t size, const char *format, ...);
-bool utilIsANumber(const char *s);
+void* utilMalloc(size_t sz);
+void* utilCalloc(size_t sz);
+char* utilStrDup(const char* str);
+uint8_t* utilMemDup(const uint8_t* src, size_t len);
+ssize_t utilReadFromFd(int fd, void* buf, size_t len);
+ssize_t utilReadFromFile(const char* fname, void* buf, size_t len);
+ssize_t utilWriteToFd(int fd, const void* buf, size_t len);
+bool utilWriteBufToFile(const char* filename, const void* buf, size_t len, int open_flags);
+bool utilCreateDirRecursively(const char* dir);
+int utilSSnPrintf(char* str, size_t size, const char* format, ...);
+bool utilIsANumber(const char* s);
 uint64_t utilRnd64(void);
-const char *utilSigName(int signo);
-const char *utilTimeToStr(time_t t);
+const char* utilSigName(int signo);
+const char* utilTimeToStr(time_t t);
 
-#endif				/* NS_UTIL_H */
+#endif /* NS_UTIL_H */

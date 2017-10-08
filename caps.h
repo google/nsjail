@@ -24,7 +24,7 @@
 
 #include "common.h"
 
-int capsNameToVal(const char *name);
-bool capsInitNs(struct nsjconf_t *nsjconf);
+int capsNameToVal(const char* name);
+bool capsInitNs(struct nsjconf_t* nsjconf);
 
-#endif				/* NS_CAPS_H */
+#endif /* NS_CAPS_H */

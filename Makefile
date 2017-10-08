@@ -92,7 +92,7 @@ depend:
 	makedepend -Y -Ykafel/include -- -- $(SRCS_C) $(SRCS_CXX) $(SRCS_PB_CXX)
 
 indent:
-	clang-format --style=WebKit -i -sort-includes *.c *.h $(SRCS_CXX)
+	clang-format -style="{BasedOnStyle: webkit, IndentWidth: 8, UseTab: Always, IndentCaseLabels: false}" -i -sort-includes *.c *.h $(SRCS_CXX)
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 
