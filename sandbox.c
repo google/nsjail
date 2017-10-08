@@ -29,7 +29,7 @@
 #include "kafel.h"
 #include "log.h"
 
-#ifndef PR_SET_NO_NEW_PRIVS /* in prctl.h since Linux 3.5 */
+#ifndef PR_SET_NO_NEW_PRIVS	/* in prctl.h since Linux 3.5 */
 #define PR_SET_NO_NEW_PRIVS 38
 #endif				/* PR_SET_NO_NEW_PRIVS */
 
