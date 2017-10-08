@@ -101,7 +101,7 @@ const char *mountFlagsToStr(uintptr_t flags)
 	return mountFlagsStr;
 }
 
-bool mountIsDir(const char *path)
+static bool mountIsDir(const char *path)
 {
 	/*
 	 *  If the source dir is NULL, we assume it's a dir (for /proc and tmpfs)

@@ -33,7 +33,6 @@ typedef enum {
 } isDir_t;
 
 const char *mountFlagsToStr(uintptr_t flags);
-bool mountIsDir(const char *path);
 bool mountInitNs(struct nsjconf_t *nsjconf);
 bool mountAddMountPtHead(struct nsjconf_t *nsjconf, const char *src, const char *dst,
 			 const char *fstype, const char *options, uintptr_t flags, isDir_t isDir,
