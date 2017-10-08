@@ -55,6 +55,11 @@ static void __attribute__ ((unused)) __clang_cleanup_func(void (^*dfunc) (void))
 #endif
 #endif
 
+#define NS_VALSTR_STRUCT(x) \
+	{                   \
+		x, #x       \
+	}
+
 struct pids_t {
 	pid_t pid;
 	time_t start;
