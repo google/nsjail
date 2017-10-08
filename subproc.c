@@ -66,36 +66,34 @@ static const char* subprocCloneFlagsToStr(uintptr_t flags)
 	static __thread char cloneFlagName[1024];
 	cloneFlagName[0] = '\0';
 
-	// clang-format off
-    static struct {
-        const uintptr_t flag;
-        const char* const name;
-    } const cloneFlags[] = {
-        VALSTR_STRUCT(CLONE_VM),
-        VALSTR_STRUCT(CLONE_FS),
-        VALSTR_STRUCT(CLONE_FILES),
-        VALSTR_STRUCT(CLONE_SIGHAND),
-        VALSTR_STRUCT(CLONE_PTRACE),
-        VALSTR_STRUCT(CLONE_VFORK),
-        VALSTR_STRUCT(CLONE_PARENT),
-        VALSTR_STRUCT(CLONE_THREAD),
-        VALSTR_STRUCT(CLONE_NEWNS),
-        VALSTR_STRUCT(CLONE_SYSVSEM),
-        VALSTR_STRUCT(CLONE_SETTLS),
-        VALSTR_STRUCT(CLONE_PARENT_SETTID),
-        VALSTR_STRUCT(CLONE_CHILD_CLEARTID),
-        VALSTR_STRUCT(CLONE_DETACHED),
-        VALSTR_STRUCT(CLONE_UNTRACED),
-        VALSTR_STRUCT(CLONE_CHILD_SETTID),
-        VALSTR_STRUCT(CLONE_NEWCGROUP),
-        VALSTR_STRUCT(CLONE_NEWUTS),
-        VALSTR_STRUCT(CLONE_NEWIPC),
-        VALSTR_STRUCT(CLONE_NEWUSER),
-        VALSTR_STRUCT(CLONE_NEWPID),
-        VALSTR_STRUCT(CLONE_NEWNET),
-        VALSTR_STRUCT(CLONE_IO),
-    };
-	// clang-format on
+	static struct {
+		const uintptr_t flag;
+		const char* const name;
+	} const cloneFlags[] = {
+		VALSTR_STRUCT(CLONE_VM),
+		VALSTR_STRUCT(CLONE_FS),
+		VALSTR_STRUCT(CLONE_FILES),
+		VALSTR_STRUCT(CLONE_SIGHAND),
+		VALSTR_STRUCT(CLONE_PTRACE),
+		VALSTR_STRUCT(CLONE_VFORK),
+		VALSTR_STRUCT(CLONE_PARENT),
+		VALSTR_STRUCT(CLONE_THREAD),
+		VALSTR_STRUCT(CLONE_NEWNS),
+		VALSTR_STRUCT(CLONE_SYSVSEM),
+		VALSTR_STRUCT(CLONE_SETTLS),
+		VALSTR_STRUCT(CLONE_PARENT_SETTID),
+		VALSTR_STRUCT(CLONE_CHILD_CLEARTID),
+		VALSTR_STRUCT(CLONE_DETACHED),
+		VALSTR_STRUCT(CLONE_UNTRACED),
+		VALSTR_STRUCT(CLONE_CHILD_SETTID),
+		VALSTR_STRUCT(CLONE_NEWCGROUP),
+		VALSTR_STRUCT(CLONE_NEWUTS),
+		VALSTR_STRUCT(CLONE_NEWIPC),
+		VALSTR_STRUCT(CLONE_NEWUSER),
+		VALSTR_STRUCT(CLONE_NEWPID),
+		VALSTR_STRUCT(CLONE_NEWNET),
+		VALSTR_STRUCT(CLONE_IO),
+	};
 
 	for (size_t i = 0; i < ARRAYSIZE(cloneFlags); i++) {
 		if (flags & cloneFlags[i].flag) {
@@ -269,7 +267,8 @@ static void subprocSeccompViolation(struct nsjconf_t* nsjconf, siginfo_t* si)
 	int ret = sscanf(buf, "%td %tx %tx %tx %tx %tx %tx %tx %tx", &sc, &arg1, &arg2, &arg3, &arg4,
 	    &arg5, &arg6, &sp, &pc);
 	if (ret == 9) {
-		LOG_W("PID: %d, Syscall number: %td, Arguments: %#tx, %#tx, %#tx, %#tx, %#tx, %#tx, SP: %#tx, PC: %#tx, si_syscall: %d, si_errno: %#x",
+		LOG_W("PID: %d, Syscall number: %td, Arguments: %#tx, %#tx, %#tx, %#tx, %#tx, %#tx, "
+		      "SP: %#tx, PC: %#tx, si_syscall: %d, si_errno: %#x",
 		    (int)si->si_pid, sc, arg1, arg2, arg3, arg4, arg5, arg6, sp, pc,
 		    si->si_syscall, si->si_errno);
 	} else if (ret == 3) {
