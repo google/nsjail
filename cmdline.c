@@ -264,7 +264,7 @@ __rlim64_t cmdlineParseRLimit(int res, const char *optarg, unsigned long mul)
 	if (strcasecmp(optarg, "def") == 0 || strcasecmp(optarg, "soft") == 0) {
 		return cur.rlim_cur;
 	}
-	if (strcasecmp(optarg, "max") == 0 || strcasecmp(optarg, "hard")) {
+	if (strcasecmp(optarg, "max") == 0 || strcasecmp(optarg, "hard") == 0) {
 		return cur.rlim_max;
 	}
 	if (utilIsANumber(optarg) == false) {
