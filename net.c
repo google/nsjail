@@ -229,7 +229,7 @@ int netGetRecvSocket(const char* bindhost, int port)
 	};
 	if (bind(sockfd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
 		close(sockfd);
-		PLOG_E("bind(host:[%s (orig:'%s')], port:%d)", bindaddr, bindhost, port);
+		PLOG_E("bind(host:[%s] (orig:'%s'), port:%d)", bindaddr, bindhost, port);
 		return -1;
 	}
 	if (listen(sockfd, SOMAXCONN) == -1) {
