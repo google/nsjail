@@ -217,7 +217,7 @@ static bool configParseInternal(struct nsjconf_t* nsjconf,
 		const char* options = (njc.mount(i).has_options()) ? njc.mount(i).options().c_str() : NULL;
 
 		uintptr_t flags = (njc.mount(i).rw() == false) ? MS_RDONLY : 0;
-		flags |= njc.mount(i).is_bind() ? (MS_BIND | MS_REC) : 0;
+		flags |= njc.mount(i).is_bind() ? (MS_BIND | MS_REC | MS_PRIVATE) : 0;
 		bool mandatory = njc.mount(i).mandatory();
 
 		isDir_t isDir = NS_DIR_MAYBE;

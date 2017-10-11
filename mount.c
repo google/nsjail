@@ -182,7 +182,7 @@ static bool mountMount(struct mounts_t* mpt, const char* newroot, const char* tm
 			return false;
 		}
 		close(fd);
-		mpt->flags |= (MS_BIND | MS_REC);
+		mpt->flags |= (MS_BIND | MS_REC | MS_PRIVATE);
 	}
 
 	/*
@@ -232,7 +232,7 @@ static bool mountRemountRO(struct mounts_t* mpt)
 	 * the flag in `f_flag'.  These definitions should be
 	 * kept in sync with the definitions in <sys/mount.h>'
 	 */
-	unsigned long new_flags = MS_REMOUNT | MS_BIND | MS_RDONLY | vfs.f_flag;
+	unsigned long new_flags = MS_REMOUNT | MS_BIND | MS_PRIVATE | MS_RDONLY | vfs.f_flag;
 
 	LOG_D("Re-mounting R/O '%s' (old_flags:%s, new_flags:%s)", mpt->dst,
 	    mountFlagsToStr(vfs.f_flag), mountFlagsToStr(new_flags));

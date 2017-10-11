@@ -114,7 +114,9 @@ struct custom_option custom_opts[] = {
     { { "bindmount", required_argument, NULL, 'B' }, "List of mountpoints to be mounted --bind (rw) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'" },
     { { "tmpfsmount", required_argument, NULL, 'T' }, "List of mountpoints to be mounted as RW/tmpfs inside the container. Can be specified multiple times. Supports 'dest' syntax" },
     { { "tmpfs_size", required_argument, NULL, 0x0602 }, "Number of bytes to allocate for tmpfsmounts (default: 4194304)" },
-    { { "disable_proc", no_argument, NULL, 0x0603 }, "Disable mounting /proc in the jail" },
+    { { "disable_proc", no_argument, NULL, 0x0603 }, "Disable mounting procfs in the jail" },
+    { { "proc_path", required_argument, NULL, 0x0605 }, "Path used to mount procfs (default: '/proc')" },
+    { { "proc_rw", no_argument, NULL, 0x0606 }, "Is procfs mounted as R/W (default: R/O)" },
     { { "seccomp_policy", required_argument, NULL, 'P' }, "Path to file containing seccomp-bpf policy (see kafel/)" },
     { { "seccomp_string", required_argument, NULL, 0x0901 }, "String with kafel seccomp-bpf policy (see kafel/)" },
     { { "cgroup_mem_max", required_argument, NULL, 0x0801 }, "Maximum number of bytes to use in the group (default: '0' - disabled)" },
@@ -345,6 +347,8 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf)
 		.max_conns_per_ip = 0,
 		.tmpfs_size = 4 * (1024 * 1024),
 		.mount_proc = true,
+		.proc_path = "/proc",
+		.is_proc_rw = false,
 		.cgroup_mem_mount = "/sys/fs/cgroup/memory",
 		.cgroup_mem_parent = "NSJAIL",
 		.cgroup_mem_max = (size_t)0,
@@ -571,6 +575,12 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf)
 		case 0x0603:
 			nsjconf->mount_proc = false;
 			break;
+		case 0x0605:
+			nsjconf->proc_path = optarg;
+			break;
+		case 0x0606:
+			nsjconf->is_proc_rw = true;
+			break;
 		case 'E': {
 			struct charptr_t* p = utilMalloc(sizeof(struct charptr_t));
 			p->val = optarg;
@@ -640,7 +650,7 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf)
 			const char* dst = cmdlineSplitStrByColon(optarg);
 			dst = dst ? dst : optarg;
 			if (!mountAddMountPtTail(nsjconf, /* src= */ optarg, dst, /* fs_type= */ "",
-				/* options= */ "", MS_BIND | MS_REC | MS_RDONLY,
+				/* options= */ "", MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY,
 				/* isDir= */
 				NS_DIR_MAYBE, /* mandatory= */ true, NULL, NULL, NULL, 0,
 				/* is_symlink= */ false)) {
@@ -652,7 +662,7 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf)
 			const char* dst = cmdlineSplitStrByColon(optarg);
 			dst = dst ? dst : optarg;
 			if (!mountAddMountPtTail(nsjconf, /* src= */ optarg, dst, /* fs_type= */ "",
-				/* options= */ "", MS_BIND | MS_REC, /* isDir= */ NS_DIR_MAYBE,
+				/* options= */ "", MS_BIND | MS_REC | MS_PRIVATE, /* isDir= */ NS_DIR_MAYBE,
 				/* mandatory= */ true, NULL, NULL, NULL, 0,
 				/* is_symlink= */
 				false)) {
@@ -740,17 +750,17 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf)
 		}
 	}
 
-	if (nsjconf->mount_proc == true) {
-		if (!mountAddMountPtHead(nsjconf, /* src= */ NULL, "/proc", "proc", "",
-			nsjconf->is_root_rw ? 0 : MS_RDONLY, /* isDir= */ true,
+	if (nsjconf->mount_proc) {
+		if (!mountAddMountPtTail(nsjconf, /* src= */ NULL, nsjconf->proc_path, "proc", "",
+			nsjconf->is_proc_rw ? 0 : MS_RDONLY, /* isDir= */ true,
 			/* mandatory= */ true,
 			NULL, NULL, NULL, 0, /* is_symlink= */ false)) {
 			return false;
 		}
 	}
-	if (nsjconf->chroot != NULL) {
+	if (nsjconf->chroot) {
 		if (!mountAddMountPtHead(nsjconf, nsjconf->chroot, "/", /* fs_type= */ "", /* options= */ "",
-			nsjconf->is_root_rw ? (MS_BIND | MS_REC) : (MS_BIND | MS_REC | MS_RDONLY),
+			nsjconf->is_root_rw ? (MS_BIND | MS_REC | MS_PRIVATE) : (MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY),
 			/* isDir= */ true, /* mandatory= */ true, NULL, NULL, NULL, 0,
 			/* is_symlink= */ false)) {
 			return false;

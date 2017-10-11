@@ -163,6 +163,8 @@ struct nsjconf_t {
 	unsigned int max_conns_per_ip;
 	size_t tmpfs_size;
 	bool mount_proc;
+	const char* proc_path;
+	bool is_proc_rw;
 	bool iface_no_lo;
 	const char* iface_vs;
 	const char* iface_vs_ip;
