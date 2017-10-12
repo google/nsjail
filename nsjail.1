@@ -13,7 +13,8 @@ NsJail is a process isolation tool for Linux. It utilizes Linux namespace subsys
 .TP
 \fB\-\-help\fR|\fB\-h\fR Help plz..
 .TP
-\fB\-\-mode\fR|\fB\-M\fR VALUE Execution mode (default: o [MODE_STANDALONE_ONCE]):
+\fB\-\-mode\fR|\fB\-M\fR VALUE
+Execution mode (default: o [MODE_STANDALONE_ONCE]):
 .IP
 \fBl\fR: Wait for connections on a TCP port (specified with \fB\-\-port\fR) [MODE_LISTEN_TCP]
 .PP
@@ -37,7 +38,7 @@ File to exec (default: argv[0])
 Directory containing / of the jail (default: none)
 .TP
 \fB\-\-rw\fR
-Mount / and \fI/proc\fP as RW (default: RO)
+Mount chroot dir (/) R/W (default: R/O)
 .TP
 \fB\-\-user\fR|\fB\-u\fR VALUE
 Username/uid of processess inside the jail (default: your current uid). You can also use inside_ns_uid:outside_ns_uid:count convention here. Can be specified multiple times
@@ -185,6 +186,12 @@ Number of bytes to allocate for tmpfsmounts (default: 4194304)
 .TP
 \fB\-\-disable_proc\fR
 Disable mounting \fI/proc\fP in the jail
+.TP
+\fB\-\-proc_path\fR VALUE
+Path used to mount procfs (default: '/proc')
+.TP
+\fB\-\-proc_rw\fR
+Is procfs mount as R/W (default: R/O)
 .TP
 \fB\-\-seccomp_policy\fR|\fB\-P\fR VALUE
 Path to file containing seccomp\-bpf policy (see kafel/)
