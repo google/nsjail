@@ -65,7 +65,7 @@ static bool userUidMapSelf(struct nsjconf_t* nsjconf, pid_t pid)
 	char fname[PATH_MAX];
 	snprintf(fname, sizeof(fname), "/proc/%d/uid_map", pid);
 
-	char map[4096] = {[0] = '\0' };
+	char map[4096] = { [0] = '\0' };
 
 	struct idmap_t* p;
 	TAILQ_FOREACH(p, &nsjconf->uids, pointers)
@@ -95,7 +95,7 @@ static bool userGidMapSelf(struct nsjconf_t* nsjconf, pid_t pid)
 	char fname[PATH_MAX];
 	snprintf(fname, sizeof(fname), "/proc/%d/gid_map", pid);
 
-	char map[4096] = {[0] = '\0' };
+	char map[4096] = { [0] = '\0' };
 
 	struct idmap_t* p;
 	TAILQ_FOREACH(p, &nsjconf->gids, pointers)
@@ -123,7 +123,7 @@ static bool userGidMapSelf(struct nsjconf_t* nsjconf, pid_t pid)
 /* Use /usr/bin/newgidmap for writing the gid map */
 static bool userGidMapExternal(struct nsjconf_t* nsjconf, pid_t pid UNUSED)
 {
-	static size_t idx = 0;
+	size_t idx = 0;
 
 	const char* argv[1024];
 	char parms[1024][256];
@@ -177,7 +177,7 @@ static bool userGidMapExternal(struct nsjconf_t* nsjconf, pid_t pid UNUSED)
 /* Use /usr/bin/newuidmap for writing the uid map */
 static bool userUidMapExternal(struct nsjconf_t* nsjconf, pid_t pid UNUSED)
 {
-	static size_t idx = 0;
+	size_t idx = 0;
 
 	const char* argv[1024];
 	char parms[1024][256];
