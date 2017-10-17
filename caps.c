@@ -31,10 +31,6 @@
 #include "log.h"
 #include "util.h"
 
-#if !defined(CAP_AUDIT_READ)
-#define CAP_AUDIT_READ 37
-#endif /* !defined(CAP_AUDIT_READ) */
-
 static struct {
 	const int val;
 	const char* const name;
@@ -76,7 +72,9 @@ static struct {
 	NS_VALSTR_STRUCT(CAP_SYSLOG),
 	NS_VALSTR_STRUCT(CAP_WAKE_ALARM),
 	NS_VALSTR_STRUCT(CAP_BLOCK_SUSPEND),
+#if defined(CAP_AUDIT_READ)
 	NS_VALSTR_STRUCT(CAP_AUDIT_READ),
+#endif /* defined(CAP_AUDIT_READ) */
 };
 
 int capsNameToVal(const char* name)
