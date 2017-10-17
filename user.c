@@ -40,6 +40,38 @@
 #include "subproc.h"
 #include "util.h"
 
+static bool userSetResGid(gid_t gid)
+{
+	LOG_D("setresgid(%d)", gid);
+#if defined(__NR_setresgid32)
+	if (syscall(__NR_setresgid32, (uintptr_t)gid, (uintptr_t)gid, (uintptr_t)gid) == -1 && errno != ENOSYS) {
+		PLOG_W("setresgid32(%d)", (int)gid);
+		return false;
+	}
+#endif
+	if (syscall(__NR_setresgid, (uintptr_t)gid, (uintptr_t)gid, (uintptr_t)gid) == -1) {
+		PLOG_W("setresgid(%d)", gid);
+		return false;
+	}
+	return true;
+}
+
+static bool userSetResUid(uid_t uid)
+{
+	LOG_D("setresuid(%d)", uid);
+#if defined(__NR_setresuid32)
+	if (syscall(__NR_setresuid32, (uintptr_t)uid, (uintptr_t)uid, (uintptr_t)uid) == -1 && errno != ENOSYS) {
+		PLOG_W("setresuid32(%d)", (int)uid);
+		return false;
+	}
+#endif
+	if (syscall(__NR_setresuid, (uintptr_t)uid, (uintptr_t)uid, (uintptr_t)uid) == -1) {
+		PLOG_W("setresuid(%d)", uid);
+		return false;
+	}
+	return true;
+}
+
 static bool userSetGroups(pid_t pid)
 {
 	/*
@@ -279,19 +311,11 @@ bool userInitNsFromChild(struct nsjconf_t* nsjconf)
 		return false;
 	}
 
-	LOG_D("setresgid(%d, %d, %d)", TAILQ_FIRST(&nsjconf->gids)->inside_id,
-	    TAILQ_FIRST(&nsjconf->gids)->inside_id, TAILQ_FIRST(&nsjconf->gids)->inside_id);
-	if (syscall(__NR_setresgid, TAILQ_FIRST(&nsjconf->gids)->inside_id,
-		TAILQ_FIRST(&nsjconf->gids)->inside_id, TAILQ_FIRST(&nsjconf->gids)->inside_id)
-	    == -1) {
+	if (!userSetResGid(TAILQ_FIRST(&nsjconf->gids)->inside_id)) {
 		PLOG_E("setresgid(%u)", TAILQ_FIRST(&nsjconf->gids)->inside_id);
 		return false;
 	}
-	LOG_D("setresuid(%d, %d, %d)", TAILQ_FIRST(&nsjconf->uids)->inside_id,
-	    TAILQ_FIRST(&nsjconf->uids)->inside_id, TAILQ_FIRST(&nsjconf->uids)->inside_id);
-	if (syscall(__NR_setresuid, TAILQ_FIRST(&nsjconf->uids)->inside_id,
-		TAILQ_FIRST(&nsjconf->uids)->inside_id, TAILQ_FIRST(&nsjconf->uids)->inside_id)
-	    == -1) {
+	if (!userSetResUid(TAILQ_FIRST(&nsjconf->uids)->inside_id)) {
 		PLOG_E("setresuid(%u)", TAILQ_FIRST(&nsjconf->uids)->inside_id);
 		return false;
 	}
