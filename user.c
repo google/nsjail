@@ -44,11 +44,12 @@ static bool userSetResGid(gid_t gid)
 {
 	LOG_D("setresgid(%d)", gid);
 #if defined(__NR_setresgid32)
-	if (syscall(__NR_setresgid32, (uintptr_t)gid, (uintptr_t)gid, (uintptr_t)gid) == -1 && errno != ENOSYS) {
+	if (syscall(__NR_setresgid32, (uintptr_t)gid, (uintptr_t)gid, (uintptr_t)gid) == -1
+	    && errno != ENOSYS) {
 		PLOG_W("setresgid32(%d)", (int)gid);
 		return false;
 	}
-#endif
+#endif /* defined(__NR_setresgid32) */
 	if (syscall(__NR_setresgid, (uintptr_t)gid, (uintptr_t)gid, (uintptr_t)gid) == -1) {
 		PLOG_W("setresgid(%d)", gid);
 		return false;
@@ -60,11 +61,12 @@ static bool userSetResUid(uid_t uid)
 {
 	LOG_D("setresuid(%d)", uid);
 #if defined(__NR_setresuid32)
-	if (syscall(__NR_setresuid32, (uintptr_t)uid, (uintptr_t)uid, (uintptr_t)uid) == -1 && errno != ENOSYS) {
+	if (syscall(__NR_setresuid32, (uintptr_t)uid, (uintptr_t)uid, (uintptr_t)uid) == -1
+	    && errno != ENOSYS) {
 		PLOG_W("setresuid32(%d)", (int)uid);
 		return false;
 	}
-#endif
+#endif /* defined(__NR_setresuid32) */
 	if (syscall(__NR_setresuid, (uintptr_t)uid, (uintptr_t)uid, (uintptr_t)uid) == -1) {
 		PLOG_W("setresuid(%d)", uid);
 		return false;
@@ -75,8 +77,8 @@ static bool userSetResUid(uid_t uid)
 static bool userSetGroups(pid_t pid)
 {
 	/*
-	 * No need to write 'deny' to /proc/pid/setgroups if our euid==0, as writing to uid_map/gid_map
-	 * will succeed anyway
+	 * No need to write 'deny' to /proc/pid/setgroups if our euid==0, as writing to
+	 * uid_map/gid_map will succeed anyway
 	 */
 	if (geteuid() == 0) {
 		return true;
@@ -303,10 +305,11 @@ bool userInitNsFromChild(struct nsjconf_t* nsjconf)
 	}
 
 	/*
-	 * Make sure all capabilities are retained after the subsequent setuid/setgid, as they will be
-	 * needed for privileged operations: mounts, uts change etc.
+	 * Make sure all capabilities are retained after the subsequent setuid/setgid, as they will
+	 * be needed for privileged operations: mounts, uts change etc.
 	 */
-	if (prctl(PR_SET_SECUREBITS, SECBIT_KEEP_CAPS | SECBIT_NO_SETUID_FIXUP, 0UL, 0UL, 0UL) == -1) {
+	if (prctl(PR_SET_SECUREBITS, SECBIT_KEEP_CAPS | SECBIT_NO_SETUID_FIXUP, 0UL, 0UL, 0UL)
+	    == -1) {
 		PLOG_E("prctl(PR_SET_SECUREBITS, SECBIT_KEEP_CAPS | SECBIT_NO_SETUID_FIXUP)");
 		return false;
 	}

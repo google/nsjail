@@ -60,7 +60,9 @@ bool logInitLogFile(struct nsjconf_t* nsjconf)
 	if (nsjconf->logfile == NULL) {
 		log_fd = fcntl(log_fd, F_DUPFD_CLOEXEC, 0);
 	} else {
-		if (TEMP_FAILURE_RETRY(log_fd = open(nsjconf->logfile, O_CREAT | O_RDWR | O_APPEND, 0640)) == -1) {
+		if (TEMP_FAILURE_RETRY(
+			log_fd = open(nsjconf->logfile, O_CREAT | O_RDWR | O_APPEND, 0640))
+		    == -1) {
 			log_fd = STDERR_FILENO;
 			PLOG_E("Couldn't open logfile open('%s')", nsjconf->logfile);
 			return false;
@@ -133,7 +135,4 @@ void logLog(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt
 	}
 }
 
-void logStop(int sig)
-{
-	LOG_I("Server stops due to fatal signal (%d) caught. Exiting", sig);
-}
+void logStop(int sig) { LOG_I("Server stops due to fatal signal (%d) caught. Exiting", sig); }

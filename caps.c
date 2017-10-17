@@ -232,7 +232,8 @@ bool capsInitNs(struct nsjconf_t* nsjconf)
 		return CapsInitNsKeepCaps(cap_data);
 	}
 
-	/* Set all requested caps in the inheritable set if these are present in the permitted set */
+	/* Set all requested caps in the inheritable set if these are present in the permitted set
+	 */
 	dbgmsg[0] = '\0';
 	TAILQ_FOREACH(p, &nsjconf->caps, pointers)
 	{
@@ -261,7 +262,8 @@ bool capsInitNs(struct nsjconf_t* nsjconf)
 				continue;
 			}
 			utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capNames[i].name);
-			if (prctl(PR_CAPBSET_DROP, (unsigned long)capNames[i].val, 0UL, 0UL, 0UL) == -1) {
+			if (prctl(PR_CAPBSET_DROP, (unsigned long)capNames[i].val, 0UL, 0UL, 0UL)
+			    == -1) {
 				PLOG_W("prctl(PR_CAPBSET_DROP, %s)", capNames[i].name);
 				return false;
 			}
@@ -273,7 +275,8 @@ bool capsInitNs(struct nsjconf_t* nsjconf)
 	dbgmsg[0] = '\0';
 	TAILQ_FOREACH(p, &nsjconf->caps, pointers)
 	{
-		if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)p->val, 0UL, 0UL) == -1) {
+		if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)p->val, 0UL, 0UL)
+		    == -1) {
 			PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s)",
 			    capsValToStr(p->val));
 		} else {

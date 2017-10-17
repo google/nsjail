@@ -31,7 +31,8 @@
 static void cpuSetRandomCpu(cpu_set_t* mask, size_t mask_size, size_t cpu_num)
 {
 	if ((size_t)CPU_COUNT_S(mask_size, mask) >= cpu_num) {
-		LOG_F("Number of CPUs in the mask '%d' is bigger than number of available CPUs '%zu'",
+		LOG_F(
+		    "Number of CPUs in the mask '%d' is bigger than number of available CPUs '%zu'",
 		    CPU_COUNT(mask), cpu_num);
 	}
 

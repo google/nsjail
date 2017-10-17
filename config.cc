@@ -48,7 +48,8 @@ extern "C" {
 
 #define DUP_IF_SET(njc, val) (njc.has_##val() ? njc.val().c_str() : NULL)
 
-static __rlim64_t configRLimit(int res, const nsjail::RLimit& rl, const uint64_t val, unsigned long mul = 1UL)
+static __rlim64_t configRLimit(
+    int res, const nsjail::RLimit& rl, const uint64_t val, unsigned long mul = 1UL)
 {
 	if (rl == nsjail::RLimit::VALUE) {
 		return (val * mul);
@@ -66,8 +67,7 @@ static __rlim64_t configRLimit(int res, const nsjail::RLimit& rl, const uint64_t
 	abort();
 }
 
-static bool configParseInternal(struct nsjconf_t* nsjconf,
-    const nsjail::NsJailConfig& njc)
+static bool configParseInternal(struct nsjconf_t* nsjconf, const nsjail::NsJailConfig& njc)
 {
 	switch (njc.mode()) {
 	case nsjail::Mode::LISTEN:
@@ -132,14 +132,16 @@ static bool configParseInternal(struct nsjconf_t* nsjconf,
 
 	nsjconf->keep_env = njc.keep_env();
 	for (ssize_t i = 0; i < njc.envar_size(); i++) {
-		struct charptr_t* p = reinterpret_cast<charptr_t*>(utilMalloc(sizeof(struct charptr_t)));
+		struct charptr_t* p
+		    = reinterpret_cast<charptr_t*>(utilMalloc(sizeof(struct charptr_t)));
 		p->val = njc.envar(i).c_str();
 		TAILQ_INSERT_TAIL(&nsjconf->envs, p, pointers);
 	}
 
 	nsjconf->keep_caps = njc.keep_caps();
 	for (ssize_t i = 0; i < njc.cap_size(); i++) {
-		struct ints_t* f = reinterpret_cast<struct ints_t*>(utilMalloc(sizeof(struct ints_t)));
+		struct ints_t* f
+		    = reinterpret_cast<struct ints_t*>(utilMalloc(sizeof(struct ints_t)));
 		f->val = capsNameToVal(njc.cap(i).c_str());
 		if (f->val == -1) {
 			return false;
@@ -151,20 +153,26 @@ static bool configParseInternal(struct nsjconf_t* nsjconf,
 	nsjconf->skip_setsid = njc.skip_setsid();
 
 	for (ssize_t i = 0; i < njc.pass_fd_size(); i++) {
-		struct ints_t* f = reinterpret_cast<struct ints_t*>(utilMalloc(sizeof(struct ints_t)));
+		struct ints_t* f
+		    = reinterpret_cast<struct ints_t*>(utilMalloc(sizeof(struct ints_t)));
 		f->val = njc.pass_fd(i);
 		TAILQ_INSERT_HEAD(&nsjconf->open_fds, f, pointers);
 	}
 
 	nsjconf->disable_no_new_privs = njc.disable_no_new_privs();
 
-	nsjconf->rl_as = configRLimit(RLIMIT_AS, njc.rlimit_as_type(), njc.rlimit_as(), 1024UL * 1024UL);
-	nsjconf->rl_core = configRLimit(RLIMIT_CORE, njc.rlimit_core_type(), njc.rlimit_core(), 1024UL * 1024UL);
+	nsjconf->rl_as
+	    = configRLimit(RLIMIT_AS, njc.rlimit_as_type(), njc.rlimit_as(), 1024UL * 1024UL);
+	nsjconf->rl_core
+	    = configRLimit(RLIMIT_CORE, njc.rlimit_core_type(), njc.rlimit_core(), 1024UL * 1024UL);
 	nsjconf->rl_cpu = configRLimit(RLIMIT_CPU, njc.rlimit_cpu_type(), njc.rlimit_cpu());
-	nsjconf->rl_fsize = configRLimit(RLIMIT_FSIZE, njc.rlimit_fsize_type(), njc.rlimit_fsize(), 1024UL * 1024UL);
-	nsjconf->rl_nofile = configRLimit(RLIMIT_NOFILE, njc.rlimit_nofile_type(), njc.rlimit_nofile());
+	nsjconf->rl_fsize = configRLimit(
+	    RLIMIT_FSIZE, njc.rlimit_fsize_type(), njc.rlimit_fsize(), 1024UL * 1024UL);
+	nsjconf->rl_nofile
+	    = configRLimit(RLIMIT_NOFILE, njc.rlimit_nofile_type(), njc.rlimit_nofile());
 	nsjconf->rl_nproc = configRLimit(RLIMIT_NPROC, njc.rlimit_nproc_type(), njc.rlimit_nproc());
-	nsjconf->rl_stack = configRLimit(RLIMIT_STACK, njc.rlimit_stack_type(), njc.rlimit_stack(), 1024UL * 1024UL);
+	nsjconf->rl_stack = configRLimit(
+	    RLIMIT_STACK, njc.rlimit_stack_type(), njc.rlimit_stack(), 1024UL * 1024UL);
 
 	if (njc.persona_addr_compat_layout()) {
 		nsjconf->personality |= ADDR_COMPAT_LAYOUT;
@@ -191,17 +199,17 @@ static bool configParseInternal(struct nsjconf_t* nsjconf,
 	nsjconf->clone_newcgroup = njc.clone_newcgroup();
 
 	for (ssize_t i = 0; i < njc.uidmap_size(); i++) {
-		if (userParseId(nsjconf, DUP_IF_SET(njc.uidmap(i), inside_id), DUP_IF_SET(njc.uidmap(i), outside_id),
-			njc.uidmap(i).count(), false /* is_gid */,
-			njc.uidmap(i).use_newidmap())
+		if (userParseId(nsjconf, DUP_IF_SET(njc.uidmap(i), inside_id),
+			DUP_IF_SET(njc.uidmap(i), outside_id), njc.uidmap(i).count(),
+			false /* is_gid */, njc.uidmap(i).use_newidmap())
 		    == false) {
 			return false;
 		}
 	}
 	for (ssize_t i = 0; i < njc.gidmap_size(); i++) {
-		if (userParseId(nsjconf, DUP_IF_SET(njc.gidmap(i), inside_id), DUP_IF_SET(njc.gidmap(i), outside_id),
-			njc.gidmap(i).count(), true /* is_gid */,
-			njc.gidmap(i).use_newidmap())
+		if (userParseId(nsjconf, DUP_IF_SET(njc.gidmap(i), inside_id),
+			DUP_IF_SET(njc.gidmap(i), outside_id), njc.gidmap(i).count(),
+			true /* is_gid */, njc.gidmap(i).use_newidmap())
 		    == false) {
 			return false;
 		}
@@ -210,11 +218,17 @@ static bool configParseInternal(struct nsjconf_t* nsjconf,
 	nsjconf->mount_proc = njc.mount_proc();
 	for (ssize_t i = 0; i < njc.mount_size(); i++) {
 		const char* src = (njc.mount(i).has_src()) ? njc.mount(i).src().c_str() : NULL;
-		const char* src_env = (njc.mount(i).has_prefix_src_env()) ? njc.mount(i).prefix_src_env().c_str() : NULL;
+		const char* src_env = (njc.mount(i).has_prefix_src_env())
+		    ? njc.mount(i).prefix_src_env().c_str()
+		    : NULL;
 		const char* dst = (njc.mount(i).has_dst()) ? njc.mount(i).dst().c_str() : NULL;
-		const char* dst_env = (njc.mount(i).has_prefix_dst_env()) ? njc.mount(i).prefix_dst_env().c_str() : NULL;
-		const char* fstype = (njc.mount(i).has_fstype()) ? njc.mount(i).fstype().c_str() : NULL;
-		const char* options = (njc.mount(i).has_options()) ? njc.mount(i).options().c_str() : NULL;
+		const char* dst_env = (njc.mount(i).has_prefix_dst_env())
+		    ? njc.mount(i).prefix_dst_env().c_str()
+		    : NULL;
+		const char* fstype
+		    = (njc.mount(i).has_fstype()) ? njc.mount(i).fstype().c_str() : NULL;
+		const char* options
+		    = (njc.mount(i).has_options()) ? njc.mount(i).options().c_str() : NULL;
 
 		uintptr_t flags = (njc.mount(i).rw() == false) ? MS_RDONLY : 0;
 		flags |= njc.mount(i).is_bind() ? (MS_BIND | MS_REC | MS_PRIVATE) : 0;
@@ -232,9 +246,8 @@ static bool configParseInternal(struct nsjconf_t* nsjconf,
 			src_content_len = njc.mount(i).src_content().size();
 		}
 
-		if (mountAddMountPtTail(nsjconf, src, dst, fstype, options, flags, isDir,
-			mandatory, src_env, dst_env, src_content,
-			src_content_len, njc.mount(i).is_symlink())
+		if (mountAddMountPtTail(nsjconf, src, dst, fstype, options, flags, isDir, mandatory,
+			src_env, dst_env, src_content, src_content_len, njc.mount(i).is_symlink())
 		    == false) {
 			LOG_E("Couldn't add mountpoint for src:'%s' dst:'%s'", src, dst);
 			return false;
@@ -242,7 +255,8 @@ static bool configParseInternal(struct nsjconf_t* nsjconf,
 	}
 
 	if (njc.has_seccomp_policy_file()) {
-		if ((nsjconf->kafel_file = fopen(njc.seccomp_policy_file().c_str(), "rb")) == NULL) {
+		if ((nsjconf->kafel_file = fopen(njc.seccomp_policy_file().c_str(), "rb"))
+		    == NULL) {
 			PLOG_W("Couldn't open file with seccomp policy '%s'",
 			    njc.seccomp_policy_file().c_str());
 			return false;
@@ -253,9 +267,8 @@ static bool configParseInternal(struct nsjconf_t* nsjconf,
 	for (ssize_t i = 0; i < njc.seccomp_string().size(); i++) {
 		kafel_string += njc.seccomp_string(i);
 	}
-	nsjconf->kafel_string = njc.seccomp_string().size() > 0
-	    ? utilStrDup(kafel_string.c_str())
-	    : NULL;
+	nsjconf->kafel_string
+	    = njc.seccomp_string().size() > 0 ? utilStrDup(kafel_string.c_str()) : NULL;
 
 	nsjconf->cgroup_mem_max = njc.cgroup_mem_max();
 	nsjconf->cgroup_mem_mount = njc.cgroup_mem_mount().c_str();
@@ -288,7 +301,8 @@ static bool configParseInternal(struct nsjconf_t* nsjconf,
 	return true;
 }
 
-static void LogHandler(google::protobuf::LogLevel level, const char* filename, int line, const std::string& message)
+static void LogHandler(
+    google::protobuf::LogLevel level, const char* filename, int line, const std::string& message)
 {
 	LOG_W("config.cc: '%s'", message.c_str());
 }

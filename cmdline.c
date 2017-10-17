@@ -142,10 +142,7 @@ struct custom_option deprecated_opts[] = {
 };
 // clang-format on
 
-static const char* logYesNo(bool yes)
-{
-	return (yes ? "true" : "false");
-}
+static const char* logYesNo(bool yes) { return (yes ? "true" : "false"); }
 
 static void cmdlineOptUsage(struct custom_option* option)
 {
@@ -172,8 +169,8 @@ static void cmdlineUsage(const char* pname)
 		// Find replacement flag.
 		for (size_t j = 0; j < ARRAYSIZE(custom_opts); j++) {
 			if (custom_opts[j].opt.val == deprecated_opts[i].opt.val) {
-				LOG_HELP_BOLD("\tDEPRECATED: Use %s instead.",
-				    custom_opts[j].opt.name);
+				LOG_HELP_BOLD(
+				    "\tDEPRECATED: Use %s instead.", custom_opts[j].opt.name);
 				break;
 			}
 		}
@@ -240,7 +237,9 @@ void cmdlineLogParams(struct nsjconf_t* nsjconf)
 			    (unsigned long)p->inside_id, (unsigned long)p->outside_id, p->count,
 			    p->is_newidmap ? "true" : "false");
 			if (p->outside_id == 0 && nsjconf->clone_newuser) {
-				LOG_W("Process will be UID/EUID=0 in the global user namespace, and will have user root-level access to files");
+				LOG_W("Process will be UID/EUID=0 in the global user namespace, "
+				      "and will have user "
+				      "root-level access to files");
 			}
 		}
 		TAILQ_FOREACH(p, &nsjconf->gids, pointers)
@@ -249,7 +248,9 @@ void cmdlineLogParams(struct nsjconf_t* nsjconf)
 			    (unsigned long)p->inside_id, (unsigned long)p->outside_id, p->count,
 			    p->is_newidmap ? "true" : "false");
 			if (p->outside_id == 0 && nsjconf->clone_newuser) {
-				LOG_W("Process will be GID/EGID=0 in the global user namespace, and will have group root-level access to files");
+				LOG_W("Process will be GID/EGID=0 in the global user namespace, "
+				      "and will have group "
+				      "root-level access to files");
 			}
 		}
 	}
@@ -271,7 +272,8 @@ __rlim64_t cmdlineParseRLimit(int res, const char* optarg, unsigned long mul)
 		return cur.rlim_max;
 	}
 	if (utilIsANumber(optarg) == false) {
-		LOG_F("RLIMIT %d needs a numeric or 'max'/'hard'/'def'/'soft'/'inf' value ('%s' provided)",
+		LOG_F("RLIMIT %d needs a numeric or 'max'/'hard'/'def'/'soft'/'inf' value ('%s' "
+		      "provided)",
 		    res, optarg);
 	}
 	__rlim64_t val = strtoull(optarg, NULL, 0) * mul;
@@ -402,8 +404,7 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf)
 	int opt_index = 0;
 	for (;;) {
 		int c = getopt_long(argc, argv,
-		    "x:H:D:C:c:p:i:u:g:l:L:t:M:NdvqQeh?E:R:B:T:P:I:U:G:", opts,
-		    &opt_index);
+		    "x:H:D:C:c:p:i:u:g:l:L:t:M:NdvqQeh?E:R:B:T:P:I:U:G:", opts, &opt_index);
 		if (c == -1) {
 			break;
 		}
@@ -592,9 +593,7 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf)
 			char* cnt = cmdlineSplitStrByColon(o_id);
 			size_t count = (cnt == NULL || strlen(cnt) == 0)
 			    ? 1U
-			    : (size_t)strtoull(cnt,
-				  NULL,
-				  0);
+			    : (size_t)strtoull(cnt, NULL, 0);
 			if (userParseId(nsjconf, i_id, o_id, count, false /* is_gid */,
 				false /* is_newidmap */)
 			    == false) {
@@ -607,9 +606,7 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf)
 			char* cnt = cmdlineSplitStrByColon(o_id);
 			size_t count = (cnt == NULL || strlen(cnt) == 0)
 			    ? 1U
-			    : (size_t)strtoull(cnt,
-				  NULL,
-				  0);
+			    : (size_t)strtoull(cnt, NULL, 0);
 			if (userParseId(nsjconf, i_id, o_id, count, true /* is_gid */,
 				false /* is_newidmap */)
 			    == false) {
@@ -622,9 +619,7 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf)
 			char* cnt = cmdlineSplitStrByColon(o_id);
 			size_t count = (cnt == NULL || strlen(cnt) == 0)
 			    ? 1U
-			    : (size_t)strtoull(cnt,
-				  NULL,
-				  0);
+			    : (size_t)strtoull(cnt, NULL, 0);
 			if (userParseId(nsjconf, i_id, o_id, count, false /* is_gid */,
 				true /* is_newidmap */)
 			    == false) {
@@ -637,9 +632,7 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf)
 			char* cnt = cmdlineSplitStrByColon(o_id);
 			size_t count = (cnt == NULL || strlen(cnt) == 0)
 			    ? 1U
-			    : (size_t)strtoull(cnt,
-				  NULL,
-				  0);
+			    : (size_t)strtoull(cnt, NULL, 0);
 			if (userParseId(nsjconf, i_id, o_id, count, true /* is_gid */,
 				true /* is_newidmap */)
 			    == false) {
@@ -656,28 +649,28 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf)
 				/* is_symlink= */ false)) {
 				return false;
 			}
-		};
-		    break;
+		}; break;
 		case 'B': {
 			const char* dst = cmdlineSplitStrByColon(optarg);
 			dst = dst ? dst : optarg;
 			if (!mountAddMountPtTail(nsjconf, /* src= */ optarg, dst, /* fs_type= */ "",
-				/* options= */ "", MS_BIND | MS_REC | MS_PRIVATE, /* isDir= */ NS_DIR_MAYBE,
+				/* options= */ "", MS_BIND | MS_REC | MS_PRIVATE,
+				/* isDir= */ NS_DIR_MAYBE,
 				/* mandatory= */ true, NULL, NULL, NULL, 0,
 				/* is_symlink= */
 				false)) {
 				return false;
 			}
-		};
-		    break;
+		}; break;
 		case 'T': {
-			if (!mountAddMountPtTail(nsjconf, /* src= */ NULL, optarg, "tmpfs", /* options= */ "",
+			if (!mountAddMountPtTail(nsjconf, /* src= */ NULL, optarg, "tmpfs",
+				/* options= */ "",
 				/* flags= */ 0, /* isDir= */ true, /* mandatory= */ true, NULL,
-				NULL, NULL, 0, /* is_symlink= */ false)) {
+				NULL, NULL, 0,
+				/* is_symlink= */ false)) {
 				return false;
 			}
-		};
-		    break;
+		}; break;
 		case 'M':
 			switch (optarg[0]) {
 			case 'l':
@@ -753,14 +746,15 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf)
 	if (nsjconf->mount_proc) {
 		if (!mountAddMountPtTail(nsjconf, /* src= */ NULL, nsjconf->proc_path, "proc", "",
 			nsjconf->is_proc_rw ? 0 : MS_RDONLY, /* isDir= */ true,
-			/* mandatory= */ true,
-			NULL, NULL, NULL, 0, /* is_symlink= */ false)) {
+			/* mandatory= */ true, NULL, NULL, NULL, 0, /* is_symlink= */ false)) {
 			return false;
 		}
 	}
 	if (nsjconf->chroot) {
-		if (!mountAddMountPtHead(nsjconf, nsjconf->chroot, "/", /* fs_type= */ "", /* options= */ "",
-			nsjconf->is_root_rw ? (MS_BIND | MS_REC | MS_PRIVATE) : (MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY),
+		if (!mountAddMountPtHead(nsjconf, nsjconf->chroot, "/", /* fs_type= */ "",
+			/* options= */ "",
+			nsjconf->is_root_rw ? (MS_BIND | MS_REC | MS_PRIVATE)
+					    : (MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY),
 			/* isDir= */ true, /* mandatory= */ true, NULL, NULL, NULL, 0,
 			/* is_symlink= */ false)) {
 			return false;
@@ -768,8 +762,7 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf)
 	} else {
 		if (!mountAddMountPtHead(nsjconf, /* src= */ NULL, "/", "tmpfs", /* options= */ "",
 			nsjconf->is_root_rw ? 0 : MS_RDONLY, /* isDir= */ true,
-			/* mandatory= */ true,
-			NULL, NULL, NULL, 0, /* is_symlink= */ false)) {
+			/* mandatory= */ true, NULL, NULL, NULL, 0, /* is_symlink= */ false)) {
 			return false;
 		}
 	}

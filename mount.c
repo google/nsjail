@@ -81,8 +81,8 @@ const char* mountFlagsToStr(uintptr_t flags)
 
 	for (size_t i = 0; i < ARRAYSIZE(mountFlags); i++) {
 		if (flags & mountFlags[i].flag) {
-			utilSSnPrintf(mountFlagsStr, sizeof(mountFlagsStr), "%s|",
-			    mountFlags[i].name);
+			utilSSnPrintf(
+			    mountFlagsStr, sizeof(mountFlagsStr), "%s|", mountFlags[i].name);
 		}
 	}
 
@@ -169,9 +169,10 @@ static bool mountMount(struct mounts_t* mpt, const char* newroot, const char* tm
 
 	if (mpt->src_content) {
 		static uint64_t df_counter = 0;
-		snprintf(srcpath, sizeof(srcpath), "%s/dynamic_file.%" PRIu64, tmpdir,
-		    ++df_counter);
-		int fd = TEMP_FAILURE_RETRY(open(srcpath, O_CREAT | O_EXCL | O_CLOEXEC | O_WRONLY, 0644));
+		snprintf(
+		    srcpath, sizeof(srcpath), "%s/dynamic_file.%" PRIu64, tmpdir, ++df_counter);
+		int fd = TEMP_FAILURE_RETRY(
+		    open(srcpath, O_CREAT | O_EXCL | O_CLOEXEC | O_WRONLY, 0644));
 		if (fd < 0) {
 			PLOG_W("open(srcpath, O_CREAT|O_EXCL|O_CLOEXEC|O_WRONLY, 0644) failed");
 			return false;
@@ -192,7 +193,8 @@ static bool mountMount(struct mounts_t* mpt, const char* newroot, const char* tm
 	if (mount(srcpath, dst, mpt->fs_type, flags, mpt->options) == -1) {
 		if (errno == EACCES) {
 			PLOG_W("mount('%s') src:'%s' dst:'%s' failed. "
-			       "Try fixing this problem by applying 'chmod o+x' to the '%s' directory and "
+			       "Try fixing this problem by applying 'chmod o+x' to the '%s' "
+			       "directory and "
 			       "its ancestors",
 			    mountDescribeMountPt(mpt), srcpath, dst, srcpath);
 		} else {
@@ -293,7 +295,8 @@ static bool mountInitNsInternal(struct nsjconf_t* nsjconf)
 	 */
 	if (nsjconf->clone_newns == false) {
 		if (nsjconf->chroot == NULL) {
-			PLOG_E("--chroot was not specified, and it's required when not using CLONE_NEWNS");
+			PLOG_E("--chroot was not specified, and it's required when not using "
+			       "CLONE_NEWNS");
 			return false;
 		}
 		if (chroot(nsjconf->chroot) == -1) {
@@ -351,11 +354,11 @@ static bool mountInitNsInternal(struct nsjconf_t* nsjconf)
 		return false;
 	}
 	/*
-	 * This requires some explanation: It's actually possible to pivot_root('/', '/'). After this
-	 * operation has been completed, the old root is mounted over the new root, and it's OK to
-	 * simply umount('/') now, and to have new_root as '/'. This allows us not care about
-	 * providing any special directory for old_root, which is sometimes not easy, given that e.g.
-	 * /tmp might not always be present inside new_root
+	 * This requires some explanation: It's actually possible to pivot_root('/', '/'). After
+	 * this operation has been completed, the old root is mounted over the new root, and it's OK
+	 * to simply umount('/') now, and to have new_root as '/'. This allows us not care about
+	 * providing any special directory for old_root, which is sometimes not easy, given that
+	 * e.g. /tmp might not always be present inside new_root
 	 */
 	if (syscall(__NR_pivot_root, destdir, destdir) == -1) {
 		PLOG_E("pivot_root('%s', '%s')", destdir, destdir);
@@ -410,9 +413,9 @@ bool mountInitNs(struct nsjconf_t* nsjconf)
 }
 
 static bool mountAddMountPt(struct nsjconf_t* nsjconf, bool head, const char* src, const char* dst,
-    const char* fstype, const char* options, uintptr_t flags, isDir_t isDir,
-    bool mandatory, const char* src_env, const char* dst_env,
-    const char* src_content, size_t src_content_len, bool is_symlink)
+    const char* fstype, const char* options, uintptr_t flags, isDir_t isDir, bool mandatory,
+    const char* src_env, const char* dst_env, const char* src_content, size_t src_content_len,
+    bool is_symlink)
 {
 	struct mounts_t* p = utilCalloc(sizeof(struct mounts_t));
 
@@ -488,23 +491,21 @@ static bool mountAddMountPt(struct nsjconf_t* nsjconf, bool head, const char* sr
 }
 
 bool mountAddMountPtHead(struct nsjconf_t* nsjconf, const char* src, const char* dst,
-    const char* fstype, const char* options, uintptr_t flags, isDir_t isDir,
-    bool mandatory, const char* src_env, const char* dst_env,
-    const char* src_content, size_t src_content_len, bool is_symlink)
+    const char* fstype, const char* options, uintptr_t flags, isDir_t isDir, bool mandatory,
+    const char* src_env, const char* dst_env, const char* src_content, size_t src_content_len,
+    bool is_symlink)
 {
 	return mountAddMountPt(nsjconf, /* head= */ true, src, dst, fstype, options, flags, isDir,
-	    mandatory, src_env, dst_env, src_content, src_content_len,
-	    is_symlink);
+	    mandatory, src_env, dst_env, src_content, src_content_len, is_symlink);
 }
 
 bool mountAddMountPtTail(struct nsjconf_t* nsjconf, const char* src, const char* dst,
-    const char* fstype, const char* options, uintptr_t flags, isDir_t isDir,
-    bool mandatory, const char* src_env, const char* dst_env,
-    const char* src_content, size_t src_content_len, bool is_symlink)
+    const char* fstype, const char* options, uintptr_t flags, isDir_t isDir, bool mandatory,
+    const char* src_env, const char* dst_env, const char* src_content, size_t src_content_len,
+    bool is_symlink)
 {
 	return mountAddMountPt(nsjconf, /* head= */ false, src, dst, fstype, options, flags, isDir,
-	    mandatory, src_env, dst_env, src_content, src_content_len,
-	    is_symlink);
+	    mandatory, src_env, dst_env, src_content, src_content_len, is_symlink);
 }
 
 const char* mountDescribeMountPt(struct mounts_t* mpt)

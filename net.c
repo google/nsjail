@@ -127,16 +127,14 @@ bool netInitNsFromParent(struct nsjconf_t* nsjconf, int pid)
 		return true;
 	}
 
-	LOG_D("Putting iface:'%s' into namespace of PID:%d (with /sbin/ip)", nsjconf->iface_vs,
-	    pid);
+	LOG_D(
+	    "Putting iface:'%s' into namespace of PID:%d (with /sbin/ip)", nsjconf->iface_vs, pid);
 
 	char pid_str[256];
 	snprintf(pid_str, sizeof(pid_str), "%d", pid);
 
-	const char* argv[] = {
-		"/sbin/ip", "link", "add", "link", (char*)nsjconf->iface_vs, "name", IFACE_NAME,
-		"netns", pid_str, "type", "macvlan", "mode", "bridge", NULL
-	};
+	const char* argv[] = { "/sbin/ip", "link", "add", "link", (char*)nsjconf->iface_vs, "name",
+		IFACE_NAME, "netns", pid_str, "type", "macvlan", "mode", "bridge", NULL };
 	if (subprocSystem(argv, environ) != 0) {
 		LOG_E("Couldn't create MACVTAP interface for '%s'", nsjconf->iface_vs);
 		return false;
@@ -191,7 +189,8 @@ bool netLimitConns(struct nsjconf_t* nsjconf, int connsock)
 int netGetRecvSocket(const char* bindhost, int port)
 {
 	if (port < 1 || port > 65535) {
-		LOG_F("TCP port %d out of bounds (0 <= port <= 65535), specify one with --port <port>",
+		LOG_F("TCP port %d out of bounds (0 <= port <= 65535), specify one with --port "
+		      "<port>",
 		    port);
 	}
 
@@ -205,8 +204,8 @@ int netGetRecvSocket(const char* bindhost, int port)
 
 	struct in6_addr in6a;
 	if (inet_pton(AF_INET6, bindaddr, &in6a) != 1) {
-		PLOG_E("Couldn't convert '%s' (orig:'%s') into AF_INET6 address", bindaddr,
-		    bindhost);
+		PLOG_E(
+		    "Couldn't convert '%s' (orig:'%s') into AF_INET6 address", bindaddr, bindhost);
 		return -1;
 	}
 

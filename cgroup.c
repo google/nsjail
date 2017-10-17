@@ -57,7 +57,8 @@ static bool cgroupInitNsFromParentMem(struct nsjconf_t* nsjconf, pid_t pid)
 		snprintf(mem_max_str, sizeof(mem_max_str), "%zu", nsjconf->cgroup_mem_max);
 		snprintf(fname, sizeof(fname), "%s/memory.limit_in_bytes", mem_cgroup_path);
 		LOG_D("Setting '%s' to '%s'", fname, mem_max_str);
-		if (utilWriteBufToFile(fname, mem_max_str, strlen(mem_max_str), O_WRONLY) == false) {
+		if (utilWriteBufToFile(fname, mem_max_str, strlen(mem_max_str), O_WRONLY)
+		    == false) {
 			LOG_E("Could not update memory cgroup max limit");
 			return false;
 		}
@@ -106,7 +107,8 @@ static bool cgroupInitNsFromParentPids(struct nsjconf_t* nsjconf, pid_t pid)
 		snprintf(pids_max_str, sizeof(pids_max_str), "%zu", nsjconf->cgroup_pids_max);
 		snprintf(fname, sizeof(fname), "%s/pids.max", pids_cgroup_path);
 		LOG_D("Setting '%s' to '%s'", fname, pids_max_str);
-		if (utilWriteBufToFile(fname, pids_max_str, strlen(pids_max_str), O_WRONLY) == false) {
+		if (utilWriteBufToFile(fname, pids_max_str, strlen(pids_max_str), O_WRONLY)
+		    == false) {
 			LOG_E("Could not update pids cgroup max limit");
 			return false;
 		}
@@ -171,7 +173,4 @@ void cgroupFinishFromParent(struct nsjconf_t* nsjconf, pid_t pid)
 	cgroupFinishFromParentPids(nsjconf, pid);
 }
 
-bool cgroupInitNs(void)
-{
-	return true;
-}
+bool cgroupInitNs(void) { return true; }

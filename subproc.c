@@ -92,8 +92,8 @@ static const char* subprocCloneFlagsToStr(uintptr_t flags)
 
 	for (size_t i = 0; i < ARRAYSIZE(cloneFlags); i++) {
 		if (flags & cloneFlags[i].flag) {
-			utilSSnPrintf(cloneFlagName, sizeof(cloneFlagName), "%s|",
-			    cloneFlags[i].name);
+			utilSSnPrintf(
+			    cloneFlagName, sizeof(cloneFlagName), "%s|", cloneFlags[i].name);
 		}
 	}
 
@@ -102,8 +102,8 @@ static const char* subprocCloneFlagsToStr(uintptr_t flags)
 		knownFlagMask |= cloneFlags[i].flag;
 	}
 	if (flags & ~(knownFlagMask)) {
-		utilSSnPrintf(cloneFlagName, sizeof(cloneFlagName), "%#tx|",
-		    flags & ~(knownFlagMask));
+		utilSSnPrintf(
+		    cloneFlagName, sizeof(cloneFlagName), "%#tx|", flags & ~(knownFlagMask));
 	}
 	utilSSnPrintf(cloneFlagName, sizeof(cloneFlagName), "%s", utilSigName(flags & CSIGNAL));
 	return cloneFlagName;
@@ -140,10 +140,7 @@ static int subprocNewProc(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int 
 		clearenv();
 	}
 	struct charptr_t* p;
-	TAILQ_FOREACH(p, &nsjconf->envs, pointers)
-	{
-		putenv((char*)p->val);
-	}
+	TAILQ_FOREACH(p, &nsjconf->envs, pointers) { putenv((char*)p->val); }
 
 	char cs_addr[64];
 	netConnToText(fd_in, true /* remote */, cs_addr, sizeof(cs_addr), NULL);
@@ -169,8 +166,8 @@ static void subprocAdd(struct nsjconf_t* nsjconf, pid_t pid, int sock)
 	struct pids_t* p = utilMalloc(sizeof(struct pids_t));
 	p->pid = pid;
 	p->start = time(NULL);
-	netConnToText(sock, true /* remote */, p->remote_txt, sizeof(p->remote_txt),
-	    &p->remote_addr);
+	netConnToText(
+	    sock, true /* remote */, p->remote_txt, sizeof(p->remote_txt), &p->remote_addr);
 
 	char fname[PATH_MAX];
 	snprintf(fname, sizeof(fname), "/proc/%d/syscall", (int)pid);
@@ -203,10 +200,7 @@ int subprocCount(struct nsjconf_t* nsjconf)
 {
 	int cnt = 0;
 	struct pids_t* p;
-	TAILQ_FOREACH(p, &nsjconf->pids, pointers)
-	{
-		cnt++;
-	}
+	TAILQ_FOREACH(p, &nsjconf->pids, pointers) { cnt++; }
 	return cnt;
 }
 
@@ -259,13 +253,14 @@ static void subprocSeccompViolation(struct nsjconf_t* nsjconf, siginfo_t* si)
 
 	uintptr_t arg1, arg2, arg3, arg4, arg5, arg6, sp, pc;
 	ptrdiff_t sc;
-	int ret = sscanf(buf, "%td %tx %tx %tx %tx %tx %tx %tx %tx", &sc, &arg1, &arg2, &arg3, &arg4,
-	    &arg5, &arg6, &sp, &pc);
+	int ret = sscanf(buf, "%td %tx %tx %tx %tx %tx %tx %tx %tx", &sc, &arg1, &arg2, &arg3,
+	    &arg4, &arg5, &arg6, &sp, &pc);
 	if (ret == 9) {
-		LOG_W("PID: %d, Syscall number: %td, Arguments: %#tx, %#tx, %#tx, %#tx, %#tx, %#tx, "
-		      "SP: %#tx, PC: %#tx, si_syscall: %d, si_errno: %#x",
-		    (int)si->si_pid, sc, arg1, arg2, arg3, arg4, arg5, arg6, sp, pc,
-		    si->si_syscall, si->si_errno);
+		LOG_W(
+		    "PID: %d, Syscall number: %td, Arguments: %#tx, %#tx, %#tx, %#tx, %#tx, %#tx, "
+		    "SP: %#tx, PC: %#tx, si_syscall: %d, si_errno: %#x",
+		    (int)si->si_pid, sc, arg1, arg2, arg3, arg4, arg5, arg6, sp, pc, si->si_syscall,
+		    si->si_errno);
 	} else if (ret == 3) {
 		LOG_W("PID: %d, Syscall number: %d, Seccomp reason: %d, SP: %#tx, PC: %#tx",
 		    (int)si->si_pid, si->si_syscall, si->si_errno, arg1, arg2);
@@ -313,7 +308,8 @@ int subprocReap(struct nsjconf_t* nsjconf)
 				}
 			}
 			if (WIFSIGNALED(status)) {
-				LOG_I("PID: %d (%s) terminated with signal: %s (%d), (PIDs left: %d)",
+				LOG_I(
+				    "PID: %d (%s) terminated with signal: %s (%d), (PIDs left: %d)",
 				    si.si_pid, remote_txt, utilSigName(WTERMSIG(status)),
 				    WTERMSIG(status), subprocCount(nsjconf) - 1);
 				subprocRemove(nsjconf, si.si_pid);
@@ -350,10 +346,7 @@ int subprocReap(struct nsjconf_t* nsjconf)
 void subprocKillAll(struct nsjconf_t* nsjconf)
 {
 	struct pids_t* p;
-	TAILQ_FOREACH(p, &nsjconf->pids, pointers)
-	{
-		kill(p->pid, SIGKILL);
-	}
+	TAILQ_FOREACH(p, &nsjconf->pids, pointers) { kill(p->pid, SIGKILL); }
 }
 
 static bool subprocInitParent(struct nsjconf_t* nsjconf, pid_t pid, int pipefd)
@@ -370,7 +363,8 @@ static bool subprocInitParent(struct nsjconf_t* nsjconf, pid_t pid, int pipefd)
 		LOG_E("Couldn't initialize user namespaces for pid %d", pid);
 		return false;
 	}
-	if (utilWriteToFd(pipefd, &subprocDoneChar, sizeof(subprocDoneChar)) != sizeof(subprocDoneChar)) {
+	if (utilWriteToFd(pipefd, &subprocDoneChar, sizeof(subprocDoneChar))
+	    != sizeof(subprocDoneChar)) {
 		LOG_E("Couldn't signal the new process via a socketpair");
 		return false;
 	}
@@ -403,8 +397,9 @@ pid_t subprocClone(uintptr_t flags)
 	if (setjmp(env) == 0) {
 		LOG_D("Cloning process with flags:%s", subprocCloneFlagsToStr(flags));
 		/*
-		 * Avoid the problem of the stack growing up/down under different CPU architectures, by using
-		 * middle of the static stack buffer (which is temporary, and used only inside of subprocCloneFunc
+		 * Avoid the problem of the stack growing up/down under different CPU architectures,
+		 * by using middle of the static stack buffer (which is temporary, and used only
+		 * inside of subprocCloneFunc
 		 */
 		void* stack = &subprocCloneStack[sizeof(subprocCloneStack) / 2];
 		/* Parent */
@@ -456,7 +451,8 @@ void subprocRunChild(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_er
 	close(child_fd);
 	if (pid == -1) {
 		PLOG_E("clone(flags=%s) failed. You probably need root privileges if your system "
-		       "doesn't support CLONE_NEWUSER. Alternatively, you might want to recompile your "
+		       "doesn't support CLONE_NEWUSER. Alternatively, you might want to recompile "
+		       "your "
 		       "kernel with support for namespaces or check the setting of the "
 		       "kernel.unprivileged_userns_clone sysctl",
 		    subprocCloneFlagsToStr(flags));

@@ -66,7 +66,4 @@ static bool sandboxPrepareAndCommit(struct nsjconf_t* nsjconf)
 	return true;
 }
 
-bool sandboxApply(struct nsjconf_t* nsjconf)
-{
-	return sandboxPrepareAndCommit(nsjconf);
-}
+bool sandboxApply(struct nsjconf_t* nsjconf) { return sandboxPrepareAndCommit(nsjconf); }

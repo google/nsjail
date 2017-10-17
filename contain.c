@@ -47,30 +47,15 @@
 #include "util.h"
 #include "uts.h"
 
-static bool containUserNs(struct nsjconf_t* nsjconf)
-{
-	return userInitNsFromChild(nsjconf);
-}
+static bool containUserNs(struct nsjconf_t* nsjconf) { return userInitNsFromChild(nsjconf); }
 
-static bool containInitPidNs(struct nsjconf_t* nsjconf)
-{
-	return pidInitNs(nsjconf);
-}
+static bool containInitPidNs(struct nsjconf_t* nsjconf) { return pidInitNs(nsjconf); }
 
-static bool containInitNetNs(struct nsjconf_t* nsjconf)
-{
-	return netInitNsFromChild(nsjconf);
-}
+static bool containInitNetNs(struct nsjconf_t* nsjconf) { return netInitNsFromChild(nsjconf); }
 
-static bool containInitUtsNs(struct nsjconf_t* nsjconf)
-{
-	return utsInitNs(nsjconf);
-}
+static bool containInitUtsNs(struct nsjconf_t* nsjconf) { return utsInitNs(nsjconf); }
 
-static bool containInitCgroupNs(void)
-{
-	return cgroupInitNs();
-}
+static bool containInitCgroupNs(void) { return cgroupInitNs(); }
 
 static bool containDropPrivs(struct nsjconf_t* nsjconf)
 {
@@ -111,15 +96,9 @@ static bool containPrepareEnv(struct nsjconf_t* nsjconf)
 	return true;
 }
 
-static bool containInitMountNs(struct nsjconf_t* nsjconf)
-{
-	return mountInitNs(nsjconf);
-}
+static bool containInitMountNs(struct nsjconf_t* nsjconf) { return mountInitNs(nsjconf); }
 
-static bool containCPU(struct nsjconf_t* nsjconf)
-{
-	return cpuInit(nsjconf);
-}
+static bool containCPU(struct nsjconf_t* nsjconf) { return cpuInit(nsjconf); }
 
 static bool containSetLimits(struct nsjconf_t* nsjconf)
 {
