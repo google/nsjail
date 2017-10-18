@@ -124,7 +124,7 @@ static bool mountMount(struct mounts_t* mpt, const char* newroot, const char* tm
 	char dst[PATH_MAX];
 	snprintf(dst, sizeof(dst), "%s/%s", newroot, mpt->dst);
 
-	LOG_D("mounting '%s'", mountDescribeMountPt(mpt));
+	LOG_D("Mounting '%s'", mountDescribeMountPt(mpt));
 
 	char srcpath[PATH_MAX];
 	if (mpt->src != NULL && strlen(mpt->src) > 0) {
@@ -133,12 +133,12 @@ static bool mountMount(struct mounts_t* mpt, const char* newroot, const char* tm
 		snprintf(srcpath, sizeof(srcpath), "none");
 	}
 
-	if (mpt->isSymlink == true) {
+	if (mpt->isSymlink) {
 		if (utilCreateDirRecursively(dst) == false) {
 			LOG_W("Couldn't create upper directories for '%s'", dst);
 			return false;
 		}
-	} else if (mpt->isDir == true) {
+	} else if (mpt->isDir) {
 		if (utilCreateDirRecursively(dst) == false) {
 			LOG_W("Couldn't create upper directories for '%s'", dst);
 			return false;
@@ -159,7 +159,7 @@ static bool mountMount(struct mounts_t* mpt, const char* newroot, const char* tm
 		}
 	}
 
-	if (mpt->isSymlink == true) {
+	if (mpt->isSymlink) {
 		LOG_D("symlink('%s', '%s')", srcpath, dst);
 		if (symlink(srcpath, dst) == -1) {
 			if (mpt->mandatory) {
@@ -222,10 +222,10 @@ static bool mountRemountRO(struct mounts_t* mpt)
 	if (!mpt->mounted) {
 		return true;
 	}
-	if (mpt->isSymlink == true) {
+	if (mpt->isSymlink) {
 		return true;
 	}
-	if (!(mpt->flags & MS_RDONLY)) {
+	if ((mpt->flags & MS_RDONLY) == 0) {
 		return true;
 	}
 
@@ -240,7 +240,7 @@ static bool mountRemountRO(struct mounts_t* mpt)
 	 * the flag in `f_flag'.  These definitions should be
 	 * kept in sync with the definitions in <sys/mount.h>'
 	 */
-	unsigned long new_flags = MS_REMOUNT | MS_BIND | MS_PRIVATE | MS_RDONLY | vfs.f_flag;
+	unsigned long new_flags = MS_REMOUNT | MS_RDONLY | vfs.f_flag;
 
 	LOG_D("Re-mounting R/O '%s' (flags:%s)", mpt->dst, mountFlagsToStr(new_flags));
 
