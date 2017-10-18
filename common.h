@@ -24,6 +24,7 @@
 
 #include <limits.h>
 #include <netinet/ip6.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <sys/queue.h>

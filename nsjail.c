@@ -76,20 +76,10 @@ static bool nsjailSetSigHandler(int sig)
 
 static bool nsjailSetSigHandlers(void)
 {
-	if (nsjailSetSigHandler(SIGINT) == false) {
-		return false;
-	}
-	if (nsjailSetSigHandler(SIGUSR1) == false) {
-		return false;
-	}
-	if (nsjailSetSigHandler(SIGALRM) == false) {
-		return false;
-	}
-	if (nsjailSetSigHandler(SIGCHLD) == false) {
-		return false;
-	}
-	if (nsjailSetSigHandler(SIGTERM) == false) {
-		return false;
+	for (size_t i = 0; i < ARRAYSIZE(nssigs); i++) {
+		if (!nsjailSetSigHandler(nssigs[i])) {
+			return false;
+		}
 	}
 	return true;
 }

@@ -23,6 +23,14 @@
 #ifndef NS_NSJAIL_H
 #define NS_NSJAIL_H
 
-#include "common.h"
+#include <signal.h>
+
+static const int nssigs[] = {
+	SIGINT,
+	SIGUSR1,
+	SIGALRM,
+	SIGCHLD,
+	SIGTERM,
+};
 
 #endif /* _NSJAIL_H */

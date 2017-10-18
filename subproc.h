@@ -24,6 +24,8 @@
 
 #include "common.h"
 
+#include "nsjail.h"
+
 #include <inttypes.h>
 #include <unistd.h>
 

@@ -109,9 +109,25 @@ static const char* subprocCloneFlagsToStr(uintptr_t flags)
 	return cloneFlagName;
 }
 
+/* Reset the execution environment for the new process */
+static bool subprocReset(void)
+{
+	for (size_t i = 0; i < ARRAYSIZE(nssigs); i++) {
+		if (signal(nssigs[i], SIG_DFL) == SIG_ERR) {
+			PLOG_W("signal(%s, SIG_DFL)", utilSigName(nssigs[i]));
+			return false;
+		}
+	}
+	return true;
+}
+
 static int subprocNewProc(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err, int pipefd)
 {
 	if (containSetupFD(nsjconf, fd_in, fd_out, fd_err) == false) {
+		exit(0xff);
+	}
+
+	if (!subprocReset()) {
 		exit(0xff);
 	}
 
