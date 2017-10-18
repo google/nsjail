@@ -24,7 +24,7 @@
 
 #include <stdbool.h>
 
-#include "common.h"
+#include "nsjail.h"
 
 bool sandboxApply(struct nsjconf_t* nsjconf);
 

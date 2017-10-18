@@ -23,9 +23,8 @@
 #define NS_CPU_H
 
 #include <stdbool.h>
-#include <stddef.h>
 
-#include "common.h"
+#include "nsjail.h"
 
 bool cpuInit(struct nsjconf_t* nsjconf);
 

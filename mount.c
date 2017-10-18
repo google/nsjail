@@ -23,6 +23,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <linux/sched.h>
 #include <sched.h>
 #include <stdio.h>

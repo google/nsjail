@@ -23,8 +23,9 @@
 #define NS_MOUNT_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
-#include "common.h"
+#include "nsjail.h"
 
 typedef enum {
 	NS_DIR_NO = 0,

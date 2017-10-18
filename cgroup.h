@@ -25,7 +25,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#include "common.h"
+#include "nsjail.h"
 
 bool cgroupInitNsFromParent(struct nsjconf_t* nsjconf, pid_t pid);
 bool cgroupInitNs(void);

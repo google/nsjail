@@ -23,9 +23,8 @@
 #define NS_UTS_H
 
 #include <stdbool.h>
-#include <stddef.h>
 
-#include "common.h"
+#include "nsjail.h"
 
 bool utsInitNs(struct nsjconf_t* nsjconf);
 

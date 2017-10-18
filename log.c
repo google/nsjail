@@ -18,6 +18,7 @@
    limitations under the License.
 
 */
+
 #include "log.h"
 
 #include <errno.h>
@@ -33,6 +34,8 @@
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
+
+#include "nsjail.h"
 
 static int log_fd = STDERR_FILENO;
 static bool log_fd_isatty = true;

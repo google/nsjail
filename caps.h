@@ -22,7 +22,10 @@
 #ifndef NS_CAPS_H
 #define NS_CAPS_H
 
-#include "common.h"
+#include <stdbool.h>
+#include <stdint.h>
+
+#include "nsjail.h"
 
 int capsNameToVal(const char* name);
 bool capsInitNs(struct nsjconf_t* nsjconf);

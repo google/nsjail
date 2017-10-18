@@ -25,7 +25,7 @@
 #include <getopt.h>
 #include <stdbool.h>
 
-#include "common.h"
+#include "nsjail.h"
 
 #define LOG_HELP(...) logLog(HELP, __func__, __LINE__, false, __VA_ARGS__);
 #define LOG_HELP_BOLD(...) logLog(HELP_BOLD, __func__, __LINE__, false, __VA_ARGS__);

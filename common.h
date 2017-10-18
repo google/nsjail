@@ -1,6 +1,6 @@
 /*
 
-   nsjail - common structures
+   nsjail - common macros
    -----------------------------------------
 
    Copyright 2014 Google Inc. All Rights Reserved.
@@ -21,15 +21,6 @@
 
 #ifndef NS_COMMON_H
 #define NS_COMMON_H
-
-#include <limits.h>
-#include <netinet/ip6.h>
-#include <signal.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <sys/queue.h>
-#include <sys/resource.h>
-#include <sys/types.h>
 
 #define ARRAYSIZE(array) (sizeof(array) / sizeof(*array))
 #define UNUSED __attribute__((unused))
@@ -64,141 +55,5 @@ static void __attribute__ ((unused)) __clang_cleanup_func(void (^*dfunc) (void))
 	{                                                                                          \
 		x, #x                                                                              \
 	}
-
-struct pids_t {
-	pid_t pid;
-	time_t start;
-	char remote_txt[64];
-	struct sockaddr_in6 remote_addr;
-	int pid_syscall_fd;
-	TAILQ_ENTRY(pids_t)
-	pointers;
-};
-
-struct mounts_t {
-	const char* src;
-	const uint8_t* src_content;
-	size_t src_content_len;
-	const char* dst;
-	const char* fs_type;
-	const char* options;
-	uintptr_t flags;
-	bool isDir;
-	bool isSymlink;
-	bool mandatory;
-	bool mounted;
-	TAILQ_ENTRY(mounts_t)
-	pointers;
-};
-
-struct idmap_t {
-	uid_t inside_id;
-	uid_t outside_id;
-	size_t count;
-	bool is_newidmap;
-	TAILQ_ENTRY(idmap_t)
-	pointers;
-};
-
-struct ints_t {
-	int val;
-	TAILQ_ENTRY(ints_t)
-	pointers;
-};
-
-enum ns_mode_t {
-	MODE_LISTEN_TCP = 0,
-	MODE_STANDALONE_ONCE,
-	MODE_STANDALONE_EXECVE,
-	MODE_STANDALONE_RERUN
-};
-
-struct charptr_t {
-	const char* val;
-	TAILQ_ENTRY(charptr_t)
-	pointers;
-};
-
-enum llevel_t {
-	DEBUG = 0,
-	INFO,
-	WARNING,
-	ERROR,
-	FATAL,
-	HELP,
-	HELP_BOLD,
-};
-
-struct nsjconf_t {
-	const char* exec_file;
-	const char* hostname;
-	const char* cwd;
-	const char** argv;
-	int port;
-	const char* bindhost;
-	int log_fd;
-	const char* logfile;
-	enum llevel_t loglevel;
-	bool daemonize;
-	time_t tlimit;
-	size_t max_cpus;
-	bool keep_env;
-	bool keep_caps;
-	bool disable_no_new_privs;
-	__rlim64_t rl_as;
-	__rlim64_t rl_core;
-	__rlim64_t rl_cpu;
-	__rlim64_t rl_fsize;
-	__rlim64_t rl_nofile;
-	__rlim64_t rl_nproc;
-	__rlim64_t rl_stack;
-	unsigned long personality;
-	bool clone_newnet;
-	bool clone_newuser;
-	bool clone_newns;
-	bool clone_newpid;
-	bool clone_newipc;
-	bool clone_newuts;
-	bool clone_newcgroup;
-	enum ns_mode_t mode;
-	const char* chroot;
-	bool is_root_rw;
-	bool is_silent;
-	bool skip_setsid;
-	unsigned int max_conns_per_ip;
-	size_t tmpfs_size;
-	bool mount_proc;
-	const char* proc_path;
-	bool is_proc_rw;
-	bool iface_no_lo;
-	const char* iface_vs;
-	const char* iface_vs_ip;
-	const char* iface_vs_nm;
-	const char* iface_vs_gw;
-	const char* cgroup_mem_mount;
-	const char* cgroup_mem_parent;
-	size_t cgroup_mem_max;
-	const char* cgroup_pids_mount;
-	const char* cgroup_pids_parent;
-	size_t cgroup_pids_max;
-	FILE* kafel_file;
-	char* kafel_string;
-	uid_t orig_euid;
-	long num_cpus;
-	TAILQ_HEAD(udmaplist, idmap_t)
-	uids;
-	TAILQ_HEAD(gdmaplist, idmap_t)
-	gids;
-	TAILQ_HEAD(envlist, charptr_t)
-	envs;
-	TAILQ_HEAD(pidslist, pids_t)
-	pids;
-	TAILQ_HEAD(mountptslist, mounts_t)
-	mountpts;
-	TAILQ_HEAD(fdslistt, ints_t)
-	open_fds;
-	TAILQ_HEAD(capslistt, ints_t)
-	caps;
-};
 
 #endif /* NS_COMMON_H */

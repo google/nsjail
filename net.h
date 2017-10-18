@@ -25,7 +25,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#include "common.h"
+#include "nsjail.h"
 
 bool netLimitConns(struct nsjconf_t* nsjconf, int connsock);
 int netGetRecvSocket(const char* bindhost, int port);

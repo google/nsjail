@@ -24,7 +24,7 @@
 
 #include <stdbool.h>
 
-#include "common.h"
+#include "nsjail.h"
 
 bool userInitNsFromParent(struct nsjconf_t* nsjconf, pid_t pid);
 bool userInitNsFromChild(struct nsjconf_t* nsjconf);

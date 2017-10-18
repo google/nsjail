@@ -24,6 +24,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <grp.h>
+#include <limits.h>
 #include <linux/securebits.h>
 #include <pwd.h>
 #include <stdbool.h>

@@ -96,21 +96,23 @@ indent:
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 
-nsjail.o: nsjail.h common.h caps.h cmdline.h log.h net.h subproc.h util.h
-caps.o: caps.h common.h log.h util.h
-cmdline.o: cmdline.h common.h caps.h config.h log.h mount.h user.h util.h
-contain.o: contain.h common.h caps.h cgroup.h cpu.h log.h mount.h net.h pid.h
-contain.o: user.h util.h uts.h
-log.o: log.h common.h
-cgroup.o: cgroup.h common.h log.h util.h
-mount.o: mount.h common.h log.h subproc.h util.h
-net.o: net.h common.h log.h subproc.h
-pid.o: pid.h common.h log.h subproc.h
-sandbox.o: sandbox.h common.h kafel/include/kafel.h log.h
-subproc.o: subproc.h common.h cgroup.h contain.h log.h net.h sandbox.h user.h
-subproc.o: util.h
-user.o: user.h common.h log.h subproc.h util.h
-util.o: util.h common.h log.h
-uts.o: uts.h common.h log.h
-cpu.o: cpu.h common.h log.h util.h
-config.o: common.h caps.h cmdline.h config.h log.h mount.h user.h util.h
+nsjail.o: nsjail.h caps.h cmdline.h log.h net.h subproc.h common.h util.h
+caps.o: caps.h nsjail.h log.h util.h common.h
+cmdline.o: cmdline.h nsjail.h caps.h config.h common.h log.h mount.h user.h
+cmdline.o: util.h
+contain.o: contain.h nsjail.h caps.h cgroup.h cpu.h log.h mount.h net.h pid.h
+contain.o: user.h util.h common.h uts.h
+log.o: log.h nsjail.h
+cgroup.o: cgroup.h nsjail.h log.h util.h common.h
+mount.o: mount.h nsjail.h log.h subproc.h common.h util.h
+net.o: net.h nsjail.h log.h subproc.h common.h
+pid.o: pid.h nsjail.h log.h subproc.h common.h
+sandbox.o: sandbox.h nsjail.h common.h kafel/include/kafel.h log.h
+subproc.o: subproc.h common.h nsjail.h cgroup.h contain.h log.h net.h
+subproc.o: sandbox.h user.h util.h
+user.o: user.h nsjail.h log.h subproc.h common.h util.h
+util.o: util.h common.h log.h nsjail.h
+uts.o: uts.h nsjail.h log.h
+cpu.o: cpu.h nsjail.h log.h util.h common.h
+config.o: common.h caps.h nsjail.h cmdline.h config.h log.h mount.h user.h
+config.o: util.h

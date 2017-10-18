@@ -22,10 +22,12 @@
 #ifndef NS_CMDLINE_H
 #define NS_CMDLINE_H
 
+#include <stdbool.h>
+#include <stdint.h>
 #include <sys/resource.h>
 #include <sys/time.h>
 
-#include "common.h"
+#include "nsjail.h"
 
 __rlim64_t cmdlineParseRLimit(int res, const char* optarg, unsigned long mul);
 void cmdlineLogParams(struct nsjconf_t* nsjconf);
