@@ -242,8 +242,7 @@ static bool mountRemountRO(struct mounts_t* mpt)
 	 */
 	unsigned long new_flags = MS_REMOUNT | MS_BIND | MS_PRIVATE | MS_RDONLY | vfs.f_flag;
 
-	LOG_D("Re-mounting R/O '%s' (old_flags:%s, new_flags:%s)", mpt->dst,
-	    mountFlagsToStr(vfs.f_flag), mountFlagsToStr(new_flags));
+	LOG_D("Re-mounting R/O '%s' (flags:%s)", mpt->dst, mountFlagsToStr(new_flags));
 
 	if (mount(mpt->dst, mpt->dst, NULL, new_flags, 0) == -1) {
 		PLOG_W("mount('%s', flags:%s)", mpt->dst, mountFlagsToStr(new_flags));
