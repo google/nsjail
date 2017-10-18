@@ -245,10 +245,10 @@ static bool containMakeFdsCOEProc(struct nsjconf_t* nsjconf)
 
 static bool containMakeFdsCOE(struct nsjconf_t* nsjconf)
 {
-	if (containMakeFdsCOEProc(nsjconf) == true) {
+	if (containMakeFdsCOEProc(nsjconf)) {
 		return true;
 	}
-	if (containMakeFdsCOENaive(nsjconf) == true) {
+	if (containMakeFdsCOENaive(nsjconf)) {
 		return true;
 	}
 	LOG_E("Couldn't mark relevant file-descriptors as close-on-exec with any known method");

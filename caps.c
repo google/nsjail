@@ -177,7 +177,7 @@ static bool CapsInitNsKeepCaps(cap_user_data_t cap_data)
 	/* Copy all permitted caps to the inheritable set */
 	dbgmsg[0] = '\0';
 	for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
-		if (capsGetPermitted(cap_data, capNames[i].val) == true) {
+		if (capsGetPermitted(cap_data, capNames[i].val)) {
 			utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capNames[i].name);
 			capsSetInheritable(cap_data, capNames[i].val);
 		}
@@ -254,10 +254,10 @@ bool capsInitNs(struct nsjconf_t* nsjconf)
 	 * Make sure all other caps (those which were not explicitly requested) are removed from the
 	 * bounding set. We need to have CAP_SETPCAP to do that now
 	 */
-	if (capsGetEffective(cap_data, CAP_SETPCAP) == true) {
+	if (capsGetEffective(cap_data, CAP_SETPCAP)) {
 		dbgmsg[0] = '\0';
 		for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
-			if (capsGetInheritable(cap_data, capNames[i].val) == true) {
+			if (capsGetInheritable(cap_data, capNames[i].val)) {
 				continue;
 			}
 			utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capNames[i].name);

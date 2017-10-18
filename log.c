@@ -57,7 +57,7 @@ bool logInitLogFile(struct nsjconf_t* nsjconf)
 	log_fd = nsjconf->log_fd;
 	log_level = nsjconf->loglevel;
 
-	if (nsjconf->logfile == NULL && nsjconf->daemonize == true) {
+	if (nsjconf->logfile == NULL && nsjconf->daemonize) {
 		nsjconf->logfile = _LOG_DEFAULT_FILE;
 	}
 	if (nsjconf->logfile == NULL) {
@@ -82,7 +82,7 @@ void logLog(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt
 	}
 
 	char strerr[512];
-	if (perr == true) {
+	if (perr) {
 		snprintf(strerr, sizeof(strerr), "%s", strerror(errno));
 	}
 	struct ll_t {
@@ -124,7 +124,7 @@ void logLog(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt
 	va_start(args, fmt);
 	vdprintf(log_fd, fmt, args);
 	va_end(args);
-	if (perr == true) {
+	if (perr) {
 		dprintf(log_fd, ": %s", strerr);
 	}
 	if (log_fd_isatty) {

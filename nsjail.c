@@ -119,7 +119,7 @@ static void nsjailListenMode(struct nsjconf_t* nsjconf)
 			close(listenfd);
 			return;
 		}
-		if (nsjailShowProc == true) {
+		if (nsjailShowProc) {
 			nsjailShowProc = false;
 			subprocDisplay(nsjconf);
 		}
@@ -145,7 +145,7 @@ static int nsjailStandaloneMode(struct nsjconf_t* nsjconf)
 			subprocRunChild(nsjconf, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
 			continue;
 		}
-		if (nsjailShowProc == true) {
+		if (nsjailShowProc) {
 			nsjailShowProc = false;
 			subprocDisplay(nsjconf);
 		}

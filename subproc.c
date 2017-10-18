@@ -534,7 +534,7 @@ int subprocSystem(const char** argv, char** env)
 		if (WIFEXITED(status)) {
 			int exit_code = WEXITSTATUS(status);
 			LOG_D("PID %d exited with exit code: %d", pid, exit_code);
-			if (exec_failed == true) {
+			if (exec_failed) {
 				return -1;
 			} else if (exit_code == 0) {
 				return 0;
