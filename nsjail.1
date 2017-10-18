@@ -34,6 +34,9 @@ Configuration file in the config.proto ProtoBuf format
 \fB\-\-exec_file\fR|\fB\-x\fR VALUE
 File to exec (default: argv[0])
 .TP
+\fB\-\-execute_fd\fR
+Use execveat() to execute a file-descriptor instead of executing the binary path. In such case argv[0]/exec_file denotes a file path before mount namespacing
+.TP
 \fB\-\-chroot\fR|\fB\-c\fR VALUE
 Directory containing / of the jail (default: none)
 .TP
