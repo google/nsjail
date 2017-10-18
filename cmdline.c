@@ -810,7 +810,7 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf)
 	if (nsjconf->use_execveat) {
 #if !defined(__NR_execveat)
 		LOG_E("Your nsjail is compiled without support for the execveat() syscall, yet you "
-		      "specified --execute_fd flag");
+		      "specified the --execute_fd flag");
 		return false;
 #endif /* !defined(__NR_execveat) */
 		if ((nsjconf->exec_fd = open(nsjconf->exec_file, O_RDONLY | O_PATH | O_CLOEXEC))
