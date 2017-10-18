@@ -28,6 +28,8 @@
 #include <pthread.h>
 #include <signal.h>
 #include <stdarg.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -38,6 +40,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "common.h"
 #include "log.h"
 
 void* utilMalloc(size_t sz)

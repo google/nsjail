@@ -24,6 +24,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -32,8 +33,8 @@
 #include <string.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
+#include <sys/queue.h>
 #include <sys/resource.h>
-#include <sys/stat.h>
 #include <unistd.h>
 
 #include "caps.h"
@@ -44,7 +45,6 @@
 #include "net.h"
 #include "pid.h"
 #include "user.h"
-#include "util.h"
 #include "uts.h"
 
 static bool containUserNs(struct nsjconf_t* nsjconf) { return userInitNsFromChild(nsjconf); }

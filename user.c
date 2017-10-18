@@ -29,14 +29,17 @@
 #include <pwd.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/prctl.h>
+#include <sys/queue.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "common.h"
 #include "log.h"
 #include "subproc.h"
 #include "util.h"

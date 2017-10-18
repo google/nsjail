@@ -22,12 +22,11 @@
 #ifndef NS_PROC_H
 #define NS_PROC_H
 
-#include "common.h"
+#include <inttypes.h>
+#include <stdbool.h>
+#include <unistd.h>
 
 #include "nsjail.h"
-
-#include <inttypes.h>
-#include <unistd.h>
 
 void subprocRunChild(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err);
 int subprocCount(struct nsjconf_t* nsjconf);

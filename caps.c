@@ -28,6 +28,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "common.h"
 #include "log.h"
 #include "util.h"
 

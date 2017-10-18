@@ -24,8 +24,8 @@
 #include <linux/sched.h>
 #include <sched.h>
 #include <signal.h>
+#include <stddef.h>
 #include <sys/prctl.h>
-#include <sys/syscall.h>
 #include <unistd.h>
 
 #include "log.h"

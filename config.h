@@ -26,7 +26,10 @@
 extern "C" {
 #endif
 
-#include "common.h"
+#include <stdbool.h>
+
+#include "nsjail.h"
+
 bool configParse(struct nsjconf_t* nsjconf, const char* file);
 
 #ifdef __cplusplus

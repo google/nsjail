@@ -26,7 +26,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "common.h"
+#include "nsjail.h"
 
 void* utilMalloc(size_t sz);
 void* utilCalloc(size_t sz);

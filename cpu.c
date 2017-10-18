@@ -21,7 +21,9 @@
 
 #include "cpu.h"
 
+#include <inttypes.h>
 #include <sched.h>
+#include <stdint.h>
 #include <string.h>
 #include <unistd.h>
 

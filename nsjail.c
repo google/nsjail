@@ -21,7 +21,6 @@
 
 #include "nsjail.h"
 
-#include <errno.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -30,8 +29,8 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-#include "caps.h"
 #include "cmdline.h"
+#include "common.h"
 #include "log.h"
 #include "net.h"
 #include "subproc.h"

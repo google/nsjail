@@ -23,9 +23,9 @@
 
 #include <linux/filter.h>
 #include <linux/seccomp.h>
+#include <stddef.h>
 #include <sys/prctl.h>
 
-#include "common.h"
 #include "kafel.h"
 #include "log.h"
 

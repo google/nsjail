@@ -36,12 +36,11 @@
 #include <strings.h>
 #include <sys/mount.h>
 #include <sys/personality.h>
-#include <sys/stat.h>
-#include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #include "caps.h"
+#include "common.h"
 #include "config.h"
 #include "log.h"
 #include "mount.h"
