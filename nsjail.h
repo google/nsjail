@@ -105,9 +105,12 @@ enum llevel_t {
 
 struct nsjconf_t {
 	const char* exec_file;
+	bool use_execveat;
+	int exec_fd;
+	const char** argv;
 	const char* hostname;
 	const char* cwd;
-	const char** argv;
+	const char* chroot;
 	int port;
 	const char* bindhost;
 	int log_fd;
@@ -135,7 +138,6 @@ struct nsjconf_t {
 	bool clone_newuts;
 	bool clone_newcgroup;
 	enum ns_mode_t mode;
-	const char* chroot;
 	bool is_root_rw;
 	bool is_silent;
 	bool skip_setsid;

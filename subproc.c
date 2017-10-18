@@ -36,6 +36,7 @@
 #include <string.h>
 #include <sys/queue.h>
 #include <sys/socket.h>
+#include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <time.h>
@@ -170,7 +171,17 @@ static int subprocNewProc(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int 
 	if (sandboxApply(nsjconf) == false) {
 		exit(0xff);
 	}
-	execv(nsjconf->exec_file, (char* const*)&nsjconf->argv[0]);
+
+	if (nsjconf->use_execveat) {
+#if defined(__NR_execveat)
+		syscall(__NR_execveat, (uintptr_t)nsjconf->exec_fd, "",
+		    (char* const*)&nsjconf->argv[0], environ, (uintptr_t)AT_EMPTY_PATH);
+#else /* defined(__NR_execveat) */
+		LOG_F("Your system doesn't support execveat() syscall");
+#endif /* defined(__NR_execveat) */
+	} else {
+		execv(nsjconf->exec_file, (char* const*)&nsjconf->argv[0]);
+	}
 
 	PLOG_E("execve('%s') failed", nsjconf->exec_file);
 

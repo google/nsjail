@@ -36,6 +36,8 @@
 #include <strings.h>
 #include <sys/mount.h>
 #include <sys/personality.h>
+#include <sys/stat.h>
+#include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -63,6 +65,7 @@ struct custom_option custom_opts[] = {
         "\tr: Launch a single process on the console with clone/execve, keep doing it forever [MODE_STANDALONE_RERUN]" },
     { { "config", required_argument, NULL, 'C' }, "Configuration file in the config.proto ProtoBuf format (see configs/ directory for examples)" },
     { { "exec_file", required_argument, NULL, 'x' }, "File to exec (default: argv[0])" },
+    { { "execute_fd", no_argument, NULL, 0x0607 }, "Use execveat() to execute a file-descriptor instead of executing the binary path. In such case argv[0]/exec_file denotes a file path before mount namespacing" },
     { { "chroot", required_argument, NULL, 'c' }, "Directory containing / of the jail (default: none)" },
     { { "rw", no_argument, NULL, 0x601 }, "Mount chroot dir (/) R/W (default: R/O)" },
     { { "user", required_argument, NULL, 'u' }, "Username/uid of processess inside the jail (default: your current uid). You can also use inside_ns_uid:outside_ns_uid:count convention here. Can be specified multiple times" },
@@ -312,10 +315,12 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf)
 {
 	(*nsjconf) = (const struct nsjconf_t){
 		.exec_file = NULL,
+		.use_execveat = false,
+		.exec_fd = -1,
+		.argv = NULL,
 		.hostname = "NSJAIL",
 		.cwd = "/",
 		.chroot = NULL,
-		.argv = NULL,
 		.port = 0,
 		.bindhost = "::",
 		.log_fd = STDERR_FILENO,
@@ -556,7 +561,7 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf)
 		case 0x0508:
 			nsjconf->max_cpus = strtoul(optarg, NULL, 0);
 			break;
-		case 0x509: {
+		case 0x0509: {
 			struct ints_t* f = utilMalloc(sizeof(struct ints_t));
 			f->val = capsNameToVal(optarg);
 			if (f->val == -1) {
@@ -580,6 +585,9 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf)
 			break;
 		case 0x0606:
 			nsjconf->is_proc_rw = true;
+			break;
+		case 0x0607:
+			nsjconf->use_execveat = true;
 			break;
 		case 'E': {
 			struct charptr_t* p = utilMalloc(sizeof(struct charptr_t));
@@ -797,6 +805,19 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf)
 	}
 	if (nsjconf->exec_file == NULL) {
 		nsjconf->exec_file = nsjconf->argv[0];
+	}
+
+	if (nsjconf->use_execveat) {
+#if !defined(__NR_execveat)
+		LOG_E("Your nsjail is compiled without support for the execveat() syscall, yet you "
+		      "specified --execute_fd flag");
+		return false;
+#endif /* !defined(__NR_execveat) */
+		if ((nsjconf->exec_fd = open(nsjconf->exec_file, O_RDONLY | O_PATH | O_CLOEXEC))
+		    == -1) {
+			PLOG_W("Couldn't open '%s' file", nsjconf->exec_file);
+			return false;
+		}
 	}
 
 	return true;

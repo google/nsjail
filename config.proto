@@ -68,6 +68,8 @@ message Exe
     repeated string arg = 2;
     /* Override argv[0] */
     optional string arg0 = 3;
+    /* Should execveat() be used to execute a file-descriptor instead? */
+    optional bool exec_fd = 4 [ default = false ];
 }
 message NsJailConfig
 {

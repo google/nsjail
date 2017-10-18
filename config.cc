@@ -296,6 +296,7 @@ static bool configParseInternal(struct nsjconf_t* nsjconf, const nsjail::NsJailC
 		argv.push_back(nullptr);
 		nsjconf->exec_file = DUP_IF_SET(njc.exec_bin(), path);
 		nsjconf->argv = argv.data();
+		nsjconf->use_execveat = njc.exec_bin().exec_fd();
 	}
 
 	return true;
