@@ -33,6 +33,7 @@
 
 static const int nssigs[] = {
 	SIGINT,
+	SIGQUIT,
 	SIGUSR1,
 	SIGALRM,
 	SIGCHLD,

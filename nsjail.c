@@ -47,7 +47,7 @@ static void nsjailSig(int sig)
 	if (sig == SIGCHLD) {
 		return;
 	}
-	if (sig == SIGUSR1) {
+	if (sig == SIGUSR1 || sig == SIGQUIT) {
 		nsjailShowProc = true;
 		return;
 	}
