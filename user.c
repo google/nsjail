@@ -48,16 +48,16 @@ static bool userSetResGid(gid_t gid)
 {
 	LOG_D("setresgid(%d)", gid);
 #if defined(__NR_setresgid32)
-	if (syscall(__NR_setresgid32, (uintptr_t)gid, (uintptr_t)gid, (uintptr_t)gid) == -1
-	    && errno != ENOSYS) {
+	if (syscall(__NR_setresgid32, (uintptr_t)gid, (uintptr_t)gid, (uintptr_t)gid) == -1) {
 		PLOG_W("setresgid32(%d)", (int)gid);
 		return false;
 	}
-#endif /* defined(__NR_setresgid32) */
+#else /* defined(__NR_setresgid32) */
 	if (syscall(__NR_setresgid, (uintptr_t)gid, (uintptr_t)gid, (uintptr_t)gid) == -1) {
 		PLOG_W("setresgid(%d)", gid);
 		return false;
 	}
+#endif /* defined(__NR_setresuid32) */
 	return true;
 }
 
@@ -65,16 +65,16 @@ static bool userSetResUid(uid_t uid)
 {
 	LOG_D("setresuid(%d)", uid);
 #if defined(__NR_setresuid32)
-	if (syscall(__NR_setresuid32, (uintptr_t)uid, (uintptr_t)uid, (uintptr_t)uid) == -1
-	    && errno != ENOSYS) {
+	if (syscall(__NR_setresuid32, (uintptr_t)uid, (uintptr_t)uid, (uintptr_t)uid) == -1) {
 		PLOG_W("setresuid32(%d)", (int)uid);
 		return false;
 	}
-#endif /* defined(__NR_setresuid32) */
+#else /* defined(__NR_setresuid32) */
 	if (syscall(__NR_setresuid, (uintptr_t)uid, (uintptr_t)uid, (uintptr_t)uid) == -1) {
 		PLOG_W("setresuid(%d)", uid);
 		return false;
 	}
+#endif /* defined(__NR_setresuid32) */
 	return true;
 }
 
