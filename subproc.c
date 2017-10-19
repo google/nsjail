@@ -412,8 +412,8 @@ static int subprocCloneFunc(void* arg __attribute__((unused)))
 
 /*
  * Avoid problems with caching of PID/TID in glibc - when using syscall(__NR_clone) glibc doesn't
- * not update internal PID/TID caches, which can lead to invalid values returned by getpid(),
- * or wrong PID/TIDs being used in raise()/abort() functions
+ * update the internal PID/TID caches, what can lead to invalid values being returned by getpid()
+ * or incorrect PID/TIDs used in raise()/abort() functions
  */
 pid_t subprocClone(uintptr_t flags)
 {
@@ -427,7 +427,7 @@ pid_t subprocClone(uintptr_t flags)
 		/*
 		 * Avoid the problem of the stack growing up/down under different CPU architectures,
 		 * by using middle of the static stack buffer (which is temporary, and used only
-		 * inside of subprocCloneFunc
+		 * inside of the subprocCloneFunc()
 		 */
 		void* stack = &subprocCloneStack[sizeof(subprocCloneStack) / 2];
 		/* Parent */
