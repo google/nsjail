@@ -398,9 +398,11 @@ static bool subprocInitParent(struct nsjconf_t* nsjconf, pid_t pid, int pipefd)
 	return true;
 }
 
-/* Will be used inside the child process only, so it's safe to have it in BSS */
-static uint8_t subprocCloneStack[128 * 1024]
-    __attribute__((aligned(__BIGGEST_ALIGNMENT__))); /* 128 KiB */
+/*
+ * Will be used inside the child process only, so it's safe to have it in BSS.
+ * Some CPU archs (e.g. aarch64) must have it aligned. Size: 128 KiB (/2)
+ */
+static uint8_t subprocCloneStack[128 * 1024] __attribute__((aligned(__BIGGEST_ALIGNMENT__)));
 /* Cannot be on the stack, as the child's stack pointer will change after clone() */
 static __thread jmp_buf env;
 
