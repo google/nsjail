@@ -91,7 +91,7 @@ static bool userSetGroups(pid_t pid)
 	char fname[PATH_MAX];
 	snprintf(fname, sizeof(fname), "/proc/%d/setgroups", pid);
 	const char* denystr = "deny";
-	if (utilWriteBufToFile(fname, denystr, strlen(denystr), O_WRONLY) == false) {
+	if (!utilWriteBufToFile(fname, denystr, strlen(denystr), O_WRONLY | O_CLOEXEC)) {
 		LOG_E("utilWriteBufToFile('%s', '%s') failed", fname, denystr);
 		return false;
 	}
@@ -120,7 +120,7 @@ static bool userUidMapSelf(struct nsjconf_t* nsjconf, pid_t pid)
 	}
 
 	LOG_D("Writing '%s' to '%s'", map, fname);
-	if (utilWriteBufToFile(fname, map, strlen(map), O_WRONLY) == false) {
+	if (!utilWriteBufToFile(fname, map, strlen(map), O_WRONLY | O_CLOEXEC)) {
 		LOG_E("utilWriteBufToFile('%s', '%s') failed", fname, map);
 		return false;
 	}
@@ -150,7 +150,7 @@ static bool userGidMapSelf(struct nsjconf_t* nsjconf, pid_t pid)
 	}
 
 	LOG_D("Writing '%s' to '%s'", map, fname);
-	if (utilWriteBufToFile(fname, map, strlen(map), O_WRONLY) == false) {
+	if (!utilWriteBufToFile(fname, map, strlen(map), O_WRONLY | O_CLOEXEC)) {
 		LOG_E("utilWriteBufToFile('%s', '%s') failed", fname, map);
 		return false;
 	}

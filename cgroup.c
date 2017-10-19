@@ -54,8 +54,8 @@ static bool cgroupInitNsFromParentMem(struct nsjconf_t* nsjconf, pid_t pid)
 		snprintf(mem_max_str, sizeof(mem_max_str), "%zu", nsjconf->cgroup_mem_max);
 		snprintf(fname, sizeof(fname), "%s/memory.limit_in_bytes", mem_cgroup_path);
 		LOG_D("Setting '%s' to '%s'", fname, mem_max_str);
-		if (utilWriteBufToFile(fname, mem_max_str, strlen(mem_max_str), O_WRONLY)
-		    == false) {
+		if (!utilWriteBufToFile(
+			fname, mem_max_str, strlen(mem_max_str), O_WRONLY | O_CLOEXEC)) {
 			LOG_E("Could not update memory cgroup max limit");
 			return false;
 		}
@@ -66,7 +66,7 @@ static bool cgroupInitNsFromParentMem(struct nsjconf_t* nsjconf, pid_t pid)
 	 */
 	snprintf(fname, sizeof(fname), "%s/memory.oom_control", mem_cgroup_path);
 	LOG_D("Writting '0' '%s'", fname);
-	if (utilWriteBufToFile(fname, "0", strlen("0"), O_WRONLY) == false) {
+	if (!utilWriteBufToFile(fname, "0", strlen("0"), O_WRONLY | O_CLOEXEC)) {
 		LOG_E("Could not update memory cgroup oom control");
 		return false;
 	}
@@ -75,7 +75,7 @@ static bool cgroupInitNsFromParentMem(struct nsjconf_t* nsjconf, pid_t pid)
 	snprintf(pid_str, sizeof(pid_str), "%d", (int)pid);
 	snprintf(fname, sizeof(fname), "%s/tasks", mem_cgroup_path);
 	LOG_D("Adding PID='%s' to '%s'", pid_str, fname);
-	if (utilWriteBufToFile(fname, pid_str, strlen(pid_str), O_WRONLY) == false) {
+	if (!utilWriteBufToFile(fname, pid_str, strlen(pid_str), O_WRONLY | O_CLOEXEC)) {
 		LOG_E("Could not update memory cgroup task list");
 		return false;
 	}
@@ -104,8 +104,8 @@ static bool cgroupInitNsFromParentPids(struct nsjconf_t* nsjconf, pid_t pid)
 		snprintf(pids_max_str, sizeof(pids_max_str), "%zu", nsjconf->cgroup_pids_max);
 		snprintf(fname, sizeof(fname), "%s/pids.max", pids_cgroup_path);
 		LOG_D("Setting '%s' to '%s'", fname, pids_max_str);
-		if (utilWriteBufToFile(fname, pids_max_str, strlen(pids_max_str), O_WRONLY)
-		    == false) {
+		if (!utilWriteBufToFile(
+			fname, pids_max_str, strlen(pids_max_str), O_WRONLY | O_CLOEXEC)) {
 			LOG_E("Could not update pids cgroup max limit");
 			return false;
 		}
@@ -115,7 +115,7 @@ static bool cgroupInitNsFromParentPids(struct nsjconf_t* nsjconf, pid_t pid)
 	snprintf(pid_str, sizeof(pid_str), "%d", (int)pid);
 	snprintf(fname, sizeof(fname), "%s/tasks", pids_cgroup_path);
 	LOG_D("Adding PID='%s' to '%s'", pid_str, fname);
-	if (utilWriteBufToFile(fname, pid_str, strlen(pid_str), O_WRONLY) == false) {
+	if (!utilWriteBufToFile(fname, pid_str, strlen(pid_str), O_WRONLY | O_CLOEXEC)) {
 		LOG_E("Could not update pids cgroup task list");
 		return false;
 	}
