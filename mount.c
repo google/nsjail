@@ -207,6 +207,7 @@ static bool mountMount(struct mounts_t* mpt, const char* newroot, const char* tm
 			PLOG_W("mount('%s') src:'%s' dst:'%s' failed", mountDescribeMountPt(mpt),
 			    srcpath, dst);
 		}
+		return false;
 	} else {
 		mpt->mounted = true;
 	}
