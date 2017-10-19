@@ -368,6 +368,7 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf)
 		.iface_vs_gw = "0.0.0.0",
 		.kafel_file = NULL,
 		.kafel_string = NULL,
+		.orig_uid = getuid(),
 		.num_cpus = sysconf(_SC_NPROCESSORS_ONLN),
 	};
 
