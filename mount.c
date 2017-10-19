@@ -200,8 +200,7 @@ static bool mountMount(struct mounts_t* mpt, const char* newroot, const char* tm
 		if (errno == EACCES) {
 			PLOG_W("mount('%s') src:'%s' dst:'%s' failed. "
 			       "Try fixing this problem by applying 'chmod o+x' to the '%s' "
-			       "directory and "
-			       "its ancestors",
+			       "directory and its ancestors",
 			    mountDescribeMountPt(mpt), srcpath, dst, srcpath);
 		} else {
 			PLOG_W("mount('%s') src:'%s' dst:'%s' failed", mountDescribeMountPt(mpt),
