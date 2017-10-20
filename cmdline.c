@@ -652,9 +652,8 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf)
 			dst = dst ? dst : optarg;
 			if (!mountAddMountPtTail(nsjconf, /* src= */ optarg, dst, /* fs_type= */ "",
 				/* options= */ "", MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY,
-				/* isDir= */
-				NS_DIR_MAYBE, /* mandatory= */ true, NULL, NULL, NULL, 0,
-				/* is_symlink= */ false)) {
+				/* isDir= */ NS_DIR_MAYBE, /* mandatory= */ true, NULL, NULL, NULL,
+				0, /* is_symlink= */ false)) {
 				return false;
 			}
 		}; break;
@@ -663,18 +662,15 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf)
 			dst = dst ? dst : optarg;
 			if (!mountAddMountPtTail(nsjconf, /* src= */ optarg, dst, /* fs_type= */ "",
 				/* options= */ "", MS_BIND | MS_REC | MS_PRIVATE,
-				/* isDir= */ NS_DIR_MAYBE,
-				/* mandatory= */ true, NULL, NULL, NULL, 0,
-				/* is_symlink= */
-				false)) {
+				/* isDir= */ NS_DIR_MAYBE, /* mandatory= */ true, NULL, NULL, NULL,
+				0, /* is_symlink= */ false)) {
 				return false;
 			}
 		}; break;
 		case 'T': {
 			if (!mountAddMountPtTail(nsjconf, /* src= */ NULL, optarg, "tmpfs",
-				/* options= */ "",
-				/* flags= */ 0, /* isDir= */ true, /* mandatory= */ true, NULL,
-				NULL, NULL, 0,
+				/* options= */ "", /* flags= */ 0, /* isDir= */ NS_DIR_YES,
+				/* mandatory= */ true, NULL, NULL, NULL, 0,
 				/* is_symlink= */ false)) {
 				return false;
 			}
@@ -753,7 +749,7 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf)
 
 	if (nsjconf->mount_proc) {
 		if (!mountAddMountPtTail(nsjconf, /* src= */ NULL, nsjconf->proc_path, "proc", "",
-			nsjconf->is_proc_rw ? 0 : MS_RDONLY, /* isDir= */ true,
+			nsjconf->is_proc_rw ? 0 : MS_RDONLY, /* isDir= */ NS_DIR_YES,
 			/* mandatory= */ true, NULL, NULL, NULL, 0, /* is_symlink= */ false)) {
 			return false;
 		}
@@ -763,13 +759,13 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf)
 			/* options= */ "",
 			nsjconf->is_root_rw ? (MS_BIND | MS_REC | MS_PRIVATE)
 					    : (MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY),
-			/* isDir= */ true, /* mandatory= */ true, NULL, NULL, NULL, 0,
+			/* isDir= */ NS_DIR_YES, /* mandatory= */ true, NULL, NULL, NULL, 0,
 			/* is_symlink= */ false)) {
 			return false;
 		}
 	} else {
 		if (!mountAddMountPtHead(nsjconf, /* src= */ NULL, "/", "tmpfs", /* options= */ "",
-			nsjconf->is_root_rw ? 0 : MS_RDONLY, /* isDir= */ true,
+			nsjconf->is_root_rw ? 0 : MS_RDONLY, /* isDir= */ NS_DIR_YES,
 			/* mandatory= */ true, NULL, NULL, NULL, 0, /* is_symlink= */ false)) {
 			return false;
 		}
