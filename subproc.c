@@ -122,9 +122,9 @@ static bool subprocReset(void)
 	}
 	/* Unblock all signals */
 	sigset_t sset;
-	sigfillset(&sset);
-	if (sigprocmask(SIG_UNBLOCK, &sset, NULL) == -1) {
-		PLOG_W("Couldn't unblock signals via sigprocmask(SIG_UNBLOCK)");
+	sigemptyset(&sset);
+	if (sigprocmask(SIG_SETMASK, &sset, NULL) == -1) {
+		PLOG_W("sigprocmask(SIG_SET, empty)");
 		return false;
 	}
 	return true;
