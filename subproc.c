@@ -113,11 +113,19 @@ static const char* subprocCloneFlagsToStr(uintptr_t flags)
 /* Reset the execution environment for the new process */
 static bool subprocReset(void)
 {
+	/* Set all previously changed signals to their default behavior */
 	for (size_t i = 0; i < ARRAYSIZE(nssigs); i++) {
 		if (signal(nssigs[i], SIG_DFL) == SIG_ERR) {
 			PLOG_W("signal(%s, SIG_DFL)", utilSigName(nssigs[i]));
 			return false;
 		}
+	}
+	/* Unblock all signals */
+	sigset_t sset;
+	sigfillset(&sset);
+	if (sigprocmask(SIG_UNBLOCK, &sset, NULL) == -1) {
+		PLOG_W("Couldn't unblock signals via sigprocmask(SIG_UNBLOCK)");
+		return false;
 	}
 	return true;
 }
@@ -125,33 +133,32 @@ static bool subprocReset(void)
 static int subprocNewProc(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err, int pipefd)
 {
 	if (containSetupFD(nsjconf, fd_in, fd_out, fd_err) == false) {
-		exit(0xff);
+		_exit(0xff);
 	}
-
 	if (!subprocReset()) {
-		exit(0xff);
+		_exit(0xff);
 	}
 
 	if (pipefd == -1) {
 		if (userInitNsFromParent(nsjconf, getpid()) == false) {
 			LOG_E("Couldn't initialize net user namespace");
-			exit(0xff);
+			_exit(0xff);
 		}
 		if (cgroupInitNsFromParent(nsjconf, getpid()) == false) {
 			LOG_E("Couldn't initialize net user namespace");
-			exit(0xff);
+			_exit(0xff);
 		}
 	} else {
 		char doneChar;
 		if (utilReadFromFd(pipefd, &doneChar, sizeof(doneChar)) != sizeof(doneChar)) {
-			exit(0xff);
+			_exit(0xff);
 		}
 		if (doneChar != subprocDoneChar) {
-			exit(0xff);
+			_exit(0xff);
 		}
 	}
 	if (containContain(nsjconf) == false) {
-		exit(0xff);
+		_exit(0xff);
 	}
 	if (nsjconf->keep_env == false) {
 		clearenv();
