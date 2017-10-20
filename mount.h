@@ -28,7 +28,7 @@
 #include "nsjail.h"
 
 typedef enum {
-	NS_DIR_NO = 0,
+	NS_DIR_NO = 0x100,
 	NS_DIR_YES,
 	NS_DIR_MAYBE,
 } isDir_t;
