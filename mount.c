@@ -255,7 +255,7 @@ static bool mountRemountRO(struct mounts_t* mpt)
 static bool mountMkdirAndTest(const char* dir)
 {
 	if (mkdir(dir, 0755) == -1 && errno != EEXIST) {
-		PLOG_W("Couldn't create '%s' directory", dir);
+		PLOG_D("Couldn't create '%s' directory", dir);
 		return false;
 	}
 	if (access(dir, R_OK) == -1) {
