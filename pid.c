@@ -36,6 +36,9 @@ bool pidInitNs(struct nsjconf_t* nsjconf)
 	if (nsjconf->mode != MODE_STANDALONE_EXECVE) {
 		return true;
 	}
+	if (!nsjconf->clone_newpid) {
+		return true;
+	}
 
 	LOG_D("Creating a dummy 'init' process");
 
