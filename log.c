@@ -43,6 +43,8 @@ static enum llevel_t log_level = INFO;
 
 #define _LOG_DEFAULT_FILE "/var/log/nsjail.log"
 
+__attribute__((constructor)) static void log_init(void) { log_fd_isatty = isatty(log_fd); }
+
 /*
  * Log to stderr by default. Use a dup()d fd, because in the future we'll associate the
  * connection socket with fd (0, 1, 2).
