@@ -85,7 +85,7 @@ static bool cgroupInitNsFromParentMem(struct nsjconf_t* nsjconf, pid_t pid)
 
 static bool cgroupInitNsFromParentPids(struct nsjconf_t* nsjconf, pid_t pid)
 {
-	if (nsjconf->cgroup_pids_max == (size_t)0) {
+	if (nsjconf->cgroup_pids_max == 0U) {
 		return true;
 	}
 
@@ -99,9 +99,9 @@ static bool cgroupInitNsFromParentPids(struct nsjconf_t* nsjconf, pid_t pid)
 	}
 
 	char fname[PATH_MAX];
-	if (nsjconf->cgroup_pids_max != (size_t)0) {
+	if (nsjconf->cgroup_pids_max != 0U) {
 		char pids_max_str[512];
-		snprintf(pids_max_str, sizeof(pids_max_str), "%zu", nsjconf->cgroup_pids_max);
+		snprintf(pids_max_str, sizeof(pids_max_str), "%u", nsjconf->cgroup_pids_max);
 		snprintf(fname, sizeof(fname), "%s/pids.max", pids_cgroup_path);
 		LOG_D("Setting '%s' to '%s'", fname, pids_max_str);
 		if (!utilWriteBufToFile(
@@ -125,7 +125,7 @@ static bool cgroupInitNsFromParentPids(struct nsjconf_t* nsjconf, pid_t pid)
 
 static bool cgroupInitNsFromParentNetCls(struct nsjconf_t* nsjconf, pid_t pid)
 {
-	if (nsjconf->cgroup_net_cls_classid == (unsigned int)0) {
+	if (nsjconf->cgroup_net_cls_classid == 0U) {
 		return true;
 	}
 
@@ -139,7 +139,7 @@ static bool cgroupInitNsFromParentNetCls(struct nsjconf_t* nsjconf, pid_t pid)
 	}
 
 	char fname[PATH_MAX];
-	if (nsjconf->cgroup_net_cls_classid != (unsigned int)0) {
+	if (nsjconf->cgroup_net_cls_classid != 0U) {
 		char net_cls_classid_str[512];
 		snprintf(net_cls_classid_str, sizeof(net_cls_classid_str), "0x%x",
 		    nsjconf->cgroup_net_cls_classid);
@@ -195,7 +195,7 @@ void cgroupFinishFromParentMem(struct nsjconf_t* nsjconf, pid_t pid)
 
 void cgroupFinishFromParentPids(struct nsjconf_t* nsjconf, pid_t pid)
 {
-	if (nsjconf->cgroup_pids_max == (size_t)0) {
+	if (nsjconf->cgroup_pids_max == 0) {
 		return;
 	}
 	char pids_cgroup_path[PATH_MAX];

@@ -363,7 +363,7 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf)
 		.cgroup_mem_max = (size_t)0,
 		.cgroup_pids_mount = "/sys/fs/cgroup/pids",
 		.cgroup_pids_parent = "NSJAIL",
-		.cgroup_pids_max = (size_t)0,
+		.cgroup_pids_max = (unsigned int)0,
 		.cgroup_net_cls_mount = "/sys/fs/cgroup/net_cls",
 		.cgroup_net_cls_parent = "NSJAIL",
 		.cgroup_net_cls_classid = (unsigned int)0,
@@ -730,7 +730,7 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf)
 			nsjconf->cgroup_mem_parent = optarg;
 			break;
 		case 0x811:
-			nsjconf->cgroup_pids_max = (size_t)strtoull(optarg, NULL, 0);
+			nsjconf->cgroup_pids_max = (unsigned int)strtoul(optarg, NULL, 0);
 			break;
 		case 0x812:
 			nsjconf->cgroup_pids_mount = optarg;
