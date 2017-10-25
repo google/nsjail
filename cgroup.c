@@ -195,7 +195,7 @@ void cgroupFinishFromParentMem(struct nsjconf_t* nsjconf, pid_t pid)
 
 void cgroupFinishFromParentPids(struct nsjconf_t* nsjconf, pid_t pid)
 {
-	if (nsjconf->cgroup_pids_max == 0) {
+	if (nsjconf->cgroup_pids_max == 0U) {
 		return;
 	}
 	char pids_cgroup_path[PATH_MAX];
@@ -210,7 +210,7 @@ void cgroupFinishFromParentPids(struct nsjconf_t* nsjconf, pid_t pid)
 
 void cgroupFinishFromParentNetCls(struct nsjconf_t* nsjconf, pid_t pid)
 {
-	if (nsjconf->cgroup_net_cls_classid == (size_t)0) {
+	if (nsjconf->cgroup_net_cls_classid == 0U) {
 		return;
 	}
 	char net_cls_cgroup_path[PATH_MAX];
