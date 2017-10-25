@@ -154,13 +154,13 @@ static bool cgroupInitNsFromParentNetCls(struct nsjconf_t* nsjconf, pid_t pid) {
 }
 
 bool cgroupInitNsFromParent(struct nsjconf_t* nsjconf, pid_t pid) {
-	if (cgroupInitNsFromParentMem(nsjconf, pid) == false) {
+	if (!cgroupInitNsFromParentMem(nsjconf, pid)) {
 		return false;
 	}
-	if (cgroupInitNsFromParentPids(nsjconf, pid) == false) {
+	if (!cgroupInitNsFromParentPids(nsjconf, pid)) {
 		return false;
 	}
-	if (cgroupInitNsFromParentNetCls(nsjconf, pid) == false) {
+	if (!cgroupInitNsFromParentNetCls(nsjconf, pid)) {
 		return false;
 	}
 	return true;
