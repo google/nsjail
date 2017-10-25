@@ -220,6 +220,15 @@ Location of pids cgroup FS (default: '/sys/fs/cgroup/pids')
 \fB\-\-cgroup_pids_parent\fR VALUE
 Which pre\-existing pids cgroup to use as a parent (default: 'NSJAIL')
 .TP
+\fB\-\-cgroup_net_cls_classid\fR VALUE
+Class identifier of network packets in the group (default: '0' \- disabled)
+.TP
+\fB\-\-cgroup_net_cls_mount\fR VALUE
+Location of net_cls cgroup FS (default: '/sys/fs/cgroup/net_cls')
+.TP
+\fB\-\-cgroup_net_cls_parent\fR VALUE
+Which pre\-existing net_cls cgroup to use as a parent (default: 'NSJAIL')
+.TP
 \fB\-\-iface_no_lo\fR
 Don't bring up the 'lo' interface
 .TP

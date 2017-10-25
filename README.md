@@ -462,6 +462,12 @@ Options:
 	Location of pids cgroup FS (default: '/sys/fs/cgroup/pids')
  --cgroup_pids_parent VALUE
 	Which pre-existing pids cgroup to use as a parent (default: 'NSJAIL')
+ --cgroup_net_cls_classid VALUE
+	Class identifier of network packets in the group (default: '0' - disabled)
+ --cgroup_net_cls_mount VALUE
+	Location of net_cls cgroup FS (default: '/sys/fs/cgroup/net_cls')
+ --cgroup_net_cls_parent VALUE
+	Which pre-existing net_cls cgroup to use as a parent (default: 'NSJAIL')
  --iface_no_lo 
 	Don't bring up the 'lo' interface
  --macvlan_iface|-I VALUE
