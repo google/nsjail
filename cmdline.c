@@ -127,6 +127,9 @@ struct custom_option custom_opts[] = {
     { { "cgroup_pids_max", required_argument, NULL, 0x0811 }, "Maximum number of pids in a cgroup (default: '0' - disabled)" },
     { { "cgroup_pids_mount", required_argument, NULL, 0x0812 }, "Location of pids cgroup FS (default: '/sys/fs/cgroup/pids')" },
     { { "cgroup_pids_parent", required_argument, NULL, 0x0813 }, "Which pre-existing pids cgroup to use as a parent (default: 'NSJAIL')" },
+    { { "cgroup_net_cls_classid", required_argument, NULL, 0x0821 }, "Class identifier of network packets in the group (default: '0' - disabled)" },
+    { { "cgroup_net_cls_mount", required_argument, NULL, 0x0822 }, "Location of net_cls cgroup FS (default: '/sys/fs/cgroup/net_cls')" },
+    { { "cgroup_net_cls_parent", required_argument, NULL, 0x0823 }, "Which pre-existing net_cls cgroup to use as a parent (default: 'NSJAIL')" },
     { { "iface_no_lo", no_argument, NULL, 0x700 }, "Don't bring the 'lo' interface up" },
     { { "macvlan_iface", required_argument, NULL, 'I' }, "Interface which will be cloned (MACVLAN) and put inside the subprocess' namespace as 'vs'" },
     { { "macvlan_vs_ip", required_argument, NULL, 0x701 }, "IP of the 'vs' interface (e.g. \"192.168.0.1\")" },
@@ -361,6 +364,9 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf)
 		.cgroup_pids_mount = "/sys/fs/cgroup/pids",
 		.cgroup_pids_parent = "NSJAIL",
 		.cgroup_pids_max = (size_t)0,
+		.cgroup_net_cls_mount = "/sys/fs/cgroup/net_cls",
+		.cgroup_net_cls_parent = "NSJAIL",
+		.cgroup_net_cls_classid = (unsigned int)0,
 		.iface_no_lo = false,
 		.iface_vs = NULL,
 		.iface_vs_ip = "0.0.0.0",
@@ -731,6 +737,15 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf)
 			break;
 		case 0x813:
 			nsjconf->cgroup_pids_parent = optarg;
+			break;
+		case 0x821:
+			nsjconf->cgroup_net_cls_classid = (unsigned int)strtoul(optarg, NULL, 0);
+			break;
+		case 0x822:
+			nsjconf->cgroup_net_cls_mount = optarg;
+			break;
+		case 0x823:
+			nsjconf->cgroup_net_cls_parent = optarg;
 			break;
 		case 'P':
 			if ((nsjconf->kafel_file = fopen(optarg, "r")) == NULL) {
