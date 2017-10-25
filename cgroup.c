@@ -141,11 +141,12 @@ static bool cgroupInitNsFromParentNetCls(struct nsjconf_t* nsjconf, pid_t pid)
 	char fname[PATH_MAX];
 	if (nsjconf->cgroup_net_cls_classid != (unsigned int)0) {
 		char net_cls_classid_str[512];
-		snprintf(net_cls_classid_str, sizeof(net_cls_classid_str), "0x%x", nsjconf->cgroup_net_cls_classid);
+		snprintf(net_cls_classid_str, sizeof(net_cls_classid_str), "0x%x",
+		    nsjconf->cgroup_net_cls_classid);
 		snprintf(fname, sizeof(fname), "%s/net_cls.classid", net_cls_cgroup_path);
 		LOG_D("Setting '%s' to '%s'", fname, net_cls_classid_str);
-		if (!utilWriteBufToFile(
-			fname, net_cls_classid_str, strlen(net_cls_classid_str), O_WRONLY | O_CLOEXEC)) {
+		if (!utilWriteBufToFile(fname, net_cls_classid_str, strlen(net_cls_classid_str),
+			O_WRONLY | O_CLOEXEC)) {
 			LOG_E("Could not update net_cls cgroup classid");
 			return false;
 		}

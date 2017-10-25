@@ -261,7 +261,7 @@ void cmdlineLogParams(struct nsjconf_t* nsjconf)
 	}
 }
 
-__rlim64_t cmdlineParseRLimit(int res, const char* optarg, unsigned long mul)
+uint64_t cmdlineParseRLimit(int res, const char* optarg, unsigned long mul)
 {
 	if (strcasecmp(optarg, "inf") == 0) {
 		return RLIM64_INFINITY;
@@ -281,7 +281,7 @@ __rlim64_t cmdlineParseRLimit(int res, const char* optarg, unsigned long mul)
 		      "provided)",
 		    res, optarg);
 	}
-	__rlim64_t val = strtoull(optarg, NULL, 0) * mul;
+	uint64_t val = strtoull(optarg, NULL, 0) * mul;
 	if (val == ULLONG_MAX && errno != 0) {
 		PLOG_F("strtoul('%s', 0)", optarg);
 	}
