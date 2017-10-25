@@ -30,8 +30,7 @@
 #include "log.h"
 #include "util.h"
 
-static void cpuSetRandomCpu(cpu_set_t* mask, size_t mask_size, size_t cpu_num)
-{
+static void cpuSetRandomCpu(cpu_set_t* mask, size_t mask_size, size_t cpu_num) {
 	if ((size_t)CPU_COUNT_S(mask_size, mask) >= cpu_num) {
 		LOG_F(
 		    "Number of CPUs in the mask '%d' is bigger than number of available CPUs '%zu'",
@@ -48,8 +47,7 @@ static void cpuSetRandomCpu(cpu_set_t* mask, size_t mask_size, size_t cpu_num)
 	}
 }
 
-bool cpuInit(struct nsjconf_t* nsjconf)
-{
+bool cpuInit(struct nsjconf_t* nsjconf) {
 	if (nsjconf->num_cpus < 0) {
 		PLOG_W("sysconf(_SC_NPROCESSORS_ONLN) returned %ld", nsjconf->num_cpus);
 		return false;

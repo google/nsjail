@@ -32,12 +32,12 @@
 #include <time.h>
 
 static const int nssigs[] = {
-	SIGINT,
-	SIGQUIT,
-	SIGUSR1,
-	SIGALRM,
-	SIGCHLD,
-	SIGTERM,
+    SIGINT,
+    SIGQUIT,
+    SIGUSR1,
+    SIGALRM,
+    SIGCHLD,
+    SIGTERM,
 };
 
 struct pids_t {

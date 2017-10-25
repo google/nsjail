@@ -50,8 +50,7 @@ extern char** environ;
 #if defined(NSJAIL_NL3_WITH_MACVLAN)
 #include <netlink/route/link.h>
 #include <netlink/route/link/macvlan.h>
-bool netInitNsFromParent(struct nsjconf_t* nsjconf, int pid)
-{
+bool netInitNsFromParent(struct nsjconf_t* nsjconf, int pid) {
 	if (nsjconf->clone_newnet == false) {
 		return true;
 	}
@@ -116,10 +115,9 @@ bool netInitNsFromParent(struct nsjconf_t* nsjconf, int pid)
 	nl_socket_free(sk);
 	return true;
 }
-#else // defined(NSJAIL_NL3_WITH_MACVLAN)
+#else   // defined(NSJAIL_NL3_WITH_MACVLAN)
 
-bool netInitNsFromParent(struct nsjconf_t* nsjconf, int pid)
-{
+bool netInitNsFromParent(struct nsjconf_t* nsjconf, int pid) {
 	if (nsjconf->clone_newnet == false) {
 		return true;
 	}
@@ -133,8 +131,8 @@ bool netInitNsFromParent(struct nsjconf_t* nsjconf, int pid)
 	char pid_str[256];
 	snprintf(pid_str, sizeof(pid_str), "%d", pid);
 
-	const char* argv[] = { "/sbin/ip", "link", "add", "link", (char*)nsjconf->iface_vs, "name",
-		IFACE_NAME, "netns", pid_str, "type", "macvlan", "mode", "bridge", NULL };
+	const char* argv[] = {"/sbin/ip", "link", "add", "link", (char*)nsjconf->iface_vs, "name",
+	    IFACE_NAME, "netns", pid_str, "type", "macvlan", "mode", "bridge", NULL};
 	if (subprocSystem(argv, environ) != 0) {
 		LOG_E("Couldn't create MACVTAP interface for '%s'", nsjconf->iface_vs);
 		return false;
@@ -142,10 +140,9 @@ bool netInitNsFromParent(struct nsjconf_t* nsjconf, int pid)
 
 	return true;
 }
-#endif // defined(NSJAIL_NL3_WITH_MACVLAN)
+#endif  // defined(NSJAIL_NL3_WITH_MACVLAN)
 
-static bool netIsSocket(int fd)
-{
+static bool netIsSocket(int fd) {
 	int optval;
 	socklen_t optlen = sizeof(optval);
 	int ret = getsockopt(fd, SOL_SOCKET, SO_TYPE, &optval, &optlen);
@@ -155,8 +152,7 @@ static bool netIsSocket(int fd)
 	return true;
 }
 
-bool netLimitConns(struct nsjconf_t* nsjconf, int connsock)
-{
+bool netLimitConns(struct nsjconf_t* nsjconf, int connsock) {
 	/* 0 means 'unlimited' */
 	if (nsjconf->max_conns_per_ip == 0) {
 		return true;
@@ -168,11 +164,9 @@ bool netLimitConns(struct nsjconf_t* nsjconf, int connsock)
 
 	unsigned int cnt = 0;
 	struct pids_t* p;
-	TAILQ_FOREACH(p, &nsjconf->pids, pointers)
-	{
+	TAILQ_FOREACH(p, &nsjconf->pids, pointers) {
 		if (memcmp(addr.sin6_addr.s6_addr, p->remote_addr.sin6_addr.s6_addr,
-			sizeof(*p->remote_addr.sin6_addr.s6_addr))
-		    == 0) {
+			sizeof(*p->remote_addr.sin6_addr.s6_addr)) == 0) {
 			cnt++;
 		}
 	}
@@ -186,11 +180,11 @@ bool netLimitConns(struct nsjconf_t* nsjconf, int connsock)
 	return true;
 }
 
-int netGetRecvSocket(const char* bindhost, int port)
-{
+int netGetRecvSocket(const char* bindhost, int port) {
 	if (port < 1 || port > 65535) {
-		LOG_F("TCP port %d out of bounds (0 <= port <= 65535), specify one with --port "
-		      "<port>",
+		LOG_F(
+		    "TCP port %d out of bounds (0 <= port <= 65535), specify one with --port "
+		    "<port>",
 		    port);
 	}
 
@@ -220,11 +214,11 @@ int netGetRecvSocket(const char* bindhost, int port)
 		return -1;
 	}
 	struct sockaddr_in6 addr = {
-		.sin6_family = AF_INET6,
-		.sin6_port = htons(port),
-		.sin6_flowinfo = 0,
-		.sin6_addr = in6a,
-		.sin6_scope_id = 0,
+	    .sin6_family = AF_INET6,
+	    .sin6_port = htons(port),
+	    .sin6_flowinfo = 0,
+	    .sin6_addr = in6a,
+	    .sin6_scope_id = 0,
 	};
 	if (bind(sockfd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
 		close(sockfd);
@@ -244,8 +238,7 @@ int netGetRecvSocket(const char* bindhost, int port)
 	return sockfd;
 }
 
-int netAcceptConn(int listenfd)
-{
+int netAcceptConn(int listenfd) {
 	struct sockaddr_in6 cli_addr;
 	socklen_t socklen = sizeof(cli_addr);
 	int connfd = accept(listenfd, (struct sockaddr*)&cli_addr, &socklen);
@@ -264,8 +257,7 @@ int netAcceptConn(int listenfd)
 	return connfd;
 }
 
-void netConnToText(int fd, bool remote, char* buf, size_t s, struct sockaddr_in6* addr_or_null)
-{
+void netConnToText(int fd, bool remote, char* buf, size_t s, struct sockaddr_in6* addr_or_null) {
 	if (netIsSocket(fd) == false) {
 		snprintf(buf, s, "[STANDALONE_MODE]");
 		return;
@@ -301,8 +293,7 @@ void netConnToText(int fd, bool remote, char* buf, size_t s, struct sockaddr_in6
 	return;
 }
 
-static bool netIfaceUp(const char* ifacename)
-{
+static bool netIfaceUp(const char* ifacename) {
 	int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
 	if (sock == -1) {
 		PLOG_E("socket(AF_INET, SOCK_STREAM, IPPROTO_IP)");
@@ -331,8 +322,7 @@ static bool netIfaceUp(const char* ifacename)
 	return true;
 }
 
-static bool netConfigureVs(struct nsjconf_t* nsjconf)
-{
+static bool netConfigureVs(struct nsjconf_t* nsjconf) {
 	struct ifreq ifr;
 	memset(&ifr, '\0', sizeof(ifr));
 	snprintf(ifr.ifr_name, IF_NAMESIZE, "%s", IFACE_NAME);
@@ -419,8 +409,7 @@ static bool netConfigureVs(struct nsjconf_t* nsjconf)
 	return true;
 }
 
-bool netInitNsFromChild(struct nsjconf_t* nsjconf)
-{
+bool netInitNsFromChild(struct nsjconf_t* nsjconf) {
 	if (nsjconf->clone_newnet == false) {
 		return true;
 	}

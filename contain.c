@@ -57,8 +57,7 @@ static bool containInitUtsNs(struct nsjconf_t* nsjconf) { return utsInitNs(nsjco
 
 static bool containInitCgroupNs(void) { return cgroupInitNs(); }
 
-static bool containDropPrivs(struct nsjconf_t* nsjconf)
-{
+static bool containDropPrivs(struct nsjconf_t* nsjconf) {
 #ifndef PR_SET_NO_NEW_PRIVS
 #define PR_SET_NO_NEW_PRIVS 38
 #endif
@@ -76,8 +75,7 @@ static bool containDropPrivs(struct nsjconf_t* nsjconf)
 	return true;
 }
 
-static bool containPrepareEnv(struct nsjconf_t* nsjconf)
-{
+static bool containPrepareEnv(struct nsjconf_t* nsjconf) {
 	if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0) == -1) {
 		PLOG_E("prctl(PR_SET_PDEATHSIG, SIGKILL)");
 		return false;
@@ -100,8 +98,7 @@ static bool containInitMountNs(struct nsjconf_t* nsjconf) { return mountInitNs(n
 
 static bool containCPU(struct nsjconf_t* nsjconf) { return cpuInit(nsjconf); }
 
-static bool containSetLimits(struct nsjconf_t* nsjconf)
-{
+static bool containSetLimits(struct nsjconf_t* nsjconf) {
 	struct rlimit64 rl;
 	rl.rlim_cur = rl.rlim_max = nsjconf->rl_as;
 	if (setrlimit64(RLIMIT_AS, &rl) == -1) {
@@ -141,11 +138,9 @@ static bool containSetLimits(struct nsjconf_t* nsjconf)
 	return true;
 }
 
-static bool containPassFd(struct nsjconf_t* nsjconf, int fd)
-{
+static bool containPassFd(struct nsjconf_t* nsjconf, int fd) {
 	struct ints_t* p;
-	TAILQ_FOREACH(p, &nsjconf->open_fds, pointers)
-	{
+	TAILQ_FOREACH(p, &nsjconf->open_fds, pointers) {
 		if (p->val == fd) {
 			return true;
 		}
@@ -153,8 +148,7 @@ static bool containPassFd(struct nsjconf_t* nsjconf, int fd)
 	return false;
 }
 
-static bool containMakeFdsCOENaive(struct nsjconf_t* nsjconf)
-{
+static bool containMakeFdsCOENaive(struct nsjconf_t* nsjconf) {
 	/*
 	 * Don't use getrlimit(RLIMIT_NOFILE) here, as it can return an artifically small value
 	 * (e.g. 32), which could be smaller than a maximum assigned number to file-descriptors
@@ -181,8 +175,7 @@ static bool containMakeFdsCOENaive(struct nsjconf_t* nsjconf)
 	return true;
 }
 
-static bool containMakeFdsCOEProc(struct nsjconf_t* nsjconf)
-{
+static bool containMakeFdsCOEProc(struct nsjconf_t* nsjconf) {
 	int dirfd = open("/proc/self/fd", O_DIRECTORY | O_RDONLY | O_CLOEXEC);
 	if (dirfd == -1) {
 		PLOG_D("open('/proc/self/fd', O_DIRECTORY|O_RDONLY)");
@@ -243,8 +236,7 @@ static bool containMakeFdsCOEProc(struct nsjconf_t* nsjconf)
 	return true;
 }
 
-static bool containMakeFdsCOE(struct nsjconf_t* nsjconf)
-{
+static bool containMakeFdsCOE(struct nsjconf_t* nsjconf) {
 	if (containMakeFdsCOEProc(nsjconf)) {
 		return true;
 	}
@@ -255,8 +247,7 @@ static bool containMakeFdsCOE(struct nsjconf_t* nsjconf)
 	return false;
 }
 
-bool containSetupFD(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err)
-{
+bool containSetupFD(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
 	if (nsjconf->mode != MODE_LISTEN_TCP) {
 		if (nsjconf->is_silent == false) {
 			return true;
@@ -282,8 +273,7 @@ bool containSetupFD(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err
 	return true;
 }
 
-bool containContain(struct nsjconf_t* nsjconf)
-{
+bool containContain(struct nsjconf_t* nsjconf) {
 	if (containUserNs(nsjconf) == false) {
 		return false;
 	}

@@ -49,8 +49,7 @@ __attribute__((constructor)) static void log_init(void) { log_fd_isatty = isatty
  * Log to stderr by default. Use a dup()d fd, because in the future we'll associate the
  * connection socket with fd (0, 1, 2).
  */
-bool logInitLogFile(struct nsjconf_t* nsjconf)
-{
+bool logInitLogFile(struct nsjconf_t* nsjconf) {
 	/* Close previous log_fd */
 	if (log_fd > STDERR_FILENO) {
 		close(log_fd);
@@ -66,8 +65,7 @@ bool logInitLogFile(struct nsjconf_t* nsjconf)
 		log_fd = fcntl(log_fd, F_DUPFD_CLOEXEC, 0);
 	} else {
 		if (TEMP_FAILURE_RETRY(
-			log_fd = open(nsjconf->logfile, O_CREAT | O_RDWR | O_APPEND, 0640))
-		    == -1) {
+			log_fd = open(nsjconf->logfile, O_CREAT | O_RDWR | O_APPEND, 0640)) == -1) {
 			log_fd = STDERR_FILENO;
 			PLOG_E("Couldn't open logfile open('%s')", nsjconf->logfile);
 			return false;
@@ -77,8 +75,7 @@ bool logInitLogFile(struct nsjconf_t* nsjconf)
 	return true;
 }
 
-void logLog(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt, ...)
-{
+void logLog(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt, ...) {
 	if (ll < log_level) {
 		return;
 	}
@@ -94,13 +91,13 @@ void logLog(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt
 		const bool print_time;
 	};
 	static struct ll_t const logLevels[] = {
-		{ "D", "\033[0;4m", true, true },
-		{ "I", "\033[1m", false, true },
-		{ "W", "\033[0;33m", true, true },
-		{ "E", "\033[1;31m", true, true },
-		{ "F", "\033[7;35m", true, true },
-		{ "HR", "\033[0m", false, false },
-		{ "HB", "\033[1m", false, false },
+	    {"D", "\033[0;4m", true, true},
+	    {"I", "\033[1m", false, true},
+	    {"W", "\033[0;33m", true, true},
+	    {"E", "\033[1;31m", true, true},
+	    {"F", "\033[7;35m", true, true},
+	    {"HR", "\033[0m", false, false},
+	    {"HB", "\033[1m", false, false},
 	};
 
 	time_t ltstamp = time(NULL);

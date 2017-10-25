@@ -31,8 +31,7 @@
 #include "log.h"
 #include "subproc.h"
 
-bool pidInitNs(struct nsjconf_t* nsjconf)
-{
+bool pidInitNs(struct nsjconf_t* nsjconf) {
 	if (nsjconf->mode != MODE_STANDALONE_EXECVE) {
 		return true;
 	}
@@ -68,9 +67,9 @@ bool pidInitNs(struct nsjconf_t* nsjconf)
 
 	/* Act sort-a like a init by reaping zombie processes */
 	struct sigaction sa = {
-		.sa_handler = SIG_DFL,
-		.sa_flags = SA_NOCLDWAIT | SA_NOCLDSTOP,
-		.sa_restorer = NULL,
+	    .sa_handler = SIG_DFL,
+	    .sa_flags = SA_NOCLDWAIT | SA_NOCLDSTOP,
+	    .sa_restorer = NULL,
 	};
 	sigemptyset(&sa.sa_mask);
 	if (sigaction(SIGCHLD, &sa, NULL) == -1) {

@@ -50,8 +50,7 @@
 #define MS_LAZYTIME (1 << 25)
 #endif /* if !defined(MS_LAZYTIME) */
 
-const char* mountFlagsToStr(uintptr_t flags)
-{
+const char* mountFlagsToStr(uintptr_t flags) {
 	static __thread char mountFlagsStr[1024];
 	mountFlagsStr[0] = '\0';
 
@@ -59,30 +58,30 @@ const char* mountFlagsToStr(uintptr_t flags)
 		const uintptr_t flag;
 		const char* const name;
 	} const mountFlags[] = {
-		NS_VALSTR_STRUCT(MS_RDONLY),
-		NS_VALSTR_STRUCT(MS_NOSUID),
-		NS_VALSTR_STRUCT(MS_NODEV),
-		NS_VALSTR_STRUCT(MS_NOEXEC),
-		NS_VALSTR_STRUCT(MS_SYNCHRONOUS),
-		NS_VALSTR_STRUCT(MS_REMOUNT),
-		NS_VALSTR_STRUCT(MS_MANDLOCK),
-		NS_VALSTR_STRUCT(MS_DIRSYNC),
-		NS_VALSTR_STRUCT(MS_NOATIME),
-		NS_VALSTR_STRUCT(MS_NODIRATIME),
-		NS_VALSTR_STRUCT(MS_BIND),
-		NS_VALSTR_STRUCT(MS_MOVE),
-		NS_VALSTR_STRUCT(MS_REC),
-		NS_VALSTR_STRUCT(MS_SILENT),
-		NS_VALSTR_STRUCT(MS_POSIXACL),
-		NS_VALSTR_STRUCT(MS_UNBINDABLE),
-		NS_VALSTR_STRUCT(MS_PRIVATE),
-		NS_VALSTR_STRUCT(MS_SLAVE),
-		NS_VALSTR_STRUCT(MS_SHARED),
-		NS_VALSTR_STRUCT(MS_RELATIME),
-		NS_VALSTR_STRUCT(MS_KERNMOUNT),
-		NS_VALSTR_STRUCT(MS_I_VERSION),
-		NS_VALSTR_STRUCT(MS_STRICTATIME),
-		NS_VALSTR_STRUCT(MS_LAZYTIME),
+	    NS_VALSTR_STRUCT(MS_RDONLY),
+	    NS_VALSTR_STRUCT(MS_NOSUID),
+	    NS_VALSTR_STRUCT(MS_NODEV),
+	    NS_VALSTR_STRUCT(MS_NOEXEC),
+	    NS_VALSTR_STRUCT(MS_SYNCHRONOUS),
+	    NS_VALSTR_STRUCT(MS_REMOUNT),
+	    NS_VALSTR_STRUCT(MS_MANDLOCK),
+	    NS_VALSTR_STRUCT(MS_DIRSYNC),
+	    NS_VALSTR_STRUCT(MS_NOATIME),
+	    NS_VALSTR_STRUCT(MS_NODIRATIME),
+	    NS_VALSTR_STRUCT(MS_BIND),
+	    NS_VALSTR_STRUCT(MS_MOVE),
+	    NS_VALSTR_STRUCT(MS_REC),
+	    NS_VALSTR_STRUCT(MS_SILENT),
+	    NS_VALSTR_STRUCT(MS_POSIXACL),
+	    NS_VALSTR_STRUCT(MS_UNBINDABLE),
+	    NS_VALSTR_STRUCT(MS_PRIVATE),
+	    NS_VALSTR_STRUCT(MS_SLAVE),
+	    NS_VALSTR_STRUCT(MS_SHARED),
+	    NS_VALSTR_STRUCT(MS_RELATIME),
+	    NS_VALSTR_STRUCT(MS_KERNMOUNT),
+	    NS_VALSTR_STRUCT(MS_I_VERSION),
+	    NS_VALSTR_STRUCT(MS_STRICTATIME),
+	    NS_VALSTR_STRUCT(MS_LAZYTIME),
 	};
 
 	for (size_t i = 0; i < ARRAYSIZE(mountFlags); i++) {
@@ -100,8 +99,7 @@ const char* mountFlagsToStr(uintptr_t flags)
 	return mountFlagsStr;
 }
 
-static bool mountIsDir(const char* path)
-{
+static bool mountIsDir(const char* path) {
 	/*
 	 *  If the source dir is NULL, we assume it's a dir (for /proc and tmpfs)
 	 */
@@ -119,8 +117,7 @@ static bool mountIsDir(const char* path)
 	return false;
 }
 
-static bool mountMount(struct mounts_t* mpt, const char* newroot, const char* tmpdir)
-{
+static bool mountMount(struct mounts_t* mpt, const char* newroot, const char* tmpdir) {
 	char dst[PATH_MAX];
 	snprintf(dst, sizeof(dst), "%s/%s", newroot, mpt->dst);
 
@@ -198,9 +195,10 @@ static bool mountMount(struct mounts_t* mpt, const char* newroot, const char* tm
 	unsigned long flags = mpt->flags & ~(MS_RDONLY);
 	if (mount(srcpath, dst, mpt->fs_type, flags, mpt->options) == -1) {
 		if (errno == EACCES) {
-			PLOG_W("mount('%s') src:'%s' dst:'%s' failed. "
-			       "Try fixing this problem by applying 'chmod o+x' to the '%s' "
-			       "directory and its ancestors",
+			PLOG_W(
+			    "mount('%s') src:'%s' dst:'%s' failed. "
+			    "Try fixing this problem by applying 'chmod o+x' to the '%s' "
+			    "directory and its ancestors",
 			    mountDescribeMountPt(mpt), srcpath, dst, srcpath);
 		} else {
 			PLOG_W("mount('%s') src:'%s' dst:'%s' failed", mountDescribeMountPt(mpt),
@@ -217,8 +215,7 @@ static bool mountMount(struct mounts_t* mpt, const char* newroot, const char* tm
 	return true;
 }
 
-static bool mountRemountRO(struct mounts_t* mpt)
-{
+static bool mountRemountRO(struct mounts_t* mpt) {
 	if (!mpt->mounted) {
 		return true;
 	}
@@ -252,8 +249,7 @@ static bool mountRemountRO(struct mounts_t* mpt)
 	return true;
 }
 
-static bool mountMkdirAndTest(const char* dir)
-{
+static bool mountMkdirAndTest(const char* dir) {
 	if (mkdir(dir, 0755) == -1 && errno != EEXIST) {
 		PLOG_D("Couldn't create '%s' directory", dir);
 		return false;
@@ -266,8 +262,7 @@ static bool mountMkdirAndTest(const char* dir)
 	return true;
 }
 
-static bool mountGetDir(struct nsjconf_t* nsjconf, char* dir, const char* name)
-{
+static bool mountGetDir(struct nsjconf_t* nsjconf, char* dir, const char* name) {
 	snprintf(dir, PATH_MAX, "/run/user/%u/nsjail.%s", nsjconf->orig_uid, name);
 	if (mountMkdirAndTest(dir)) {
 		return true;
@@ -296,16 +291,16 @@ static bool mountGetDir(struct nsjconf_t* nsjconf, char* dir, const char* name)
 	return false;
 }
 
-static bool mountInitNsInternal(struct nsjconf_t* nsjconf)
-{
+static bool mountInitNsInternal(struct nsjconf_t* nsjconf) {
 	/*
 	 * If CLONE_NEWNS is not used, we would be changing the global mount namespace, so simply
 	 * use --chroot in this case
 	 */
 	if (nsjconf->clone_newns == false) {
 		if (nsjconf->chroot == NULL) {
-			PLOG_E("--chroot was not specified, and it's required when not using "
-			       "CLONE_NEWNS");
+			PLOG_E(
+			    "--chroot was not specified, and it's required when not using "
+			    "CLONE_NEWNS");
 			return false;
 		}
 		if (chroot(nsjconf->chroot) == -1) {
@@ -351,8 +346,7 @@ static bool mountInitNsInternal(struct nsjconf_t* nsjconf)
 	}
 
 	struct mounts_t* p;
-	TAILQ_FOREACH(p, &nsjconf->mountpts, pointers)
-	{
+	TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
 		if (mountMount(p, destdir, tmpdir) == false && p->mandatory) {
 			return false;
 		}
@@ -383,8 +377,7 @@ static bool mountInitNsInternal(struct nsjconf_t* nsjconf)
 		return false;
 	}
 
-	TAILQ_FOREACH(p, &nsjconf->mountpts, pointers)
-	{
+	TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
 		if (mountRemountRO(p) == false && p->mandatory) {
 			return false;
 		}
@@ -397,8 +390,7 @@ static bool mountInitNsInternal(struct nsjconf_t* nsjconf)
  * With mode MODE_STANDALONE_EXECVE it's required to mount /proc inside a new process,
  * as the current process is still in the original PID namespace (man pid_namespaces)
  */
-bool mountInitNs(struct nsjconf_t* nsjconf)
-{
+bool mountInitNs(struct nsjconf_t* nsjconf) {
 	if (nsjconf->mode != MODE_STANDALONE_EXECVE) {
 		return mountInitNsInternal(nsjconf);
 	}
@@ -424,8 +416,7 @@ bool mountInitNs(struct nsjconf_t* nsjconf)
 static bool mountAddMountPt(struct nsjconf_t* nsjconf, bool head, const char* src, const char* dst,
     const char* fstype, const char* options, uintptr_t flags, isDir_t isDir, bool mandatory,
     const char* src_env, const char* dst_env, const char* src_content, size_t src_content_len,
-    bool is_symlink)
-{
+    bool is_symlink) {
 	struct mounts_t* p = utilCalloc(sizeof(struct mounts_t));
 
 	if (src_env) {
@@ -502,8 +493,7 @@ static bool mountAddMountPt(struct nsjconf_t* nsjconf, bool head, const char* sr
 bool mountAddMountPtHead(struct nsjconf_t* nsjconf, const char* src, const char* dst,
     const char* fstype, const char* options, uintptr_t flags, isDir_t isDir, bool mandatory,
     const char* src_env, const char* dst_env, const char* src_content, size_t src_content_len,
-    bool is_symlink)
-{
+    bool is_symlink) {
 	return mountAddMountPt(nsjconf, /* head= */ true, src, dst, fstype, options, flags, isDir,
 	    mandatory, src_env, dst_env, src_content, src_content_len, is_symlink);
 }
@@ -511,14 +501,12 @@ bool mountAddMountPtHead(struct nsjconf_t* nsjconf, const char* src, const char*
 bool mountAddMountPtTail(struct nsjconf_t* nsjconf, const char* src, const char* dst,
     const char* fstype, const char* options, uintptr_t flags, isDir_t isDir, bool mandatory,
     const char* src_env, const char* dst_env, const char* src_content, size_t src_content_len,
-    bool is_symlink)
-{
+    bool is_symlink) {
 	return mountAddMountPt(nsjconf, /* head= */ false, src, dst, fstype, options, flags, isDir,
 	    mandatory, src_env, dst_env, src_content, src_content_len, is_symlink);
 }
 
-const char* mountDescribeMountPt(struct mounts_t* mpt)
-{
+const char* mountDescribeMountPt(struct mounts_t* mpt) {
 	static __thread char mount_pt_descr[4096];
 
 	snprintf(mount_pt_descr, sizeof(mount_pt_descr),

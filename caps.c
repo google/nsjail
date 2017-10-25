@@ -36,50 +36,49 @@ static struct {
 	const int val;
 	const char* const name;
 } const capNames[] = {
-	NS_VALSTR_STRUCT(CAP_CHOWN),
-	NS_VALSTR_STRUCT(CAP_DAC_OVERRIDE),
-	NS_VALSTR_STRUCT(CAP_DAC_READ_SEARCH),
-	NS_VALSTR_STRUCT(CAP_FOWNER),
-	NS_VALSTR_STRUCT(CAP_FSETID),
-	NS_VALSTR_STRUCT(CAP_KILL),
-	NS_VALSTR_STRUCT(CAP_SETGID),
-	NS_VALSTR_STRUCT(CAP_SETUID),
-	NS_VALSTR_STRUCT(CAP_SETPCAP),
-	NS_VALSTR_STRUCT(CAP_LINUX_IMMUTABLE),
-	NS_VALSTR_STRUCT(CAP_NET_BIND_SERVICE),
-	NS_VALSTR_STRUCT(CAP_NET_BROADCAST),
-	NS_VALSTR_STRUCT(CAP_NET_ADMIN),
-	NS_VALSTR_STRUCT(CAP_NET_RAW),
-	NS_VALSTR_STRUCT(CAP_IPC_LOCK),
-	NS_VALSTR_STRUCT(CAP_IPC_OWNER),
-	NS_VALSTR_STRUCT(CAP_SYS_MODULE),
-	NS_VALSTR_STRUCT(CAP_SYS_RAWIO),
-	NS_VALSTR_STRUCT(CAP_SYS_CHROOT),
-	NS_VALSTR_STRUCT(CAP_SYS_PTRACE),
-	NS_VALSTR_STRUCT(CAP_SYS_PACCT),
-	NS_VALSTR_STRUCT(CAP_SYS_ADMIN),
-	NS_VALSTR_STRUCT(CAP_SYS_BOOT),
-	NS_VALSTR_STRUCT(CAP_SYS_NICE),
-	NS_VALSTR_STRUCT(CAP_SYS_RESOURCE),
-	NS_VALSTR_STRUCT(CAP_SYS_TIME),
-	NS_VALSTR_STRUCT(CAP_SYS_TTY_CONFIG),
-	NS_VALSTR_STRUCT(CAP_MKNOD),
-	NS_VALSTR_STRUCT(CAP_LEASE),
-	NS_VALSTR_STRUCT(CAP_AUDIT_WRITE),
-	NS_VALSTR_STRUCT(CAP_AUDIT_CONTROL),
-	NS_VALSTR_STRUCT(CAP_SETFCAP),
-	NS_VALSTR_STRUCT(CAP_MAC_OVERRIDE),
-	NS_VALSTR_STRUCT(CAP_MAC_ADMIN),
-	NS_VALSTR_STRUCT(CAP_SYSLOG),
-	NS_VALSTR_STRUCT(CAP_WAKE_ALARM),
-	NS_VALSTR_STRUCT(CAP_BLOCK_SUSPEND),
+    NS_VALSTR_STRUCT(CAP_CHOWN),
+    NS_VALSTR_STRUCT(CAP_DAC_OVERRIDE),
+    NS_VALSTR_STRUCT(CAP_DAC_READ_SEARCH),
+    NS_VALSTR_STRUCT(CAP_FOWNER),
+    NS_VALSTR_STRUCT(CAP_FSETID),
+    NS_VALSTR_STRUCT(CAP_KILL),
+    NS_VALSTR_STRUCT(CAP_SETGID),
+    NS_VALSTR_STRUCT(CAP_SETUID),
+    NS_VALSTR_STRUCT(CAP_SETPCAP),
+    NS_VALSTR_STRUCT(CAP_LINUX_IMMUTABLE),
+    NS_VALSTR_STRUCT(CAP_NET_BIND_SERVICE),
+    NS_VALSTR_STRUCT(CAP_NET_BROADCAST),
+    NS_VALSTR_STRUCT(CAP_NET_ADMIN),
+    NS_VALSTR_STRUCT(CAP_NET_RAW),
+    NS_VALSTR_STRUCT(CAP_IPC_LOCK),
+    NS_VALSTR_STRUCT(CAP_IPC_OWNER),
+    NS_VALSTR_STRUCT(CAP_SYS_MODULE),
+    NS_VALSTR_STRUCT(CAP_SYS_RAWIO),
+    NS_VALSTR_STRUCT(CAP_SYS_CHROOT),
+    NS_VALSTR_STRUCT(CAP_SYS_PTRACE),
+    NS_VALSTR_STRUCT(CAP_SYS_PACCT),
+    NS_VALSTR_STRUCT(CAP_SYS_ADMIN),
+    NS_VALSTR_STRUCT(CAP_SYS_BOOT),
+    NS_VALSTR_STRUCT(CAP_SYS_NICE),
+    NS_VALSTR_STRUCT(CAP_SYS_RESOURCE),
+    NS_VALSTR_STRUCT(CAP_SYS_TIME),
+    NS_VALSTR_STRUCT(CAP_SYS_TTY_CONFIG),
+    NS_VALSTR_STRUCT(CAP_MKNOD),
+    NS_VALSTR_STRUCT(CAP_LEASE),
+    NS_VALSTR_STRUCT(CAP_AUDIT_WRITE),
+    NS_VALSTR_STRUCT(CAP_AUDIT_CONTROL),
+    NS_VALSTR_STRUCT(CAP_SETFCAP),
+    NS_VALSTR_STRUCT(CAP_MAC_OVERRIDE),
+    NS_VALSTR_STRUCT(CAP_MAC_ADMIN),
+    NS_VALSTR_STRUCT(CAP_SYSLOG),
+    NS_VALSTR_STRUCT(CAP_WAKE_ALARM),
+    NS_VALSTR_STRUCT(CAP_BLOCK_SUSPEND),
 #if defined(CAP_AUDIT_READ)
-	NS_VALSTR_STRUCT(CAP_AUDIT_READ),
+    NS_VALSTR_STRUCT(CAP_AUDIT_READ),
 #endif /* defined(CAP_AUDIT_READ) */
 };
 
-int capsNameToVal(const char* name)
-{
+int capsNameToVal(const char* name) {
 	for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
 		if (strcmp(name, capNames[i].name) == 0) {
 			return capNames[i].val;
@@ -89,8 +88,7 @@ int capsNameToVal(const char* name)
 	return -1;
 }
 
-static const char* capsValToStr(int val)
-{
+static const char* capsValToStr(int val) {
 	static __thread char capsStr[1024];
 	for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
 		if (val == capNames[i].val) {
@@ -103,12 +101,11 @@ static const char* capsValToStr(int val)
 	return capsStr;
 }
 
-static cap_user_data_t capsGet()
-{
+static cap_user_data_t capsGet() {
 	static __thread struct __user_cap_data_struct cap_data[_LINUX_CAPABILITY_U32S_3];
 	const struct __user_cap_header_struct cap_hdr = {
-		.version = _LINUX_CAPABILITY_VERSION_3,
-		.pid = 0,
+	    .version = _LINUX_CAPABILITY_VERSION_3,
+	    .pid = 0,
 	};
 	if (syscall(__NR_capget, &cap_hdr, &cap_data) == -1) {
 		PLOG_W("capget() failed");
@@ -117,11 +114,10 @@ static cap_user_data_t capsGet()
 	return cap_data;
 }
 
-static bool capsSet(const cap_user_data_t cap_data)
-{
+static bool capsSet(const cap_user_data_t cap_data) {
 	const struct __user_cap_header_struct cap_hdr = {
-		.version = _LINUX_CAPABILITY_VERSION_3,
-		.pid = 0,
+	    .version = _LINUX_CAPABILITY_VERSION_3,
+	    .pid = 0,
 	};
 	if (syscall(__NR_capset, &cap_hdr, cap_data) == -1) {
 		PLOG_W("capset() failed");
@@ -130,36 +126,31 @@ static bool capsSet(const cap_user_data_t cap_data)
 	return true;
 }
 
-static void capsClearInheritable(cap_user_data_t cap_data)
-{
+static void capsClearInheritable(cap_user_data_t cap_data) {
 	for (size_t i = 0; i < _LINUX_CAPABILITY_U32S_3; i++) {
 		cap_data[i].inheritable = 0U;
 	}
 }
 
-static bool capsGetPermitted(cap_user_data_t cap_data, unsigned int cap)
-{
+static bool capsGetPermitted(cap_user_data_t cap_data, unsigned int cap) {
 	size_t off_byte = cap / (sizeof(cap_data->permitted) * 8);
 	size_t off_bit = cap % (sizeof(cap_data->permitted) * 8);
 	return cap_data[off_byte].permitted & (1U << off_bit);
 }
 
-static bool capsGetEffective(cap_user_data_t cap_data, unsigned int cap)
-{
+static bool capsGetEffective(cap_user_data_t cap_data, unsigned int cap) {
 	size_t off_byte = cap / (sizeof(cap_data->effective) * 8);
 	size_t off_bit = cap % (sizeof(cap_data->effective) * 8);
 	return cap_data[off_byte].effective & (1U << off_bit);
 }
 
-static bool capsGetInheritable(cap_user_data_t cap_data, unsigned int cap)
-{
+static bool capsGetInheritable(cap_user_data_t cap_data, unsigned int cap) {
 	size_t off_byte = cap / (sizeof(cap_data->inheritable) * 8);
 	size_t off_bit = cap % (sizeof(cap_data->inheritable) * 8);
 	return cap_data[off_byte].inheritable & (1U << off_bit);
 }
 
-static void capsSetInheritable(cap_user_data_t cap_data, unsigned int cap)
-{
+static void capsSetInheritable(cap_user_data_t cap_data, unsigned int cap) {
 	size_t off_byte = cap / (sizeof(cap_data->inheritable) * 8);
 	size_t off_bit = cap % (sizeof(cap_data->inheritable) * 8);
 	cap_data[off_byte].inheritable |= (1U << off_bit);
@@ -170,8 +161,7 @@ static void capsSetInheritable(cap_user_data_t cap_data, unsigned int cap)
 #define PR_CAP_AMBIENT_RAISE 2
 #define PR_CAP_AMBIENT_CLEAR_ALL 4
 #endif /* !defined(PR_CAP_AMBIENT) */
-static bool CapsInitNsKeepCaps(cap_user_data_t cap_data)
-{
+static bool CapsInitNsKeepCaps(cap_user_data_t cap_data) {
 	char dbgmsg[4096];
 
 	/* Copy all permitted caps to the inheritable set */
@@ -195,8 +185,7 @@ static bool CapsInitNsKeepCaps(cap_user_data_t cap_data)
 			continue;
 		}
 		if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)capNames[i].val, 0UL,
-			0UL)
-		    == -1) {
+			0UL) == -1) {
 			PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s)", capNames[i].name);
 		} else {
 			utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capNames[i].name);
@@ -207,8 +196,7 @@ static bool CapsInitNsKeepCaps(cap_user_data_t cap_data)
 	return true;
 }
 
-bool capsInitNs(struct nsjconf_t* nsjconf)
-{
+bool capsInitNs(struct nsjconf_t* nsjconf) {
 	char dbgmsg[4096];
 	struct ints_t* p;
 
@@ -234,8 +222,7 @@ bool capsInitNs(struct nsjconf_t* nsjconf)
 	/* Set all requested caps in the inheritable set if these are present in the permitted set
 	 */
 	dbgmsg[0] = '\0';
-	TAILQ_FOREACH(p, &nsjconf->caps, pointers)
-	{
+	TAILQ_FOREACH(p, &nsjconf->caps, pointers) {
 		if (capsGetPermitted(cap_data, p->val) == false) {
 			LOG_W("Capability %s is not permitted in the namespace",
 			    capsValToStr(p->val));
@@ -261,8 +248,8 @@ bool capsInitNs(struct nsjconf_t* nsjconf)
 				continue;
 			}
 			utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capNames[i].name);
-			if (prctl(PR_CAPBSET_DROP, (unsigned long)capNames[i].val, 0UL, 0UL, 0UL)
-			    == -1) {
+			if (prctl(PR_CAPBSET_DROP, (unsigned long)capNames[i].val, 0UL, 0UL, 0UL) ==
+			    -1) {
 				PLOG_W("prctl(PR_CAPBSET_DROP, %s)", capNames[i].name);
 				return false;
 			}
@@ -272,10 +259,9 @@ bool capsInitNs(struct nsjconf_t* nsjconf)
 
 	/* Make sure inheritable set is preserved across execve via the modified ambient set */
 	dbgmsg[0] = '\0';
-	TAILQ_FOREACH(p, &nsjconf->caps, pointers)
-	{
-		if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)p->val, 0UL, 0UL)
-		    == -1) {
+	TAILQ_FOREACH(p, &nsjconf->caps, pointers) {
+		if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)p->val, 0UL, 0UL) ==
+		    -1) {
 			PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s)",
 			    capsValToStr(p->val));
 		} else {

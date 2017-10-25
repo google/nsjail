@@ -26,8 +26,7 @@
 
 #include "log.h"
 
-bool utsInitNs(struct nsjconf_t* nsjconf)
-{
+bool utsInitNs(struct nsjconf_t* nsjconf) {
 	if (nsjconf->clone_newuts == false) {
 		return true;
 	}

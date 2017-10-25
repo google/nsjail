@@ -57,8 +57,7 @@ static const char subprocDoneChar = 'D';
 #define CLONE_NEWCGROUP 0x02000000
 #endif /* !defined(CLONE_NEWCGROUP) */
 
-static const char* subprocCloneFlagsToStr(uintptr_t flags)
-{
+static const char* subprocCloneFlagsToStr(uintptr_t flags) {
 	static __thread char cloneFlagName[1024];
 	cloneFlagName[0] = '\0';
 
@@ -66,29 +65,29 @@ static const char* subprocCloneFlagsToStr(uintptr_t flags)
 		const uintptr_t flag;
 		const char* const name;
 	} const cloneFlags[] = {
-		NS_VALSTR_STRUCT(CLONE_VM),
-		NS_VALSTR_STRUCT(CLONE_FS),
-		NS_VALSTR_STRUCT(CLONE_FILES),
-		NS_VALSTR_STRUCT(CLONE_SIGHAND),
-		NS_VALSTR_STRUCT(CLONE_PTRACE),
-		NS_VALSTR_STRUCT(CLONE_VFORK),
-		NS_VALSTR_STRUCT(CLONE_PARENT),
-		NS_VALSTR_STRUCT(CLONE_THREAD),
-		NS_VALSTR_STRUCT(CLONE_NEWNS),
-		NS_VALSTR_STRUCT(CLONE_SYSVSEM),
-		NS_VALSTR_STRUCT(CLONE_SETTLS),
-		NS_VALSTR_STRUCT(CLONE_PARENT_SETTID),
-		NS_VALSTR_STRUCT(CLONE_CHILD_CLEARTID),
-		NS_VALSTR_STRUCT(CLONE_DETACHED),
-		NS_VALSTR_STRUCT(CLONE_UNTRACED),
-		NS_VALSTR_STRUCT(CLONE_CHILD_SETTID),
-		NS_VALSTR_STRUCT(CLONE_NEWCGROUP),
-		NS_VALSTR_STRUCT(CLONE_NEWUTS),
-		NS_VALSTR_STRUCT(CLONE_NEWIPC),
-		NS_VALSTR_STRUCT(CLONE_NEWUSER),
-		NS_VALSTR_STRUCT(CLONE_NEWPID),
-		NS_VALSTR_STRUCT(CLONE_NEWNET),
-		NS_VALSTR_STRUCT(CLONE_IO),
+	    NS_VALSTR_STRUCT(CLONE_VM),
+	    NS_VALSTR_STRUCT(CLONE_FS),
+	    NS_VALSTR_STRUCT(CLONE_FILES),
+	    NS_VALSTR_STRUCT(CLONE_SIGHAND),
+	    NS_VALSTR_STRUCT(CLONE_PTRACE),
+	    NS_VALSTR_STRUCT(CLONE_VFORK),
+	    NS_VALSTR_STRUCT(CLONE_PARENT),
+	    NS_VALSTR_STRUCT(CLONE_THREAD),
+	    NS_VALSTR_STRUCT(CLONE_NEWNS),
+	    NS_VALSTR_STRUCT(CLONE_SYSVSEM),
+	    NS_VALSTR_STRUCT(CLONE_SETTLS),
+	    NS_VALSTR_STRUCT(CLONE_PARENT_SETTID),
+	    NS_VALSTR_STRUCT(CLONE_CHILD_CLEARTID),
+	    NS_VALSTR_STRUCT(CLONE_DETACHED),
+	    NS_VALSTR_STRUCT(CLONE_UNTRACED),
+	    NS_VALSTR_STRUCT(CLONE_CHILD_SETTID),
+	    NS_VALSTR_STRUCT(CLONE_NEWCGROUP),
+	    NS_VALSTR_STRUCT(CLONE_NEWUTS),
+	    NS_VALSTR_STRUCT(CLONE_NEWIPC),
+	    NS_VALSTR_STRUCT(CLONE_NEWUSER),
+	    NS_VALSTR_STRUCT(CLONE_NEWPID),
+	    NS_VALSTR_STRUCT(CLONE_NEWNET),
+	    NS_VALSTR_STRUCT(CLONE_IO),
 	};
 
 	for (size_t i = 0; i < ARRAYSIZE(cloneFlags); i++) {
@@ -111,8 +110,7 @@ static const char* subprocCloneFlagsToStr(uintptr_t flags)
 }
 
 /* Reset the execution environment for the new process */
-static bool subprocReset(void)
-{
+static bool subprocReset(void) {
 	/* Set all previously changed signals to their default behavior */
 	for (size_t i = 0; i < ARRAYSIZE(nssigs); i++) {
 		if (signal(nssigs[i], SIG_DFL) == SIG_ERR) {
@@ -130,8 +128,8 @@ static bool subprocReset(void)
 	return true;
 }
 
-static int subprocNewProc(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err, int pipefd)
-{
+static int subprocNewProc(
+    struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err, int pipefd) {
 	if (containSetupFD(nsjconf, fd_in, fd_out, fd_err) == false) {
 		_exit(0xff);
 	}
@@ -183,7 +181,7 @@ static int subprocNewProc(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int 
 #if defined(__NR_execveat)
 		syscall(__NR_execveat, (uintptr_t)nsjconf->exec_fd, "",
 		    (char* const*)&nsjconf->argv[0], environ, (uintptr_t)AT_EMPTY_PATH);
-#else /* defined(__NR_execveat) */
+#else  /* defined(__NR_execveat) */
 		LOG_F("Your system doesn't support execveat() syscall");
 #endif /* defined(__NR_execveat) */
 	} else {
@@ -195,8 +193,7 @@ static int subprocNewProc(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int 
 	_exit(0xff);
 }
 
-static void subprocAdd(struct nsjconf_t* nsjconf, pid_t pid, int sock)
-{
+static void subprocAdd(struct nsjconf_t* nsjconf, pid_t pid, int sock) {
 	struct pids_t* p = utilMalloc(sizeof(struct pids_t));
 	p->pid = pid;
 	p->start = time(NULL);
@@ -213,11 +210,9 @@ static void subprocAdd(struct nsjconf_t* nsjconf, pid_t pid, int sock)
 	    (unsigned int)p->start, p->remote_txt);
 }
 
-static void subprocRemove(struct nsjconf_t* nsjconf, pid_t pid)
-{
+static void subprocRemove(struct nsjconf_t* nsjconf, pid_t pid) {
 	struct pids_t* p;
-	TAILQ_FOREACH(p, &nsjconf->pids, pointers)
-	{
+	TAILQ_FOREACH(p, &nsjconf->pids, pointers) {
 		if (p->pid == pid) {
 			LOG_D("Removing pid '%d' from the queue (IP:'%s', start time:'%s')", p->pid,
 			    p->remote_txt, utilTimeToStr(p->start));
@@ -230,21 +225,18 @@ static void subprocRemove(struct nsjconf_t* nsjconf, pid_t pid)
 	LOG_W("PID: %d not found (?)", pid);
 }
 
-int subprocCount(struct nsjconf_t* nsjconf)
-{
+int subprocCount(struct nsjconf_t* nsjconf) {
 	int cnt = 0;
 	struct pids_t* p;
 	TAILQ_FOREACH(p, &nsjconf->pids, pointers) { cnt++; }
 	return cnt;
 }
 
-void subprocDisplay(struct nsjconf_t* nsjconf)
-{
+void subprocDisplay(struct nsjconf_t* nsjconf) {
 	LOG_I("Total number of spawned namespaces: %d", subprocCount(nsjconf));
 	time_t now = time(NULL);
 	struct pids_t* p;
-	TAILQ_FOREACH(p, &nsjconf->pids, pointers)
-	{
+	TAILQ_FOREACH(p, &nsjconf->pids, pointers) {
 		time_t diff = now - p->start;
 		time_t left = nsjconf->tlimit ? nsjconf->tlimit - diff : 0;
 		LOG_I("PID: %d, Remote host: %s, Run time: %ld sec. (time left: %ld sec.)", p->pid,
@@ -252,11 +244,9 @@ void subprocDisplay(struct nsjconf_t* nsjconf)
 	}
 }
 
-static struct pids_t* subprocGetPidElem(struct nsjconf_t* nsjconf, pid_t pid)
-{
+static struct pids_t* subprocGetPidElem(struct nsjconf_t* nsjconf, pid_t pid) {
 	struct pids_t* p;
-	TAILQ_FOREACH(p, &nsjconf->pids, pointers)
-	{
+	TAILQ_FOREACH(p, &nsjconf->pids, pointers) {
 		if (p->pid == pid) {
 			return p;
 		}
@@ -264,8 +254,7 @@ static struct pids_t* subprocGetPidElem(struct nsjconf_t* nsjconf, pid_t pid)
 	return NULL;
 }
 
-static void subprocSeccompViolation(struct nsjconf_t* nsjconf, siginfo_t* si)
-{
+static void subprocSeccompViolation(struct nsjconf_t* nsjconf, siginfo_t* si) {
 	LOG_W("PID: %d commited a syscall/seccomp violation and exited with SIGSYS", si->si_pid);
 
 	struct pids_t* p = subprocGetPidElem(nsjconf, si->si_pid);
@@ -304,8 +293,7 @@ static void subprocSeccompViolation(struct nsjconf_t* nsjconf, siginfo_t* si)
 	}
 }
 
-int subprocReap(struct nsjconf_t* nsjconf)
-{
+int subprocReap(struct nsjconf_t* nsjconf) {
 	int status;
 	int rv = 0;
 	siginfo_t si;
@@ -354,8 +342,7 @@ int subprocReap(struct nsjconf_t* nsjconf)
 
 	time_t now = time(NULL);
 	struct pids_t* p;
-	TAILQ_FOREACH(p, &nsjconf->pids, pointers)
-	{
+	TAILQ_FOREACH(p, &nsjconf->pids, pointers) {
 		if (nsjconf->tlimit == 0) {
 			continue;
 		}
@@ -377,14 +364,12 @@ int subprocReap(struct nsjconf_t* nsjconf)
 	return rv;
 }
 
-void subprocKillAll(struct nsjconf_t* nsjconf)
-{
+void subprocKillAll(struct nsjconf_t* nsjconf) {
 	struct pids_t* p;
 	TAILQ_FOREACH(p, &nsjconf->pids, pointers) { kill(p->pid, SIGKILL); }
 }
 
-static bool subprocInitParent(struct nsjconf_t* nsjconf, pid_t pid, int pipefd)
-{
+static bool subprocInitParent(struct nsjconf_t* nsjconf, pid_t pid, int pipefd) {
 	if (netInitNsFromParent(nsjconf, pid) == false) {
 		LOG_E("Couldn't create and put MACVTAP interface into NS of PID '%d'", pid);
 		return false;
@@ -397,8 +382,8 @@ static bool subprocInitParent(struct nsjconf_t* nsjconf, pid_t pid, int pipefd)
 		LOG_E("Couldn't initialize user namespaces for pid %d", pid);
 		return false;
 	}
-	if (utilWriteToFd(pipefd, &subprocDoneChar, sizeof(subprocDoneChar))
-	    != sizeof(subprocDoneChar)) {
+	if (utilWriteToFd(pipefd, &subprocDoneChar, sizeof(subprocDoneChar)) !=
+	    sizeof(subprocDoneChar)) {
 		LOG_E("Couldn't signal the new process via a socketpair");
 		return false;
 	}
@@ -413,8 +398,7 @@ static uint8_t subprocCloneStack[128 * 1024] __attribute__((aligned(__BIGGEST_AL
 /* Cannot be on the stack, as the child's stack pointer will change after clone() */
 static __thread jmp_buf env;
 
-static int subprocCloneFunc(void* arg __attribute__((unused)))
-{
+static int subprocCloneFunc(void* arg __attribute__((unused))) {
 	longjmp(env, 1);
 	return 0;
 }
@@ -424,8 +408,7 @@ static int subprocCloneFunc(void* arg __attribute__((unused)))
  * update the internal PID/TID caches, what can lead to invalid values being returned by getpid()
  * or incorrect PID/TIDs used in raise()/abort() functions
  */
-pid_t subprocClone(uintptr_t flags)
-{
+pid_t subprocClone(uintptr_t flags) {
 	if (flags & CLONE_VM) {
 		LOG_E("Cannot use clone(flags & CLONE_VM)");
 		return -1;
@@ -446,8 +429,7 @@ pid_t subprocClone(uintptr_t flags)
 	return 0;
 }
 
-void subprocRunChild(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err)
-{
+void subprocRunChild(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
 	if (netLimitConns(nsjconf, fd_in) == false) {
 		return;
 	}
@@ -487,11 +469,12 @@ void subprocRunChild(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_er
 	}
 	close(child_fd);
 	if (pid == -1) {
-		PLOG_E("clone(flags=%s) failed. You probably need root privileges if your system "
-		       "doesn't support CLONE_NEWUSER. Alternatively, you might want to recompile "
-		       "your "
-		       "kernel with support for namespaces or check the setting of the "
-		       "kernel.unprivileged_userns_clone sysctl",
+		PLOG_E(
+		    "clone(flags=%s) failed. You probably need root privileges if your system "
+		    "doesn't support CLONE_NEWUSER. Alternatively, you might want to recompile "
+		    "your "
+		    "kernel with support for namespaces or check the setting of the "
+		    "kernel.unprivileged_userns_clone sysctl",
 		    subprocCloneFlagsToStr(flags));
 		close(parent_fd);
 		return;
@@ -508,8 +491,7 @@ void subprocRunChild(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_er
 	netConnToText(fd_in, true /* remote */, cs_addr, sizeof(cs_addr), NULL);
 }
 
-int subprocSystem(const char** argv, char** env)
-{
+int subprocSystem(const char** argv, char** env) {
 	bool exec_failed = false;
 
 	int sv[2];

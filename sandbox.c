@@ -33,8 +33,7 @@
 #define PR_SET_NO_NEW_PRIVS 38
 #endif /* PR_SET_NO_NEW_PRIVS */
 
-static bool sandboxPrepareAndCommit(struct nsjconf_t* nsjconf)
-{
+static bool sandboxPrepareAndCommit(struct nsjconf_t* nsjconf) {
 	if (nsjconf->kafel_file == NULL && nsjconf->kafel_string == NULL) {
 		return true;
 	}

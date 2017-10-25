@@ -39,8 +39,7 @@
 static __thread int nsjailSigFatal = 0;
 static __thread bool nsjailShowProc = false;
 
-static void nsjailSig(int sig)
-{
+static void nsjailSig(int sig) {
 	if (sig == SIGALRM) {
 		return;
 	}
@@ -54,17 +53,16 @@ static void nsjailSig(int sig)
 	nsjailSigFatal = sig;
 }
 
-static bool nsjailSetSigHandler(int sig)
-{
+static bool nsjailSetSigHandler(int sig) {
 	LOG_D("Setting sighandler for signal %s (%d)", utilSigName(sig), sig);
 
 	sigset_t smask;
 	sigemptyset(&smask);
 	struct sigaction sa = {
-		.sa_handler = nsjailSig,
-		.sa_mask = smask,
-		.sa_flags = 0,
-		.sa_restorer = NULL,
+	    .sa_handler = nsjailSig,
+	    .sa_mask = smask,
+	    .sa_flags = 0,
+	    .sa_restorer = NULL,
 	};
 	if (sigaction(sig, &sa, NULL) == -1) {
 		PLOG_E("sigaction(%d)", sig);
@@ -73,8 +71,7 @@ static bool nsjailSetSigHandler(int sig)
 	return true;
 }
 
-static bool nsjailSetSigHandlers(void)
-{
+static bool nsjailSetSigHandlers(void) {
 	for (size_t i = 0; i < ARRAYSIZE(nssigs); i++) {
 		if (!nsjailSetSigHandler(nssigs[i])) {
 			return false;
@@ -83,18 +80,19 @@ static bool nsjailSetSigHandlers(void)
 	return true;
 }
 
-static bool nsjailSetTimer(struct nsjconf_t* nsjconf)
-{
+static bool nsjailSetTimer(struct nsjconf_t* nsjconf) {
 	if (nsjconf->mode == MODE_STANDALONE_EXECVE) {
 		return true;
 	}
 
 	struct itimerval it = {
-		.it_value = {
+	    .it_value =
+		{
 		    .tv_sec = 1,
 		    .tv_usec = 0,
 		},
-		.it_interval = {
+	    .it_interval =
+		{
 		    .tv_sec = 1,
 		    .tv_usec = 0,
 		},
@@ -106,8 +104,7 @@ static bool nsjailSetTimer(struct nsjconf_t* nsjconf)
 	return true;
 }
 
-static void nsjailListenMode(struct nsjconf_t* nsjconf)
-{
+static void nsjailListenMode(struct nsjconf_t* nsjconf) {
 	int listenfd = netGetRecvSocket(nsjconf->bindhost, nsjconf->port);
 	if (listenfd == -1) {
 		return;
@@ -132,8 +129,7 @@ static void nsjailListenMode(struct nsjconf_t* nsjconf)
 	}
 }
 
-static int nsjailStandaloneMode(struct nsjconf_t* nsjconf)
-{
+static int nsjailStandaloneMode(struct nsjconf_t* nsjconf) {
 	subprocRunChild(nsjconf, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
 	for (;;) {
 		int child_status = subprocReap(nsjconf);
@@ -160,8 +156,7 @@ static int nsjailStandaloneMode(struct nsjconf_t* nsjconf)
 	// not reached
 }
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
 	struct nsjconf_t nsjconf;
 	if (!cmdlineParse(argc, argv, &nsjconf)) {
 		LOG_F("Couldn't parse cmdline options");
@@ -191,4 +186,4 @@ int main(int argc, char* argv[])
 /*
  * To satisfy requirement for BlocksRuntime in clang -fblocks
  */
-void* _NSConcreteStackBlock[32] = { 0 };
+void* _NSConcreteStackBlock[32] = {0};

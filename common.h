@@ -36,24 +36,21 @@ static void __attribute__ ((unused)) __clang_cleanup_func(void (^*dfunc) (void))
 	(*dfunc) ();
 }
 
-#define defer                                                                                      \
-	void (^_STRMERGE(__defer_f_, __COUNTER__))(void)                                           \
-	    __attribute__((cleanup(__clang_cleanup_func))) __attribute__((unused))                 \
-	    = ^
+#define defer                                            \
+	void (^_STRMERGE(__defer_f_, __COUNTER__))(void) \
+	    __attribute__((cleanup(__clang_cleanup_func))) __attribute__((unused)) = ^
 #else
 #define __block
-#define _DEFER(a, count)                                                                           \
-	auto void _STRMERGE(__defer_f_, count)(void* _defer_arg __attribute__((unused)));          \
-	int _STRMERGE(__defer_var_, count) __attribute__((cleanup(_STRMERGE(__defer_f_, count))))  \
-	    __attribute__((unused));                                                               \
+#define _DEFER(a, count)                                                                          \
+	auto void _STRMERGE(__defer_f_, count)(void* _defer_arg __attribute__((unused)));         \
+	int _STRMERGE(__defer_var_, count) __attribute__((cleanup(_STRMERGE(__defer_f_, count)))) \
+	    __attribute__((unused));                                                              \
 	void _STRMERGE(__defer_f_, count)(void* _defer_arg __attribute__((unused)))
 #define defer _DEFER(a, __COUNTER__)
 #endif
 #endif
 
-#define NS_VALSTR_STRUCT(x)                                                                        \
-	{                                                                                          \
-		x, #x                                                                              \
-	}
+#define NS_VALSTR_STRUCT(x) \
+	{ x, #x }
 
 #endif /* NS_COMMON_H */

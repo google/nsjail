@@ -33,8 +33,7 @@
 #include "log.h"
 #include "util.h"
 
-static bool cgroupInitNsFromParentMem(struct nsjconf_t* nsjconf, pid_t pid)
-{
+static bool cgroupInitNsFromParentMem(struct nsjconf_t* nsjconf, pid_t pid) {
 	if (nsjconf->cgroup_mem_max == (size_t)0) {
 		return true;
 	}
@@ -80,8 +79,7 @@ static bool cgroupInitNsFromParentMem(struct nsjconf_t* nsjconf, pid_t pid)
 	return true;
 }
 
-static bool cgroupInitNsFromParentPids(struct nsjconf_t* nsjconf, pid_t pid)
-{
+static bool cgroupInitNsFromParentPids(struct nsjconf_t* nsjconf, pid_t pid) {
 	if (nsjconf->cgroup_pids_max == 0U) {
 		return true;
 	}
@@ -117,8 +115,7 @@ static bool cgroupInitNsFromParentPids(struct nsjconf_t* nsjconf, pid_t pid)
 	return true;
 }
 
-static bool cgroupInitNsFromParentNetCls(struct nsjconf_t* nsjconf, pid_t pid)
-{
+static bool cgroupInitNsFromParentNetCls(struct nsjconf_t* nsjconf, pid_t pid) {
 	if (nsjconf->cgroup_net_cls_classid == 0U) {
 		return true;
 	}
@@ -156,8 +153,7 @@ static bool cgroupInitNsFromParentNetCls(struct nsjconf_t* nsjconf, pid_t pid)
 	return true;
 }
 
-bool cgroupInitNsFromParent(struct nsjconf_t* nsjconf, pid_t pid)
-{
+bool cgroupInitNsFromParent(struct nsjconf_t* nsjconf, pid_t pid) {
 	if (cgroupInitNsFromParentMem(nsjconf, pid) == false) {
 		return false;
 	}
@@ -170,8 +166,7 @@ bool cgroupInitNsFromParent(struct nsjconf_t* nsjconf, pid_t pid)
 	return true;
 }
 
-void cgroupFinishFromParentMem(struct nsjconf_t* nsjconf, pid_t pid)
-{
+void cgroupFinishFromParentMem(struct nsjconf_t* nsjconf, pid_t pid) {
 	if (nsjconf->cgroup_mem_max == (size_t)0) {
 		return;
 	}
@@ -185,8 +180,7 @@ void cgroupFinishFromParentMem(struct nsjconf_t* nsjconf, pid_t pid)
 	return;
 }
 
-void cgroupFinishFromParentPids(struct nsjconf_t* nsjconf, pid_t pid)
-{
+void cgroupFinishFromParentPids(struct nsjconf_t* nsjconf, pid_t pid) {
 	if (nsjconf->cgroup_pids_max == 0U) {
 		return;
 	}
@@ -200,8 +194,7 @@ void cgroupFinishFromParentPids(struct nsjconf_t* nsjconf, pid_t pid)
 	return;
 }
 
-void cgroupFinishFromParentNetCls(struct nsjconf_t* nsjconf, pid_t pid)
-{
+void cgroupFinishFromParentNetCls(struct nsjconf_t* nsjconf, pid_t pid) {
 	if (nsjconf->cgroup_net_cls_classid == 0U) {
 		return;
 	}
@@ -215,8 +208,7 @@ void cgroupFinishFromParentNetCls(struct nsjconf_t* nsjconf, pid_t pid)
 	return;
 }
 
-void cgroupFinishFromParent(struct nsjconf_t* nsjconf, pid_t pid)
-{
+void cgroupFinishFromParent(struct nsjconf_t* nsjconf, pid_t pid) {
 	cgroupFinishFromParentMem(nsjconf, pid);
 	cgroupFinishFromParentPids(nsjconf, pid);
 	cgroupFinishFromParentNetCls(nsjconf, pid);
