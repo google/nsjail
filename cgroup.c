@@ -123,12 +123,55 @@ static bool cgroupInitNsFromParentPids(struct nsjconf_t* nsjconf, pid_t pid)
 	return true;
 }
 
+static bool cgroupInitNsFromParentNetCls(struct nsjconf_t* nsjconf, pid_t pid)
+{
+	if (nsjconf->cgroup_net_cls_classid == (unsigned int)0) {
+		return true;
+	}
+
+	char net_cls_cgroup_path[PATH_MAX];
+	snprintf(net_cls_cgroup_path, sizeof(net_cls_cgroup_path), "%s/%s/NSJAIL.%d",
+	    nsjconf->cgroup_net_cls_mount, nsjconf->cgroup_net_cls_parent, (int)pid);
+	LOG_D("Create '%s' for PID=%d", net_cls_cgroup_path, (int)pid);
+	if (mkdir(net_cls_cgroup_path, 0700) == -1 && errno != EEXIST) {
+		PLOG_E("mkdir('%s', 0711) failed", net_cls_cgroup_path);
+		return false;
+	}
+
+	char fname[PATH_MAX];
+	if (nsjconf->cgroup_net_cls_classid != (unsigned int)0) {
+		char net_cls_classid_str[512];
+		snprintf(net_cls_classid_str, sizeof(net_cls_classid_str), "0x%x", nsjconf->cgroup_net_cls_classid);
+		snprintf(fname, sizeof(fname), "%s/net_cls.classid", net_cls_cgroup_path);
+		LOG_D("Setting '%s' to '%s'", fname, net_cls_classid_str);
+		if (!utilWriteBufToFile(
+			fname, net_cls_classid_str, strlen(net_cls_classid_str), O_WRONLY | O_CLOEXEC)) {
+			LOG_E("Could not update net_cls cgroup classid");
+			return false;
+		}
+	}
+
+	char pid_str[512];
+	snprintf(pid_str, sizeof(pid_str), "%d", (int)pid);
+	snprintf(fname, sizeof(fname), "%s/tasks", net_cls_cgroup_path);
+	LOG_D("Adding PID='%s' to '%s'", pid_str, fname);
+	if (!utilWriteBufToFile(fname, pid_str, strlen(pid_str), O_WRONLY | O_CLOEXEC)) {
+		LOG_E("Could not update net_cls cgroup task list");
+		return false;
+	}
+
+	return true;
+}
+
 bool cgroupInitNsFromParent(struct nsjconf_t* nsjconf, pid_t pid)
 {
 	if (cgroupInitNsFromParentMem(nsjconf, pid) == false) {
 		return false;
 	}
 	if (cgroupInitNsFromParentPids(nsjconf, pid) == false) {
+		return false;
+	}
+	if (cgroupInitNsFromParentNetCls(nsjconf, pid) == false) {
 		return false;
 	}
 	return true;
@@ -164,10 +207,26 @@ void cgroupFinishFromParentPids(struct nsjconf_t* nsjconf, pid_t pid)
 	return;
 }
 
+void cgroupFinishFromParentNetCls(struct nsjconf_t* nsjconf, pid_t pid)
+{
+	if (nsjconf->cgroup_net_cls_classid == (size_t)0) {
+		return;
+	}
+	char net_cls_cgroup_path[PATH_MAX];
+	snprintf(net_cls_cgroup_path, sizeof(net_cls_cgroup_path), "%s/%s/NSJAIL.%d",
+	    nsjconf->cgroup_net_cls_mount, nsjconf->cgroup_net_cls_parent, (int)pid);
+	LOG_D("Remove '%s'", net_cls_cgroup_path);
+	if (rmdir(net_cls_cgroup_path) == -1) {
+		PLOG_W("rmdir('%s') failed", net_cls_cgroup_path);
+	}
+	return;
+}
+
 void cgroupFinishFromParent(struct nsjconf_t* nsjconf, pid_t pid)
 {
 	cgroupFinishFromParentMem(nsjconf, pid);
 	cgroupFinishFromParentPids(nsjconf, pid);
+	cgroupFinishFromParentNetCls(nsjconf, pid);
 }
 
 bool cgroupInitNs(void) { return true; }

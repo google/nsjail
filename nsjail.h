@@ -158,6 +158,9 @@ struct nsjconf_t {
 	const char* cgroup_pids_mount;
 	const char* cgroup_pids_parent;
 	size_t cgroup_pids_max;
+	const char* cgroup_net_cls_mount;
+	const char* cgroup_net_cls_parent;
+	unsigned int cgroup_net_cls_classid;
 	FILE* kafel_file;
 	char* kafel_string;
 	long num_cpus;

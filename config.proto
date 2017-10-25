@@ -213,4 +213,11 @@ message NsJailConfig
     /* Binary path (with arguments) to be executed. If not specified here, it
        can be specified with cmd-line as "-- /path/to/command arg1 arg2" */
     optional Exe exec_bin = 70;
+
+    /* If > 0, Class identifier of network packets inside jail */
+    optional uint32 cgroup_net_cls_classid = 71 [ default = 0 ];
+    /* Mount point for cgroups-net-cls in your system */
+    optional string cgroup_net_cls_mount = 72 [ default = "/sys/fs/cgroup/net_cls" ];
+    /* Writeable directory (for the nsjail user) under cgroup_net_mount */
+    optional string cgroup_net_cls_parent = 73 [ default = "NSJAIL" ];
 }
