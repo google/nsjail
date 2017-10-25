@@ -49,16 +49,13 @@ static bool cgroupInitNsFromParentMem(struct nsjconf_t* nsjconf, pid_t pid)
 	}
 
 	char fname[PATH_MAX];
-	if (nsjconf->cgroup_mem_max != (size_t)0) {
-		char mem_max_str[512];
-		snprintf(mem_max_str, sizeof(mem_max_str), "%zu", nsjconf->cgroup_mem_max);
-		snprintf(fname, sizeof(fname), "%s/memory.limit_in_bytes", mem_cgroup_path);
-		LOG_D("Setting '%s' to '%s'", fname, mem_max_str);
-		if (!utilWriteBufToFile(
-			fname, mem_max_str, strlen(mem_max_str), O_WRONLY | O_CLOEXEC)) {
-			LOG_E("Could not update memory cgroup max limit");
-			return false;
-		}
+	char mem_max_str[512];
+	snprintf(mem_max_str, sizeof(mem_max_str), "%zu", nsjconf->cgroup_mem_max);
+	snprintf(fname, sizeof(fname), "%s/memory.limit_in_bytes", mem_cgroup_path);
+	LOG_D("Setting '%s' to '%s'", fname, mem_max_str);
+	if (!utilWriteBufToFile(fname, mem_max_str, strlen(mem_max_str), O_WRONLY | O_CLOEXEC)) {
+		LOG_E("Could not update memory cgroup max limit");
+		return false;
 	}
 
 	/*
@@ -99,16 +96,13 @@ static bool cgroupInitNsFromParentPids(struct nsjconf_t* nsjconf, pid_t pid)
 	}
 
 	char fname[PATH_MAX];
-	if (nsjconf->cgroup_pids_max != 0U) {
-		char pids_max_str[512];
-		snprintf(pids_max_str, sizeof(pids_max_str), "%u", nsjconf->cgroup_pids_max);
-		snprintf(fname, sizeof(fname), "%s/pids.max", pids_cgroup_path);
-		LOG_D("Setting '%s' to '%s'", fname, pids_max_str);
-		if (!utilWriteBufToFile(
-			fname, pids_max_str, strlen(pids_max_str), O_WRONLY | O_CLOEXEC)) {
-			LOG_E("Could not update pids cgroup max limit");
-			return false;
-		}
+	char pids_max_str[512];
+	snprintf(pids_max_str, sizeof(pids_max_str), "%u", nsjconf->cgroup_pids_max);
+	snprintf(fname, sizeof(fname), "%s/pids.max", pids_cgroup_path);
+	LOG_D("Setting '%s' to '%s'", fname, pids_max_str);
+	if (!utilWriteBufToFile(fname, pids_max_str, strlen(pids_max_str), O_WRONLY | O_CLOEXEC)) {
+		LOG_E("Could not update pids cgroup max limit");
+		return false;
 	}
 
 	char pid_str[512];
@@ -139,17 +133,15 @@ static bool cgroupInitNsFromParentNetCls(struct nsjconf_t* nsjconf, pid_t pid)
 	}
 
 	char fname[PATH_MAX];
-	if (nsjconf->cgroup_net_cls_classid != 0U) {
-		char net_cls_classid_str[512];
-		snprintf(net_cls_classid_str, sizeof(net_cls_classid_str), "0x%x",
-		    nsjconf->cgroup_net_cls_classid);
-		snprintf(fname, sizeof(fname), "%s/net_cls.classid", net_cls_cgroup_path);
-		LOG_D("Setting '%s' to '%s'", fname, net_cls_classid_str);
-		if (!utilWriteBufToFile(fname, net_cls_classid_str, strlen(net_cls_classid_str),
-			O_WRONLY | O_CLOEXEC)) {
-			LOG_E("Could not update net_cls cgroup classid");
-			return false;
-		}
+	char net_cls_classid_str[512];
+	snprintf(net_cls_classid_str, sizeof(net_cls_classid_str), "0x%x",
+	    nsjconf->cgroup_net_cls_classid);
+	snprintf(fname, sizeof(fname), "%s/net_cls.classid", net_cls_cgroup_path);
+	LOG_D("Setting '%s' to '%s'", fname, net_cls_classid_str);
+	if (!utilWriteBufToFile(
+		fname, net_cls_classid_str, strlen(net_cls_classid_str), O_WRONLY | O_CLOEXEC)) {
+		LOG_E("Could not update net_cls cgroup classid");
+		return false;
 	}
 
 	char pid_str[512];
