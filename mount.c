@@ -232,10 +232,10 @@ static bool mountRemountRO(struct mounts_t* mpt) {
 		return false;
 	}
 
-	struct {
-		unsigned long mount_flag;
-		unsigned long vfs_flag;
-	} mountPairs[] = {
+	static struct {
+		const unsigned long mount_flag;
+		const unsigned long vfs_flag;
+	} const mountPairs[] = {
 	    {MS_RDONLY, ST_RDONLY},
 	    {MS_NOSUID, ST_NOSUID},
 	    {MS_NODEV, ST_NODEV},
