@@ -164,8 +164,8 @@ message NsJailConfig {
     optional bool clone_newpid = 49 [default = true];
     optional bool clone_newipc = 50 [default = true];
     optional bool clone_newuts = 51 [default = true];
-    /* It's only supported in newer kernels, hence disabled by default */
-    optional bool clone_newcgroup = 52 [default = false];
+    /* Disable for kernel versions < 4.6 as it's not supported there */
+    optional bool clone_newcgroup = 52 [default = true];
 
     /* Mappings for UIDs and GIDs. See the description for 'msg IdMap'
        for more */

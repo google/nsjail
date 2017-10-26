@@ -109,7 +109,7 @@ struct custom_option custom_opts[] = {
     { { "disable_clone_newpid", no_argument, NULL, 0x0404 }, "Don't use CLONE_NEWPID" },
     { { "disable_clone_newipc", no_argument, NULL, 0x0405 }, "Don't use CLONE_NEWIPC" },
     { { "disable_clone_newuts", no_argument, NULL, 0x0406 }, "Don't use CLONE_NEWUTS" },
-    { { "enable_clone_newcgroup", no_argument, NULL, 0x0407 }, "Use CLONE_NEWCGROUP" },
+    { { "disable_clone_newcgroup", no_argument, NULL, 0x0407 }, "Don't use CLONE_NEWCGROUP. Might be required for kernel versions < 4.6" },
     { { "uid_mapping", required_argument, NULL, 'U' }, "Add a custom uid mapping of the form inside_uid:outside_uid:count. Setting this requires newuidmap (set-uid) to be present" },
     { { "gid_mapping", required_argument, NULL, 'G' }, "Add a custom gid mapping of the form inside_gid:outside_gid:count. Setting this requires newgidmap (set-uid) to be present" },
     { { "bindmount_ro", required_argument, NULL, 'R' }, "List of mountpoints to be mounted --bind (ro) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'" },
@@ -144,6 +144,7 @@ struct custom_option deprecated_opts[] = {
     { { "iface_vs_ip", required_argument, NULL, 0x701 }, "IP of the 'vs' interface (e.g. \"192.168.0.1\")" },
     { { "iface_vs_nm", required_argument, NULL, 0x702 }, "Netmask of the 'vs' interface (e.g. \"255.255.255.0\")" },
     { { "iface_vs_gw", required_argument, NULL, 0x703 }, "Default GW for the 'vs' interface (e.g. \"192.168.0.1\")" },
+    { { "enable_clone_newcgroup", no_argument, NULL, 0x0408 }, "Use CLONE_NEWCGROUP (it's enabled by default now)" },
 };
 // clang-format on
 
@@ -540,6 +541,9 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf) {
 			nsjconf->clone_newuts = false;
 			break;
 		case 0x0407:
+			nsjconf->clone_newcgroup = false;
+			break;
+		case 0x0408:
 			nsjconf->clone_newcgroup = true;
 			break;
 		case 0x0501:

@@ -445,7 +445,7 @@ void subprocRunChild(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_er
 	if (nsjconf->mode == MODE_STANDALONE_EXECVE) {
 		LOG_D("Entering namespace with flags:%s", subprocCloneFlagsToStr(flags));
 		if (unshare(flags) == -1) {
-			PLOG_E("unshare(%#lx)", flags);
+			PLOG_E("unshare(%s)", subprocCloneFlagsToStr(flags));
 			_exit(0xff);
 		}
 		subprocNewProc(nsjconf, fd_in, fd_out, fd_err, -1);
@@ -469,6 +469,11 @@ void subprocRunChild(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_er
 	}
 	close(child_fd);
 	if (pid == -1) {
+		if (flags & CLONE_NEWCGROUP) {
+			PLOG_E(
+			    "nsjail tried to use the CLONE_NEWCGROUP clone flag, which is "
+			    "supported under kernel versions >= 4.6 only. Try disabling this flag");
+		}
 		PLOG_E(
 		    "clone(flags=%s) failed. You probably need root privileges if your system "
 		    "doesn't support CLONE_NEWUSER. Alternatively, you might want to recompile "
