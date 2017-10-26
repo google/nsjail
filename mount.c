@@ -203,6 +203,12 @@ static bool mountMount(struct mounts_t* mpt, const char* newroot, const char* tm
 		} else {
 			PLOG_W("mount('%s') src:'%s' dst:'%s' failed", mountDescribeMountPt(mpt),
 			    srcpath, dst);
+			if (mpt->fs_type && strcmp(mpt->fs_type, "proc") == 0) {
+				PLOG_W(
+				    "procfs can only be mounted if the original /proc doesn't have "
+				    "any other file-systems mounted on top of it (e.g. /dev/null "
+				    "on top of /proc/kcore)");
+			}
 		}
 		return false;
 	} else {
