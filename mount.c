@@ -231,13 +231,20 @@ static bool mountRemountRO(struct mounts_t* mpt) {
 		PLOG_W("statvfs('%s')", mpt->dst);
 		return false;
 	}
-	/*
-	 * It's fine to use 'flags | vfs.f_flag' here as per
-	 * /usr/include/x86_64-linux-gnu/bits/statvfs.h: 'Definitions for
-	 * the flag in `f_flag'.  These definitions should be
-	 * kept in sync with the definitions in <sys/mount.h>'
-	 */
-	unsigned long new_flags = MS_REMOUNT | MS_RDONLY | vfs.f_flag;
+
+	unsigned long new_flags = MS_REMOUNT | MS_RDONLY | MS_BIND;
+	if (vfs.f_flag & ST_RDONLY) {
+		new_flags |= MS_RDONLY;
+	}
+	if (vfs.f_flag & ST_NOSUID) {
+		new_flags |= MS_NOSUID;
+	}
+	if (vfs.f_flag & ST_NODEV) {
+		new_flags |= MS_NODEV;
+	}
+	if (vfs.f_flag & ST_NOEXEC) {
+		new_flags |= MS_NOEXEC;
+	}
 
 	LOG_D("Re-mounting R/O '%s' (flags:%s)", mpt->dst, mountFlagsToStr(new_flags));
 
