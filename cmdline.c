@@ -344,7 +344,7 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf) {
 	    .clone_newpid = true,
 	    .clone_newipc = true,
 	    .clone_newuts = true,
-	    .clone_newcgroup = false,
+	    .clone_newcgroup = true,
 	    .mode = MODE_STANDALONE_ONCE,
 	    .is_root_rw = false,
 	    .is_silent = false,
