@@ -232,22 +232,29 @@ static bool mountRemountRO(struct mounts_t* mpt) {
 		return false;
 	}
 
+	struct {
+		unsigned long mount_flag;
+		unsigned long vfs_flag;
+	} mountPairs[] = {
+	    {MS_RDONLY, ST_RDONLY},
+	    {MS_NOSUID, ST_NOSUID},
+	    {MS_NODEV, ST_NODEV},
+	    {MS_NOEXEC, ST_NOEXEC},
+	    {MS_SYNCHRONOUS, ST_SYNCHRONOUS},
+	    {MS_MANDLOCK, ST_MANDLOCK},
+	    {MS_NOATIME, ST_NOATIME},
+	    {MS_NODIRATIME, ST_NODIRATIME},
+	    {MS_RELATIME, ST_RELATIME},
+	};
+
 	unsigned long new_flags = MS_REMOUNT | MS_RDONLY | MS_BIND;
-	if (vfs.f_flag & ST_RDONLY) {
-		new_flags |= MS_RDONLY;
-	}
-	if (vfs.f_flag & ST_NOSUID) {
-		new_flags |= MS_NOSUID;
-	}
-	if (vfs.f_flag & ST_NODEV) {
-		new_flags |= MS_NODEV;
-	}
-	if (vfs.f_flag & ST_NOEXEC) {
-		new_flags |= MS_NOEXEC;
+	for (size_t i = 0; i < ARRAYSIZE(mountPairs); i++) {
+		if (vfs.f_flag & mountPairs[i].vfs_flag) {
+			new_flags |= mountPairs[i].mount_flag;
+		}
 	}
 
 	LOG_D("Re-mounting R/O '%s' (flags:%s)", mpt->dst, mountFlagsToStr(new_flags));
-
 	if (mount(mpt->dst, mpt->dst, NULL, new_flags, 0) == -1) {
 		PLOG_W("mount('%s', flags:%s)", mpt->dst, mountFlagsToStr(new_flags));
 		return false;
