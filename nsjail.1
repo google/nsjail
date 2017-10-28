@@ -166,8 +166,8 @@ Don't use CLONE_NEWIPC
 \fB\-\-disable_clone_newuts\fR
 Don't use CLONE_NEWUTS
 .TP
-\fB\-\-enable_clone_newcgroup\fR
-Use CLONE_NEWCGROUP
+\fB\-\-disable_clone_newcgroup\fR
+Don't use CLONE_NEWCGROUP. Might be required for kernel versions < 4.6
 .TP
 \fB\-\-uid_mapping\fR|\fB\-U\fR VALUE
 Add a custom uid mapping of the form inside_uid:outside_uid:count. Setting this requires newuidmap to be present

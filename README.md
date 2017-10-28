@@ -430,8 +430,8 @@ Options:
 	Don't use CLONE_NEWIPC
  --disable_clone_newuts 
 	Don't use CLONE_NEWUTS
- --enable_clone_newcgroup 
-	Use CLONE_NEWCGROUP
+ --disable_clone_newcgroup 
+	Don't use CLONE_NEWCGROUP. Might be required for kernel versions < 4.6
  --uid_mapping|-U VALUE
 	Add a custom uid mapping of the form inside_uid:outside_uid:count. Setting this requires newuidmap to be present
  --gid_mapping|-G VALUE
