@@ -259,8 +259,8 @@ static void subprocSeccompViolation(struct nsjconf_t* nsjconf, siginfo_t* si) {
 
 	struct pids_t* p = subprocGetPidElem(nsjconf, si->si_pid);
 	if (p == NULL) {
-		LOG_W("PID: %d, Syscall number: %d, Seccomp reason: %d", (int)si->si_pid,
-		    si->si_syscall, si->si_errno);
+		LOG_W("PID:%d SiSyscall: %d, SiCode: %d, SiErrno: %d", (int)si->si_pid,
+		    si->si_syscall, si->si_code, si->si_errno);
 		LOG_E("Couldn't find pid element in the subproc list for PID: %d", (int)si->si_pid);
 		return;
 	}
@@ -268,8 +268,8 @@ static void subprocSeccompViolation(struct nsjconf_t* nsjconf, siginfo_t* si) {
 	char buf[4096];
 	ssize_t rdsize = utilReadFromFd(p->pid_syscall_fd, buf, sizeof(buf) - 1);
 	if (rdsize < 1) {
-		LOG_W("PID: %d, Syscall number: %d, Seccomp reason: %d", (int)si->si_pid,
-		    si->si_syscall, si->si_errno);
+		LOG_W("PID: %d, SiSyscall: %d, SiCode: %d, SiErrno: %d", (int)si->si_pid,
+		    si->si_syscall, si->si_code, si->si_errno);
 		return;
 	}
 	buf[rdsize - 1] = '\0';
@@ -285,11 +285,11 @@ static void subprocSeccompViolation(struct nsjconf_t* nsjconf, siginfo_t* si) {
 		    (int)si->si_pid, sc, arg1, arg2, arg3, arg4, arg5, arg6, sp, pc, si->si_syscall,
 		    si->si_errno);
 	} else if (ret == 3) {
-		LOG_W("PID: %d, Syscall number: %d, Seccomp reason: %d, SP: %#tx, PC: %#tx",
-		    (int)si->si_pid, si->si_syscall, si->si_errno, arg1, arg2);
+		LOG_W("PID: %d, SiSyscall: %d, SiCode: %d, SiErrno: %d, SP: %#tx, PC: %#tx",
+		    (int)si->si_pid, si->si_syscall, si->si_code, si->si_errno, arg1, arg2);
 	} else {
-		LOG_W("PID: %d, Syscall number: %d, Seccomp reason: %d, Syscall string '%s'",
-		    (int)si->si_pid, si->si_syscall, si->si_errno, buf);
+		LOG_W("PID: %d, SiSyscall: %d, SiCode: %d, SiErrno: %d, Syscall string '%s'",
+		    (int)si->si_pid, si->si_syscall, si->si_code, si->si_errno, buf);
 	}
 }
 
