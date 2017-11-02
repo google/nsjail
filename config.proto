@@ -121,7 +121,8 @@ message NsJailConfig {
     optional bool silent = 23 [default = false];
     /* Should the child process have control over terminal?
        Can be useful to allow /bin/sh to provide
-       job control / signals */
+       job control / signals. Dangerous, can be used to put
+       characters into the controlling terminal back */
     optional bool skip_setsid = 24 [default = false];
     /* Which FDs should be passed to the newly executed process
        By default only FD=0,1,2 are passed */
