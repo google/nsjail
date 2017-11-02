@@ -88,7 +88,7 @@ struct custom_option custom_opts[] = {
     { { "keep_caps", no_argument, NULL, 0x0501 }, "Don't drop any capabilities" },
     { { "cap", required_argument, NULL, 0x0509 }, "Retain this capability, e.g. CAP_PTRACE (can be specified multiple times)" },
     { { "silent", no_argument, NULL, 0x0502 }, "Redirect child process' fd:0/1/2 to /dev/null" },
-    { { "skip_setsid", no_argument, NULL, 0x0504 }, "Don't call setsid(), allows for terminal signal handling in the sandboxed process" },
+    { { "skip_setsid", no_argument, NULL, 0x0504 }, "Don't call setsid(), allows for terminal signal handling in the sandboxed process. Dangerous" },
     { { "pass_fd", required_argument, NULL, 0x0505 }, "Don't close this FD before executing the child process (can be specified multiple times), by default: 0/1/2 are kept open" },
     { { "disable_no_new_privs", no_argument, NULL, 0x0507 }, "Don't set the prctl(NO_NEW_PRIVS, 1) (DANGEROUS)" },
     { { "rlimit_as", required_argument, NULL, 0x0201 }, "RLIMIT_AS in MB, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 512)" },
