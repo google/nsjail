@@ -23,6 +23,17 @@
 #ifndef NS_NSJAIL_H
 #define NS_NSJAIL_H
 
+//taken from https://github.com/openhome/ohNet/issues/25
+#define _GNU_SOURCE 1
+#if defined(PLATFORM_MACOSX_GNU) || defined(PLATFORM_FREEBSD) || !defined(__GLIBC__)
+#define TEMP_FAILURE_RETRY(expression) \
+  (__extension__                                                              \
+    ({ long int __result;                                                     \
+       do __result = (long int) (expression);                                 \
+       while (__result == -1L && errno == EINTR);                             \
+       __result; }))
+#endif
+
 #include <netinet/ip6.h>
 #include <signal.h>
 #include <stdbool.h>

@@ -288,8 +288,8 @@ const char* utilSigName(int signo) {
 		}
 	}
 
-	if (signo > __SIGRTMIN) {
-		snprintf(sigstr, sizeof(sigstr), "SIG%d-RTMIN+%d", signo, signo - __SIGRTMIN);
+	if (signo > SIGRTMIN) {
+		snprintf(sigstr, sizeof(sigstr), "SIG%d-RTMIN+%d", signo, signo - SIGRTMIN);
 		return sigstr;
 	}
 	snprintf(sigstr, sizeof(sigstr), "UNKNOWN-%d", signo);
