@@ -48,7 +48,7 @@ extern "C" {
 
 #define DUP_IF_SET(njc, val) (njc.has_##val() ? njc.val().c_str() : NULL)
 
-static __rlim64_t configRLimit(
+static uint64_t configRLimit(
     int res, const nsjail::RLimit& rl, const uint64_t val, unsigned long mul = 1UL) {
 	if (rl == nsjail::RLimit::VALUE) {
 		return (val * mul);
