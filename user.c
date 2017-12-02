@@ -327,7 +327,7 @@ static uid_t cmdParseUid(const char* id) {
 	if (utilIsANumber(id)) {
 		return (uid_t)strtoull(id, NULL, 0);
 	}
-	return -1;
+	return (uid_t)-1;
 }
 
 static gid_t cmdParseGid(const char* id) {
@@ -341,7 +341,7 @@ static gid_t cmdParseGid(const char* id) {
 	if (utilIsANumber(id)) {
 		return (gid_t)strtoull(id, NULL, 0);
 	}
-	return -1;
+	return (gid_t)-1;
 }
 
 bool userParseId(struct nsjconf_t* nsjconf, const char* i_id, const char* o_id, size_t cnt,
@@ -356,7 +356,7 @@ bool userParseId(struct nsjconf_t* nsjconf, const char* i_id, const char* o_id, 
 			return false;
 		}
 		outside_id = cmdParseGid(o_id);
-		if (inside_id == (uid_t)-1) {
+		if (outside_id == (uid_t)-1) {
 			LOG_W("Cannot parse '%s' as GID", o_id);
 			return false;
 		}
@@ -367,7 +367,7 @@ bool userParseId(struct nsjconf_t* nsjconf, const char* i_id, const char* o_id, 
 			return false;
 		}
 		outside_id = cmdParseUid(o_id);
-		if (inside_id == (uid_t)-1) {
+		if (outside_id == (uid_t)-1) {
 			LOG_W("Cannot parse '%s' as UID", o_id);
 			return false;
 		}
