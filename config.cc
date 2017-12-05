@@ -286,6 +286,7 @@ static bool configParseInternal(struct nsjconf_t* nsjconf, const nsjail::NsJailC
 		static std::vector<const char*> argv;
 		if (njc.exec_bin().has_arg0()) {
 			argv.push_back(njc.exec_bin().arg0().c_str());
+			nsjconf->exec_file = njc.exec_bin().path().c_str();
 		} else {
 			argv.push_back(njc.exec_bin().path().c_str());
 		}
@@ -293,7 +294,6 @@ static bool configParseInternal(struct nsjconf_t* nsjconf, const nsjail::NsJailC
 			argv.push_back(njc.exec_bin().arg(i).c_str());
 		}
 		argv.push_back(nullptr);
-		nsjconf->exec_file = DUP_IF_SET(njc.exec_bin(), path);
 		nsjconf->argv = argv.data();
 		nsjconf->use_execveat = njc.exec_bin().exec_fd();
 	}
