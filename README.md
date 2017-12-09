@@ -47,7 +47,7 @@ Features:
 ### Which use-cases are supported
 #### Isolation of network services (inetd style)
 
-_PS: You'll need to have a valid file-system tree in /chroot. If you don't have it, change ```/chroot``` to ```/```_
+_PS: You'll need to have a valid file-system tree in ```/chroot```. If you don't have it, change ```/chroot``` to ```/```_
 
 + Server:
 <pre>
@@ -74,7 +74,7 @@ _PS: You'll need to have a valid file-system tree in /chroot. If you don't have 
 
 #### Isolation with access to a private, cloned interface (requires root/setuid)
 
-_PS: You'll need to have a valid file-system tree in /chroot. If you don't have it, change ```/chroot``` to ```/```_
+_PS: You'll need to have a valid file-system tree in ```/chroot```. If you don't have it, change ```/chroot``` to ```/```_
 
 <pre>
 $ sudo ./nsjail --user 9999 --group 9999 --macvlan_iface eth0 --chroot /chroot/ -Mo --macvlan_vs_ip 192.168.0.44 --macvlan_vs_nm 255.255.255.0 --macvlan_vs_gw 192.168.0.1 -- /bin/sh -i
@@ -99,7 +99,7 @@ GET / HTTP/1.0
 HTTP/1.0 302 Found
 Cache-Control: private
 Content-Type: text/html; charset=UTF-8
-Location: http://www.google.ch/?gfe_rd=cr&ei=cEzWVrG2CeTI8ge88ofwDA
+Location: https://www.google.ch/?gfe_rd=cr&ei=cEzWVrG2CeTI8ge88ofwDA
 Content-Length: 258
 Date: Wed, 02 Mar 2016 02:14:08 GMT
 
@@ -110,7 +110,7 @@ Date: Wed, 02 Mar 2016 02:14:08 GMT
 
 #### Isolation of local processes
 
-_PS: You'll need to have a valid file-system tree in /chroot. If you don't have it, change ```/chroot``` to ```/```_
+_PS: You'll need to have a valid file-system tree in ```/chroot```. If you don't have it, change ```/chroot``` to ```/```_
 
 <pre>
  $ ./nsjail -Mo --chroot /chroot/ --user 99999 --group 99999 -- /bin/sh -i
@@ -132,7 +132,7 @@ _PS: You'll need to have a valid file-system tree in /chroot. If you don't have 
 
 #### Isolation of local processes (and re-running them, if necessary)
 
-_PS: You'll need to have a valid file-system tree in /chroot. If you don't have it, change ```/chroot``` to ```/```_
+_PS: You'll need to have a valid file-system tree in ```/chroot```. If you don't have it, change ```/chroot``` to ```/```_
 
 <pre>
  $ ./nsjail -Mr --chroot /chroot/ --user 99999 --group 99999 -- /bin/sh -i
