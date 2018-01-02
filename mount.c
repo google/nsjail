@@ -152,7 +152,7 @@ static bool mountMount(struct mounts_t* mpt, const char* newroot, const char* tm
 		if (fd >= 0) {
 			close(fd);
 		} else {
-			PLOG_W("open('%s', O_CREAT|O_RDONLY|O_CLOEXEC, 0700)", dst);
+			PLOG_W("open('%s', O_CREAT|O_RDONLY|O_CLOEXEC, 0644)", dst);
 		}
 	}
 

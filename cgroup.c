@@ -43,7 +43,7 @@ static bool cgroupInitNsFromParentMem(struct nsjconf_t* nsjconf, pid_t pid) {
 	    nsjconf->cgroup_mem_mount, nsjconf->cgroup_mem_parent, (int)pid);
 	LOG_D("Create '%s' for PID=%d", mem_cgroup_path, (int)pid);
 	if (mkdir(mem_cgroup_path, 0700) == -1 && errno != EEXIST) {
-		PLOG_E("mkdir('%s', 0711) failed", mem_cgroup_path);
+		PLOG_E("mkdir('%s', 0700) failed", mem_cgroup_path);
 		return false;
 	}
 
@@ -89,7 +89,7 @@ static bool cgroupInitNsFromParentPids(struct nsjconf_t* nsjconf, pid_t pid) {
 	    nsjconf->cgroup_pids_mount, nsjconf->cgroup_pids_parent, (int)pid);
 	LOG_D("Create '%s' for PID=%d", pids_cgroup_path, (int)pid);
 	if (mkdir(pids_cgroup_path, 0700) == -1 && errno != EEXIST) {
-		PLOG_E("mkdir('%s', 0711) failed", pids_cgroup_path);
+		PLOG_E("mkdir('%s', 0700) failed", pids_cgroup_path);
 		return false;
 	}
 
@@ -125,7 +125,7 @@ static bool cgroupInitNsFromParentNetCls(struct nsjconf_t* nsjconf, pid_t pid) {
 	    nsjconf->cgroup_net_cls_mount, nsjconf->cgroup_net_cls_parent, (int)pid);
 	LOG_D("Create '%s' for PID=%d", net_cls_cgroup_path, (int)pid);
 	if (mkdir(net_cls_cgroup_path, 0700) == -1 && errno != EEXIST) {
-		PLOG_E("mkdir('%s', 0711) failed", net_cls_cgroup_path);
+		PLOG_E("mkdir('%s', 0700) failed", net_cls_cgroup_path);
 		return false;
 	}
 
