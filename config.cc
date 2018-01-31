@@ -251,10 +251,10 @@ static bool configParseInternal(struct nsjconf_t* nsjconf, const nsjail::NsJailC
 	}
 
 	if (njc.has_seccomp_policy_file()) {
-		if ((nsjconf->kafel_file = fopen(njc.seccomp_policy_file().c_str(), "rb")) ==
-		    NULL) {
+		nsjconf->kafel_file_path = njc.seccomp_policy_file().c_str();
+		if (access(nsjconf->kafel_file_path, R_OK) == -1) {
 			PLOG_W("Couldn't open file with seccomp policy '%s'",
-			    njc.seccomp_policy_file().c_str());
+			    nsjconf->kafel_file_path);
 			return false;
 		}
 	}

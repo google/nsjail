@@ -34,18 +34,15 @@
 #endif /* PR_SET_NO_NEW_PRIVS */
 
 static bool sandboxPrepareAndCommit(struct nsjconf_t* nsjconf) {
-	if (nsjconf->kafel_file == NULL && nsjconf->kafel_string == NULL) {
+	if (nsjconf->kafel_file_ptr == NULL && nsjconf->kafel_string == NULL) {
 		return true;
 	}
 	struct sock_fprog seccomp_fprog;
 
 	kafel_ctxt_t ctxt = kafel_ctxt_create();
 
-	if (nsjconf->kafel_file != NULL) {
-		if (fseek(nsjconf->kafel_file, 0L, SEEK_SET) == -1) {
-			PLOG_W("fseek(kafel_file, 0, SEEK_SET)");
-		}
-		kafel_set_input_file(ctxt, nsjconf->kafel_file);
+	if (nsjconf->kafel_file_ptr != NULL) {
+		kafel_set_input_file(ctxt, nsjconf->kafel_file_ptr);
 	} else {
 		kafel_set_input_string(ctxt, nsjconf->kafel_string);
 	}
@@ -69,3 +66,14 @@ static bool sandboxPrepareAndCommit(struct nsjconf_t* nsjconf) {
 }
 
 bool sandboxApply(struct nsjconf_t* nsjconf) { return sandboxPrepareAndCommit(nsjconf); }
+
+bool sandboxPrepare(struct nsjconf_t* nsjconf) {
+	if (nsjconf->kafel_file_path == NULL) {
+		return true;
+	}
+	if ((nsjconf->kafel_file_ptr = fopen(nsjconf->kafel_file_path, "r")) == NULL) {
+		PLOG_W("Couldn't open kafel policy file '%s'", nsjconf->kafel_file_path);
+		return false;
+	}
+	return true;
+}

@@ -130,6 +130,9 @@ static bool subprocReset(void) {
 
 static int subprocNewProc(
     struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err, int pipefd) {
+	if (sandboxPrepare(nsjconf) == false) {
+		_exit(0xff);
+	}
 	if (containSetupFD(nsjconf, fd_in, fd_out, fd_err) == false) {
 		_exit(0xff);
 	}

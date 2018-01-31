@@ -368,7 +368,8 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf) {
 	    .iface_vs_ip = "0.0.0.0",
 	    .iface_vs_nm = "255.255.255.0",
 	    .iface_vs_gw = "0.0.0.0",
-	    .kafel_file = NULL,
+	    .kafel_file_path = NULL,
+	    .kafel_file_ptr = NULL,
 	    .kafel_string = NULL,
 	    .orig_uid = getuid(),
 	    .num_cpus = sysconf(_SC_NPROCESSORS_ONLN),
@@ -740,8 +741,11 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf) {
 			nsjconf->cgroup_net_cls_parent = optarg;
 			break;
 		case 'P':
-			if ((nsjconf->kafel_file = fopen(optarg, "r")) == NULL) {
-				PLOG_F("Couldn't open '%s'", optarg);
+			nsjconf->kafel_file_path = optarg;
+			if (access(nsjconf->kafel_file_path, R_OK) == -1) {
+				PLOG_E("kafel config file '%s' cannot be opened for reading",
+				    nsjconf->kafel_file_path);
+				return false;
 			}
 			break;
 		case 0x0901:

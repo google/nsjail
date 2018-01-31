@@ -27,5 +27,6 @@
 #include "nsjail.h"
 
 bool sandboxApply(struct nsjconf_t* nsjconf);
+bool sandboxPrepare(struct nsjconf_t* nsjconf);
 
 #endif /* NS_SANDBOX_H */

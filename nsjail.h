@@ -173,8 +173,9 @@ struct nsjconf_t {
 	const char* cgroup_net_cls_mount;
 	const char* cgroup_net_cls_parent;
 	unsigned int cgroup_net_cls_classid;
-	FILE* kafel_file;
-	char* kafel_string;
+	const char* kafel_file_path;
+	FILE* kafel_file_ptr;
+	const char* kafel_string;
 	long num_cpus;
 	uid_t orig_uid;
 	TAILQ_HEAD(udmaplist, idmap_t)
