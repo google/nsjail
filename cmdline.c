@@ -666,7 +666,8 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf) {
 		}; break;
 		case 'T': {
 			if (!mountAddMountPtTail(nsjconf, /* src= */ NULL, optarg, "tmpfs",
-				/* options= */ cmdlineTmpfsSz, /* flags= */ 0, /* isDir= */ NS_DIR_YES,
+				/* options= */ cmdlineTmpfsSz, /* flags= */ 0,
+				/* isDir= */ NS_DIR_YES,
 				/* mandatory= */ true, NULL, NULL, NULL, 0,
 				/* is_symlink= */ false)) {
 				return false;
