@@ -46,6 +46,7 @@
 #include "config.h"
 #include "log.h"
 #include "mount.h"
+#include "sandbox.h"
 #include "user.h"
 #include "util.h"
 
@@ -369,7 +370,6 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf) {
 	    .iface_vs_nm = "255.255.255.0",
 	    .iface_vs_gw = "0.0.0.0",
 	    .kafel_file_path = NULL,
-	    .kafel_file_ptr = NULL,
 	    .kafel_string = NULL,
 	    .orig_uid = getuid(),
 	    .num_cpus = sysconf(_SC_NPROCESSORS_ONLN),
@@ -827,6 +827,11 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf) {
 			PLOG_W("Couldn't open '%s' file", nsjconf->exec_file);
 			return false;
 		}
+	}
+
+	if (!sandboxPrepare(nsjconf)) {
+		LOG_E("Couldn't prepare sandboxing setup");
+		return false;
 	}
 
 	return true;

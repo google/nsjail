@@ -34,31 +34,15 @@
 #endif /* PR_SET_NO_NEW_PRIVS */
 
 static bool sandboxPrepareAndCommit(struct nsjconf_t* nsjconf) {
-	if (nsjconf->kafel_file_ptr == NULL && nsjconf->kafel_string == NULL) {
+	if (nsjconf->kafel_file_path == NULL && nsjconf->kafel_string == NULL) {
 		return true;
 	}
-	struct sock_fprog seccomp_fprog;
-
-	kafel_ctxt_t ctxt = kafel_ctxt_create();
-
-	if (nsjconf->kafel_file_ptr != NULL) {
-		kafel_set_input_file(ctxt, nsjconf->kafel_file_ptr);
-	} else {
-		kafel_set_input_string(ctxt, nsjconf->kafel_string);
-	}
-
-	if (kafel_compile(ctxt, &seccomp_fprog) != 0) {
-		LOG_E("Could not compile policy: %s", kafel_error_msg(ctxt));
-		kafel_ctxt_destroy(&ctxt);
-		return false;
-	}
-	kafel_ctxt_destroy(&ctxt);
 
 	if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)) {
 		PLOG_W("prctl(PR_SET_NO_NEW_PRIVS, 1) failed");
 		return false;
 	}
-	if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &seccomp_fprog, 0, 0)) {
+	if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &nsjconf->seccomp_fprog, 0, 0)) {
 		PLOG_W("prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER) failed");
 		return false;
 	}
@@ -68,12 +52,33 @@ static bool sandboxPrepareAndCommit(struct nsjconf_t* nsjconf) {
 bool sandboxApply(struct nsjconf_t* nsjconf) { return sandboxPrepareAndCommit(nsjconf); }
 
 bool sandboxPrepare(struct nsjconf_t* nsjconf) {
-	if (nsjconf->kafel_file_path == NULL) {
+	if (nsjconf->kafel_file_path == NULL && nsjconf->kafel_string == NULL) {
 		return true;
 	}
-	if ((nsjconf->kafel_file_ptr = fopen(nsjconf->kafel_file_path, "r")) == NULL) {
-		PLOG_W("Couldn't open kafel policy file '%s'", nsjconf->kafel_file_path);
+	FILE* f = NULL;
+	if (nsjconf->kafel_file_path && !(f = fopen(nsjconf->kafel_file_path, "r"))) {
+		PLOG_W(
+		    "Couldn't open the kafel seccomp policy file '%s'", nsjconf->kafel_file_path);
 		return false;
 	}
+
+	kafel_ctxt_t ctxt = kafel_ctxt_create();
+
+	if (f) {
+		kafel_set_input_file(ctxt, f);
+	} else if (nsjconf->kafel_string) {
+		kafel_set_input_string(ctxt, nsjconf->kafel_string);
+	} else {
+		LOG_F(
+		    "No kafel seccomp-bpf config file available, nor policy as a string was "
+		    "defined");
+	}
+
+	if (kafel_compile(ctxt, &nsjconf->seccomp_fprog) != 0) {
+		LOG_E("Could not compile policy: %s", kafel_error_msg(ctxt));
+		kafel_ctxt_destroy(&ctxt);
+		return false;
+	}
+	kafel_ctxt_destroy(&ctxt);
 	return true;
 }

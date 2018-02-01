@@ -51,7 +51,7 @@
 #include "user.h"
 #include "util.h"
 
-static const char subprocDoneChar = 'D';
+static const char kSubprocDoneChar = 'D';
 
 #if !defined(CLONE_NEWCGROUP)
 #define CLONE_NEWCGROUP 0x02000000
@@ -130,9 +130,6 @@ static bool subprocReset(void) {
 
 static int subprocNewProc(
     struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err, int pipefd) {
-	if (sandboxPrepare(nsjconf) == false) {
-		_exit(0xff);
-	}
 	if (containSetupFD(nsjconf, fd_in, fd_out, fd_err) == false) {
 		_exit(0xff);
 	}
@@ -154,7 +151,7 @@ static int subprocNewProc(
 		if (utilReadFromFd(pipefd, &doneChar, sizeof(doneChar)) != sizeof(doneChar)) {
 			_exit(0xff);
 		}
-		if (doneChar != subprocDoneChar) {
+		if (doneChar != kSubprocDoneChar) {
 			_exit(0xff);
 		}
 	}
@@ -385,8 +382,8 @@ static bool subprocInitParent(struct nsjconf_t* nsjconf, pid_t pid, int pipefd) 
 		LOG_E("Couldn't initialize user namespaces for pid %d", pid);
 		return false;
 	}
-	if (utilWriteToFd(pipefd, &subprocDoneChar, sizeof(subprocDoneChar)) !=
-	    sizeof(subprocDoneChar)) {
+	if (utilWriteToFd(pipefd, &kSubprocDoneChar, sizeof(kSubprocDoneChar)) !=
+	    sizeof(kSubprocDoneChar)) {
 		LOG_E("Couldn't signal the new process via a socketpair");
 		return false;
 	}

@@ -23,6 +23,7 @@
 #ifndef NS_NSJAIL_H
 #define NS_NSJAIL_H
 
+#include <linux/filter.h>
 #include <netinet/ip6.h>
 #include <signal.h>
 #include <stdbool.h>
@@ -174,8 +175,8 @@ struct nsjconf_t {
 	const char* cgroup_net_cls_parent;
 	unsigned int cgroup_net_cls_classid;
 	const char* kafel_file_path;
-	FILE* kafel_file_ptr;
 	const char* kafel_string;
+	struct sock_fprog seccomp_fprog;
 	long num_cpus;
 	uid_t orig_uid;
 	TAILQ_HEAD(udmaplist, idmap_t)

@@ -99,8 +99,8 @@ indent:
 
 nsjail.o: nsjail.h cmdline.h common.h log.h net.h subproc.h util.h
 caps.o: caps.h nsjail.h common.h log.h util.h
-cmdline.o: cmdline.h nsjail.h caps.h common.h config.h log.h mount.h user.h
-cmdline.o: util.h
+cmdline.o: cmdline.h nsjail.h caps.h common.h config.h log.h mount.h
+cmdline.o: sandbox.h user.h util.h
 contain.o: contain.h nsjail.h caps.h cgroup.h cpu.h log.h mount.h net.h pid.h
 contain.o: user.h uts.h
 log.o: log.h nsjail.h
