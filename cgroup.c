@@ -169,13 +169,22 @@ static bool cgroupInitNsFromParentCpu(struct nsjconf_t* nsjconf, pid_t pid) {
 
 	char fname[PATH_MAX];
 	char cpu_ms_per_sec_str[512];
-	snprintf(cpu_ms_per_sec_str, sizeof(cpu_ms_per_sec_str), "0x%x",
+	snprintf(cpu_ms_per_sec_str, sizeof(cpu_ms_per_sec_str), "%u",
 	    nsjconf->cgroup_cpu_ms_per_sec * 1000U);
 	snprintf(fname, sizeof(fname), "%s/cpu.cfs_quota_us", cpu_cgroup_path);
 	LOG_D("Setting '%s' to '%s'", fname, cpu_ms_per_sec_str);
 	if (!utilWriteBufToFile(
 		fname, cpu_ms_per_sec_str, strlen(cpu_ms_per_sec_str), O_WRONLY | O_CLOEXEC)) {
 		LOG_E("Could not update cpu quota");
+		return false;
+	}
+
+	const char cpu_period_us[] = "1000000";
+	snprintf(fname, sizeof(fname), "%s/cpu.cfs_period_us", cpu_cgroup_path);
+	LOG_D("Setting '%s' to '%s'", fname, cpu_period_us);
+	if (!utilWriteBufToFile(
+		fname, cpu_period_us, strlen(cpu_period_us), O_WRONLY | O_CLOEXEC)) {
+		LOG_E("Could not update cpu period");
 		return false;
 	}
 
