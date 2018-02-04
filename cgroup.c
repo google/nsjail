@@ -153,6 +153,44 @@ static bool cgroupInitNsFromParentNetCls(struct nsjconf_t* nsjconf, pid_t pid) {
 	return true;
 }
 
+static bool cgroupInitNsFromParentCpu(struct nsjconf_t* nsjconf, pid_t pid) {
+	if (nsjconf->cgroup_cpu_ms_per_sec == 0U) {
+		return true;
+	}
+
+	char cpu_cgroup_path[PATH_MAX];
+	snprintf(cpu_cgroup_path, sizeof(cpu_cgroup_path), "%s/%s/NSJAIL.%d",
+	    nsjconf->cgroup_cpu_mount, nsjconf->cgroup_cpu_parent, (int)pid);
+	LOG_D("Create '%s' for PID=%d", cpu_cgroup_path, (int)pid);
+	if (mkdir(cpu_cgroup_path, 0700) == -1 && errno != EEXIST) {
+		PLOG_E("mkdir('%s', 0700) failed", cpu_cgroup_path);
+		return false;
+	}
+
+	char fname[PATH_MAX];
+	char cpu_ms_per_sec_str[512];
+	snprintf(cpu_ms_per_sec_str, sizeof(cpu_ms_per_sec_str), "0x%x",
+	    nsjconf->cgroup_cpu_ms_per_sec * 1000U);
+	snprintf(fname, sizeof(fname), "%s/cpu.cfs_quota_us", cpu_cgroup_path);
+	LOG_D("Setting '%s' to '%s'", fname, cpu_ms_per_sec_str);
+	if (!utilWriteBufToFile(
+		fname, cpu_ms_per_sec_str, strlen(cpu_ms_per_sec_str), O_WRONLY | O_CLOEXEC)) {
+		LOG_E("Could not update cpu quota");
+		return false;
+	}
+
+	char pid_str[512];
+	snprintf(pid_str, sizeof(pid_str), "%d", (int)pid);
+	snprintf(fname, sizeof(fname), "%s/tasks", cpu_cgroup_path);
+	LOG_D("Adding PID='%s' to '%s'", pid_str, fname);
+	if (!utilWriteBufToFile(fname, pid_str, strlen(pid_str), O_WRONLY | O_CLOEXEC)) {
+		LOG_E("Could not update cpu cgroup task list");
+		return false;
+	}
+
+	return true;
+}
+
 bool cgroupInitNsFromParent(struct nsjconf_t* nsjconf, pid_t pid) {
 	if (!cgroupInitNsFromParentMem(nsjconf, pid)) {
 		return false;
@@ -161,6 +199,9 @@ bool cgroupInitNsFromParent(struct nsjconf_t* nsjconf, pid_t pid) {
 		return false;
 	}
 	if (!cgroupInitNsFromParentNetCls(nsjconf, pid)) {
+		return false;
+	}
+	if (!cgroupInitNsFromParentCpu(nsjconf, pid)) {
 		return false;
 	}
 	return true;
@@ -194,6 +235,20 @@ void cgroupFinishFromParentPids(struct nsjconf_t* nsjconf, pid_t pid) {
 	return;
 }
 
+void cgroupFinishFromParentCpu(struct nsjconf_t* nsjconf, pid_t pid) {
+	if (nsjconf->cgroup_cpu_ms_per_sec == 0U) {
+		return;
+	}
+	char cpu_cgroup_path[PATH_MAX];
+	snprintf(cpu_cgroup_path, sizeof(cpu_cgroup_path), "%s/%s/NSJAIL.%d",
+	    nsjconf->cgroup_cpu_mount, nsjconf->cgroup_cpu_parent, (int)pid);
+	LOG_D("Remove '%s'", cpu_cgroup_path);
+	if (rmdir(cpu_cgroup_path) == -1) {
+		PLOG_W("rmdir('%s') failed", cpu_cgroup_path);
+	}
+	return;
+}
+
 void cgroupFinishFromParentNetCls(struct nsjconf_t* nsjconf, pid_t pid) {
 	if (nsjconf->cgroup_net_cls_classid == 0U) {
 		return;
@@ -212,6 +267,7 @@ void cgroupFinishFromParent(struct nsjconf_t* nsjconf, pid_t pid) {
 	cgroupFinishFromParentMem(nsjconf, pid);
 	cgroupFinishFromParentPids(nsjconf, pid);
 	cgroupFinishFromParentNetCls(nsjconf, pid);
+	cgroupFinishFromParentCpu(nsjconf, pid);
 }
 
 bool cgroupInitNs(void) { return true; }
