@@ -35,8 +35,8 @@ LDFLAGS += -pie -Wl,-z,noexecstack -lpthread $(shell pkg-config --libs protobuf)
 
 BIN = nsjail
 LIBS = kafel/libkafel.a
-SRCS_C = nsjail.c caps.c cmdline.c contain.c log.c cgroup.c mount.c net.c pid.c sandbox.c subproc.c user.c util.c uts.c cpu.c
-SRCS_CXX = config.cc
+SRCS_C = caps.c cmdline.c contain.c log.c cgroup.c mount.c net.c pid.c sandbox.c subproc.c user.c util.c uts.c cpu.c
+SRCS_CXX = nsjail.cc config.cc
 SRCS_PROTO = config.proto
 SRCS_PB_CXX = $(SRCS_PROTO:.proto=.pb.cc)
 SRCS_PB_H = $(SRCS_PROTO:.proto=.pb.h)
@@ -60,7 +60,7 @@ endif
 .PHONY: all clean depend indent
 
 .c.o: %.c
-	$(CC) $(CFLAGS) $< -o $@
+	$(CXX) -xc $(CFLAGS) $< -o $@
 
 .cc.o: %.cc
 	$(CXX) $(CXXFLAGS) $< -o $@

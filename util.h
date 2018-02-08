@@ -28,6 +28,10 @@
 
 #include "nsjail.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void* utilMalloc(size_t sz);
 void* utilCalloc(size_t sz);
 char* utilStrDup(const char* str);
@@ -42,5 +46,9 @@ bool utilIsANumber(const char* s);
 uint64_t utilRnd64(void);
 const char* utilSigName(int signo);
 const char* utilTimeToStr(time_t t);
+
+#ifdef __cplusplus
+}  // extern "C"
+#endif
 
 #endif /* NS_UTIL_H */

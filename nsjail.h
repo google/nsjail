@@ -44,6 +44,10 @@
 	}))
 #endif /* !defined(TEMP_FAILURE_RETRY) */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 static const int nssigs[] = {
     SIGINT,
     SIGQUIT,
@@ -197,5 +201,9 @@ struct nsjconf_t {
 	TAILQ_HEAD(capslistt, ints_t)
 	caps;
 };
+
+#ifdef __cplusplus
+}  // extern "C"
+#endif
 
 #endif /* _NSJAIL_H */

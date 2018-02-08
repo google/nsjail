@@ -29,8 +29,16 @@
 
 #include "nsjail.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 uint64_t cmdlineParseRLimit(int res, const char* optarg, unsigned long mul);
 void cmdlineLogParams(struct nsjconf_t* nsjconf);
 bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf);
+
+#ifdef __cplusplus
+}  // extern "C"
+#endif
 
 #endif /* _CMDLINE_H */

@@ -58,12 +58,12 @@ static bool nsjailSetSigHandler(int sig) {
 
 	sigset_t smask;
 	sigemptyset(&smask);
-	struct sigaction sa = {
-	    .sa_handler = nsjailSig,
-	    .sa_mask = smask,
-	    .sa_flags = 0,
-	    .sa_restorer = NULL,
-	};
+
+	struct sigaction sa;
+	sa.sa_handler = nsjailSig;
+	sa.sa_mask = smask;
+	sa.sa_flags = 0;
+	sa.sa_restorer = NULL;
 	if (sigaction(sig, &sa, NULL) == -1) {
 		PLOG_E("sigaction(%d)", sig);
 		return false;
@@ -86,12 +86,12 @@ static bool nsjailSetTimer(struct nsjconf_t* nsjconf) {
 	}
 
 	struct itimerval it = {
-	    .it_value =
+	    .it_interval =
 		{
 		    .tv_sec = 1,
 		    .tv_usec = 0,
 		},
-	    .it_interval =
+	    .it_value =
 		{
 		    .tv_sec = 1,
 		    .tv_usec = 0,
