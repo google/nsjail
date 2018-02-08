@@ -178,7 +178,7 @@ static bool containMakeFdsCOENaive(struct nsjconf_t* nsjconf) {
 static bool containMakeFdsCOEProc(struct nsjconf_t* nsjconf) {
 	int dirfd = open("/proc/self/fd", O_DIRECTORY | O_RDONLY | O_CLOEXEC);
 	if (dirfd == -1) {
-		PLOG_D("open('/proc/self/fd', O_DIRECTORY|O_RDONLY)");
+		PLOG_D("open('/proc/self/fd', O_DIRECTORY|O_RDONLY|O_CLOEXEC)");
 		return false;
 	}
 	DIR* dir = fdopendir(dirfd);

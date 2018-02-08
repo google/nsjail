@@ -309,7 +309,7 @@ static void LogHandler(
 extern "C" bool configParse(struct nsjconf_t* nsjconf, const char* file) {
 	LOG_I("Parsing configuration from '%s'", file);
 
-	int fd = open(file, O_RDONLY);
+	int fd = open(file, O_RDONLY | O_CLOEXEC);
 	if (fd == -1) {
 		PLOG_W("Couldn't open config file '%s'", file);
 		return false;
