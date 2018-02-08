@@ -131,6 +131,9 @@ struct custom_option custom_opts[] = {
     { { "cgroup_net_cls_classid", required_argument, NULL, 0x0821 }, "Class identifier of network packets in the group (default: '0' - disabled)" },
     { { "cgroup_net_cls_mount", required_argument, NULL, 0x0822 }, "Location of net_cls cgroup FS (default: '/sys/fs/cgroup/net_cls')" },
     { { "cgroup_net_cls_parent", required_argument, NULL, 0x0823 }, "Which pre-existing net_cls cgroup to use as a parent (default: 'NSJAIL')" },
+    { { "cgroup_cpu_ms_per_sec", required_argument, NULL, 0x0831 }, "Number of us that the process group can use per second (default: '0' - disabled)" },
+    { { "cgroup_cpu_mount", required_argument, NULL, 0x0822 }, "Location of cpu cgroup FS (default: '/sys/fs/cgroup/net_cls')" },
+    { { "cgroup_cpu_parent", required_argument, NULL, 0x0833 }, "Which pre-existing cpu cgroup to use as a parent (default: 'NSJAIL')" },
     { { "iface_no_lo", no_argument, NULL, 0x700 }, "Don't bring the 'lo' interface up" },
     { { "macvlan_iface", required_argument, NULL, 'I' }, "Interface which will be cloned (MACVLAN) and put inside the subprocess' namespace as 'vs'" },
     { { "macvlan_vs_ip", required_argument, NULL, 0x701 }, "IP of the 'vs' interface (e.g. \"192.168.0.1\")" },
@@ -360,10 +363,13 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf) {
 	    .cgroup_mem_max = (size_t)0,
 	    .cgroup_pids_mount = "/sys/fs/cgroup/pids",
 	    .cgroup_pids_parent = "NSJAIL",
-	    .cgroup_pids_max = (unsigned int)0,
+	    .cgroup_pids_max = 0U,
 	    .cgroup_net_cls_mount = "/sys/fs/cgroup/net_cls",
 	    .cgroup_net_cls_parent = "NSJAIL",
-	    .cgroup_net_cls_classid = (unsigned int)0,
+	    .cgroup_net_cls_classid = 0U,
+	    .cgroup_cpu_mount = "/sys/fs/cgroup/cpu",
+	    .cgroup_cpu_parent = "NSJAIL",
+	    .cgroup_cpu_ms_per_sec = 0U,
 	    .iface_no_lo = false,
 	    .iface_vs = NULL,
 	    .iface_vs_ip = "0.0.0.0",
@@ -739,6 +745,15 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf) {
 			break;
 		case 0x823:
 			nsjconf->cgroup_net_cls_parent = optarg;
+			break;
+		case 0x831:
+			nsjconf->cgroup_cpu_ms_per_sec = (unsigned int)strtoul(optarg, NULL, 0);
+			break;
+		case 0x832:
+			nsjconf->cgroup_cpu_mount = optarg;
+			break;
+		case 0x833:
+			nsjconf->cgroup_cpu_parent = optarg;
 			break;
 		case 'P':
 			nsjconf->kafel_file_path = optarg;

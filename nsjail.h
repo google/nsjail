@@ -174,6 +174,9 @@ struct nsjconf_t {
 	const char* cgroup_net_cls_mount;
 	const char* cgroup_net_cls_parent;
 	unsigned int cgroup_net_cls_classid;
+	const char* cgroup_cpu_mount;
+	const char* cgroup_cpu_parent;
+	unsigned int cgroup_cpu_ms_per_sec;
 	const char* kafel_file_path;
 	const char* kafel_string;
 	struct sock_fprog seccomp_fprog;
