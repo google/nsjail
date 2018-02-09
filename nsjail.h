@@ -194,8 +194,7 @@ struct nsjconf_t {
 	pids;
 	TAILQ_HEAD(mountptslist, mounts_t)
 	mountpts;
-	TAILQ_HEAD(fdslistt, ints_t)
-	open_fds;
+	std::vector<int> openfds;
 	std::vector<int> caps;
 };
 

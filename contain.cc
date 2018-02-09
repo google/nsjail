@@ -37,6 +37,8 @@
 #include <sys/resource.h>
 #include <unistd.h>
 
+#include <algorithm>
+
 #include "caps.h"
 #include "cgroup.h"
 #include "cpu.h"
@@ -141,13 +143,8 @@ static bool containSetLimits(struct nsjconf_t* nsjconf) {
 }
 
 static bool containPassFd(struct nsjconf_t* nsjconf, int fd) {
-	struct ints_t* p;
-	TAILQ_FOREACH(p, &nsjconf->open_fds, pointers) {
-		if (p->val == fd) {
-			return true;
-		}
-	}
-	return false;
+	return (std::find(nsjconf->openfds.begin(), nsjconf->openfds.end(), fd) !=
+		nsjconf->openfds.end());
 }
 
 static bool containMakeFdsCOENaive(struct nsjconf_t* nsjconf) {

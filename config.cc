@@ -150,10 +150,7 @@ static bool configParseInternal(struct nsjconf_t* nsjconf, const nsjail::NsJailC
 	nsjconf->skip_setsid = njc.skip_setsid();
 
 	for (ssize_t i = 0; i < njc.pass_fd_size(); i++) {
-		struct ints_t* f =
-		    reinterpret_cast<struct ints_t*>(util::memAlloc(sizeof(struct ints_t)));
-		f->val = njc.pass_fd(i);
-		TAILQ_INSERT_HEAD(&nsjconf->open_fds, f, pointers);
+		nsjconf->openfds.push_back(i);
 	}
 
 	nsjconf->disable_no_new_privs = njc.disable_no_new_privs();

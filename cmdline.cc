@@ -386,25 +386,17 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->orig_uid = getuid();
 	nsjconf->num_cpus = sysconf(_SC_NPROCESSORS_ONLN);
 
+	nsjconf->openfds.push_back(STDIN_FILENO);
+	nsjconf->openfds.push_back(STDOUT_FILENO);
+	nsjconf->openfds.push_back(STDERR_FILENO);
+
 	TAILQ_INIT(&nsjconf->pids);
 	TAILQ_INIT(&nsjconf->mountpts);
-	TAILQ_INIT(&nsjconf->open_fds);
 	TAILQ_INIT(&nsjconf->envs);
 	TAILQ_INIT(&nsjconf->uids);
 	TAILQ_INIT(&nsjconf->gids);
 
 	static char cmdlineTmpfsSz[PATH_MAX] = "size=4194304";
-
-	struct ints_t* f;
-	f = reinterpret_cast<struct ints_t*>(util::memAlloc(sizeof(struct ints_t)));
-	f->val = STDIN_FILENO;
-	TAILQ_INSERT_HEAD(&nsjconf->open_fds, f, pointers);
-	f = reinterpret_cast<struct ints_t*>(util::memAlloc(sizeof(struct ints_t)));
-	f->val = STDOUT_FILENO;
-	TAILQ_INSERT_HEAD(&nsjconf->open_fds, f, pointers);
-	f = reinterpret_cast<struct ints_t*>(util::memAlloc(sizeof(struct ints_t)));
-	f->val = STDERR_FILENO;
-	TAILQ_INSERT_HEAD(&nsjconf->open_fds, f, pointers);
 
 	// Generate options array for getopt_long.
 	size_t options_length = ARRAYSIZE(custom_opts) + ARRAYSIZE(deprecated_opts) + 1;
@@ -566,12 +558,9 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 		case 0x0504:
 			nsjconf->skip_setsid = true;
 			break;
-		case 0x0505: {
-			struct ints_t* f;
-			f = reinterpret_cast<struct ints_t*>(util::memAlloc(sizeof(struct ints_t)));
-			f->val = (int)strtol(optarg, NULL, 0);
-			TAILQ_INSERT_HEAD(&nsjconf->open_fds, f, pointers);
-		} break;
+		case 0x0505:
+			nsjconf->openfds.push_back((int)strtol(optarg, NULL, 0));
+			break;
 		case 0x0507:
 			nsjconf->disable_no_new_privs = true;
 			break;
