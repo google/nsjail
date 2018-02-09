@@ -42,10 +42,11 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "contain.h"
+
 extern "C" {
 #include "cgroup.h"
 #include "common.h"
-#include "contain.h"
 #include "log.h"
 #include "net.h"
 #include "sandbox.h"
@@ -135,7 +136,7 @@ static const char kSubprocDoneChar = 'D';
 
 static int subprocNewProc(
     struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err, int pipefd) {
-	if (containSetupFD(nsjconf, fd_in, fd_out, fd_err) == false) {
+	if (contain::setupFD(nsjconf, fd_in, fd_out, fd_err) == false) {
 		_exit(0xff);
 	}
 	if (!resetEnv()) {
@@ -160,7 +161,7 @@ static int subprocNewProc(
 			_exit(0xff);
 		}
 	}
-	if (containContain(nsjconf) == false) {
+	if (contain::containProc(nsjconf) == false) {
 		_exit(0xff);
 	}
 	if (nsjconf->keep_env == false) {

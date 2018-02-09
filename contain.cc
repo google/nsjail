@@ -37,6 +37,7 @@
 #include <sys/resource.h>
 #include <unistd.h>
 
+extern "C" {
 #include "caps.h"
 #include "cgroup.h"
 #include "cpu.h"
@@ -46,6 +47,9 @@
 #include "pid.h"
 #include "user.h"
 #include "uts.h"
+}
+
+namespace contain {
 
 static bool containUserNs(struct nsjconf_t* nsjconf) { return userInitNsFromChild(nsjconf); }
 
@@ -247,7 +251,7 @@ static bool containMakeFdsCOE(struct nsjconf_t* nsjconf) {
 	return false;
 }
 
-bool containSetupFD(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
+bool setupFD(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
 	if (nsjconf->mode != MODE_LISTEN_TCP) {
 		if (nsjconf->is_silent == false) {
 			return true;
@@ -273,7 +277,7 @@ bool containSetupFD(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err
 	return true;
 }
 
-bool containContain(struct nsjconf_t* nsjconf) {
+bool containProc(struct nsjconf_t* nsjconf) {
 	if (containUserNs(nsjconf) == false) {
 		return false;
 	}
@@ -311,3 +315,5 @@ bool containContain(struct nsjconf_t* nsjconf) {
 	}
 	return true;
 }
+
+}  // namespace contain
