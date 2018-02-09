@@ -26,6 +26,10 @@
 
 #include "nsjail.h"
 
-bool pidInitNs(struct nsjconf_t* nsjconf);
+namespace pid {
+
+bool initNs(struct nsjconf_t* nsjconf);
+
+}  // namespace pid
 
 #endif /* NS_PID_H */

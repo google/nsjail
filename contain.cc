@@ -41,7 +41,6 @@ extern "C" {
 #include "cgroup.h"
 #include "log.h"
 #include "mount.h"
-#include "pid.h"
 #include "user.h"
 #include "uts.h"
 }
@@ -49,12 +48,13 @@ extern "C" {
 #include "caps.h"
 #include "cpu.h"
 #include "net.h"
+#include "pid.h"
 
 namespace contain {
 
 static bool containUserNs(struct nsjconf_t* nsjconf) { return userInitNsFromChild(nsjconf); }
 
-static bool containInitPidNs(struct nsjconf_t* nsjconf) { return pidInitNs(nsjconf); }
+static bool containInitPidNs(struct nsjconf_t* nsjconf) { return pid::initNs(nsjconf); }
 
 static bool containInitNetNs(struct nsjconf_t* nsjconf) { return net::initNsFromChild(nsjconf); }
 

@@ -28,10 +28,15 @@
 #include <sys/prctl.h>
 #include <unistd.h>
 
+extern "C" {
 #include "log.h"
+}
+
 #include "subproc.h"
 
-bool pidInitNs(struct nsjconf_t* nsjconf) {
+namespace pid {
+
+bool initNs(struct nsjconf_t* nsjconf) {
 	if (nsjconf->mode != MODE_STANDALONE_EXECVE) {
 		return true;
 	}
@@ -66,12 +71,12 @@ bool pidInitNs(struct nsjconf_t* nsjconf) {
 	}
 
 	/* Act sort-a like a init by reaping zombie processes */
-	struct sigaction sa = {
-	    .sa_handler = SIG_DFL,
-	    .sa_flags = SA_NOCLDWAIT | SA_NOCLDSTOP,
-	    .sa_restorer = NULL,
-	};
+	struct sigaction sa;
+	sa.sa_handler = SIG_DFL;
+	sa.sa_flags = SA_NOCLDWAIT | SA_NOCLDSTOP;
+	sa.sa_restorer = NULL;
 	sigemptyset(&sa.sa_mask);
+
 	if (sigaction(SIGCHLD, &sa, NULL) == -1) {
 		PLOG_W("Couldn't set sighandler for SIGCHLD");
 	}
@@ -80,3 +85,5 @@ bool pidInitNs(struct nsjconf_t* nsjconf) {
 		pause();
 	}
 }
+
+}  // namespace pid
