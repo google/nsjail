@@ -27,20 +27,20 @@
 
 #include "nsjail.h"
 
-#define LOG_HELP(...) log::logMsg(HELP, __func__, __LINE__, false, __VA_ARGS__);
-#define LOG_HELP_BOLD(...) log::logMsg(HELP_BOLD, __func__, __LINE__, false, __VA_ARGS__);
+#define LOG_HELP(...) log::logMsg(HELP, __PRETTY_FUNCTION__, __LINE__, false, __VA_ARGS__);
+#define LOG_HELP_BOLD(...) log::logMsg(HELP_BOLD, __PRETTY_FUNCTION__, __LINE__, false, __VA_ARGS__);
 
-#define LOG_D(...) log::logMsg(DEBUG, __func__, __LINE__, false, __VA_ARGS__);
-#define LOG_I(...) log::logMsg(INFO, __func__, __LINE__, false, __VA_ARGS__);
-#define LOG_W(...) log::logMsg(WARNING, __func__, __LINE__, false, __VA_ARGS__);
-#define LOG_E(...) log::logMsg(ERROR, __func__, __LINE__, false, __VA_ARGS__);
-#define LOG_F(...) log::logMsg(FATAL, __func__, __LINE__, false, __VA_ARGS__);
+#define LOG_D(...) log::logMsg(DEBUG, __PRETTY_FUNCTION__, __LINE__, false, __VA_ARGS__);
+#define LOG_I(...) log::logMsg(INFO, __PRETTY_FUNCTION__, __LINE__, false, __VA_ARGS__);
+#define LOG_W(...) log::logMsg(WARNING, __PRETTY_FUNCTION__, __LINE__, false, __VA_ARGS__);
+#define LOG_E(...) log::logMsg(ERROR, __PRETTY_FUNCTION__, __LINE__, false, __VA_ARGS__);
+#define LOG_F(...) log::logMsg(FATAL, __PRETTY_FUNCTION__, __LINE__, false, __VA_ARGS__);
 
-#define PLOG_D(...) log::logMsg(DEBUG, __func__, __LINE__, true, __VA_ARGS__);
-#define PLOG_I(...) log::logMsg(INFO, __func__, __LINE__, true, __VA_ARGS__);
-#define PLOG_W(...) log::logMsg(WARNING, __func__, __LINE__, true, __VA_ARGS__);
-#define PLOG_E(...) log::logMsg(ERROR, __func__, __LINE__, true, __VA_ARGS__);
-#define PLOG_F(...) log::logMsg(FATAL, __func__, __LINE__, true, __VA_ARGS__);
+#define PLOG_D(...) log::logMsg(DEBUG, __PRETTY_FUNCTION__, __LINE__, true, __VA_ARGS__);
+#define PLOG_I(...) log::logMsg(INFO, __PRETTY_FUNCTION__, __LINE__, true, __VA_ARGS__);
+#define PLOG_W(...) log::logMsg(WARNING, __PRETTY_FUNCTION__, __LINE__, true, __VA_ARGS__);
+#define PLOG_E(...) log::logMsg(ERROR, __PRETTY_FUNCTION__, __LINE__, true, __VA_ARGS__);
+#define PLOG_F(...) log::logMsg(FATAL, __PRETTY_FUNCTION__, __LINE__, true, __VA_ARGS__);
 
 namespace log {
 
