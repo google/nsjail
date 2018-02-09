@@ -27,8 +27,12 @@
 
 #include "nsjail.h"
 
-bool cgroupInitNsFromParent(struct nsjconf_t* nsjconf, pid_t pid);
-bool cgroupInitNs(void);
-void cgroupFinishFromParent(struct nsjconf_t* nsjconf, pid_t pid);
+namespace cgroup {
+
+bool initNsFromParent(struct nsjconf_t* nsjconf, pid_t pid);
+bool initNs(void);
+void finishFromParent(struct nsjconf_t* nsjconf, pid_t pid);
+
+}  // namespace cgroup
 
 #endif /* _CGROUP_H */

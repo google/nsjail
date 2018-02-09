@@ -349,8 +349,8 @@ static gid_t parseGid(const char* id) {
 	return (gid_t)-1;
 }
 
-bool parseId(struct nsjconf_t* nsjconf, const char* i_id, const char* o_id, size_t cnt,
-    bool is_gid, bool is_newidmap) {
+bool parseId(struct nsjconf_t* nsjconf, const char* i_id, const char* o_id, size_t cnt, bool is_gid,
+    bool is_newidmap) {
 	uid_t inside_id;
 	uid_t outside_id;
 

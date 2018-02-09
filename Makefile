@@ -35,8 +35,8 @@ LDFLAGS += -pie -Wl,-z,noexecstack -lpthread $(shell pkg-config --libs protobuf)
 
 BIN = nsjail
 LIBS = kafel/libkafel.a
-SRCS_C = log.c cgroup.c mount.c user.c util.c
-SRCS_CXX = caps.cc cmdline.cc config.cc contain.cc cpu.cc net.cc nsjail.cc pid.cc sandbox.cc subproc.cc uts.cc
+SRCS_C = log.c mount.c util.c
+SRCS_CXX = caps.cc cgroup.cc cmdline.cc config.cc contain.cc cpu.cc net.cc nsjail.cc pid.cc sandbox.cc subproc.cc uts.cc user.cc
 SRCS_PROTO = config.proto
 SRCS_PB_CXX = $(SRCS_PROTO:.proto=.pb.cc)
 SRCS_PB_H = $(SRCS_PROTO:.proto=.pb.h)
@@ -98,21 +98,22 @@ indent:
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 
 log.o: log.h nsjail.h
-cgroup.o: cgroup.h nsjail.h log.h util.h
 mount.o: mount.h nsjail.h common.h log.h subproc.h util.h
 util.o: util.h nsjail.h common.h log.h
 caps.o: caps.h nsjail.h common.h log.h util.h
+cgroup.o: cgroup.h nsjail.h log.h util.h
 cmdline.o: cmdline.h nsjail.h common.h log.h mount.h util.h caps.h config.h
 cmdline.o: sandbox.h user.h
 config.o: common.h config.h nsjail.h log.h mount.h util.h caps.h cmdline.h
 config.o: user.h
-contain.o: contain.h nsjail.h cgroup.h log.h mount.h caps.h cpu.h net.h pid.h
+contain.o: contain.h nsjail.h log.h mount.h caps.h cgroup.h cpu.h net.h pid.h
 contain.o: user.h uts.h
 cpu.o: cpu.h nsjail.h log.h util.h
 net.o: net.h nsjail.h log.h subproc.h
 nsjail.o: nsjail.h cmdline.h common.h log.h net.h subproc.h util.h
 pid.o: pid.h nsjail.h log.h subproc.h
 sandbox.o: sandbox.h nsjail.h kafel/include/kafel.h log.h
-subproc.o: subproc.h nsjail.h contain.h net.h sandbox.h user.h cgroup.h
+subproc.o: subproc.h nsjail.h cgroup.h contain.h net.h sandbox.h user.h
 subproc.o: common.h log.h util.h
 uts.o: uts.h nsjail.h log.h
+user.o: user.h nsjail.h common.h log.h util.h subproc.h

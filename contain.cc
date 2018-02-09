@@ -38,12 +38,12 @@
 #include <unistd.h>
 
 extern "C" {
-#include "cgroup.h"
 #include "log.h"
 #include "mount.h"
 }
 
 #include "caps.h"
+#include "cgroup.h"
 #include "cpu.h"
 #include "net.h"
 #include "pid.h"
@@ -60,7 +60,7 @@ static bool containInitNetNs(struct nsjconf_t* nsjconf) { return net::initNsFrom
 
 static bool containInitUtsNs(struct nsjconf_t* nsjconf) { return uts::initNs(nsjconf); }
 
-static bool containInitCgroupNs(void) { return cgroupInitNs(); }
+static bool containInitCgroupNs(void) { return cgroup::initNs(); }
 
 static bool containDropPrivs(struct nsjconf_t* nsjconf) {
 #ifndef PR_SET_NO_NEW_PRIVS

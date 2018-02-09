@@ -42,13 +42,13 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "cgroup.h"
 #include "contain.h"
 #include "net.h"
 #include "sandbox.h"
 #include "user.h"
 
 extern "C" {
-#include "cgroup.h"
 #include "common.h"
 #include "log.h"
 #include "util.h"
@@ -148,7 +148,7 @@ static int subprocNewProc(
 			LOG_E("Couldn't initialize net user namespace");
 			_exit(0xff);
 		}
-		if (cgroupInitNsFromParent(nsjconf, getpid()) == false) {
+		if (cgroup::initNsFromParent(nsjconf, getpid()) == false) {
 			LOG_E("Couldn't initialize net user namespace");
 			_exit(0xff);
 		}
@@ -317,7 +317,7 @@ int reapProc(struct nsjconf_t* nsjconf) {
 		}
 
 		if (wait4(si.si_pid, &status, WNOHANG, NULL) == si.si_pid) {
-			cgroupFinishFromParent(nsjconf, si.si_pid);
+			cgroup::finishFromParent(nsjconf, si.si_pid);
 
 			const char* remote_txt = "[UNKNOWN]";
 			struct pids_t* elem = getPidElem(nsjconf, si.si_pid);
@@ -380,7 +380,7 @@ static bool initParent(struct nsjconf_t* nsjconf, pid_t pid, int pipefd) {
 		LOG_E("Couldn't create and put MACVTAP interface into NS of PID '%d'", pid);
 		return false;
 	}
-	if (cgroupInitNsFromParent(nsjconf, pid) == false) {
+	if (cgroup::initNsFromParent(nsjconf, pid) == false) {
 		LOG_E("Couldn't initialize cgroup user namespace");
 		exit(0xff);
 	}
