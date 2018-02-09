@@ -392,7 +392,6 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 	TAILQ_INIT(&nsjconf->envs);
 	TAILQ_INIT(&nsjconf->uids);
 	TAILQ_INIT(&nsjconf->gids);
-	TAILQ_INIT(&nsjconf->caps);
 
 	static char cmdlineTmpfsSz[PATH_MAX] = "size=4194304";
 
@@ -580,13 +579,11 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 			nsjconf->max_cpus = strtoul(optarg, NULL, 0);
 			break;
 		case 0x0509: {
-			struct ints_t* f =
-			    reinterpret_cast<struct ints_t*>(util::memAlloc(sizeof(struct ints_t)));
-			f->val = caps::nameToVal(optarg);
-			if (f->val == -1) {
+			int cap = caps::nameToVal(optarg);
+			if (cap == -1) {
 				return nullptr;
 			}
-			TAILQ_INSERT_HEAD(&nsjconf->caps, f, pointers);
+			nsjconf->caps.push_back(cap);
 		} break;
 		case 0x0601:
 			nsjconf->is_root_rw = true;

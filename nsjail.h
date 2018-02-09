@@ -33,6 +33,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <vector>
+
 #if !defined(TEMP_FAILURE_RETRY)
 #define TEMP_FAILURE_RETRY(expression)                     \
 	(__extension__({                                   \
@@ -194,8 +196,7 @@ struct nsjconf_t {
 	mountpts;
 	TAILQ_HEAD(fdslistt, ints_t)
 	open_fds;
-	TAILQ_HEAD(capslistt, ints_t)
-	caps;
+	std::vector<int> caps;
 };
 
 #endif /* _NSJAIL_H */

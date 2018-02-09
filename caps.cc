@@ -224,13 +224,13 @@ bool initNs(struct nsjconf_t* nsjconf) {
 	/* Set all requested caps in the inheritable set if these are present in the permitted set
 	 */
 	dbgmsg[0] = '\0';
-	TAILQ_FOREACH(p, &nsjconf->caps, pointers) {
-		if (getPermitted(cap_data, p->val) == false) {
-			LOG_W("Capability %s is not permitted in the namespace", valToStr(p->val));
+	for (const auto& cap : nsjconf->caps) {
+		if (getPermitted(cap_data, cap) == false) {
+			LOG_W("Capability %s is not permitted in the namespace", valToStr(cap));
 			return false;
 		}
-		util::sSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", valToStr(p->val));
-		setInheritable(cap_data, p->val);
+		util::sSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", valToStr(cap));
+		setInheritable(cap_data, cap);
 	}
 	LOG_D("Adding the following capabilities to the inheritable set:%s", dbgmsg);
 
@@ -260,12 +260,12 @@ bool initNs(struct nsjconf_t* nsjconf) {
 
 	/* Make sure inheritable set is preserved across execve via the modified ambient set */
 	dbgmsg[0] = '\0';
-	TAILQ_FOREACH(p, &nsjconf->caps, pointers) {
-		if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)p->val, 0UL, 0UL) ==
+	for (const auto& cap : nsjconf->caps) {
+		if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)cap, 0UL, 0UL) ==
 		    -1) {
-			PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s)", valToStr(p->val));
+			PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s)", valToStr(cap));
 		} else {
-			util::sSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", valToStr(p->val));
+			util::sSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", valToStr(cap));
 		}
 	}
 	LOG_D("Added the following capabilities to the ambient set:%s", dbgmsg);

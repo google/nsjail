@@ -139,11 +139,11 @@ static bool configParseInternal(struct nsjconf_t* nsjconf, const nsjail::NsJailC
 	for (ssize_t i = 0; i < njc.cap_size(); i++) {
 		struct ints_t* f =
 		    reinterpret_cast<struct ints_t*>(util::memAlloc(sizeof(struct ints_t)));
-		f->val = caps::nameToVal(njc.cap(i).c_str());
-		if (f->val == -1) {
+		int cap = caps::nameToVal(njc.cap(i).c_str());
+		if (cap == -1) {
 			return false;
 		}
-		TAILQ_INSERT_HEAD(&nsjconf->caps, f, pointers);
+		nsjconf->caps.push_back(cap);
 	}
 
 	nsjconf->is_silent = njc.silent();
