@@ -19,9 +19,6 @@
 
 */
 
-extern "C" {
-#include "common.h"
-
 #include <fcntl.h>
 #include <stdio.h>
 #include <sys/mount.h>
@@ -30,14 +27,16 @@ extern "C" {
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include "config.h"
+extern "C" {
 #include "log.h"
-#include "mount.h"
 #include "util.h"
 }
 
 #include "caps.h"
 #include "cmdline.h"
+#include "common.h"
+#include "config.h"
+#include "mnt.h"
 #include "user.h"
 
 #include <google/protobuf/io/zero_copy_stream_impl.h>
@@ -232,9 +231,9 @@ static bool configParseInternal(struct nsjconf_t* nsjconf, const nsjail::NsJailC
 		flags |= njc.mount(i).is_bind() ? (MS_BIND | MS_REC | MS_PRIVATE) : 0;
 		bool mandatory = njc.mount(i).mandatory();
 
-		isDir_t isDir = NS_DIR_MAYBE;
+		mnt::isDir_t isDir = mnt::NS_DIR_MAYBE;
 		if (njc.mount(i).has_is_dir()) {
-			isDir = njc.mount(i).is_dir() ? NS_DIR_YES : NS_DIR_NO;
+			isDir = njc.mount(i).is_dir() ? mnt::NS_DIR_YES : mnt::NS_DIR_NO;
 		}
 
 		const char* src_content = NULL;
@@ -244,7 +243,7 @@ static bool configParseInternal(struct nsjconf_t* nsjconf, const nsjail::NsJailC
 			src_content_len = njc.mount(i).src_content().size();
 		}
 
-		if (mountAddMountPtTail(nsjconf, src, dst, fstype, options, flags, isDir, mandatory,
+		if (mnt::addMountPtTail(nsjconf, src, dst, fstype, options, flags, isDir, mandatory,
 			src_env, dst_env, src_content, src_content_len,
 			njc.mount(i).is_symlink()) == false) {
 			LOG_E("Couldn't add mountpoint for src:'%s' dst:'%s'", src, dst);

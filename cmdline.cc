@@ -45,14 +45,14 @@
 #include <memory>
 
 extern "C" {
-#include "common.h"
 #include "log.h"
-#include "mount.h"
 #include "util.h"
 }
 
 #include "caps.h"
+#include "common.h"
 #include "config.h"
+#include "mnt.h"
 #include "sandbox.h"
 #include "user.h"
 
@@ -241,7 +241,7 @@ void logParams(struct nsjconf_t* nsjconf) {
 		struct mounts_t* p;
 		TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
 			LOG_I("%s: %s", p->isSymlink ? "Symlink" : "Mount point",
-			    mountDescribeMountPt(p));
+			    mnt::describeMountPt(p));
 		}
 	}
 	{
@@ -664,29 +664,29 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 		case 'R': {
 			const char* dst = cmdlineSplitStrByColon(optarg);
 			dst = dst ? dst : optarg;
-			if (!mountAddMountPtTail(nsjconf.get(), /* src= */ optarg, dst,
+			if (!mnt::addMountPtTail(nsjconf.get(), /* src= */ optarg, dst,
 				/* fs_type= */ "",
 				/* options= */ "", MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY,
-				/* isDir= */ NS_DIR_MAYBE, /* mandatory= */ true, NULL, NULL, NULL,
-				0, /* is_symlink= */ false)) {
+				/* isDir= */ mnt::NS_DIR_MAYBE, /* mandatory= */ true, NULL, NULL,
+				NULL, 0, /* is_symlink= */ false)) {
 				return nullptr;
 			}
 		}; break;
 		case 'B': {
 			const char* dst = cmdlineSplitStrByColon(optarg);
 			dst = dst ? dst : optarg;
-			if (!mountAddMountPtTail(nsjconf.get(), /* src= */ optarg, dst,
+			if (!mnt::addMountPtTail(nsjconf.get(), /* src= */ optarg, dst,
 				/* fs_type= */ "",
 				/* options= */ "", MS_BIND | MS_REC | MS_PRIVATE,
-				/* isDir= */ NS_DIR_MAYBE, /* mandatory= */ true, NULL, NULL, NULL,
-				0, /* is_symlink= */ false)) {
+				/* isDir= */ mnt::NS_DIR_MAYBE, /* mandatory= */ true, NULL, NULL,
+				NULL, 0, /* is_symlink= */ false)) {
 				return nullptr;
 			}
 		}; break;
 		case 'T': {
-			if (!mountAddMountPtTail(nsjconf.get(), /* src= */ NULL, optarg, "tmpfs",
+			if (!mnt::addMountPtTail(nsjconf.get(), /* src= */ NULL, optarg, "tmpfs",
 				/* options= */ cmdlineTmpfsSz, /* flags= */ 0,
-				/* isDir= */ NS_DIR_YES,
+				/* isDir= */ mnt::NS_DIR_YES,
 				/* mandatory= */ true, NULL, NULL, NULL, 0,
 				/* is_symlink= */ false)) {
 				return nullptr;
@@ -786,25 +786,25 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 	}
 
 	if (nsjconf->mount_proc) {
-		if (!mountAddMountPtTail(nsjconf.get(), /* src= */ NULL, nsjconf->proc_path, "proc",
-			"", nsjconf->is_proc_rw ? 0 : MS_RDONLY, /* isDir= */ NS_DIR_YES,
+		if (!mnt::addMountPtTail(nsjconf.get(), /* src= */ NULL, nsjconf->proc_path, "proc",
+			"", nsjconf->is_proc_rw ? 0 : MS_RDONLY, /* isDir= */ mnt::NS_DIR_YES,
 			/* mandatory= */ true, NULL, NULL, NULL, 0, /* is_symlink= */ false)) {
 			return nullptr;
 		}
 	}
 	if (nsjconf->chroot) {
-		if (!mountAddMountPtHead(nsjconf.get(), nsjconf->chroot, "/", /* fs_type= */ "",
+		if (!mnt::addMountPtHead(nsjconf.get(), nsjconf->chroot, "/", /* fs_type= */ "",
 			/* options= */ "",
 			nsjconf->is_root_rw ? (MS_BIND | MS_REC | MS_PRIVATE)
 					    : (MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY),
-			/* isDir= */ NS_DIR_YES, /* mandatory= */ true, NULL, NULL, NULL, 0,
+			/* isDir= */ mnt::NS_DIR_YES, /* mandatory= */ true, NULL, NULL, NULL, 0,
 			/* is_symlink= */ false)) {
 			return nullptr;
 		}
 	} else {
-		if (!mountAddMountPtHead(nsjconf.get(), /* src= */ NULL, "/", "tmpfs",
+		if (!mnt::addMountPtHead(nsjconf.get(), /* src= */ NULL, "/", "tmpfs",
 			/* options= */ "", nsjconf->is_root_rw ? 0 : MS_RDONLY,
-			/* isDir= */ NS_DIR_YES,
+			/* isDir= */ mnt::NS_DIR_YES,
 			/* mandatory= */ true, NULL, NULL, NULL, 0, /* is_symlink= */ false)) {
 			return nullptr;
 		}

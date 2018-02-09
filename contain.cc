@@ -39,12 +39,12 @@
 
 extern "C" {
 #include "log.h"
-#include "mount.h"
 }
 
 #include "caps.h"
 #include "cgroup.h"
 #include "cpu.h"
+#include "mnt.h"
 #include "net.h"
 #include "pid.h"
 #include "user.h"
@@ -99,7 +99,7 @@ static bool containPrepareEnv(struct nsjconf_t* nsjconf) {
 	return true;
 }
 
-static bool containInitMountNs(struct nsjconf_t* nsjconf) { return mountInitNs(nsjconf); }
+static bool containInitMountNs(struct nsjconf_t* nsjconf) { return mnt::initNs(nsjconf); }
 
 static bool containCPU(struct nsjconf_t* nsjconf) { return cpu::initCpu(nsjconf); }
 
