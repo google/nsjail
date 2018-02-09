@@ -28,7 +28,6 @@
 
 #include "nsjail.h"
 
-#ifdef __cplusplus
 namespace subproc {
 
 void runChild(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err);
@@ -37,18 +36,9 @@ void displayProc(struct nsjconf_t* nsjconf);
 void killAll(struct nsjconf_t* nsjconf);
 /* Returns the exit code of the first failing subprocess, or 0 if none fail */
 int reapProc(struct nsjconf_t* nsjconf);
+int systemExe(const char** argv, char** env);
+pid_t cloneProc(uintptr_t flags);
 
 }  // namespace subproc
-
-extern "C" {
-#endif
-
-int subprocSystem(const char** argv, char** env);
-pid_t subprocClone(uintptr_t flags);
-
-#ifdef __cplusplus
-}  // extern "C"
-
-#endif
 
 #endif /* NS_PROC_H */

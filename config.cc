@@ -27,25 +27,23 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-extern "C" {
-#include "log.h"
-#include "util.h"
-}
-
-#include "caps.h"
-#include "cmdline.h"
-#include "common.h"
-#include "config.h"
-#include "mnt.h"
-#include "user.h"
-
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/text_format.h>
 #include <fstream>
 #include <string>
 #include <vector>
 
+extern "C" {
+#include "log.h"
+}
+#include "caps.h"
+#include "cmdline.h"
+#include "common.h"
+#include "config.h"
 #include "config.pb.h"
+#include "mnt.h"
+#include "user.h"
+#include "util.h"
 
 #define DUP_IF_SET(njc, val) (njc.has_##val() ? njc.val().c_str() : NULL)
 
@@ -132,7 +130,7 @@ static bool configParseInternal(struct nsjconf_t* nsjconf, const nsjail::NsJailC
 	nsjconf->keep_env = njc.keep_env();
 	for (ssize_t i = 0; i < njc.envar_size(); i++) {
 		struct charptr_t* p =
-		    reinterpret_cast<charptr_t*>(utilMalloc(sizeof(struct charptr_t)));
+		    reinterpret_cast<charptr_t*>(util::memAlloc(sizeof(struct charptr_t)));
 		p->val = njc.envar(i).c_str();
 		TAILQ_INSERT_TAIL(&nsjconf->envs, p, pointers);
 	}
@@ -140,7 +138,7 @@ static bool configParseInternal(struct nsjconf_t* nsjconf, const nsjail::NsJailC
 	nsjconf->keep_caps = njc.keep_caps();
 	for (ssize_t i = 0; i < njc.cap_size(); i++) {
 		struct ints_t* f =
-		    reinterpret_cast<struct ints_t*>(utilMalloc(sizeof(struct ints_t)));
+		    reinterpret_cast<struct ints_t*>(util::memAlloc(sizeof(struct ints_t)));
 		f->val = caps::nameToVal(njc.cap(i).c_str());
 		if (f->val == -1) {
 			return false;
@@ -153,7 +151,7 @@ static bool configParseInternal(struct nsjconf_t* nsjconf, const nsjail::NsJailC
 
 	for (ssize_t i = 0; i < njc.pass_fd_size(); i++) {
 		struct ints_t* f =
-		    reinterpret_cast<struct ints_t*>(utilMalloc(sizeof(struct ints_t)));
+		    reinterpret_cast<struct ints_t*>(util::memAlloc(sizeof(struct ints_t)));
 		f->val = njc.pass_fd(i);
 		TAILQ_INSERT_HEAD(&nsjconf->open_fds, f, pointers);
 	}
@@ -265,7 +263,7 @@ static bool configParseInternal(struct nsjconf_t* nsjconf, const nsjail::NsJailC
 		kafel_string += njc.seccomp_string(i);
 	}
 	nsjconf->kafel_string =
-	    njc.seccomp_string().size() > 0 ? utilStrDup(kafel_string.c_str()) : NULL;
+	    njc.seccomp_string().size() > 0 ? util::strDup(kafel_string.c_str()) : NULL;
 
 	nsjconf->cgroup_mem_max = njc.cgroup_mem_max();
 	nsjconf->cgroup_mem_mount = njc.cgroup_mem_mount().c_str();

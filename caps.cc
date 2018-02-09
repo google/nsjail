@@ -29,10 +29,11 @@
 #include <unistd.h>
 
 extern "C" {
-#include "common.h"
 #include "log.h"
-#include "util.h"
 }
+
+#include "common.h"
+#include "util.h"
 
 namespace caps {
 
@@ -172,7 +173,7 @@ static bool initNsKeepCaps(cap_user_data_t cap_data) {
 	dbgmsg[0] = '\0';
 	for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
 		if (getPermitted(cap_data, capNames[i].val)) {
-			utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capNames[i].name);
+			util::sSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capNames[i].name);
 			setInheritable(cap_data, capNames[i].val);
 		}
 	}
@@ -192,7 +193,7 @@ static bool initNsKeepCaps(cap_user_data_t cap_data) {
 			0UL) == -1) {
 			PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s)", capNames[i].name);
 		} else {
-			utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capNames[i].name);
+			util::sSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capNames[i].name);
 		}
 	}
 	LOG_D("Added the following capabilities to the ambient set:%s", dbgmsg);
@@ -231,7 +232,7 @@ bool initNs(struct nsjconf_t* nsjconf) {
 			LOG_W("Capability %s is not permitted in the namespace", valToStr(p->val));
 			return false;
 		}
-		utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", valToStr(p->val));
+		util::sSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", valToStr(p->val));
 		setInheritable(cap_data, p->val);
 	}
 	LOG_D("Adding the following capabilities to the inheritable set:%s", dbgmsg);
@@ -250,7 +251,7 @@ bool initNs(struct nsjconf_t* nsjconf) {
 			if (getInheritable(cap_data, capNames[i].val)) {
 				continue;
 			}
-			utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capNames[i].name);
+			util::sSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capNames[i].name);
 			if (prctl(PR_CAPBSET_DROP, (unsigned long)capNames[i].val, 0UL, 0UL, 0UL) ==
 			    -1) {
 				PLOG_W("prctl(PR_CAPBSET_DROP, %s)", capNames[i].name);
@@ -267,7 +268,7 @@ bool initNs(struct nsjconf_t* nsjconf) {
 		    -1) {
 			PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s)", valToStr(p->val));
 		} else {
-			utilSSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", valToStr(p->val));
+			util::sSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", valToStr(p->val));
 		}
 	}
 	LOG_D("Added the following capabilities to the ambient set:%s", dbgmsg);

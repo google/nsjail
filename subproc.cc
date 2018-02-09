@@ -43,21 +43,24 @@
 #include <unistd.h>
 
 #include "cgroup.h"
+#include "common.h"
 #include "contain.h"
 #include "net.h"
 #include "sandbox.h"
 #include "user.h"
+#include "util.h"
 
 extern "C" {
-#include "common.h"
 #include "log.h"
-#include "util.h"
+}  // extern "C"
+
+namespace subproc {
 
 #if !defined(CLONE_NEWCGROUP)
 #define CLONE_NEWCGROUP 0x02000000
 #endif /* !defined(CLONE_NEWCGROUP) */
 
-static const char* subprocCloneFlagsToStr(uintptr_t flags) {
+static const char* cloneFlagsToStr(uintptr_t flags) {
 	static __thread char cloneFlagName[1024];
 	cloneFlagName[0] = '\0';
 
@@ -92,7 +95,7 @@ static const char* subprocCloneFlagsToStr(uintptr_t flags) {
 
 	for (size_t i = 0; i < ARRAYSIZE(cloneFlags); i++) {
 		if (flags & cloneFlags[i].flag) {
-			utilSSnPrintf(
+			util::sSnPrintf(
 			    cloneFlagName, sizeof(cloneFlagName), "%s|", cloneFlags[i].name);
 		}
 	}
@@ -102,21 +105,19 @@ static const char* subprocCloneFlagsToStr(uintptr_t flags) {
 		knownFlagMask |= cloneFlags[i].flag;
 	}
 	if (flags & ~(knownFlagMask)) {
-		utilSSnPrintf(
+		util::sSnPrintf(
 		    cloneFlagName, sizeof(cloneFlagName), "%#tx|", flags & ~(knownFlagMask));
 	}
-	utilSSnPrintf(cloneFlagName, sizeof(cloneFlagName), "%s", utilSigName(flags & CSIGNAL));
+	util::sSnPrintf(cloneFlagName, sizeof(cloneFlagName), "%s", util::sigName(flags & CSIGNAL));
 	return cloneFlagName;
 }
-
-}  // extern "C"
 
 /* Reset the execution environment for the new process */
 static bool resetEnv(void) {
 	/* Set all previously changed signals to their default behavior */
 	for (size_t i = 0; i < ARRAYSIZE(nssigs); i++) {
 		if (signal(nssigs[i], SIG_DFL) == SIG_ERR) {
-			PLOG_W("signal(%s, SIG_DFL)", utilSigName(nssigs[i]));
+			PLOG_W("signal(%s, SIG_DFL)", util::sigName(nssigs[i]));
 			return false;
 		}
 	}
@@ -129,8 +130,6 @@ static bool resetEnv(void) {
 	}
 	return true;
 }
-
-namespace subproc {
 
 static const char kSubprocDoneChar = 'D';
 
@@ -154,7 +153,7 @@ static int subprocNewProc(
 		}
 	} else {
 		char doneChar;
-		if (utilReadFromFd(pipefd, &doneChar, sizeof(doneChar)) != sizeof(doneChar)) {
+		if (util::readFromFd(pipefd, &doneChar, sizeof(doneChar)) != sizeof(doneChar)) {
 			_exit(0xff);
 		}
 		if (doneChar != kSubprocDoneChar) {
@@ -200,7 +199,7 @@ static int subprocNewProc(
 }
 
 static void addProc(struct nsjconf_t* nsjconf, pid_t pid, int sock) {
-	struct pids_t* p = reinterpret_cast<struct pids_t*>(utilMalloc(sizeof(struct pids_t)));
+	struct pids_t* p = reinterpret_cast<struct pids_t*>(util::memAlloc(sizeof(struct pids_t)));
 	p->pid = pid;
 	p->start = time(NULL);
 	net::connToText(
@@ -221,7 +220,7 @@ static void removeProc(struct nsjconf_t* nsjconf, pid_t pid) {
 	TAILQ_FOREACH(p, &nsjconf->pids, pointers) {
 		if (p->pid == pid) {
 			LOG_D("Removing pid '%d' from the queue (IP:'%s', start time:'%s')", p->pid,
-			    p->remote_txt, utilTimeToStr(p->start));
+			    p->remote_txt, util::timeToStr(p->start));
 			close(p->pid_syscall_fd);
 			TAILQ_REMOVE(&nsjconf->pids, p, pointers);
 			free(p);
@@ -272,7 +271,7 @@ static void seccompViolation(struct nsjconf_t* nsjconf, siginfo_t* si) {
 	}
 
 	char buf[4096];
-	ssize_t rdsize = utilReadFromFd(p->pid_syscall_fd, buf, sizeof(buf) - 1);
+	ssize_t rdsize = util::readFromFd(p->pid_syscall_fd, buf, sizeof(buf) - 1);
 	if (rdsize < 1) {
 		LOG_W("PID: %d, SiSyscall: %d, SiCode: %d, SiErrno: %d", (int)si->si_pid,
 		    si->si_syscall, si->si_code, si->si_errno);
@@ -338,7 +337,7 @@ int reapProc(struct nsjconf_t* nsjconf) {
 			if (WIFSIGNALED(status)) {
 				LOG_I(
 				    "PID: %d (%s) terminated with signal: %s (%d), (PIDs left: %d)",
-				    si.si_pid, remote_txt, utilSigName(WTERMSIG(status)),
+				    si.si_pid, remote_txt, util::sigName(WTERMSIG(status)),
 				    WTERMSIG(status), countProc(nsjconf) - 1);
 				removeProc(nsjconf, si.si_pid);
 				rv = 100 + WTERMSIG(status);
@@ -388,7 +387,7 @@ static bool initParent(struct nsjconf_t* nsjconf, pid_t pid, int pipefd) {
 		LOG_E("Couldn't initialize user namespaces for pid %d", pid);
 		return false;
 	}
-	if (utilWriteToFd(pipefd, &kSubprocDoneChar, sizeof(kSubprocDoneChar)) !=
+	if (util::writeToFd(pipefd, &kSubprocDoneChar, sizeof(kSubprocDoneChar)) !=
 	    sizeof(kSubprocDoneChar)) {
 		LOG_E("Couldn't signal the new process via a socketpair");
 		return false;
@@ -410,16 +409,16 @@ void runChild(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
 	flags |= (nsjconf->clone_newcgroup ? CLONE_NEWCGROUP : 0);
 
 	if (nsjconf->mode == MODE_STANDALONE_EXECVE) {
-		LOG_D("Entering namespace with flags:%s", subprocCloneFlagsToStr(flags));
+		LOG_D("Entering namespace with flags:%s", cloneFlagsToStr(flags));
 		if (unshare(flags) == -1) {
-			PLOG_E("unshare(%s)", subprocCloneFlagsToStr(flags));
+			PLOG_E("unshare(%s)", cloneFlagsToStr(flags));
 			_exit(0xff);
 		}
 		subprocNewProc(nsjconf, fd_in, fd_out, fd_err, -1);
 	}
 
 	flags |= SIGCHLD;
-	LOG_D("Creating new process with clone flags:%s", subprocCloneFlagsToStr(flags));
+	LOG_D("Creating new process with clone flags:%s", cloneFlagsToStr(flags));
 
 	int sv[2];
 	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, sv) == -1) {
@@ -429,7 +428,7 @@ void runChild(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
 	int child_fd = sv[0];
 	int parent_fd = sv[1];
 
-	pid_t pid = subprocClone(flags);
+	pid_t pid = cloneProc(flags);
 	if (pid == 0) {
 		close(parent_fd);
 		subprocNewProc(nsjconf, fd_in, fd_out, fd_err, child_fd);
@@ -446,7 +445,7 @@ void runChild(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
 		    "doesn't support CLONE_NEWUSER. Alternatively, you might want to recompile "
 		    "your kernel with support for namespaces or check the setting of the "
 		    "kernel.unprivileged_userns_clone sysctl",
-		    subprocCloneFlagsToStr(flags));
+		    cloneFlagsToStr(flags));
 		close(parent_fd);
 		return;
 	}
@@ -462,17 +461,15 @@ void runChild(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
 	net::connToText(fd_in, true /* remote */, cs_addr, sizeof(cs_addr), NULL);
 }
 
-}  // namespace subproc
-
 /*
  * Will be used inside the child process only, so it's safe to have it in BSS.
  * Some CPU archs (e.g. aarch64) must have it aligned. Size: 128 KiB (/2)
  */
-static uint8_t subprocCloneStack[128 * 1024] __attribute__((aligned(__BIGGEST_ALIGNMENT__)));
+static uint8_t cloneStack[128 * 1024] __attribute__((aligned(__BIGGEST_ALIGNMENT__)));
 /* Cannot be on the stack, as the child's stack pointer will change after clone() */
 static __thread jmp_buf env;
 
-static int subprocCloneFunc(void* arg __attribute__((unused))) {
+static int cloneFunc(void* arg __attribute__((unused))) {
 	longjmp(env, 1);
 	return 0;
 }
@@ -482,28 +479,28 @@ static int subprocCloneFunc(void* arg __attribute__((unused))) {
  * update the internal PID/TID caches, what can lead to invalid values being returned by getpid()
  * or incorrect PID/TIDs used in raise()/abort() functions
  */
-pid_t subprocClone(uintptr_t flags) {
+pid_t cloneProc(uintptr_t flags) {
 	if (flags & CLONE_VM) {
 		LOG_E("Cannot use clone(flags & CLONE_VM)");
 		return -1;
 	}
 
 	if (setjmp(env) == 0) {
-		LOG_D("Cloning process with flags:%s", subprocCloneFlagsToStr(flags));
+		LOG_D("Cloning process with flags:%s", cloneFlagsToStr(flags));
 		/*
 		 * Avoid the problem of the stack growing up/down under different CPU architectures,
 		 * by using middle of the static stack buffer (which is temporary, and used only
-		 * inside of the subprocCloneFunc()
+		 * inside of the cloneFunc()
 		 */
-		void* stack = &subprocCloneStack[sizeof(subprocCloneStack) / 2];
+		void* stack = &cloneStack[sizeof(cloneStack) / 2];
 		/* Parent */
-		return clone(subprocCloneFunc, stack, flags, NULL, NULL, NULL);
+		return clone(cloneFunc, stack, flags, NULL, NULL, NULL);
 	}
 	/* Child */
 	return 0;
 }
 
-int subprocSystem(const char** argv, char** env) {
+int systemExe(const char** argv, char** env) {
 	bool exec_failed = false;
 
 	int sv[2];
@@ -524,13 +521,13 @@ int subprocSystem(const char** argv, char** env) {
 		close(sv[0]);
 		execve(argv[0], (char* const*)argv, (char* const*)env);
 		PLOG_W("execve('%s')", argv[0]);
-		utilWriteToFd(sv[1], "A", 1);
+		util::writeToFd(sv[1], "A", 1);
 		exit(0);
 	}
 
 	close(sv[1]);
 	char buf[1];
-	if (utilReadFromFd(sv[0], buf, sizeof(buf)) > 0) {
+	if (util::readFromFd(sv[0], buf, sizeof(buf)) > 0) {
 		exec_failed = true;
 		LOG_W("Couldn't execute '%s'", argv[0]);
 	}
@@ -560,9 +557,11 @@ int subprocSystem(const char** argv, char** env) {
 		if (WIFSIGNALED(status)) {
 			int exit_signal = WTERMSIG(status);
 			LOG_W("PID %d killed by signal: %d (%s)", pid, exit_signal,
-			    utilSigName(exit_signal));
+			    util::sigName(exit_signal));
 			return 2;
 		}
 		LOG_W("Unknown exit status: %d", status);
 	}
 }
+
+}  // namespace subproc

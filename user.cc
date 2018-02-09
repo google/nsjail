@@ -40,12 +40,12 @@
 #include <unistd.h>
 
 extern "C" {
-#include "common.h"
 #include "log.h"
-#include "util.h"
 }
 
+#include "common.h"
 #include "subproc.h"
+#include "util.h"
 
 namespace user {
 
@@ -93,8 +93,8 @@ static bool setGroups(pid_t pid) {
 	char fname[PATH_MAX];
 	snprintf(fname, sizeof(fname), "/proc/%d/setgroups", pid);
 	const char* denystr = "deny";
-	if (!utilWriteBufToFile(fname, denystr, strlen(denystr), O_WRONLY | O_CLOEXEC)) {
-		LOG_E("utilWriteBufToFile('%s', '%s') failed", fname, denystr);
+	if (!util::writeBufToFile(fname, denystr, strlen(denystr), O_WRONLY | O_CLOEXEC)) {
+		LOG_E("util::writeBufToFile('%s', '%s') failed", fname, denystr);
 		return false;
 	}
 	return true;
@@ -111,7 +111,7 @@ static bool uidMapSelf(struct nsjconf_t* nsjconf, pid_t pid) {
 		if (p->is_newidmap) {
 			continue;
 		}
-		utilSSnPrintf(map, sizeof(map), "%lu %lu %zu\n", (unsigned long)p->inside_id,
+		util::sSnPrintf(map, sizeof(map), "%lu %lu %zu\n", (unsigned long)p->inside_id,
 		    (unsigned long)p->outside_id, p->count);
 	}
 
@@ -120,8 +120,8 @@ static bool uidMapSelf(struct nsjconf_t* nsjconf, pid_t pid) {
 	}
 
 	LOG_D("Writing '%s' to '%s'", map, fname);
-	if (!utilWriteBufToFile(fname, map, strlen(map), O_WRONLY | O_CLOEXEC)) {
-		LOG_E("utilWriteBufToFile('%s', '%s') failed", fname, map);
+	if (!util::writeBufToFile(fname, map, strlen(map), O_WRONLY | O_CLOEXEC)) {
+		LOG_E("util::writeBufToFile('%s', '%s') failed", fname, map);
 		return false;
 	}
 
@@ -139,7 +139,7 @@ static bool gidMapSelf(struct nsjconf_t* nsjconf, pid_t pid) {
 		if (p->is_newidmap) {
 			continue;
 		}
-		utilSSnPrintf(map, sizeof(map), "%lu %lu %zu\n", (unsigned long)p->inside_id,
+		util::sSnPrintf(map, sizeof(map), "%lu %lu %zu\n", (unsigned long)p->inside_id,
 		    (unsigned long)p->outside_id, p->count);
 	}
 
@@ -148,8 +148,8 @@ static bool gidMapSelf(struct nsjconf_t* nsjconf, pid_t pid) {
 	}
 
 	LOG_D("Writing '%s' to '%s'", map, fname);
-	if (!utilWriteBufToFile(fname, map, strlen(map), O_WRONLY | O_CLOEXEC)) {
-		LOG_E("utilWriteBufToFile('%s', '%s') failed", fname, map);
+	if (!util::writeBufToFile(fname, map, strlen(map), O_WRONLY | O_CLOEXEC)) {
+		LOG_E("util::writeBufToFile('%s', '%s') failed", fname, map);
 		return false;
 	}
 
@@ -200,7 +200,7 @@ static bool gidMapExternal(struct nsjconf_t* nsjconf, pid_t pid UNUSED) {
 		return true;
 	}
 
-	if (subprocSystem(argv, environ) != 0) {
+	if (subproc::systemExe(argv, environ) != 0) {
 		LOG_E("'/usr/bin/newgidmap' failed");
 		return false;
 	}
@@ -252,7 +252,7 @@ static bool uidMapExternal(struct nsjconf_t* nsjconf, pid_t pid UNUSED) {
 		return true;
 	}
 
-	if (subprocSystem(argv, environ) != 0) {
+	if (subproc::systemExe(argv, environ) != 0) {
 		LOG_E("'/usr/bin/newuidmap' failed");
 		return false;
 	}
@@ -329,7 +329,7 @@ static uid_t parseUid(const char* id) {
 	if (pw != NULL) {
 		return pw->pw_uid;
 	}
-	if (utilIsANumber(id)) {
+	if (util::isANumber(id)) {
 		return (uid_t)strtoull(id, NULL, 0);
 	}
 	return (uid_t)-1;
@@ -343,7 +343,7 @@ static gid_t parseGid(const char* id) {
 	if (gr != NULL) {
 		return gr->gr_gid;
 	}
-	if (utilIsANumber(id)) {
+	if (util::isANumber(id)) {
 		return (gid_t)strtoull(id, NULL, 0);
 	}
 	return (gid_t)-1;
@@ -378,7 +378,8 @@ bool parseId(struct nsjconf_t* nsjconf, const char* i_id, const char* o_id, size
 		}
 	}
 
-	struct idmap_t* p = reinterpret_cast<struct idmap_t*>(utilMalloc(sizeof(struct idmap_t)));
+	struct idmap_t* p =
+	    reinterpret_cast<struct idmap_t*>(util::memAlloc(sizeof(struct idmap_t)));
 	p->inside_id = inside_id;
 	p->outside_id = outside_id;
 	p->count = cnt;

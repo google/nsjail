@@ -51,7 +51,7 @@ bool initNs(struct nsjconf_t* nsjconf) {
 	 * first clone/fork will work, and the rest will fail with ENOMEM (see 'man pid_namespaces'
 	 * for details on this behavior)
 	 */
-	pid_t pid = subprocClone(CLONE_FS);
+	pid_t pid = subproc::cloneProc(CLONE_FS);
 	if (pid == -1) {
 		PLOG_E("Couldn't create a dummy init process");
 		return false;

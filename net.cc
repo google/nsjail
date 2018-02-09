@@ -138,7 +138,7 @@ bool initNsFromParent(struct nsjconf_t* nsjconf, int pid) {
 
 	const char* argv[] = {"/sbin/ip", "link", "add", "link", (char*)nsjconf->iface_vs, "name",
 	    IFACE_NAME, "netns", pid_str, "type", "macvlan", "mode", "bridge", NULL};
-	if (subprocSystem(argv, environ) != 0) {
+	if (subproc::systemExe(argv, environ) != 0) {
 		LOG_E("Couldn't create MACVTAP interface for '%s'", nsjconf->iface_vs);
 		return false;
 	}

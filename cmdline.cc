@@ -46,7 +46,6 @@
 
 extern "C" {
 #include "log.h"
-#include "util.h"
 }
 
 #include "caps.h"
@@ -55,6 +54,7 @@ extern "C" {
 #include "mnt.h"
 #include "sandbox.h"
 #include "user.h"
+#include "util.h"
 
 namespace cmdline {
 
@@ -285,7 +285,7 @@ uint64_t parseRLimit(int res, const char* optarg, unsigned long mul) {
 	if (strcasecmp(optarg, "max") == 0 || strcasecmp(optarg, "hard") == 0) {
 		return cur.rlim_max;
 	}
-	if (utilIsANumber(optarg) == false) {
+	if (util::isANumber(optarg) == false) {
 		LOG_F(
 		    "RLIMIT %d needs a numeric or 'max'/'hard'/'def'/'soft'/'inf' value ('%s' "
 		    "provided)",
@@ -400,13 +400,13 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 	static char cmdlineTmpfsSz[PATH_MAX] = "size=4194304";
 
 	struct ints_t* f;
-	f = reinterpret_cast<struct ints_t*>(utilMalloc(sizeof(struct ints_t)));
+	f = reinterpret_cast<struct ints_t*>(util::memAlloc(sizeof(struct ints_t)));
 	f->val = STDIN_FILENO;
 	TAILQ_INSERT_HEAD(&nsjconf->open_fds, f, pointers);
-	f = reinterpret_cast<struct ints_t*>(utilMalloc(sizeof(struct ints_t)));
+	f = reinterpret_cast<struct ints_t*>(util::memAlloc(sizeof(struct ints_t)));
 	f->val = STDOUT_FILENO;
 	TAILQ_INSERT_HEAD(&nsjconf->open_fds, f, pointers);
-	f = reinterpret_cast<struct ints_t*>(utilMalloc(sizeof(struct ints_t)));
+	f = reinterpret_cast<struct ints_t*>(util::memAlloc(sizeof(struct ints_t)));
 	f->val = STDERR_FILENO;
 	TAILQ_INSERT_HEAD(&nsjconf->open_fds, f, pointers);
 
@@ -572,7 +572,7 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 			break;
 		case 0x0505: {
 			struct ints_t* f;
-			f = reinterpret_cast<struct ints_t*>(utilMalloc(sizeof(struct ints_t)));
+			f = reinterpret_cast<struct ints_t*>(util::memAlloc(sizeof(struct ints_t)));
 			f->val = (int)strtol(optarg, NULL, 0);
 			TAILQ_INSERT_HEAD(&nsjconf->open_fds, f, pointers);
 		} break;
@@ -584,7 +584,7 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 			break;
 		case 0x0509: {
 			struct ints_t* f =
-			    reinterpret_cast<struct ints_t*>(utilMalloc(sizeof(struct ints_t)));
+			    reinterpret_cast<struct ints_t*>(util::memAlloc(sizeof(struct ints_t)));
 			f->val = caps::nameToVal(optarg);
 			if (f->val == -1) {
 				return nullptr;
@@ -613,7 +613,7 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 			break;
 		case 'E': {
 			struct charptr_t* p = reinterpret_cast<struct charptr_t*>(
-			    utilMalloc(sizeof(struct charptr_t)));
+			    util::memAlloc(sizeof(struct charptr_t)));
 			p->val = optarg;
 			TAILQ_INSERT_TAIL(&nsjconf->envs, p, pointers);
 		} break;
@@ -812,7 +812,7 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 
 	if (TAILQ_EMPTY(&nsjconf->uids)) {
 		struct idmap_t* p =
-		    reinterpret_cast<struct idmap_t*>(utilMalloc(sizeof(struct idmap_t)));
+		    reinterpret_cast<struct idmap_t*>(util::memAlloc(sizeof(struct idmap_t)));
 		p->inside_id = getuid();
 		p->outside_id = getuid();
 		p->count = 1U;
@@ -821,7 +821,7 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 	}
 	if (TAILQ_EMPTY(&nsjconf->gids)) {
 		struct idmap_t* p =
-		    reinterpret_cast<struct idmap_t*>(utilMalloc(sizeof(struct idmap_t)));
+		    reinterpret_cast<struct idmap_t*>(util::memAlloc(sizeof(struct idmap_t)));
 		p->inside_id = getgid();
 		p->outside_id = getgid();
 		p->count = 1U;

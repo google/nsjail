@@ -32,8 +32,9 @@
 
 extern "C" {
 #include "log.h"
-#include "util.h"
 }
+
+#include "util.h"
 
 namespace cgroup {
 
@@ -56,7 +57,7 @@ static bool initNsFromParentMem(struct nsjconf_t* nsjconf, pid_t pid) {
 	snprintf(mem_max_str, sizeof(mem_max_str), "%zu", nsjconf->cgroup_mem_max);
 	snprintf(fname, sizeof(fname), "%s/memory.limit_in_bytes", mem_cgroup_path);
 	LOG_D("Setting '%s' to '%s'", fname, mem_max_str);
-	if (!utilWriteBufToFile(fname, mem_max_str, strlen(mem_max_str), O_WRONLY | O_CLOEXEC)) {
+	if (!util::writeBufToFile(fname, mem_max_str, strlen(mem_max_str), O_WRONLY | O_CLOEXEC)) {
 		LOG_E("Could not update memory cgroup max limit");
 		return false;
 	}
@@ -66,7 +67,7 @@ static bool initNsFromParentMem(struct nsjconf_t* nsjconf, pid_t pid) {
 	 */
 	snprintf(fname, sizeof(fname), "%s/memory.oom_control", mem_cgroup_path);
 	LOG_D("Writting '0' '%s'", fname);
-	if (!utilWriteBufToFile(fname, "0", strlen("0"), O_WRONLY | O_CLOEXEC)) {
+	if (!util::writeBufToFile(fname, "0", strlen("0"), O_WRONLY | O_CLOEXEC)) {
 		LOG_E("Could not update memory cgroup oom control");
 		return false;
 	}
@@ -75,7 +76,7 @@ static bool initNsFromParentMem(struct nsjconf_t* nsjconf, pid_t pid) {
 	snprintf(pid_str, sizeof(pid_str), "%d", (int)pid);
 	snprintf(fname, sizeof(fname), "%s/tasks", mem_cgroup_path);
 	LOG_D("Adding PID='%s' to '%s'", pid_str, fname);
-	if (!utilWriteBufToFile(fname, pid_str, strlen(pid_str), O_WRONLY | O_CLOEXEC)) {
+	if (!util::writeBufToFile(fname, pid_str, strlen(pid_str), O_WRONLY | O_CLOEXEC)) {
 		LOG_E("Could not update memory cgroup task list");
 		return false;
 	}
@@ -102,7 +103,8 @@ static bool initNsFromParentPids(struct nsjconf_t* nsjconf, pid_t pid) {
 	snprintf(pids_max_str, sizeof(pids_max_str), "%u", nsjconf->cgroup_pids_max);
 	snprintf(fname, sizeof(fname), "%s/pids.max", pids_cgroup_path);
 	LOG_D("Setting '%s' to '%s'", fname, pids_max_str);
-	if (!utilWriteBufToFile(fname, pids_max_str, strlen(pids_max_str), O_WRONLY | O_CLOEXEC)) {
+	if (!util::writeBufToFile(
+		fname, pids_max_str, strlen(pids_max_str), O_WRONLY | O_CLOEXEC)) {
 		LOG_E("Could not update pids cgroup max limit");
 		return false;
 	}
@@ -111,7 +113,7 @@ static bool initNsFromParentPids(struct nsjconf_t* nsjconf, pid_t pid) {
 	snprintf(pid_str, sizeof(pid_str), "%d", (int)pid);
 	snprintf(fname, sizeof(fname), "%s/tasks", pids_cgroup_path);
 	LOG_D("Adding PID='%s' to '%s'", pid_str, fname);
-	if (!utilWriteBufToFile(fname, pid_str, strlen(pid_str), O_WRONLY | O_CLOEXEC)) {
+	if (!util::writeBufToFile(fname, pid_str, strlen(pid_str), O_WRONLY | O_CLOEXEC)) {
 		LOG_E("Could not update pids cgroup task list");
 		return false;
 	}
@@ -139,7 +141,7 @@ static bool initNsFromParentNetCls(struct nsjconf_t* nsjconf, pid_t pid) {
 	    nsjconf->cgroup_net_cls_classid);
 	snprintf(fname, sizeof(fname), "%s/net_cls.classid", net_cls_cgroup_path);
 	LOG_D("Setting '%s' to '%s'", fname, net_cls_classid_str);
-	if (!utilWriteBufToFile(
+	if (!util::writeBufToFile(
 		fname, net_cls_classid_str, strlen(net_cls_classid_str), O_WRONLY | O_CLOEXEC)) {
 		LOG_E("Could not update net_cls cgroup classid");
 		return false;
@@ -149,7 +151,7 @@ static bool initNsFromParentNetCls(struct nsjconf_t* nsjconf, pid_t pid) {
 	snprintf(pid_str, sizeof(pid_str), "%d", (int)pid);
 	snprintf(fname, sizeof(fname), "%s/tasks", net_cls_cgroup_path);
 	LOG_D("Adding PID='%s' to '%s'", pid_str, fname);
-	if (!utilWriteBufToFile(fname, pid_str, strlen(pid_str), O_WRONLY | O_CLOEXEC)) {
+	if (!util::writeBufToFile(fname, pid_str, strlen(pid_str), O_WRONLY | O_CLOEXEC)) {
 		LOG_E("Could not update net_cls cgroup task list");
 		return false;
 	}
@@ -177,7 +179,7 @@ static bool initNsFromParentCpu(struct nsjconf_t* nsjconf, pid_t pid) {
 	    nsjconf->cgroup_cpu_ms_per_sec * 1000U);
 	snprintf(fname, sizeof(fname), "%s/cpu.cfs_quota_us", cpu_cgroup_path);
 	LOG_D("Setting '%s' to '%s'", fname, cpu_ms_per_sec_str);
-	if (!utilWriteBufToFile(
+	if (!util::writeBufToFile(
 		fname, cpu_ms_per_sec_str, strlen(cpu_ms_per_sec_str), O_WRONLY | O_CLOEXEC)) {
 		LOG_E("Could not update cpu quota");
 		return false;
@@ -186,7 +188,7 @@ static bool initNsFromParentCpu(struct nsjconf_t* nsjconf, pid_t pid) {
 	const char cpu_period_us[] = "1000000";
 	snprintf(fname, sizeof(fname), "%s/cpu.cfs_period_us", cpu_cgroup_path);
 	LOG_D("Setting '%s' to '%s'", fname, cpu_period_us);
-	if (!utilWriteBufToFile(
+	if (!util::writeBufToFile(
 		fname, cpu_period_us, strlen(cpu_period_us), O_WRONLY | O_CLOEXEC)) {
 		LOG_E("Could not update cpu period");
 		return false;
@@ -196,7 +198,7 @@ static bool initNsFromParentCpu(struct nsjconf_t* nsjconf, pid_t pid) {
 	snprintf(pid_str, sizeof(pid_str), "%d", (int)pid);
 	snprintf(fname, sizeof(fname), "%s/tasks", cpu_cgroup_path);
 	LOG_D("Adding PID='%s' to '%s'", pid_str, fname);
-	if (!utilWriteBufToFile(fname, pid_str, strlen(pid_str), O_WRONLY | O_CLOEXEC)) {
+	if (!util::writeBufToFile(fname, pid_str, strlen(pid_str), O_WRONLY | O_CLOEXEC)) {
 		LOG_E("Could not update cpu cgroup task list");
 		return false;
 	}

@@ -28,27 +28,23 @@
 
 #include "nsjail.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+namespace util {
 
-void* utilMalloc(size_t sz);
-void* utilCalloc(size_t sz);
-char* utilStrDup(const char* str);
-uint8_t* utilMemDup(const uint8_t* src, size_t len);
-ssize_t utilReadFromFd(int fd, void* buf, size_t len);
-ssize_t utilReadFromFile(const char* fname, void* buf, size_t len);
-ssize_t utilWriteToFd(int fd, const void* buf, size_t len);
-bool utilWriteBufToFile(const char* filename, const void* buf, size_t len, int open_flags);
-bool utilCreateDirRecursively(const char* dir);
-int utilSSnPrintf(char* str, size_t size, const char* format, ...);
-bool utilIsANumber(const char* s);
-uint64_t utilRnd64(void);
-const char* utilSigName(int signo);
-const char* utilTimeToStr(time_t t);
+void* memAlloc(size_t sz);
+void* clearAlloc(size_t sz);
+char* strDup(const char* str);
+uint8_t* memDup(const uint8_t* src, size_t len);
+ssize_t readFromFd(int fd, void* buf, size_t len);
+ssize_t readFromFile(const char* fname, void* buf, size_t len);
+ssize_t writeToFd(int fd, const void* buf, size_t len);
+bool writeBufToFile(const char* filename, const void* buf, size_t len, int open_flags);
+bool createDirRecursively(const char* dir);
+int sSnPrintf(char* str, size_t size, const char* format, ...);
+bool isANumber(const char* s);
+uint64_t rnd64(void);
+const char* sigName(int signo);
+const char* timeToStr(time_t t);
 
-#ifdef __cplusplus
-}  // extern "C"
-#endif
+}  // namespace util
 
 #endif /* NS_UTIL_H */
