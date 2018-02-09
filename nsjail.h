@@ -33,6 +33,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <string>
 #include <vector>
 
 #if !defined(TEMP_FAILURE_RETRY)
@@ -90,23 +91,11 @@ struct idmap_t {
 	pointers;
 };
 
-struct ints_t {
-	int val;
-	TAILQ_ENTRY(ints_t)
-	pointers;
-};
-
 enum ns_mode_t {
 	MODE_LISTEN_TCP = 0,
 	MODE_STANDALONE_ONCE,
 	MODE_STANDALONE_EXECVE,
 	MODE_STANDALONE_RERUN
-};
-
-struct charptr_t {
-	const char* val;
-	TAILQ_ENTRY(charptr_t)
-	pointers;
 };
 
 enum llevel_t {
@@ -188,12 +177,11 @@ struct nsjconf_t {
 	uids;
 	TAILQ_HEAD(gdmaplist, idmap_t)
 	gids;
-	TAILQ_HEAD(envlist, charptr_t)
-	envs;
 	TAILQ_HEAD(pidslist, pids_t)
 	pids;
 	TAILQ_HEAD(mountptslist, mounts_t)
 	mountpts;
+	std::vector<std::string> envs;
 	std::vector<int> openfds;
 	std::vector<int> caps;
 };

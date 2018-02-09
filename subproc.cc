@@ -163,8 +163,9 @@ static int subprocNewProc(
 	if (nsjconf->keep_env == false) {
 		clearenv();
 	}
-	struct charptr_t* p;
-	TAILQ_FOREACH(p, &nsjconf->envs, pointers) { putenv((char*)p->val); }
+	for (const auto& env : nsjconf->envs) {
+		putenv(const_cast<char*>(env.c_str()));
+	}
 
 	char cs_addr[64];
 	net::connToText(fd_in, true /* remote */, cs_addr, sizeof(cs_addr), NULL);

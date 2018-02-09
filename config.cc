@@ -129,16 +129,11 @@ static bool configParseInternal(struct nsjconf_t* nsjconf, const nsjail::NsJailC
 
 	nsjconf->keep_env = njc.keep_env();
 	for (ssize_t i = 0; i < njc.envar_size(); i++) {
-		struct charptr_t* p =
-		    reinterpret_cast<charptr_t*>(util::memAlloc(sizeof(struct charptr_t)));
-		p->val = njc.envar(i).c_str();
-		TAILQ_INSERT_TAIL(&nsjconf->envs, p, pointers);
+		nsjconf->envs.push_back(njc.envar(i));
 	}
 
 	nsjconf->keep_caps = njc.keep_caps();
 	for (ssize_t i = 0; i < njc.cap_size(); i++) {
-		struct ints_t* f =
-		    reinterpret_cast<struct ints_t*>(util::memAlloc(sizeof(struct ints_t)));
 		int cap = caps::nameToVal(njc.cap(i).c_str());
 		if (cap == -1) {
 			return false;

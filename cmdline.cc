@@ -392,7 +392,6 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 
 	TAILQ_INIT(&nsjconf->pids);
 	TAILQ_INIT(&nsjconf->mountpts);
-	TAILQ_INIT(&nsjconf->envs);
 	TAILQ_INIT(&nsjconf->uids);
 	TAILQ_INIT(&nsjconf->gids);
 
@@ -594,12 +593,9 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 		case 0x0607:
 			nsjconf->use_execveat = true;
 			break;
-		case 'E': {
-			struct charptr_t* p = reinterpret_cast<struct charptr_t*>(
-			    util::memAlloc(sizeof(struct charptr_t)));
-			p->val = optarg;
-			TAILQ_INSERT_TAIL(&nsjconf->envs, p, pointers);
-		} break;
+		case 'E':
+			nsjconf->envs.push_back(optarg);
+			break;
 		case 'u': {
 			char* i_id = optarg;
 			char* o_id = cmdlineSplitStrByColon(i_id);
