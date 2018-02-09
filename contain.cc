@@ -40,7 +40,6 @@
 extern "C" {
 #include "caps.h"
 #include "cgroup.h"
-#include "cpu.h"
 #include "log.h"
 #include "mount.h"
 #include "pid.h"
@@ -48,6 +47,7 @@ extern "C" {
 #include "uts.h"
 }
 
+#include "cpu.h"
 #include "net.h"
 
 namespace contain {
@@ -101,7 +101,7 @@ static bool containPrepareEnv(struct nsjconf_t* nsjconf) {
 
 static bool containInitMountNs(struct nsjconf_t* nsjconf) { return mountInitNs(nsjconf); }
 
-static bool containCPU(struct nsjconf_t* nsjconf) { return cpuInit(nsjconf); }
+static bool containCPU(struct nsjconf_t* nsjconf) { return cpu::initCpu(nsjconf); }
 
 static bool containSetLimits(struct nsjconf_t* nsjconf) {
 	struct rlimit64 rl;

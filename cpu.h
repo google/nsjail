@@ -26,6 +26,10 @@
 
 #include "nsjail.h"
 
-bool cpuInit(struct nsjconf_t* nsjconf);
+namespace cpu {
+
+bool initCpu(struct nsjconf_t* nsjconf);
+
+}  // namespace cpu
 
 #endif /* NS_CPU_H */

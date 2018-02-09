@@ -27,10 +27,14 @@
 #include <string.h>
 #include <unistd.h>
 
+extern "C" {
 #include "log.h"
 #include "util.h"
+}
 
-static void cpuSetRandomCpu(cpu_set_t* mask, size_t mask_size, size_t cpu_num) {
+namespace cpu {
+
+static void setRandomCpu(cpu_set_t* mask, size_t mask_size, size_t cpu_num) {
 	if ((size_t)CPU_COUNT_S(mask_size, mask) >= cpu_num) {
 		LOG_F(
 		    "Number of CPUs in the mask '%d' is bigger than number of available CPUs '%zu'",
@@ -47,7 +51,7 @@ static void cpuSetRandomCpu(cpu_set_t* mask, size_t mask_size, size_t cpu_num) {
 	}
 }
 
-bool cpuInit(struct nsjconf_t* nsjconf) {
+bool initCpu(struct nsjconf_t* nsjconf) {
 	if (nsjconf->num_cpus < 0) {
 		PLOG_W("sysconf(_SC_NPROCESSORS_ONLN) returned %ld", nsjconf->num_cpus);
 		return false;
@@ -76,7 +80,7 @@ bool cpuInit(struct nsjconf_t* nsjconf) {
 	CPU_ZERO_S(mask_size, mask);
 
 	for (size_t i = 0; i < nsjconf->max_cpus; i++) {
-		cpuSetRandomCpu(mask, mask_size, nsjconf->num_cpus);
+		setRandomCpu(mask, mask_size, nsjconf->num_cpus);
 	}
 
 	if (sched_setaffinity(0, mask_size, mask) == -1) {
@@ -88,3 +92,5 @@ bool cpuInit(struct nsjconf_t* nsjconf) {
 
 	return true;
 }
+
+}  // namespace cpu
