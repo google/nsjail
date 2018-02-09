@@ -43,11 +43,12 @@ extern "C" {
 #include "cpu.h"
 #include "log.h"
 #include "mount.h"
-#include "net.h"
 #include "pid.h"
 #include "user.h"
 #include "uts.h"
 }
+
+#include "net.h"
 
 namespace contain {
 
@@ -55,7 +56,7 @@ static bool containUserNs(struct nsjconf_t* nsjconf) { return userInitNsFromChil
 
 static bool containInitPidNs(struct nsjconf_t* nsjconf) { return pidInitNs(nsjconf); }
 
-static bool containInitNetNs(struct nsjconf_t* nsjconf) { return netInitNsFromChild(nsjconf); }
+static bool containInitNetNs(struct nsjconf_t* nsjconf) { return net::initNsFromChild(nsjconf); }
 
 static bool containInitUtsNs(struct nsjconf_t* nsjconf) { return utsInitNs(nsjconf); }
 

@@ -43,13 +43,13 @@
 #include <unistd.h>
 
 #include "contain.h"
+#include "net.h"
 #include "sandbox.h"
 
 extern "C" {
 #include "cgroup.h"
 #include "common.h"
 #include "log.h"
-#include "net.h"
 #include "user.h"
 #include "util.h"
 
@@ -171,7 +171,7 @@ static int subprocNewProc(
 	TAILQ_FOREACH(p, &nsjconf->envs, pointers) { putenv((char*)p->val); }
 
 	char cs_addr[64];
-	netConnToText(fd_in, true /* remote */, cs_addr, sizeof(cs_addr), NULL);
+	net::connToText(fd_in, true /* remote */, cs_addr, sizeof(cs_addr), NULL);
 	LOG_I("Executing '%s' for '%s'", nsjconf->exec_file, cs_addr);
 
 	for (size_t i = 0; nsjconf->argv[i]; i++) {
@@ -203,7 +203,7 @@ static void addProc(struct nsjconf_t* nsjconf, pid_t pid, int sock) {
 	struct pids_t* p = reinterpret_cast<struct pids_t*>(utilMalloc(sizeof(struct pids_t)));
 	p->pid = pid;
 	p->start = time(NULL);
-	netConnToText(
+	net::connToText(
 	    sock, true /* remote */, p->remote_txt, sizeof(p->remote_txt), &p->remote_addr);
 
 	char fname[PATH_MAX];
@@ -376,7 +376,7 @@ void killAll(struct nsjconf_t* nsjconf) {
 }
 
 static bool initParent(struct nsjconf_t* nsjconf, pid_t pid, int pipefd) {
-	if (netInitNsFromParent(nsjconf, pid) == false) {
+	if (net::initNsFromParent(nsjconf, pid) == false) {
 		LOG_E("Couldn't create and put MACVTAP interface into NS of PID '%d'", pid);
 		return false;
 	}
@@ -397,7 +397,7 @@ static bool initParent(struct nsjconf_t* nsjconf, pid_t pid, int pipefd) {
 }
 
 void runChild(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
-	if (netLimitConns(nsjconf, fd_in) == false) {
+	if (net::limitConns(nsjconf, fd_in) == false) {
 		return;
 	}
 	unsigned long flags = 0UL;
@@ -459,7 +459,7 @@ void runChild(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
 
 	close(parent_fd);
 	char cs_addr[64];
-	netConnToText(fd_in, true /* remote */, cs_addr, sizeof(cs_addr), NULL);
+	net::connToText(fd_in, true /* remote */, cs_addr, sizeof(cs_addr), NULL);
 }
 
 }  // namespace subproc

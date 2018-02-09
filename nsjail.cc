@@ -105,7 +105,7 @@ static bool nsjailSetTimer(struct nsjconf_t* nsjconf) {
 }
 
 static void nsjailListenMode(struct nsjconf_t* nsjconf) {
-	int listenfd = netGetRecvSocket(nsjconf->bindhost, nsjconf->port);
+	int listenfd = net::getRecvSocket(nsjconf->bindhost, nsjconf->port);
 	if (listenfd == -1) {
 		return;
 	}
@@ -120,7 +120,7 @@ static void nsjailListenMode(struct nsjconf_t* nsjconf) {
 			nsjailShowProc = false;
 			subproc::displayProc(nsjconf);
 		}
-		int connfd = netAcceptConn(listenfd);
+		int connfd = net::acceptConn(listenfd);
 		if (connfd >= 0) {
 			subproc::runChild(nsjconf, connfd, connfd, connfd);
 			close(connfd);
