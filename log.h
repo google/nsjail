@@ -28,7 +28,8 @@
 #include "nsjail.h"
 
 #define LOG_HELP(...) log::logMsg(HELP, __PRETTY_FUNCTION__, __LINE__, false, __VA_ARGS__);
-#define LOG_HELP_BOLD(...) log::logMsg(HELP_BOLD, __PRETTY_FUNCTION__, __LINE__, false, __VA_ARGS__);
+#define LOG_HELP_BOLD(...) \
+	log::logMsg(HELP_BOLD, __PRETTY_FUNCTION__, __LINE__, false, __VA_ARGS__);
 
 #define LOG_D(...) log::logMsg(DEBUG, __PRETTY_FUNCTION__, __LINE__, false, __VA_ARGS__);
 #define LOG_I(...) log::logMsg(INFO, __PRETTY_FUNCTION__, __LINE__, false, __VA_ARGS__);
