@@ -45,7 +45,6 @@
 #include <memory>
 
 extern "C" {
-#include "caps.h"
 #include "common.h"
 #include "log.h"
 #include "mount.h"
@@ -53,6 +52,7 @@ extern "C" {
 #include "util.h"
 }
 
+#include "caps.h"
 #include "config.h"
 #include "sandbox.h"
 
@@ -585,7 +585,7 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 		case 0x0509: {
 			struct ints_t* f =
 			    reinterpret_cast<struct ints_t*>(utilMalloc(sizeof(struct ints_t)));
-			f->val = capsNameToVal(optarg);
+			f->val = caps::nameToVal(optarg);
 			if (f->val == -1) {
 				return nullptr;
 			}

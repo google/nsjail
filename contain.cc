@@ -38,7 +38,6 @@
 #include <unistd.h>
 
 extern "C" {
-#include "caps.h"
 #include "cgroup.h"
 #include "log.h"
 #include "mount.h"
@@ -47,6 +46,7 @@ extern "C" {
 #include "uts.h"
 }
 
+#include "caps.h"
 #include "cpu.h"
 #include "net.h"
 
@@ -73,7 +73,7 @@ static bool containDropPrivs(struct nsjconf_t* nsjconf) {
 		}
 	}
 
-	if (capsInitNs(nsjconf) == false) {
+	if (caps::initNs(nsjconf) == false) {
 		return false;
 	}
 

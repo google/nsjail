@@ -30,7 +30,6 @@ extern "C" {
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include "caps.h"
 #include "config.h"
 #include "log.h"
 #include "mount.h"
@@ -38,6 +37,7 @@ extern "C" {
 #include "util.h"
 }
 
+#include "caps.h"
 #include "cmdline.h"
 
 #include <google/protobuf/io/zero_copy_stream_impl.h>
@@ -142,7 +142,7 @@ static bool configParseInternal(struct nsjconf_t* nsjconf, const nsjail::NsJailC
 	for (ssize_t i = 0; i < njc.cap_size(); i++) {
 		struct ints_t* f =
 		    reinterpret_cast<struct ints_t*>(utilMalloc(sizeof(struct ints_t)));
-		f->val = capsNameToVal(njc.cap(i).c_str());
+		f->val = caps::nameToVal(njc.cap(i).c_str());
 		if (f->val == -1) {
 			return false;
 		}

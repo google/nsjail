@@ -27,7 +27,11 @@
 
 #include "nsjail.h"
 
-int capsNameToVal(const char* name);
-bool capsInitNs(struct nsjconf_t* nsjconf);
+namespace caps {
+
+int nameToVal(const char* name);
+bool initNs(struct nsjconf_t* nsjconf);
+
+}  // namespace caps
 
 #endif /* NS_CAPS_H */
