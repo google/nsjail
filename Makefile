@@ -27,24 +27,20 @@ COMMON_FLAGS += -O2 -c \
 	-Wall -Wextra -Werror \
 	-Ikafel/include
 
-CFLAGS += $(COMMON_FLAGS) \
-	-std=gnu11
 CXXFLAGS += $(COMMON_FLAGS) $(shell pkg-config --cflags protobuf) \
 	-std=c++14 -fno-exceptions -Wno-unused -Wno-unused-parameter
 LDFLAGS += -pie -Wl,-z,noexecstack -lpthread $(shell pkg-config --libs protobuf)
 
 BIN = nsjail
 LIBS = kafel/libkafel.a
-SRCS_C =
 SRCS_CXX = caps.cc cgroup.cc cmdline.cc config.cc contain.cc cpu.cc log.cc mnt.cc net.cc nsjail.cc pid.cc sandbox.cc subproc.cc uts.cc user.cc util.cc
 SRCS_PROTO = config.proto
 SRCS_PB_CXX = $(SRCS_PROTO:.proto=.pb.cc)
 SRCS_PB_H = $(SRCS_PROTO:.proto=.pb.h)
 SRCS_PB_O = $(SRCS_PROTO:.proto=.pb.o)
-OBJS = $(SRCS_C:.c=.o) $(SRCS_CXX:.cc=.o) $(SRCS_PB_CXX:.cc=.o)
+OBJS = $(SRCS_CXX:.cc=.o) $(SRCS_PB_CXX:.cc=.o)
 
 ifdef DEBUG
-	CFLAGS += -g -ggdb -gdwarf-4
 	CXXFLAGS += -g -ggdb -gdwarf-4
 endif
 
@@ -52,15 +48,12 @@ USE_NL3 ?= yes
 ifeq ($(USE_NL3), yes)
 NL3_EXISTS := $(shell pkg-config --exists libnl-route-3.0 && echo yes)
 ifeq ($(NL3_EXISTS), yes)
-	CFLAGS += -DNSJAIL_NL3_WITH_MACVLAN $(shell pkg-config --cflags libnl-route-3.0)
+	CXXFLAGS += -DNSJAIL_NL3_WITH_MACVLAN $(shell pkg-config --cflags libnl-route-3.0)
 	LDFLAGS += $(shell pkg-config --libs libnl-route-3.0)
 endif
 endif
 
 .PHONY: all clean depend indent
-
-.c.o: %.c
-	$(CXX) -xc $(CFLAGS) $< -o $@
 
 .cc.o: %.cc
 	$(CXX) $(CXXFLAGS) $< -o $@
@@ -89,7 +82,7 @@ ifneq ("$(wildcard kafel/Makefile)","")
 endif
 
 depend:
-	makedepend -Y -Ykafel/include -- -- $(SRCS_C) $(SRCS_CXX) $(SRCS_PB_CXX)
+	makedepend -Y -Ykafel/include -- -- $(SRCS_CXX) $(SRCS_PB_CXX)
 
 indent:
 	clang-format -style="{BasedOnStyle: google, IndentWidth: 8, UseTab: Always, IndentCaseLabels: false, ColumnLimit: 100, AlignAfterOpenBracket: false}" -i -sort-includes *.h $(SRCS_CXX)
