@@ -49,12 +49,12 @@ extern "C" {
 #include "common.h"
 #include "log.h"
 #include "mount.h"
-#include "sandbox.h"
 #include "user.h"
 #include "util.h"
 }
 
 #include "config.h"
+#include "sandbox.h"
 
 namespace cmdline {
 
@@ -859,7 +859,7 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 		}
 	}
 
-	if (!sandboxPrepare(nsjconf.get())) {
+	if (!sandbox::preparePolicy(nsjconf.get())) {
 		LOG_E("Couldn't prepare sandboxing setup");
 		return nullptr;
 	}

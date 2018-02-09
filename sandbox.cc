@@ -26,14 +26,18 @@
 #include <stddef.h>
 #include <sys/prctl.h>
 
+extern "C" {
 #include "kafel.h"
 #include "log.h"
+}
+
+namespace sandbox {
 
 #ifndef PR_SET_NO_NEW_PRIVS /* in prctl.h since Linux 3.5 */
 #define PR_SET_NO_NEW_PRIVS 38
 #endif /* PR_SET_NO_NEW_PRIVS */
 
-static bool sandboxPrepareAndCommit(struct nsjconf_t* nsjconf) {
+static bool prepareAndCommit(struct nsjconf_t* nsjconf) {
 	if (nsjconf->kafel_file_path == NULL && nsjconf->kafel_string == NULL) {
 		return true;
 	}
@@ -49,9 +53,9 @@ static bool sandboxPrepareAndCommit(struct nsjconf_t* nsjconf) {
 	return true;
 }
 
-bool sandboxApply(struct nsjconf_t* nsjconf) { return sandboxPrepareAndCommit(nsjconf); }
+bool applyPolicy(struct nsjconf_t* nsjconf) { return prepareAndCommit(nsjconf); }
 
-bool sandboxPrepare(struct nsjconf_t* nsjconf) {
+bool preparePolicy(struct nsjconf_t* nsjconf) {
 	if (nsjconf->kafel_file_path == NULL && nsjconf->kafel_string == NULL) {
 		return true;
 	}
@@ -82,3 +86,5 @@ bool sandboxPrepare(struct nsjconf_t* nsjconf) {
 	kafel_ctxt_destroy(&ctxt);
 	return true;
 }
+
+}  // namespace sandbox

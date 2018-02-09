@@ -43,13 +43,13 @@
 #include <unistd.h>
 
 #include "contain.h"
+#include "sandbox.h"
 
 extern "C" {
 #include "cgroup.h"
 #include "common.h"
 #include "log.h"
 #include "net.h"
-#include "sandbox.h"
 #include "user.h"
 #include "util.h"
 
@@ -179,7 +179,7 @@ static int subprocNewProc(
 	}
 
 	/* Should be the last one in the sequence */
-	if (sandboxApply(nsjconf) == false) {
+	if (sandbox::applyPolicy(nsjconf) == false) {
 		exit(0xff);
 	}
 
