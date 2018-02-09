@@ -112,7 +112,7 @@ static void nsjailListenMode(struct nsjconf_t* nsjconf) {
 	for (;;) {
 		if (nsjailSigFatal > 0) {
 			subproc::killAll(nsjconf);
-			logStop(nsjailSigFatal);
+			log::logStop(nsjailSigFatal);
 			close(listenfd);
 			return;
 		}
@@ -147,7 +147,7 @@ static int nsjailStandaloneMode(struct nsjconf_t* nsjconf) {
 		}
 		if (nsjailSigFatal > 0) {
 			subproc::killAll(nsjconf);
-			logStop(nsjailSigFatal);
+			log::logStop(nsjailSigFatal);
 			return -1;
 		}
 

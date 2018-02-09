@@ -44,13 +44,10 @@
 
 #include <memory>
 
-extern "C" {
-#include "log.h"
-}
-
 #include "caps.h"
 #include "common.h"
 #include "config.h"
+#include "log.h"
 #include "mnt.h"
 #include "sandbox.h"
 #include "user.h"
@@ -441,7 +438,7 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 			nsjconf->cwd = optarg;
 			break;
 		case 'C':
-			if (configParse(nsjconf.get(), optarg) == false) {
+			if (config::parseFile(nsjconf.get(), optarg) == false) {
 				LOG_F("Couldn't parse configuration from '%s' file", optarg);
 			}
 			break;
@@ -460,13 +457,13 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 			break;
 		case 'l':
 			nsjconf->logfile = optarg;
-			if (logInitLogFile(nsjconf.get()) == false) {
+			if (log::initLogFile(nsjconf.get()) == false) {
 				return nullptr;
 			}
 			break;
 		case 'L':
 			nsjconf->log_fd = strtol(optarg, NULL, 0);
-			if (logInitLogFile(nsjconf.get()) == false) {
+			if (log::initLogFile(nsjconf.get()) == false) {
 				return nullptr;
 			}
 			break;
@@ -475,19 +472,19 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 			break;
 		case 'v':
 			nsjconf->loglevel = DEBUG;
-			if (logInitLogFile(nsjconf.get()) == false) {
+			if (log::initLogFile(nsjconf.get()) == false) {
 				return nullptr;
 			}
 			break;
 		case 'q':
 			nsjconf->loglevel = WARNING;
-			if (logInitLogFile(nsjconf.get()) == false) {
+			if (log::initLogFile(nsjconf.get()) == false) {
 				return nullptr;
 			}
 			break;
 		case 'Q':
 			nsjconf->loglevel = FATAL;
-			if (logInitLogFile(nsjconf.get()) == false) {
+			if (log::initLogFile(nsjconf.get()) == false) {
 				return nullptr;
 			}
 			break;
@@ -829,7 +826,7 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 		TAILQ_INSERT_HEAD(&nsjconf->gids, p, pointers);
 	}
 
-	if (logInitLogFile(nsjconf.get()) == false) {
+	if (log::initLogFile(nsjconf.get()) == false) {
 		return nullptr;
 	}
 

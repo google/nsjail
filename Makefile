@@ -35,8 +35,8 @@ LDFLAGS += -pie -Wl,-z,noexecstack -lpthread $(shell pkg-config --libs protobuf)
 
 BIN = nsjail
 LIBS = kafel/libkafel.a
-SRCS_C = log.c
-SRCS_CXX = caps.cc cgroup.cc cmdline.cc config.cc contain.cc cpu.cc mnt.cc net.cc nsjail.cc pid.cc sandbox.cc subproc.cc uts.cc user.cc util.cc
+SRCS_C =
+SRCS_CXX = caps.cc cgroup.cc cmdline.cc config.cc contain.cc cpu.cc log.cc mnt.cc net.cc nsjail.cc pid.cc sandbox.cc subproc.cc uts.cc user.cc util.cc
 SRCS_PROTO = config.proto
 SRCS_PB_CXX = $(SRCS_PROTO:.proto=.pb.cc)
 SRCS_PB_H = $(SRCS_PROTO:.proto=.pb.h)
@@ -92,28 +92,29 @@ depend:
 	makedepend -Y -Ykafel/include -- -- $(SRCS_C) $(SRCS_CXX) $(SRCS_PB_CXX)
 
 indent:
-	clang-format -style="{BasedOnStyle: google, IndentWidth: 8, UseTab: Always, IndentCaseLabels: false, ColumnLimit: 100, AlignAfterOpenBracket: false}" -i -sort-includes *.c *.h $(SRCS_CXX)
+	clang-format -style="{BasedOnStyle: google, IndentWidth: 8, UseTab: Always, IndentCaseLabels: false, ColumnLimit: 100, AlignAfterOpenBracket: false}" -i -sort-includes *.h $(SRCS_CXX)
 	clang-format -style="{BasedOnStyle: google, IndentWidth: 4, UseTab: Always, ColumnLimit: 100}" -i $(SRCS_PROTO)
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 
-log.o: log.h nsjail.h
-caps.o: caps.h nsjail.h log.h common.h util.h
+caps.o: caps.h nsjail.h common.h log.h util.h
 cgroup.o: cgroup.h nsjail.h log.h util.h
-cmdline.o: cmdline.h nsjail.h log.h caps.h common.h config.h mnt.h sandbox.h
+cmdline.o: cmdline.h nsjail.h caps.h common.h config.h log.h mnt.h sandbox.h
 cmdline.o: user.h util.h
-config.o: log.h nsjail.h caps.h cmdline.h common.h config.h mnt.h user.h
-config.o: util.h
-contain.o: contain.h nsjail.h log.h caps.h cgroup.h cpu.h mnt.h net.h pid.h
+config.o: caps.h nsjail.h cmdline.h common.h config.h config.pb.h log.h mnt.h
+config.o: user.h util.h
+contain.o: contain.h nsjail.h caps.h cgroup.h cpu.h log.h mnt.h net.h pid.h
 contain.o: user.h uts.h
 cpu.o: cpu.h nsjail.h log.h util.h
-mnt.o: mnt.h nsjail.h log.h common.h subproc.h util.h
+log.o: log.h nsjail.h
+mnt.o: mnt.h nsjail.h common.h log.h subproc.h util.h
 net.o: net.h nsjail.h log.h subproc.h
 nsjail.o: nsjail.h cmdline.h common.h log.h net.h subproc.h util.h
 pid.o: pid.h nsjail.h log.h subproc.h
 sandbox.o: sandbox.h nsjail.h kafel/include/kafel.h log.h
-subproc.o: subproc.h nsjail.h cgroup.h common.h contain.h net.h sandbox.h
-subproc.o: user.h util.h log.h
+subproc.o: subproc.h nsjail.h cgroup.h common.h contain.h log.h net.h
+subproc.o: sandbox.h user.h util.h
 uts.o: uts.h nsjail.h log.h
-user.o: user.h nsjail.h log.h common.h subproc.h util.h
+user.o: user.h nsjail.h common.h log.h subproc.h util.h
 util.o: util.h nsjail.h common.h log.h
+config.pb.o: config.pb.h

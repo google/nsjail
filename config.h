@@ -22,17 +22,14 @@
 #ifndef NS_CONFIG_H
 #define NS_CONFIG_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdbool.h>
 
 #include "nsjail.h"
 
-bool configParse(struct nsjconf_t* nsjconf, const char* file);
+namespace config {
 
-#ifdef __cplusplus
-}  // extern "C"
-#endif
+bool parseFile(struct nsjconf_t* nsjconf, const char* file);
+
+}  // namespace config
+
 #endif /*  NS_CONFIG_H */

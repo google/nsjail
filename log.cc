@@ -37,6 +37,8 @@
 
 #include "nsjail.h"
 
+namespace log {
+
 static int log_fd = STDERR_FILENO;
 static bool log_fd_isatty = true;
 static enum llevel_t log_level = INFO;
@@ -49,7 +51,7 @@ __attribute__((constructor)) static void log_init(void) { log_fd_isatty = isatty
  * Log to stderr by default. Use a dup()d fd, because in the future we'll associate the
  * connection socket with fd (0, 1, 2).
  */
-bool logInitLogFile(struct nsjconf_t* nsjconf) {
+bool initLogFile(struct nsjconf_t* nsjconf) {
 	/* Close previous log_fd */
 	if (log_fd > STDERR_FILENO) {
 		close(log_fd);
@@ -75,7 +77,7 @@ bool logInitLogFile(struct nsjconf_t* nsjconf) {
 	return true;
 }
 
-void logLog(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt, ...) {
+void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt, ...) {
 	if (ll < log_level) {
 		return;
 	}
@@ -138,3 +140,5 @@ void logLog(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt
 }
 
 void logStop(int sig) { LOG_I("Server stops due to fatal signal (%d) caught. Exiting", sig); }
+
+}  // namespace log

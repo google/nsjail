@@ -39,11 +39,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-extern "C" {
-#include "log.h"
-}
-
 #include "common.h"
+#include "log.h"
 #include "subproc.h"
 #include "util.h"
 

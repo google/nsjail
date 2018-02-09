@@ -37,13 +37,10 @@
 #include <sys/resource.h>
 #include <unistd.h>
 
-extern "C" {
-#include "log.h"
-}
-
 #include "caps.h"
 #include "cgroup.h"
 #include "cpu.h"
+#include "log.h"
 #include "mnt.h"
 #include "net.h"
 #include "pid.h"

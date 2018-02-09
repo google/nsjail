@@ -27,10 +27,7 @@
 #include <string.h>
 #include <unistd.h>
 
-extern "C" {
 #include "log.h"
-}
-
 #include "util.h"
 
 namespace cpu {

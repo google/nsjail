@@ -33,17 +33,17 @@
 #include <string>
 #include <vector>
 
-extern "C" {
-#include "log.h"
-}
 #include "caps.h"
 #include "cmdline.h"
 #include "common.h"
 #include "config.h"
 #include "config.pb.h"
+#include "log.h"
 #include "mnt.h"
 #include "user.h"
 #include "util.h"
+
+namespace config {
 
 #define DUP_IF_SET(njc, val) (njc.has_##val() ? njc.val().c_str() : NULL)
 
@@ -122,7 +122,7 @@ static bool configParseInternal(struct nsjconf_t* nsjconf, const nsjail::NsJailC
 	}
 
 	if (njc.has_log_fd() || njc.has_log_file() || njc.has_log_level()) {
-		if (logInitLogFile(nsjconf) == false) {
+		if (log::initLogFile(nsjconf) == false) {
 			return false;
 		}
 	}
@@ -305,7 +305,7 @@ static void LogHandler(
 	LOG_W("config.cc: '%s'", message.c_str());
 }
 
-extern "C" bool configParse(struct nsjconf_t* nsjconf, const char* file) {
+bool parseFile(struct nsjconf_t* nsjconf, const char* file) {
 	LOG_I("Parsing configuration from '%s'", file);
 
 	int fd = open(file, O_RDONLY | O_CLOEXEC);
@@ -334,3 +334,5 @@ extern "C" bool configParse(struct nsjconf_t* nsjconf, const char* file) {
 
 	return true;
 }
+
+}  // namespace config

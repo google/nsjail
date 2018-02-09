@@ -27,32 +27,28 @@
 
 #include "nsjail.h"
 
-#define LOG_HELP(...) logLog(HELP, __func__, __LINE__, false, __VA_ARGS__);
-#define LOG_HELP_BOLD(...) logLog(HELP_BOLD, __func__, __LINE__, false, __VA_ARGS__);
+#define LOG_HELP(...) log::logMsg(HELP, __func__, __LINE__, false, __VA_ARGS__);
+#define LOG_HELP_BOLD(...) log::logMsg(HELP_BOLD, __func__, __LINE__, false, __VA_ARGS__);
 
-#define LOG_D(...) logLog(DEBUG, __func__, __LINE__, false, __VA_ARGS__);
-#define LOG_I(...) logLog(INFO, __func__, __LINE__, false, __VA_ARGS__);
-#define LOG_W(...) logLog(WARNING, __func__, __LINE__, false, __VA_ARGS__);
-#define LOG_E(...) logLog(ERROR, __func__, __LINE__, false, __VA_ARGS__);
-#define LOG_F(...) logLog(FATAL, __func__, __LINE__, false, __VA_ARGS__);
+#define LOG_D(...) log::logMsg(DEBUG, __func__, __LINE__, false, __VA_ARGS__);
+#define LOG_I(...) log::logMsg(INFO, __func__, __LINE__, false, __VA_ARGS__);
+#define LOG_W(...) log::logMsg(WARNING, __func__, __LINE__, false, __VA_ARGS__);
+#define LOG_E(...) log::logMsg(ERROR, __func__, __LINE__, false, __VA_ARGS__);
+#define LOG_F(...) log::logMsg(FATAL, __func__, __LINE__, false, __VA_ARGS__);
 
-#define PLOG_D(...) logLog(DEBUG, __func__, __LINE__, true, __VA_ARGS__);
-#define PLOG_I(...) logLog(INFO, __func__, __LINE__, true, __VA_ARGS__);
-#define PLOG_W(...) logLog(WARNING, __func__, __LINE__, true, __VA_ARGS__);
-#define PLOG_E(...) logLog(ERROR, __func__, __LINE__, true, __VA_ARGS__);
-#define PLOG_F(...) logLog(FATAL, __func__, __LINE__, true, __VA_ARGS__);
+#define PLOG_D(...) log::logMsg(DEBUG, __func__, __LINE__, true, __VA_ARGS__);
+#define PLOG_I(...) log::logMsg(INFO, __func__, __LINE__, true, __VA_ARGS__);
+#define PLOG_W(...) log::logMsg(WARNING, __func__, __LINE__, true, __VA_ARGS__);
+#define PLOG_E(...) log::logMsg(ERROR, __func__, __LINE__, true, __VA_ARGS__);
+#define PLOG_F(...) log::logMsg(FATAL, __func__, __LINE__, true, __VA_ARGS__);
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+namespace log {
 
-bool logInitLogFile(struct nsjconf_t* nsjconf);
-void logLog(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt, ...)
+bool initLogFile(struct nsjconf_t* nsjconf);
+void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt, ...)
     __attribute__((format(printf, 5, 6)));
 void logStop(int sig);
 
-#ifdef __cplusplus
-}  // extern "C"
-#endif
+}  // namespace log
 
 #endif /* NS_LOG_H */

@@ -45,14 +45,11 @@
 #include "cgroup.h"
 #include "common.h"
 #include "contain.h"
+#include "log.h"
 #include "net.h"
 #include "sandbox.h"
 #include "user.h"
 #include "util.h"
-
-extern "C" {
-#include "log.h"
-}  // extern "C"
 
 namespace subproc {
 

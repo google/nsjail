@@ -41,10 +41,7 @@
 #include <unistd.h>
 
 #include "common.h"
-
-extern "C" {
 #include "log.h"
-}
 
 namespace util {
 
