@@ -243,22 +243,22 @@ void logParams(struct nsjconf_t* nsjconf) {
 	}
 	{
 		struct idmap_t* p;
-		TAILQ_FOREACH(p, &nsjconf->uids, pointers) {
+		for (const auto& uid : nsjconf->uids) {
 			LOG_I("Uid map: inside_uid:%lu outside_uid:%lu count:%zu newuidmap:%s",
-			    (unsigned long)p->inside_id, (unsigned long)p->outside_id, p->count,
-			    p->is_newidmap ? "true" : "false");
-			if (p->outside_id == 0 && nsjconf->clone_newuser) {
+			    (unsigned long)uid.inside_id, (unsigned long)uid.outside_id, uid.count,
+			    uid.is_newidmap ? "true" : "false");
+			if (uid.outside_id == 0 && nsjconf->clone_newuser) {
 				LOG_W(
 				    "Process will be UID/EUID=0 in the global user namespace, "
 				    "and will have user "
 				    "root-level access to files");
 			}
 		}
-		TAILQ_FOREACH(p, &nsjconf->gids, pointers) {
+		for (const auto& gid : nsjconf->gids) {
 			LOG_I("Gid map: inside_gid:%lu outside_gid:%lu count:%zu newgidmap:%s",
-			    (unsigned long)p->inside_id, (unsigned long)p->outside_id, p->count,
-			    p->is_newidmap ? "true" : "false");
-			if (p->outside_id == 0 && nsjconf->clone_newuser) {
+			    (unsigned long)gid.inside_id, (unsigned long)gid.outside_id, gid.count,
+			    gid.is_newidmap ? "true" : "false");
+			if (gid.outside_id == 0 && nsjconf->clone_newuser) {
 				LOG_W(
 				    "Process will be GID/EGID=0 in the global user namespace, "
 				    "and will have group "
@@ -392,8 +392,6 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 
 	TAILQ_INIT(&nsjconf->pids);
 	TAILQ_INIT(&nsjconf->mountpts);
-	TAILQ_INIT(&nsjconf->uids);
-	TAILQ_INIT(&nsjconf->gids);
 
 	static char cmdlineTmpfsSz[PATH_MAX] = "size=4194304";
 
@@ -789,23 +787,21 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 		}
 	}
 
-	if (TAILQ_EMPTY(&nsjconf->uids)) {
-		struct idmap_t* p =
-		    reinterpret_cast<struct idmap_t*>(util::memAlloc(sizeof(struct idmap_t)));
-		p->inside_id = getuid();
-		p->outside_id = getuid();
-		p->count = 1U;
-		p->is_newidmap = false;
-		TAILQ_INSERT_HEAD(&nsjconf->uids, p, pointers);
+	if (nsjconf->uids.empty()) {
+		struct idmap_t uid;
+		uid.inside_id = getuid();
+		uid.outside_id = getuid();
+		uid.count = 1U;
+		uid.is_newidmap = false;
+		nsjconf->uids.push_back(uid);
 	}
-	if (TAILQ_EMPTY(&nsjconf->gids)) {
-		struct idmap_t* p =
-		    reinterpret_cast<struct idmap_t*>(util::memAlloc(sizeof(struct idmap_t)));
-		p->inside_id = getgid();
-		p->outside_id = getgid();
-		p->count = 1U;
-		p->is_newidmap = false;
-		TAILQ_INSERT_HEAD(&nsjconf->gids, p, pointers);
+	if (nsjconf->gids.empty()) {
+		struct idmap_t gid;
+		gid.inside_id = getgid();
+		gid.outside_id = getgid();
+		gid.count = 1U;
+		gid.is_newidmap = false;
+		nsjconf->gids.push_back(gid);
 	}
 
 	if (log::initLogFile(nsjconf.get()) == false) {

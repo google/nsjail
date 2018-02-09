@@ -173,14 +173,12 @@ struct nsjconf_t {
 	struct sock_fprog seccomp_fprog;
 	long num_cpus;
 	uid_t orig_uid;
-	TAILQ_HEAD(udmaplist, idmap_t)
-	uids;
-	TAILQ_HEAD(gdmaplist, idmap_t)
-	gids;
 	TAILQ_HEAD(pidslist, pids_t)
 	pids;
 	TAILQ_HEAD(mountptslist, mounts_t)
 	mountpts;
+	std::vector<idmap_t> uids;
+	std::vector<idmap_t> gids;
 	std::vector<std::string> envs;
 	std::vector<int> openfds;
 	std::vector<int> caps;

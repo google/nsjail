@@ -104,12 +104,12 @@ static bool uidMapSelf(struct nsjconf_t* nsjconf, pid_t pid) {
 	char map[4096] = {[0] = '\0'};
 
 	struct idmap_t* p;
-	TAILQ_FOREACH(p, &nsjconf->uids, pointers) {
-		if (p->is_newidmap) {
+	for (const auto& uid : nsjconf->uids) {
+		if (uid.is_newidmap) {
 			continue;
 		}
-		util::sSnPrintf(map, sizeof(map), "%lu %lu %zu\n", (unsigned long)p->inside_id,
-		    (unsigned long)p->outside_id, p->count);
+		util::sSnPrintf(map, sizeof(map), "%lu %lu %zu\n", (unsigned long)uid.inside_id,
+		    (unsigned long)uid.outside_id, uid.count);
 	}
 
 	if (strlen(map) == 0) {
@@ -132,12 +132,12 @@ static bool gidMapSelf(struct nsjconf_t* nsjconf, pid_t pid) {
 	char map[4096] = {[0] = '\0'};
 
 	struct idmap_t* p;
-	TAILQ_FOREACH(p, &nsjconf->gids, pointers) {
-		if (p->is_newidmap) {
+	for (const auto& gid : nsjconf->gids) {
+		if (gid.is_newidmap) {
 			continue;
 		}
-		util::sSnPrintf(map, sizeof(map), "%lu %lu %zu\n", (unsigned long)p->inside_id,
-		    (unsigned long)p->outside_id, p->count);
+		util::sSnPrintf(map, sizeof(map), "%lu %lu %zu\n", (unsigned long)gid.inside_id,
+		    (unsigned long)gid.outside_id, gid.count);
 	}
 
 	if (strlen(map) == 0) {
@@ -168,8 +168,8 @@ static bool gidMapExternal(struct nsjconf_t* nsjconf, pid_t pid UNUSED) {
 
 	struct idmap_t* p;
 	bool use = false;
-	TAILQ_FOREACH(p, &nsjconf->gids, pointers) {
-		if (p->is_newidmap == false) {
+	for (const auto& gid : nsjconf->gids) {
+		if (gid.is_newidmap == false) {
 			continue;
 		}
 		if ((idx + 4) >= ARRAYSIZE(argv)) {
@@ -178,15 +178,15 @@ static bool gidMapExternal(struct nsjconf_t* nsjconf, pid_t pid UNUSED) {
 		}
 		use = true;
 
-		snprintf(parms[idx], sizeof(parms[idx]), "%u", (unsigned)p->inside_id);
+		snprintf(parms[idx], sizeof(parms[idx]), "%u", (unsigned)gid.inside_id);
 		argv[idx] = parms[idx];
 		idx++;
 
-		snprintf(parms[idx], sizeof(parms[idx]), "%u", (unsigned)p->outside_id);
+		snprintf(parms[idx], sizeof(parms[idx]), "%u", (unsigned)gid.outside_id);
 		argv[idx] = parms[idx];
 		idx++;
 
-		snprintf(parms[idx], sizeof(parms[idx]), "%zu", p->count);
+		snprintf(parms[idx], sizeof(parms[idx]), "%zu", gid.count);
 		argv[idx] = parms[idx];
 		idx++;
 	}
@@ -220,8 +220,8 @@ static bool uidMapExternal(struct nsjconf_t* nsjconf, pid_t pid UNUSED) {
 
 	bool use = false;
 	struct idmap_t* p;
-	TAILQ_FOREACH(p, &nsjconf->uids, pointers) {
-		if (p->is_newidmap == false) {
+	for (const auto& uid : nsjconf->uids) {
+		if (uid.is_newidmap == false) {
 			continue;
 		}
 		if ((idx + 4) >= ARRAYSIZE(argv)) {
@@ -230,15 +230,15 @@ static bool uidMapExternal(struct nsjconf_t* nsjconf, pid_t pid UNUSED) {
 		}
 		use = true;
 
-		snprintf(parms[idx], sizeof(parms[idx]), "%u", (unsigned)p->inside_id);
+		snprintf(parms[idx], sizeof(parms[idx]), "%u", (unsigned)uid.inside_id);
 		argv[idx] = parms[idx];
 		idx++;
 
-		snprintf(parms[idx], sizeof(parms[idx]), "%u", (unsigned)p->outside_id);
+		snprintf(parms[idx], sizeof(parms[idx]), "%u", (unsigned)uid.outside_id);
 		argv[idx] = parms[idx];
 		idx++;
 
-		snprintf(parms[idx], sizeof(parms[idx]), "%zu", p->count);
+		snprintf(parms[idx], sizeof(parms[idx]), "%zu", uid.count);
 		argv[idx] = parms[idx];
 		idx++;
 	}
@@ -306,12 +306,12 @@ bool initNsFromChild(struct nsjconf_t* nsjconf) {
 		return false;
 	}
 
-	if (!setResGid(TAILQ_FIRST(&nsjconf->gids)->inside_id)) {
-		PLOG_E("setresgid(%u)", TAILQ_FIRST(&nsjconf->gids)->inside_id);
+	if (!setResGid(nsjconf->gids[0].inside_id)) {
+		PLOG_E("setresgid(%u)", nsjconf->gids[0].inside_id);
 		return false;
 	}
-	if (!setResUid(TAILQ_FIRST(&nsjconf->uids)->inside_id)) {
-		PLOG_E("setresuid(%u)", TAILQ_FIRST(&nsjconf->uids)->inside_id);
+	if (!setResUid(nsjconf->uids[0].inside_id)) {
+		PLOG_E("setresuid(%u)", nsjconf->uids[0].inside_id);
 		return false;
 	}
 
@@ -375,17 +375,16 @@ bool parseId(struct nsjconf_t* nsjconf, const char* i_id, const char* o_id, size
 		}
 	}
 
-	struct idmap_t* p =
-	    reinterpret_cast<struct idmap_t*>(util::memAlloc(sizeof(struct idmap_t)));
-	p->inside_id = inside_id;
-	p->outside_id = outside_id;
-	p->count = cnt;
-	p->is_newidmap = is_newidmap;
+	struct idmap_t id;
+	id.inside_id = inside_id;
+	id.outside_id = outside_id;
+	id.count = cnt;
+	id.is_newidmap = is_newidmap;
 
 	if (is_gid) {
-		TAILQ_INSERT_TAIL(&nsjconf->gids, p, pointers);
+		nsjconf->gids.push_back(id);
 	} else {
-		TAILQ_INSERT_TAIL(&nsjconf->uids, p, pointers);
+		nsjconf->uids.push_back(id);
 	}
 
 	return true;
