@@ -26,17 +26,19 @@ extern "C" {
 #include <stdio.h>
 #include <sys/mount.h>
 #include <sys/personality.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
 #include "caps.h"
-#include "cmdline.h"
 #include "config.h"
 #include "log.h"
 #include "mount.h"
 #include "user.h"
 #include "util.h"
 }
+
+#include "cmdline.h"
 
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/text_format.h>
@@ -54,10 +56,10 @@ static uint64_t configRLimit(
 		return (val * mul);
 	}
 	if (rl == nsjail::RLimit::SOFT) {
-		return cmdlineParseRLimit(res, "soft", mul);
+		return cmdline::parseRLimit(res, "soft", mul);
 	}
 	if (rl == nsjail::RLimit::HARD) {
-		return cmdlineParseRLimit(res, "hard", mul);
+		return cmdline::parseRLimit(res, "hard", mul);
 	}
 	if (rl == nsjail::RLimit::INF) {
 		return RLIM64_INFINITY;

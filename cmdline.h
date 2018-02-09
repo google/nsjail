@@ -22,23 +22,18 @@
 #ifndef NS_CMDLINE_H
 #define NS_CMDLINE_H
 
-#include <stdbool.h>
 #include <stdint.h>
-#include <sys/resource.h>
-#include <sys/time.h>
+
+#include <memory>
 
 #include "nsjail.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+namespace cmdline {
 
-uint64_t cmdlineParseRLimit(int res, const char* optarg, unsigned long mul);
-void cmdlineLogParams(struct nsjconf_t* nsjconf);
-bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf);
+uint64_t parseRLimit(int res, const char* optarg, unsigned long mul);
+void logParams(struct nsjconf_t* nsjconf);
+std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]);
 
-#ifdef __cplusplus
-}  // extern "C"
-#endif
+}  // namespace cmdline
 
 #endif /* _CMDLINE_H */

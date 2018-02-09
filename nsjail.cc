@@ -157,28 +157,28 @@ static int nsjailStandaloneMode(struct nsjconf_t* nsjconf) {
 }
 
 int main(int argc, char* argv[]) {
-	struct nsjconf_t nsjconf;
-	if (!cmdlineParse(argc, argv, &nsjconf)) {
+	std::unique_ptr<struct nsjconf_t> nsjconf = cmdline::parseArgs(argc, argv);
+	if (!nsjconf) {
 		LOG_F("Couldn't parse cmdline options");
 	}
-	if (nsjconf.clone_newuser == false && geteuid() != 0) {
+	if (nsjconf->clone_newuser == false && geteuid() != 0) {
 		LOG_W("--disable_clone_newuser might require root() privs");
 	}
-	if (nsjconf.daemonize && (daemon(0, 0) == -1)) {
+	if (nsjconf->daemonize && (daemon(0, 0) == -1)) {
 		PLOG_F("daemon");
 	}
-	cmdlineLogParams(&nsjconf);
+	cmdline::logParams(nsjconf.get());
 	if (nsjailSetSigHandlers() == false) {
 		LOG_F("nsjailSetSigHandlers() failed");
 	}
-	if (nsjailSetTimer(&nsjconf) == false) {
+	if (nsjailSetTimer(nsjconf.get()) == false) {
 		LOG_F("nsjailSetTimer() failed");
 	}
 
-	if (nsjconf.mode == MODE_LISTEN_TCP) {
-		nsjailListenMode(&nsjconf);
+	if (nsjconf->mode == MODE_LISTEN_TCP) {
+		nsjailListenMode(nsjconf.get());
 	} else {
-		return nsjailStandaloneMode(&nsjconf);
+		return nsjailStandaloneMode(nsjconf.get());
 	}
 	return 0;
 }

@@ -36,19 +36,27 @@
 #include <strings.h>
 #include <sys/mount.h>
 #include <sys/personality.h>
+#include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <memory>
+
+extern "C" {
 #include "caps.h"
 #include "common.h"
-#include "config.h"
 #include "log.h"
 #include "mount.h"
 #include "sandbox.h"
 #include "user.h"
 #include "util.h"
+}
+
+#include "config.h"
+
+namespace cmdline {
 
 struct custom_option {
 	struct option opt;
@@ -194,7 +202,7 @@ static void cmdlineUsage(const char* pname) {
 	LOG_HELP_BOLD("  nsjail -Me --chroot / --disable_proc -- /bin/echo \"ABC\"");
 }
 
-void cmdlineLogParams(struct nsjconf_t* nsjconf) {
+void logParams(struct nsjconf_t* nsjconf) {
 	switch (nsjconf->mode) {
 	case MODE_LISTEN_TCP:
 		LOG_I("Mode: LISTEN_TCP");
@@ -263,7 +271,7 @@ void cmdlineLogParams(struct nsjconf_t* nsjconf) {
 	}
 }
 
-uint64_t cmdlineParseRLimit(int res, const char* optarg, unsigned long mul) {
+uint64_t parseRLimit(int res, const char* optarg, unsigned long mul) {
 	if (strcasecmp(optarg, "inf") == 0) {
 		return RLIM64_INFINITY;
 	}
@@ -315,71 +323,71 @@ static char* cmdlineSplitStrByColon(char* spec) {
 	}
 }
 
-bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf) {
-	(*nsjconf) = (const struct nsjconf_t){
-	    .exec_file = NULL,
-	    .use_execveat = false,
-	    .exec_fd = -1,
-	    .argv = NULL,
-	    .hostname = "NSJAIL",
-	    .cwd = "/",
-	    .chroot = NULL,
-	    .port = 0,
-	    .bindhost = "::",
-	    .log_fd = STDERR_FILENO,
-	    .logfile = NULL,
-	    .loglevel = INFO,
-	    .daemonize = false,
-	    .tlimit = 0,
-	    .max_cpus = 0,
-	    .keep_caps = false,
-	    .disable_no_new_privs = false,
-	    .rl_as = 512 * (1024 * 1024),
-	    .rl_core = 0,
-	    .rl_cpu = 600,
-	    .rl_fsize = 1 * (1024 * 1024),
-	    .rl_nofile = 32,
-	    .rl_nproc = cmdlineParseRLimit(RLIMIT_NPROC, "soft", 1),
-	    .rl_stack = cmdlineParseRLimit(RLIMIT_STACK, "soft", 1),
-	    .personality = 0,
-	    .clone_newnet = true,
-	    .clone_newuser = true,
-	    .clone_newns = true,
-	    .clone_newpid = true,
-	    .clone_newipc = true,
-	    .clone_newuts = true,
-	    .clone_newcgroup = true,
-	    .mode = MODE_STANDALONE_ONCE,
-	    .is_root_rw = false,
-	    .is_silent = false,
-	    .skip_setsid = false,
-	    .max_conns_per_ip = 0,
-	    .tmpfs_size = 4 * (1024 * 1024),
-	    .mount_proc = true,
-	    .proc_path = "/proc",
-	    .is_proc_rw = false,
-	    .cgroup_mem_mount = "/sys/fs/cgroup/memory",
-	    .cgroup_mem_parent = "NSJAIL",
-	    .cgroup_mem_max = (size_t)0,
-	    .cgroup_pids_mount = "/sys/fs/cgroup/pids",
-	    .cgroup_pids_parent = "NSJAIL",
-	    .cgroup_pids_max = 0U,
-	    .cgroup_net_cls_mount = "/sys/fs/cgroup/net_cls",
-	    .cgroup_net_cls_parent = "NSJAIL",
-	    .cgroup_net_cls_classid = 0U,
-	    .cgroup_cpu_mount = "/sys/fs/cgroup/cpu",
-	    .cgroup_cpu_parent = "NSJAIL",
-	    .cgroup_cpu_ms_per_sec = 0U,
-	    .iface_no_lo = false,
-	    .iface_vs = NULL,
-	    .iface_vs_ip = "0.0.0.0",
-	    .iface_vs_nm = "255.255.255.0",
-	    .iface_vs_gw = "0.0.0.0",
-	    .kafel_file_path = NULL,
-	    .kafel_string = NULL,
-	    .orig_uid = getuid(),
-	    .num_cpus = sysconf(_SC_NPROCESSORS_ONLN),
-	};
+std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
+	std::unique_ptr<struct nsjconf_t> nsjconf = std::make_unique<struct nsjconf_t>();
+
+	nsjconf->exec_file = NULL;
+	nsjconf->use_execveat = false;
+	nsjconf->exec_fd = -1;
+	nsjconf->argv = NULL;
+	nsjconf->hostname = "NSJAIL";
+	nsjconf->cwd = "/";
+	nsjconf->chroot = NULL;
+	nsjconf->port = 0;
+	nsjconf->bindhost = "::";
+	nsjconf->log_fd = STDERR_FILENO;
+	nsjconf->logfile = NULL;
+	nsjconf->loglevel = INFO;
+	nsjconf->daemonize = false;
+	nsjconf->tlimit = 0;
+	nsjconf->max_cpus = 0;
+	nsjconf->keep_caps = false;
+	nsjconf->disable_no_new_privs = false;
+	nsjconf->rl_as = 512 * (1024 * 1024);
+	nsjconf->rl_core = 0;
+	nsjconf->rl_cpu = 600;
+	nsjconf->rl_fsize = 1 * (1024 * 1024);
+	nsjconf->rl_nofile = 32;
+	nsjconf->rl_nproc = parseRLimit(RLIMIT_NPROC, "soft", 1);
+	nsjconf->rl_stack = parseRLimit(RLIMIT_STACK, "soft", 1);
+	nsjconf->personality = 0;
+	nsjconf->clone_newnet = true;
+	nsjconf->clone_newuser = true;
+	nsjconf->clone_newns = true;
+	nsjconf->clone_newpid = true;
+	nsjconf->clone_newipc = true;
+	nsjconf->clone_newuts = true;
+	nsjconf->clone_newcgroup = true;
+	nsjconf->mode = MODE_STANDALONE_ONCE;
+	nsjconf->is_root_rw = false;
+	nsjconf->is_silent = false;
+	nsjconf->skip_setsid = false;
+	nsjconf->max_conns_per_ip = 0;
+	nsjconf->tmpfs_size = 4 * (1024 * 1024);
+	nsjconf->mount_proc = true;
+	nsjconf->proc_path = "/proc";
+	nsjconf->is_proc_rw = false;
+	nsjconf->cgroup_mem_mount = "/sys/fs/cgroup/memory";
+	nsjconf->cgroup_mem_parent = "NSJAIL";
+	nsjconf->cgroup_mem_max = (size_t)0;
+	nsjconf->cgroup_pids_mount = "/sys/fs/cgroup/pids";
+	nsjconf->cgroup_pids_parent = "NSJAIL";
+	nsjconf->cgroup_pids_max = 0U;
+	nsjconf->cgroup_net_cls_mount = "/sys/fs/cgroup/net_cls";
+	nsjconf->cgroup_net_cls_parent = "NSJAIL";
+	nsjconf->cgroup_net_cls_classid = 0U;
+	nsjconf->cgroup_cpu_mount = "/sys/fs/cgroup/cpu";
+	nsjconf->cgroup_cpu_parent = "NSJAIL";
+	nsjconf->cgroup_cpu_ms_per_sec = 0U;
+	nsjconf->iface_no_lo = false;
+	nsjconf->iface_vs = NULL;
+	nsjconf->iface_vs_ip = "0.0.0.0";
+	nsjconf->iface_vs_nm = "255.255.255.0";
+	nsjconf->iface_vs_gw = "0.0.0.0";
+	nsjconf->kafel_file_path = NULL;
+	nsjconf->kafel_string = NULL;
+	nsjconf->orig_uid = getuid();
+	nsjconf->num_cpus = sysconf(_SC_NPROCESSORS_ONLN);
 
 	TAILQ_INIT(&nsjconf->pids);
 	TAILQ_INIT(&nsjconf->mountpts);
@@ -392,13 +400,13 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf) {
 	static char cmdlineTmpfsSz[PATH_MAX] = "size=4194304";
 
 	struct ints_t* f;
-	f = utilMalloc(sizeof(struct ints_t));
+	f = reinterpret_cast<struct ints_t*>(utilMalloc(sizeof(struct ints_t)));
 	f->val = STDIN_FILENO;
 	TAILQ_INSERT_HEAD(&nsjconf->open_fds, f, pointers);
-	f = utilMalloc(sizeof(struct ints_t));
+	f = reinterpret_cast<struct ints_t*>(utilMalloc(sizeof(struct ints_t)));
 	f->val = STDOUT_FILENO;
 	TAILQ_INSERT_HEAD(&nsjconf->open_fds, f, pointers);
-	f = utilMalloc(sizeof(struct ints_t));
+	f = reinterpret_cast<struct ints_t*>(utilMalloc(sizeof(struct ints_t)));
 	f->val = STDERR_FILENO;
 	TAILQ_INSERT_HEAD(&nsjconf->open_fds, f, pointers);
 
@@ -433,7 +441,7 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf) {
 			nsjconf->cwd = optarg;
 			break;
 		case 'C':
-			if (configParse(nsjconf, optarg) == false) {
+			if (configParse(nsjconf.get(), optarg) == false) {
 				LOG_F("Couldn't parse configuration from '%s' file", optarg);
 			}
 			break;
@@ -452,14 +460,14 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf) {
 			break;
 		case 'l':
 			nsjconf->logfile = optarg;
-			if (logInitLogFile(nsjconf) == false) {
-				return false;
+			if (logInitLogFile(nsjconf.get()) == false) {
+				return nullptr;
 			}
 			break;
 		case 'L':
 			nsjconf->log_fd = strtol(optarg, NULL, 0);
-			if (logInitLogFile(nsjconf) == false) {
-				return false;
+			if (logInitLogFile(nsjconf.get()) == false) {
+				return nullptr;
 			}
 			break;
 		case 'd':
@@ -467,20 +475,20 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf) {
 			break;
 		case 'v':
 			nsjconf->loglevel = DEBUG;
-			if (logInitLogFile(nsjconf) == false) {
-				return false;
+			if (logInitLogFile(nsjconf.get()) == false) {
+				return nullptr;
 			}
 			break;
 		case 'q':
 			nsjconf->loglevel = WARNING;
-			if (logInitLogFile(nsjconf) == false) {
-				return false;
+			if (logInitLogFile(nsjconf.get()) == false) {
+				return nullptr;
 			}
 			break;
 		case 'Q':
 			nsjconf->loglevel = FATAL;
-			if (logInitLogFile(nsjconf) == false) {
-				return false;
+			if (logInitLogFile(nsjconf.get()) == false) {
+				return nullptr;
 			}
 			break;
 		case 'e':
@@ -494,25 +502,25 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf) {
 			exit(0);
 			break;
 		case 0x0201:
-			nsjconf->rl_as = cmdlineParseRLimit(RLIMIT_AS, optarg, (1024 * 1024));
+			nsjconf->rl_as = parseRLimit(RLIMIT_AS, optarg, (1024 * 1024));
 			break;
 		case 0x0202:
-			nsjconf->rl_core = cmdlineParseRLimit(RLIMIT_CORE, optarg, (1024 * 1024));
+			nsjconf->rl_core = parseRLimit(RLIMIT_CORE, optarg, (1024 * 1024));
 			break;
 		case 0x0203:
-			nsjconf->rl_cpu = cmdlineParseRLimit(RLIMIT_CPU, optarg, 1);
+			nsjconf->rl_cpu = parseRLimit(RLIMIT_CPU, optarg, 1);
 			break;
 		case 0x0204:
-			nsjconf->rl_fsize = cmdlineParseRLimit(RLIMIT_FSIZE, optarg, (1024 * 1024));
+			nsjconf->rl_fsize = parseRLimit(RLIMIT_FSIZE, optarg, (1024 * 1024));
 			break;
 		case 0x0205:
-			nsjconf->rl_nofile = cmdlineParseRLimit(RLIMIT_NOFILE, optarg, 1);
+			nsjconf->rl_nofile = parseRLimit(RLIMIT_NOFILE, optarg, 1);
 			break;
 		case 0x0206:
-			nsjconf->rl_nproc = cmdlineParseRLimit(RLIMIT_NPROC, optarg, 1);
+			nsjconf->rl_nproc = parseRLimit(RLIMIT_NPROC, optarg, 1);
 			break;
 		case 0x0207:
-			nsjconf->rl_stack = cmdlineParseRLimit(RLIMIT_STACK, optarg, (1024 * 1024));
+			nsjconf->rl_stack = parseRLimit(RLIMIT_STACK, optarg, (1024 * 1024));
 			break;
 		case 0x0301:
 			nsjconf->personality |= ADDR_COMPAT_LAYOUT;
@@ -564,7 +572,7 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf) {
 			break;
 		case 0x0505: {
 			struct ints_t* f;
-			f = utilMalloc(sizeof(struct ints_t));
+			f = reinterpret_cast<struct ints_t*>(utilMalloc(sizeof(struct ints_t)));
 			f->val = (int)strtol(optarg, NULL, 0);
 			TAILQ_INSERT_HEAD(&nsjconf->open_fds, f, pointers);
 		} break;
@@ -575,10 +583,11 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf) {
 			nsjconf->max_cpus = strtoul(optarg, NULL, 0);
 			break;
 		case 0x0509: {
-			struct ints_t* f = utilMalloc(sizeof(struct ints_t));
+			struct ints_t* f =
+			    reinterpret_cast<struct ints_t*>(utilMalloc(sizeof(struct ints_t)));
 			f->val = capsNameToVal(optarg);
 			if (f->val == -1) {
-				return false;
+				return nullptr;
 			}
 			TAILQ_INSERT_HEAD(&nsjconf->caps, f, pointers);
 		} break;
@@ -603,7 +612,8 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf) {
 			nsjconf->use_execveat = true;
 			break;
 		case 'E': {
-			struct charptr_t* p = utilMalloc(sizeof(struct charptr_t));
+			struct charptr_t* p = reinterpret_cast<struct charptr_t*>(
+			    utilMalloc(sizeof(struct charptr_t)));
 			p->val = optarg;
 			TAILQ_INSERT_TAIL(&nsjconf->envs, p, pointers);
 		} break;
@@ -613,9 +623,9 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf) {
 			char* cnt = cmdlineSplitStrByColon(o_id);
 			size_t count =
 			    (cnt == NULL || strlen(cnt) == 0) ? 1U : (size_t)strtoull(cnt, NULL, 0);
-			if (userParseId(nsjconf, i_id, o_id, count, false /* is_gid */,
+			if (userParseId(nsjconf.get(), i_id, o_id, count, false /* is_gid */,
 				false /* is_newidmap */) == false) {
-				return false;
+				return nullptr;
 			}
 		} break;
 		case 'g': {
@@ -624,9 +634,9 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf) {
 			char* cnt = cmdlineSplitStrByColon(o_id);
 			size_t count =
 			    (cnt == NULL || strlen(cnt) == 0) ? 1U : (size_t)strtoull(cnt, NULL, 0);
-			if (userParseId(nsjconf, i_id, o_id, count, true /* is_gid */,
+			if (userParseId(nsjconf.get(), i_id, o_id, count, true /* is_gid */,
 				false /* is_newidmap */) == false) {
-				return false;
+				return nullptr;
 			}
 		} break;
 		case 'U': {
@@ -635,9 +645,9 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf) {
 			char* cnt = cmdlineSplitStrByColon(o_id);
 			size_t count =
 			    (cnt == NULL || strlen(cnt) == 0) ? 1U : (size_t)strtoull(cnt, NULL, 0);
-			if (userParseId(nsjconf, i_id, o_id, count, false /* is_gid */,
+			if (userParseId(nsjconf.get(), i_id, o_id, count, false /* is_gid */,
 				true /* is_newidmap */) == false) {
-				return false;
+				return nullptr;
 			}
 		} break;
 		case 'G': {
@@ -646,38 +656,40 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf) {
 			char* cnt = cmdlineSplitStrByColon(o_id);
 			size_t count =
 			    (cnt == NULL || strlen(cnt) == 0) ? 1U : (size_t)strtoull(cnt, NULL, 0);
-			if (userParseId(nsjconf, i_id, o_id, count, true /* is_gid */,
+			if (userParseId(nsjconf.get(), i_id, o_id, count, true /* is_gid */,
 				true /* is_newidmap */) == false) {
-				return false;
+				return nullptr;
 			}
 		} break;
 		case 'R': {
 			const char* dst = cmdlineSplitStrByColon(optarg);
 			dst = dst ? dst : optarg;
-			if (!mountAddMountPtTail(nsjconf, /* src= */ optarg, dst, /* fs_type= */ "",
+			if (!mountAddMountPtTail(nsjconf.get(), /* src= */ optarg, dst,
+				/* fs_type= */ "",
 				/* options= */ "", MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY,
 				/* isDir= */ NS_DIR_MAYBE, /* mandatory= */ true, NULL, NULL, NULL,
 				0, /* is_symlink= */ false)) {
-				return false;
+				return nullptr;
 			}
 		}; break;
 		case 'B': {
 			const char* dst = cmdlineSplitStrByColon(optarg);
 			dst = dst ? dst : optarg;
-			if (!mountAddMountPtTail(nsjconf, /* src= */ optarg, dst, /* fs_type= */ "",
+			if (!mountAddMountPtTail(nsjconf.get(), /* src= */ optarg, dst,
+				/* fs_type= */ "",
 				/* options= */ "", MS_BIND | MS_REC | MS_PRIVATE,
 				/* isDir= */ NS_DIR_MAYBE, /* mandatory= */ true, NULL, NULL, NULL,
 				0, /* is_symlink= */ false)) {
-				return false;
+				return nullptr;
 			}
 		}; break;
 		case 'T': {
-			if (!mountAddMountPtTail(nsjconf, /* src= */ NULL, optarg, "tmpfs",
+			if (!mountAddMountPtTail(nsjconf.get(), /* src= */ NULL, optarg, "tmpfs",
 				/* options= */ cmdlineTmpfsSz, /* flags= */ 0,
 				/* isDir= */ NS_DIR_YES,
 				/* mandatory= */ true, NULL, NULL, NULL, 0,
 				/* is_symlink= */ false)) {
-				return false;
+				return nullptr;
 			}
 		}; break;
 		case 'M':
@@ -700,7 +712,7 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf) {
 				LOG_E("                 -M r - MODE_STANDALONE_RERUN");
 				LOG_E("                 -M e - MODE_STANDALONE_EXECVE");
 				cmdlineUsage(argv[0]);
-				return false;
+				return nullptr;
 				break;
 			}
 			break;
@@ -760,7 +772,7 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf) {
 			if (access(nsjconf->kafel_file_path, R_OK) == -1) {
 				PLOG_E("kafel config file '%s' cannot be opened for reading",
 				    nsjconf->kafel_file_path);
-				return false;
+				return nullptr;
 			}
 			break;
 		case 0x0901:
@@ -768,37 +780,39 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf) {
 			break;
 		default:
 			cmdlineUsage(argv[0]);
-			return false;
+			return nullptr;
 			break;
 		}
 	}
 
 	if (nsjconf->mount_proc) {
-		if (!mountAddMountPtTail(nsjconf, /* src= */ NULL, nsjconf->proc_path, "proc", "",
-			nsjconf->is_proc_rw ? 0 : MS_RDONLY, /* isDir= */ NS_DIR_YES,
+		if (!mountAddMountPtTail(nsjconf.get(), /* src= */ NULL, nsjconf->proc_path, "proc",
+			"", nsjconf->is_proc_rw ? 0 : MS_RDONLY, /* isDir= */ NS_DIR_YES,
 			/* mandatory= */ true, NULL, NULL, NULL, 0, /* is_symlink= */ false)) {
-			return false;
+			return nullptr;
 		}
 	}
 	if (nsjconf->chroot) {
-		if (!mountAddMountPtHead(nsjconf, nsjconf->chroot, "/", /* fs_type= */ "",
+		if (!mountAddMountPtHead(nsjconf.get(), nsjconf->chroot, "/", /* fs_type= */ "",
 			/* options= */ "",
 			nsjconf->is_root_rw ? (MS_BIND | MS_REC | MS_PRIVATE)
 					    : (MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY),
 			/* isDir= */ NS_DIR_YES, /* mandatory= */ true, NULL, NULL, NULL, 0,
 			/* is_symlink= */ false)) {
-			return false;
+			return nullptr;
 		}
 	} else {
-		if (!mountAddMountPtHead(nsjconf, /* src= */ NULL, "/", "tmpfs", /* options= */ "",
-			nsjconf->is_root_rw ? 0 : MS_RDONLY, /* isDir= */ NS_DIR_YES,
+		if (!mountAddMountPtHead(nsjconf.get(), /* src= */ NULL, "/", "tmpfs",
+			/* options= */ "", nsjconf->is_root_rw ? 0 : MS_RDONLY,
+			/* isDir= */ NS_DIR_YES,
 			/* mandatory= */ true, NULL, NULL, NULL, 0, /* is_symlink= */ false)) {
-			return false;
+			return nullptr;
 		}
 	}
 
 	if (TAILQ_EMPTY(&nsjconf->uids)) {
-		struct idmap_t* p = utilMalloc(sizeof(struct idmap_t));
+		struct idmap_t* p =
+		    reinterpret_cast<struct idmap_t*>(utilMalloc(sizeof(struct idmap_t)));
 		p->inside_id = getuid();
 		p->outside_id = getuid();
 		p->count = 1U;
@@ -806,7 +820,8 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf) {
 		TAILQ_INSERT_HEAD(&nsjconf->uids, p, pointers);
 	}
 	if (TAILQ_EMPTY(&nsjconf->gids)) {
-		struct idmap_t* p = utilMalloc(sizeof(struct idmap_t));
+		struct idmap_t* p =
+		    reinterpret_cast<struct idmap_t*>(utilMalloc(sizeof(struct idmap_t)));
 		p->inside_id = getgid();
 		p->outside_id = getgid();
 		p->count = 1U;
@@ -814,8 +829,8 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf) {
 		TAILQ_INSERT_HEAD(&nsjconf->gids, p, pointers);
 	}
 
-	if (logInitLogFile(nsjconf) == false) {
-		return false;
+	if (logInitLogFile(nsjconf.get()) == false) {
+		return nullptr;
 	}
 
 	if (argv[optind]) {
@@ -824,7 +839,7 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf) {
 	if (nsjconf->argv == NULL || nsjconf->argv[0] == NULL) {
 		cmdlineUsage(argv[0]);
 		LOG_E("No command provided");
-		return false;
+		return nullptr;
 	}
 	if (nsjconf->exec_file == NULL) {
 		nsjconf->exec_file = nsjconf->argv[0];
@@ -835,19 +850,21 @@ bool cmdlineParse(int argc, char* argv[], struct nsjconf_t* nsjconf) {
 		LOG_E(
 		    "Your nsjail is compiled without support for the execveat() syscall, yet you "
 		    "specified the --execute_fd flag");
-		return false;
+		return nullptr;
 #endif /* !defined(__NR_execveat) */
 		if ((nsjconf->exec_fd = open(nsjconf->exec_file, O_RDONLY | O_PATH | O_CLOEXEC)) ==
 		    -1) {
 			PLOG_W("Couldn't open '%s' file", nsjconf->exec_file);
-			return false;
+			return nullptr;
 		}
 	}
 
-	if (!sandboxPrepare(nsjconf)) {
+	if (!sandboxPrepare(nsjconf.get())) {
 		LOG_E("Couldn't prepare sandboxing setup");
-		return false;
+		return nullptr;
 	}
 
-	return true;
+	return nsjconf;
 }
+
+}  // namespace cmdline
