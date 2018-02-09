@@ -26,6 +26,10 @@
 
 #include "nsjail.h"
 
-bool utsInitNs(struct nsjconf_t* nsjconf);
+namespace uts {
+
+bool initNs(struct nsjconf_t* nsjconf);
+
+}  // namespace uts
 
 #endif /* NS_UTS_H */
