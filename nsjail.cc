@@ -111,42 +111,42 @@ static void nsjailListenMode(struct nsjconf_t* nsjconf) {
 	}
 	for (;;) {
 		if (nsjailSigFatal > 0) {
-			subprocKillAll(nsjconf);
+			subproc::killAll(nsjconf);
 			logStop(nsjailSigFatal);
 			close(listenfd);
 			return;
 		}
 		if (nsjailShowProc) {
 			nsjailShowProc = false;
-			subprocDisplay(nsjconf);
+			subproc::displayProc(nsjconf);
 		}
 		int connfd = netAcceptConn(listenfd);
 		if (connfd >= 0) {
-			subprocRunChild(nsjconf, connfd, connfd, connfd);
+			subproc::runChild(nsjconf, connfd, connfd, connfd);
 			close(connfd);
 		}
-		subprocReap(nsjconf);
+		subproc::reapProc(nsjconf);
 	}
 }
 
 static int nsjailStandaloneMode(struct nsjconf_t* nsjconf) {
-	subprocRunChild(nsjconf, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
+	subproc::runChild(nsjconf, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
 	for (;;) {
-		int child_status = subprocReap(nsjconf);
+		int child_status = subproc::reapProc(nsjconf);
 
-		if (subprocCount(nsjconf) == 0) {
+		if (subproc::countProc(nsjconf) == 0) {
 			if (nsjconf->mode == MODE_STANDALONE_ONCE) {
 				return child_status;
 			}
-			subprocRunChild(nsjconf, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
+			subproc::runChild(nsjconf, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
 			continue;
 		}
 		if (nsjailShowProc) {
 			nsjailShowProc = false;
-			subprocDisplay(nsjconf);
+			subproc::displayProc(nsjconf);
 		}
 		if (nsjailSigFatal > 0) {
-			subprocKillAll(nsjconf);
+			subproc::killAll(nsjconf);
 			logStop(nsjailSigFatal);
 			return -1;
 		}

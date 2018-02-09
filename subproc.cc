@@ -42,6 +42,7 @@
 #include <time.h>
 #include <unistd.h>
 
+extern "C" {
 #include "cgroup.h"
 #include "common.h"
 #include "contain.h"
@@ -50,8 +51,6 @@
 #include "sandbox.h"
 #include "user.h"
 #include "util.h"
-
-static const char kSubprocDoneChar = 'D';
 
 #if !defined(CLONE_NEWCGROUP)
 #define CLONE_NEWCGROUP 0x02000000
@@ -109,8 +108,10 @@ static const char* subprocCloneFlagsToStr(uintptr_t flags) {
 	return cloneFlagName;
 }
 
+}  // extern "C"
+
 /* Reset the execution environment for the new process */
-static bool subprocReset(void) {
+static bool resetEnv(void) {
 	/* Set all previously changed signals to their default behavior */
 	for (size_t i = 0; i < ARRAYSIZE(nssigs); i++) {
 		if (signal(nssigs[i], SIG_DFL) == SIG_ERR) {
@@ -128,12 +129,16 @@ static bool subprocReset(void) {
 	return true;
 }
 
+namespace subproc {
+
+static const char kSubprocDoneChar = 'D';
+
 static int subprocNewProc(
     struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err, int pipefd) {
 	if (containSetupFD(nsjconf, fd_in, fd_out, fd_err) == false) {
 		_exit(0xff);
 	}
-	if (!subprocReset()) {
+	if (!resetEnv()) {
 		_exit(0xff);
 	}
 
@@ -193,8 +198,8 @@ static int subprocNewProc(
 	_exit(0xff);
 }
 
-static void subprocAdd(struct nsjconf_t* nsjconf, pid_t pid, int sock) {
-	struct pids_t* p = utilMalloc(sizeof(struct pids_t));
+static void addProc(struct nsjconf_t* nsjconf, pid_t pid, int sock) {
+	struct pids_t* p = reinterpret_cast<struct pids_t*>(utilMalloc(sizeof(struct pids_t)));
 	p->pid = pid;
 	p->start = time(NULL);
 	netConnToText(
@@ -210,7 +215,7 @@ static void subprocAdd(struct nsjconf_t* nsjconf, pid_t pid, int sock) {
 	    (unsigned int)p->start, p->remote_txt);
 }
 
-static void subprocRemove(struct nsjconf_t* nsjconf, pid_t pid) {
+static void removeProc(struct nsjconf_t* nsjconf, pid_t pid) {
 	struct pids_t* p;
 	TAILQ_FOREACH(p, &nsjconf->pids, pointers) {
 		if (p->pid == pid) {
@@ -225,15 +230,15 @@ static void subprocRemove(struct nsjconf_t* nsjconf, pid_t pid) {
 	LOG_W("PID: %d not found (?)", pid);
 }
 
-int subprocCount(struct nsjconf_t* nsjconf) {
+int countProc(struct nsjconf_t* nsjconf) {
 	int cnt = 0;
 	struct pids_t* p;
 	TAILQ_FOREACH(p, &nsjconf->pids, pointers) { cnt++; }
 	return cnt;
 }
 
-void subprocDisplay(struct nsjconf_t* nsjconf) {
-	LOG_I("Total number of spawned namespaces: %d", subprocCount(nsjconf));
+void displayProc(struct nsjconf_t* nsjconf) {
+	LOG_I("Total number of spawned namespaces: %d", countProc(nsjconf));
 	time_t now = time(NULL);
 	struct pids_t* p;
 	TAILQ_FOREACH(p, &nsjconf->pids, pointers) {
@@ -244,7 +249,7 @@ void subprocDisplay(struct nsjconf_t* nsjconf) {
 	}
 }
 
-static struct pids_t* subprocGetPidElem(struct nsjconf_t* nsjconf, pid_t pid) {
+static struct pids_t* getPidElem(struct nsjconf_t* nsjconf, pid_t pid) {
 	struct pids_t* p;
 	TAILQ_FOREACH(p, &nsjconf->pids, pointers) {
 		if (p->pid == pid) {
@@ -254,10 +259,10 @@ static struct pids_t* subprocGetPidElem(struct nsjconf_t* nsjconf, pid_t pid) {
 	return NULL;
 }
 
-static void subprocSeccompViolation(struct nsjconf_t* nsjconf, siginfo_t* si) {
+static void seccompViolation(struct nsjconf_t* nsjconf, siginfo_t* si) {
 	LOG_W("PID: %d commited a syscall/seccomp violation and exited with SIGSYS", si->si_pid);
 
-	struct pids_t* p = subprocGetPidElem(nsjconf, si->si_pid);
+	struct pids_t* p = getPidElem(nsjconf, si->si_pid);
 	if (p == NULL) {
 		LOG_W("PID:%d SiSyscall: %d, SiCode: %d, SiErrno: %d", (int)si->si_pid,
 		    si->si_syscall, si->si_code, si->si_errno);
@@ -293,7 +298,7 @@ static void subprocSeccompViolation(struct nsjconf_t* nsjconf, siginfo_t* si) {
 	}
 }
 
-int subprocReap(struct nsjconf_t* nsjconf) {
+int reapProc(struct nsjconf_t* nsjconf) {
 	int status;
 	int rv = 0;
 	siginfo_t si;
@@ -307,14 +312,14 @@ int subprocReap(struct nsjconf_t* nsjconf) {
 			break;
 		}
 		if (si.si_code == CLD_KILLED && si.si_status == SIGSYS) {
-			subprocSeccompViolation(nsjconf, &si);
+			seccompViolation(nsjconf, &si);
 		}
 
 		if (wait4(si.si_pid, &status, WNOHANG, NULL) == si.si_pid) {
 			cgroupFinishFromParent(nsjconf, si.si_pid);
 
 			const char* remote_txt = "[UNKNOWN]";
-			struct pids_t* elem = subprocGetPidElem(nsjconf, si.si_pid);
+			struct pids_t* elem = getPidElem(nsjconf, si.si_pid);
 			if (elem) {
 				remote_txt = elem->remote_txt;
 			}
@@ -322,8 +327,8 @@ int subprocReap(struct nsjconf_t* nsjconf) {
 			if (WIFEXITED(status)) {
 				LOG_I("PID: %d (%s) exited with status: %d, (PIDs left: %d)",
 				    si.si_pid, remote_txt, WEXITSTATUS(status),
-				    subprocCount(nsjconf) - 1);
-				subprocRemove(nsjconf, si.si_pid);
+				    countProc(nsjconf) - 1);
+				removeProc(nsjconf, si.si_pid);
 				rv = WEXITSTATUS(status) % 100;
 				if (rv == 0 && WEXITSTATUS(status) != 0) {
 					rv = 1;
@@ -333,8 +338,8 @@ int subprocReap(struct nsjconf_t* nsjconf) {
 				LOG_I(
 				    "PID: %d (%s) terminated with signal: %s (%d), (PIDs left: %d)",
 				    si.si_pid, remote_txt, utilSigName(WTERMSIG(status)),
-				    WTERMSIG(status), subprocCount(nsjconf) - 1);
-				subprocRemove(nsjconf, si.si_pid);
+				    WTERMSIG(status), countProc(nsjconf) - 1);
+				removeProc(nsjconf, si.si_pid);
 				rv = 100 + WTERMSIG(status);
 			}
 		}
@@ -364,12 +369,12 @@ int subprocReap(struct nsjconf_t* nsjconf) {
 	return rv;
 }
 
-void subprocKillAll(struct nsjconf_t* nsjconf) {
+void killAll(struct nsjconf_t* nsjconf) {
 	struct pids_t* p;
 	TAILQ_FOREACH(p, &nsjconf->pids, pointers) { kill(p->pid, SIGKILL); }
 }
 
-static bool subprocInitParent(struct nsjconf_t* nsjconf, pid_t pid, int pipefd) {
+static bool initParent(struct nsjconf_t* nsjconf, pid_t pid, int pipefd) {
 	if (netInitNsFromParent(nsjconf, pid) == false) {
 		LOG_E("Couldn't create and put MACVTAP interface into NS of PID '%d'", pid);
 		return false;
@@ -390,46 +395,7 @@ static bool subprocInitParent(struct nsjconf_t* nsjconf, pid_t pid, int pipefd) 
 	return true;
 }
 
-/*
- * Will be used inside the child process only, so it's safe to have it in BSS.
- * Some CPU archs (e.g. aarch64) must have it aligned. Size: 128 KiB (/2)
- */
-static uint8_t subprocCloneStack[128 * 1024] __attribute__((aligned(__BIGGEST_ALIGNMENT__)));
-/* Cannot be on the stack, as the child's stack pointer will change after clone() */
-static __thread jmp_buf env;
-
-static int subprocCloneFunc(void* arg __attribute__((unused))) {
-	longjmp(env, 1);
-	return 0;
-}
-
-/*
- * Avoid problems with caching of PID/TID in glibc - when using syscall(__NR_clone) glibc doesn't
- * update the internal PID/TID caches, what can lead to invalid values being returned by getpid()
- * or incorrect PID/TIDs used in raise()/abort() functions
- */
-pid_t subprocClone(uintptr_t flags) {
-	if (flags & CLONE_VM) {
-		LOG_E("Cannot use clone(flags & CLONE_VM)");
-		return -1;
-	}
-
-	if (setjmp(env) == 0) {
-		LOG_D("Cloning process with flags:%s", subprocCloneFlagsToStr(flags));
-		/*
-		 * Avoid the problem of the stack growing up/down under different CPU architectures,
-		 * by using middle of the static stack buffer (which is temporary, and used only
-		 * inside of the subprocCloneFunc()
-		 */
-		void* stack = &subprocCloneStack[sizeof(subprocCloneStack) / 2];
-		/* Parent */
-		return clone(subprocCloneFunc, stack, flags, NULL, NULL, NULL);
-	}
-	/* Child */
-	return 0;
-}
-
-void subprocRunChild(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
+void runChild(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
 	if (netLimitConns(nsjconf, fd_in) == false) {
 		return;
 	}
@@ -483,9 +449,9 @@ void subprocRunChild(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_er
 		close(parent_fd);
 		return;
 	}
-	subprocAdd(nsjconf, pid, fd_in);
+	addProc(nsjconf, pid, fd_in);
 
-	if (subprocInitParent(nsjconf, pid, parent_fd) == false) {
+	if (initParent(nsjconf, pid, parent_fd) == false) {
 		close(parent_fd);
 		return;
 	}
@@ -493,6 +459,47 @@ void subprocRunChild(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_er
 	close(parent_fd);
 	char cs_addr[64];
 	netConnToText(fd_in, true /* remote */, cs_addr, sizeof(cs_addr), NULL);
+}
+
+}  // namespace subproc
+
+/*
+ * Will be used inside the child process only, so it's safe to have it in BSS.
+ * Some CPU archs (e.g. aarch64) must have it aligned. Size: 128 KiB (/2)
+ */
+static uint8_t subprocCloneStack[128 * 1024] __attribute__((aligned(__BIGGEST_ALIGNMENT__)));
+/* Cannot be on the stack, as the child's stack pointer will change after clone() */
+static __thread jmp_buf env;
+
+static int subprocCloneFunc(void* arg __attribute__((unused))) {
+	longjmp(env, 1);
+	return 0;
+}
+
+/*
+ * Avoid problems with caching of PID/TID in glibc - when using syscall(__NR_clone) glibc doesn't
+ * update the internal PID/TID caches, what can lead to invalid values being returned by getpid()
+ * or incorrect PID/TIDs used in raise()/abort() functions
+ */
+pid_t subprocClone(uintptr_t flags) {
+	if (flags & CLONE_VM) {
+		LOG_E("Cannot use clone(flags & CLONE_VM)");
+		return -1;
+	}
+
+	if (setjmp(env) == 0) {
+		LOG_D("Cloning process with flags:%s", subprocCloneFlagsToStr(flags));
+		/*
+		 * Avoid the problem of the stack growing up/down under different CPU architectures,
+		 * by using middle of the static stack buffer (which is temporary, and used only
+		 * inside of the subprocCloneFunc()
+		 */
+		void* stack = &subprocCloneStack[sizeof(subprocCloneStack) / 2];
+		/* Parent */
+		return clone(subprocCloneFunc, stack, flags, NULL, NULL, NULL);
+	}
+	/* Child */
+	return 0;
 }
 
 int subprocSystem(const char** argv, char** env) {
