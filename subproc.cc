@@ -45,12 +45,12 @@
 #include "contain.h"
 #include "net.h"
 #include "sandbox.h"
+#include "user.h"
 
 extern "C" {
 #include "cgroup.h"
 #include "common.h"
 #include "log.h"
-#include "user.h"
 #include "util.h"
 
 #if !defined(CLONE_NEWCGROUP)
@@ -144,7 +144,7 @@ static int subprocNewProc(
 	}
 
 	if (pipefd == -1) {
-		if (userInitNsFromParent(nsjconf, getpid()) == false) {
+		if (user::initNsFromParent(nsjconf, getpid()) == false) {
 			LOG_E("Couldn't initialize net user namespace");
 			_exit(0xff);
 		}
@@ -384,7 +384,7 @@ static bool initParent(struct nsjconf_t* nsjconf, pid_t pid, int pipefd) {
 		LOG_E("Couldn't initialize cgroup user namespace");
 		exit(0xff);
 	}
-	if (userInitNsFromParent(nsjconf, pid) == false) {
+	if (user::initNsFromParent(nsjconf, pid) == false) {
 		LOG_E("Couldn't initialize user namespaces for pid %d", pid);
 		return false;
 	}

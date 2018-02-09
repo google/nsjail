@@ -41,18 +41,18 @@ extern "C" {
 #include "cgroup.h"
 #include "log.h"
 #include "mount.h"
-#include "user.h"
 }
 
 #include "caps.h"
 #include "cpu.h"
 #include "net.h"
 #include "pid.h"
+#include "user.h"
 #include "uts.h"
 
 namespace contain {
 
-static bool containUserNs(struct nsjconf_t* nsjconf) { return userInitNsFromChild(nsjconf); }
+static bool containUserNs(struct nsjconf_t* nsjconf) { return user::initNsFromChild(nsjconf); }
 
 static bool containInitPidNs(struct nsjconf_t* nsjconf) { return pid::initNs(nsjconf); }
 

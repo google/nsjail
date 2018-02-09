@@ -26,10 +26,14 @@
 
 #include "nsjail.h"
 
-bool userInitNsFromParent(struct nsjconf_t* nsjconf, pid_t pid);
-bool userInitNsFromChild(struct nsjconf_t* nsjconf);
+namespace user {
 
-bool userParseId(struct nsjconf_t* nsjconf, const char* i_id, const char* o_id, size_t cnt,
-    bool is_gid, bool is_newidmap);
+bool initNsFromParent(struct nsjconf_t* nsjconf, pid_t pid);
+bool initNsFromChild(struct nsjconf_t* nsjconf);
+
+bool parseId(struct nsjconf_t* nsjconf, const char* i_id, const char* o_id, size_t cnt, bool is_gid,
+    bool is_newidmap);
+
+}  // namespace user
 
 #endif /* NS_USER_H */

@@ -33,12 +33,12 @@ extern "C" {
 #include "config.h"
 #include "log.h"
 #include "mount.h"
-#include "user.h"
 #include "util.h"
 }
 
 #include "caps.h"
 #include "cmdline.h"
+#include "user.h"
 
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/text_format.h>
@@ -199,14 +199,14 @@ static bool configParseInternal(struct nsjconf_t* nsjconf, const nsjail::NsJailC
 	nsjconf->clone_newcgroup = njc.clone_newcgroup();
 
 	for (ssize_t i = 0; i < njc.uidmap_size(); i++) {
-		if (userParseId(nsjconf, DUP_IF_SET(njc.uidmap(i), inside_id),
+		if (user::parseId(nsjconf, DUP_IF_SET(njc.uidmap(i), inside_id),
 			DUP_IF_SET(njc.uidmap(i), outside_id), njc.uidmap(i).count(),
 			false /* is_gid */, njc.uidmap(i).use_newidmap()) == false) {
 			return false;
 		}
 	}
 	for (ssize_t i = 0; i < njc.gidmap_size(); i++) {
-		if (userParseId(nsjconf, DUP_IF_SET(njc.gidmap(i), inside_id),
+		if (user::parseId(nsjconf, DUP_IF_SET(njc.gidmap(i), inside_id),
 			DUP_IF_SET(njc.gidmap(i), outside_id), njc.gidmap(i).count(),
 			true /* is_gid */, njc.gidmap(i).use_newidmap()) == false) {
 			return false;

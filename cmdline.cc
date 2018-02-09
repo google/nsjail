@@ -48,13 +48,13 @@ extern "C" {
 #include "common.h"
 #include "log.h"
 #include "mount.h"
-#include "user.h"
 #include "util.h"
 }
 
 #include "caps.h"
 #include "config.h"
 #include "sandbox.h"
+#include "user.h"
 
 namespace cmdline {
 
@@ -623,7 +623,7 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 			char* cnt = cmdlineSplitStrByColon(o_id);
 			size_t count =
 			    (cnt == NULL || strlen(cnt) == 0) ? 1U : (size_t)strtoull(cnt, NULL, 0);
-			if (userParseId(nsjconf.get(), i_id, o_id, count, false /* is_gid */,
+			if (user::parseId(nsjconf.get(), i_id, o_id, count, false /* is_gid */,
 				false /* is_newidmap */) == false) {
 				return nullptr;
 			}
@@ -634,7 +634,7 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 			char* cnt = cmdlineSplitStrByColon(o_id);
 			size_t count =
 			    (cnt == NULL || strlen(cnt) == 0) ? 1U : (size_t)strtoull(cnt, NULL, 0);
-			if (userParseId(nsjconf.get(), i_id, o_id, count, true /* is_gid */,
+			if (user::parseId(nsjconf.get(), i_id, o_id, count, true /* is_gid */,
 				false /* is_newidmap */) == false) {
 				return nullptr;
 			}
@@ -645,7 +645,7 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 			char* cnt = cmdlineSplitStrByColon(o_id);
 			size_t count =
 			    (cnt == NULL || strlen(cnt) == 0) ? 1U : (size_t)strtoull(cnt, NULL, 0);
-			if (userParseId(nsjconf.get(), i_id, o_id, count, false /* is_gid */,
+			if (user::parseId(nsjconf.get(), i_id, o_id, count, false /* is_gid */,
 				true /* is_newidmap */) == false) {
 				return nullptr;
 			}
@@ -656,7 +656,7 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 			char* cnt = cmdlineSplitStrByColon(o_id);
 			size_t count =
 			    (cnt == NULL || strlen(cnt) == 0) ? 1U : (size_t)strtoull(cnt, NULL, 0);
-			if (userParseId(nsjconf.get(), i_id, o_id, count, true /* is_gid */,
+			if (user::parseId(nsjconf.get(), i_id, o_id, count, true /* is_gid */,
 				true /* is_newidmap */) == false) {
 				return nullptr;
 			}

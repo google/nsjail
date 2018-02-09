@@ -39,12 +39,17 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+extern "C" {
 #include "common.h"
 #include "log.h"
-#include "subproc.h"
 #include "util.h"
+}
 
-static bool userSetResGid(gid_t gid) {
+#include "subproc.h"
+
+namespace user {
+
+static bool setResGid(gid_t gid) {
 	LOG_D("setresgid(%d)", gid);
 #if defined(__NR_setresgid32)
 	if (syscall(__NR_setresgid32, (uintptr_t)gid, (uintptr_t)gid, (uintptr_t)gid) == -1) {
@@ -60,7 +65,7 @@ static bool userSetResGid(gid_t gid) {
 	return true;
 }
 
-static bool userSetResUid(uid_t uid) {
+static bool setResUid(uid_t uid) {
 	LOG_D("setresuid(%d)", uid);
 #if defined(__NR_setresuid32)
 	if (syscall(__NR_setresuid32, (uintptr_t)uid, (uintptr_t)uid, (uintptr_t)uid) == -1) {
@@ -76,7 +81,7 @@ static bool userSetResUid(uid_t uid) {
 	return true;
 }
 
-static bool userSetGroups(pid_t pid) {
+static bool setGroups(pid_t pid) {
 	/*
 	 * No need to write 'deny' to /proc/pid/setgroups if our euid==0, as writing to
 	 * uid_map/gid_map will succeed anyway
@@ -95,7 +100,7 @@ static bool userSetGroups(pid_t pid) {
 	return true;
 }
 
-static bool userUidMapSelf(struct nsjconf_t* nsjconf, pid_t pid) {
+static bool uidMapSelf(struct nsjconf_t* nsjconf, pid_t pid) {
 	char fname[PATH_MAX];
 	snprintf(fname, sizeof(fname), "/proc/%d/uid_map", pid);
 
@@ -123,7 +128,7 @@ static bool userUidMapSelf(struct nsjconf_t* nsjconf, pid_t pid) {
 	return true;
 }
 
-static bool userGidMapSelf(struct nsjconf_t* nsjconf, pid_t pid) {
+static bool gidMapSelf(struct nsjconf_t* nsjconf, pid_t pid) {
 	char fname[PATH_MAX];
 	snprintf(fname, sizeof(fname), "/proc/%d/gid_map", pid);
 
@@ -152,7 +157,7 @@ static bool userGidMapSelf(struct nsjconf_t* nsjconf, pid_t pid) {
 }
 
 /* Use /usr/bin/newgidmap for writing the gid map */
-static bool userGidMapExternal(struct nsjconf_t* nsjconf, pid_t pid UNUSED) {
+static bool gidMapExternal(struct nsjconf_t* nsjconf, pid_t pid UNUSED) {
 	size_t idx = 0;
 
 	const char* argv[1024];
@@ -204,7 +209,7 @@ static bool userGidMapExternal(struct nsjconf_t* nsjconf, pid_t pid UNUSED) {
 }
 
 /* Use /usr/bin/newuidmap for writing the uid map */
-static bool userUidMapExternal(struct nsjconf_t* nsjconf, pid_t pid UNUSED) {
+static bool uidMapExternal(struct nsjconf_t* nsjconf, pid_t pid UNUSED) {
 	size_t idx = 0;
 
 	const char* argv[1024];
@@ -255,36 +260,36 @@ static bool userUidMapExternal(struct nsjconf_t* nsjconf, pid_t pid UNUSED) {
 	return true;
 }
 
-static bool userUidGidMap(struct nsjconf_t* nsjconf, pid_t pid) {
-	if (!userGidMapSelf(nsjconf, pid)) {
+static bool uidGidMap(struct nsjconf_t* nsjconf, pid_t pid) {
+	if (!gidMapSelf(nsjconf, pid)) {
 		return false;
 	}
-	if (!userGidMapExternal(nsjconf, pid)) {
+	if (!gidMapExternal(nsjconf, pid)) {
 		return false;
 	}
-	if (!userUidMapSelf(nsjconf, pid)) {
+	if (!uidMapSelf(nsjconf, pid)) {
 		return false;
 	}
-	if (!userUidMapExternal(nsjconf, pid)) {
+	if (!uidMapExternal(nsjconf, pid)) {
 		return false;
 	}
 	return true;
 }
 
-bool userInitNsFromParent(struct nsjconf_t* nsjconf, pid_t pid) {
-	if (userSetGroups(pid) == false) {
+bool initNsFromParent(struct nsjconf_t* nsjconf, pid_t pid) {
+	if (setGroups(pid) == false) {
 		return false;
 	}
 	if (nsjconf->clone_newuser == false) {
 		return true;
 	}
-	if (userUidGidMap(nsjconf, pid) == false) {
+	if (uidGidMap(nsjconf, pid) == false) {
 		return false;
 	}
 	return true;
 }
 
-bool userInitNsFromChild(struct nsjconf_t* nsjconf) {
+bool initNsFromChild(struct nsjconf_t* nsjconf) {
 	/*
 	 * Best effort because of /proc/self/setgroups
 	 */
@@ -304,11 +309,11 @@ bool userInitNsFromChild(struct nsjconf_t* nsjconf) {
 		return false;
 	}
 
-	if (!userSetResGid(TAILQ_FIRST(&nsjconf->gids)->inside_id)) {
+	if (!setResGid(TAILQ_FIRST(&nsjconf->gids)->inside_id)) {
 		PLOG_E("setresgid(%u)", TAILQ_FIRST(&nsjconf->gids)->inside_id);
 		return false;
 	}
-	if (!userSetResUid(TAILQ_FIRST(&nsjconf->uids)->inside_id)) {
+	if (!setResUid(TAILQ_FIRST(&nsjconf->uids)->inside_id)) {
 		PLOG_E("setresuid(%u)", TAILQ_FIRST(&nsjconf->uids)->inside_id);
 		return false;
 	}
@@ -316,7 +321,7 @@ bool userInitNsFromChild(struct nsjconf_t* nsjconf) {
 	return true;
 }
 
-static uid_t cmdParseUid(const char* id) {
+static uid_t parseUid(const char* id) {
 	if (id == NULL || strlen(id) == 0) {
 		return getuid();
 	}
@@ -330,7 +335,7 @@ static uid_t cmdParseUid(const char* id) {
 	return (uid_t)-1;
 }
 
-static gid_t cmdParseGid(const char* id) {
+static gid_t parseGid(const char* id) {
 	if (id == NULL || strlen(id) == 0) {
 		return getgid();
 	}
@@ -344,36 +349,36 @@ static gid_t cmdParseGid(const char* id) {
 	return (gid_t)-1;
 }
 
-bool userParseId(struct nsjconf_t* nsjconf, const char* i_id, const char* o_id, size_t cnt,
+bool parseId(struct nsjconf_t* nsjconf, const char* i_id, const char* o_id, size_t cnt,
     bool is_gid, bool is_newidmap) {
 	uid_t inside_id;
 	uid_t outside_id;
 
 	if (is_gid) {
-		inside_id = cmdParseGid(i_id);
+		inside_id = parseGid(i_id);
 		if (inside_id == (uid_t)-1) {
 			LOG_W("Cannot parse '%s' as GID", i_id);
 			return false;
 		}
-		outside_id = cmdParseGid(o_id);
+		outside_id = parseGid(o_id);
 		if (outside_id == (uid_t)-1) {
 			LOG_W("Cannot parse '%s' as GID", o_id);
 			return false;
 		}
 	} else {
-		inside_id = cmdParseUid(i_id);
+		inside_id = parseUid(i_id);
 		if (inside_id == (uid_t)-1) {
 			LOG_W("Cannot parse '%s' as UID", i_id);
 			return false;
 		}
-		outside_id = cmdParseUid(o_id);
+		outside_id = parseUid(o_id);
 		if (outside_id == (uid_t)-1) {
 			LOG_W("Cannot parse '%s' as UID", o_id);
 			return false;
 		}
 	}
 
-	struct idmap_t* p = utilMalloc(sizeof(struct idmap_t));
+	struct idmap_t* p = reinterpret_cast<struct idmap_t*>(utilMalloc(sizeof(struct idmap_t)));
 	p->inside_id = inside_id;
 	p->outside_id = outside_id;
 	p->count = cnt;
@@ -387,3 +392,5 @@ bool userParseId(struct nsjconf_t* nsjconf, const char* i_id, const char* o_id, 
 
 	return true;
 }
+
+}  // namespace user

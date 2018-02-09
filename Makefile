@@ -100,20 +100,19 @@ indent:
 log.o: log.h nsjail.h
 cgroup.o: cgroup.h nsjail.h log.h util.h
 mount.o: mount.h nsjail.h common.h log.h subproc.h util.h
-user.o: user.h nsjail.h common.h log.h subproc.h util.h
 util.o: util.h nsjail.h common.h log.h
 caps.o: caps.h nsjail.h common.h log.h util.h
-cmdline.o: cmdline.h nsjail.h common.h log.h mount.h user.h util.h caps.h
-cmdline.o: config.h sandbox.h
-config.o: common.h config.h nsjail.h log.h mount.h user.h util.h caps.h
-config.o: cmdline.h
-contain.o: contain.h nsjail.h cgroup.h log.h mount.h user.h caps.h cpu.h
-contain.o: net.h pid.h uts.h
+cmdline.o: cmdline.h nsjail.h common.h log.h mount.h util.h caps.h config.h
+cmdline.o: sandbox.h user.h
+config.o: common.h config.h nsjail.h log.h mount.h util.h caps.h cmdline.h
+config.o: user.h
+contain.o: contain.h nsjail.h cgroup.h log.h mount.h caps.h cpu.h net.h pid.h
+contain.o: user.h uts.h
 cpu.o: cpu.h nsjail.h log.h util.h
 net.o: net.h nsjail.h log.h subproc.h
 nsjail.o: nsjail.h cmdline.h common.h log.h net.h subproc.h util.h
 pid.o: pid.h nsjail.h log.h subproc.h
 sandbox.o: sandbox.h nsjail.h kafel/include/kafel.h log.h
-subproc.o: subproc.h nsjail.h contain.h net.h sandbox.h cgroup.h common.h
-subproc.o: log.h user.h util.h
+subproc.o: subproc.h nsjail.h contain.h net.h sandbox.h user.h cgroup.h
+subproc.o: common.h log.h util.h
 uts.o: uts.h nsjail.h log.h
