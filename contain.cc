@@ -33,7 +33,6 @@
 #include <string.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
-#include <sys/queue.h>
 #include <sys/resource.h>
 #include <unistd.h>
 

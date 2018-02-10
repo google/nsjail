@@ -29,7 +29,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <sys/queue.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -53,19 +52,17 @@ struct pids_t {
 	int pid_syscall_fd;
 };
 
-struct mounts_t {
-	const char* src;
-	const uint8_t* src_content;
-	size_t src_content_len;
-	const char* dst;
-	const char* fs_type;
-	const char* options;
+struct mount_t {
+	std::string src;
+	std::string src_content;
+	std::string dst;
+	std::string fs_type;
+	std::string options;
 	uintptr_t flags;
 	bool isDir;
 	bool isSymlink;
 	bool mandatory;
 	bool mounted;
-	TAILQ_ENTRY(mounts_t) pointers;
 };
 
 struct idmap_t {
@@ -157,8 +154,7 @@ struct nsjconf_t {
 	struct sock_fprog seccomp_fprog;
 	long num_cpus;
 	uid_t orig_uid;
-	TAILQ_HEAD(mountptslist, mounts_t)
-	mountpts;
+	std::vector<mount_t> mountpts;
 	std::vector<pids_t> pids;
 	std::vector<idmap_t> uids;
 	std::vector<idmap_t> gids;

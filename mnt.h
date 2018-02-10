@@ -43,7 +43,7 @@ bool addMountPtHead(struct nsjconf_t* nsjconf, const char* src, const char* dst,
 bool addMountPtTail(struct nsjconf_t* nsjconf, const char* src, const char* dst, const char* fstype,
     const char* options, uintptr_t flags, isDir_t isDir, bool mandatory, const char* src_env,
     const char* dst_env, const char* src_content, size_t src_content_len, bool is_symlink);
-const char* describeMountPt(struct mounts_t* mpt);
+const char* describeMountPt(const struct mount_t& mpt);
 
 }  // namespace mnt
 

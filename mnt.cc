@@ -32,7 +32,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mount.h>
-#include <sys/queue.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <sys/syscall.h>
@@ -119,26 +118,26 @@ static bool isDir(const char* path) {
 	return false;
 }
 
-static bool mountPt(struct mounts_t* mpt, const char* newroot, const char* tmpdir) {
+static bool mountPt(struct mount_t* mpt, const char* newroot, const char* tmpdir) {
 	char dst[PATH_MAX];
-	snprintf(dst, sizeof(dst), "%s/%s", newroot, mpt->dst);
+	snprintf(dst, sizeof(dst), "%s/%s", newroot, mpt->dst.c_str());
 
-	LOG_D("Mounting '%s'", describeMountPt(mpt));
+	LOG_D("Mounting '%s'", describeMountPt(*mpt));
 
 	char srcpath[PATH_MAX];
-	if (mpt->src != NULL && strlen(mpt->src) > 0) {
-		snprintf(srcpath, sizeof(srcpath), "%s", mpt->src);
+	if (!mpt->src.empty()) {
+		snprintf(srcpath, sizeof(srcpath), "%s", mpt->src.c_str());
 	} else {
 		snprintf(srcpath, sizeof(srcpath), "none");
 	}
 
 	if (mpt->isSymlink) {
-		if (util::createDirRecursively(dst) == false) {
+		if (!util::createDirRecursively(dst)) {
 			LOG_W("Couldn't create upper directories for '%s'", dst);
 			return false;
 		}
 	} else if (mpt->isDir) {
-		if (util::createDirRecursively(dst) == false) {
+		if (!util::createDirRecursively(dst)) {
 			LOG_W("Couldn't create upper directories for '%s'", dst);
 			return false;
 		}
@@ -146,7 +145,7 @@ static bool mountPt(struct mounts_t* mpt, const char* newroot, const char* tmpdi
 			PLOG_W("mkdir('%s')", dst);
 		}
 	} else {
-		if (util::createDirRecursively(dst) == false) {
+		if (!util::createDirRecursively(dst)) {
 			LOG_W("Couldn't create upper directories for '%s'", dst);
 			return false;
 		}
@@ -172,7 +171,7 @@ static bool mountPt(struct mounts_t* mpt, const char* newroot, const char* tmpdi
 		return true;
 	}
 
-	if (mpt->src_content) {
+	if (!mpt->src_content.empty()) {
 		static uint64_t df_counter = 0;
 		snprintf(
 		    srcpath, sizeof(srcpath), "%s/dynamic_file.%" PRIu64, tmpdir, ++df_counter);
@@ -182,8 +181,10 @@ static bool mountPt(struct mounts_t* mpt, const char* newroot, const char* tmpdi
 			PLOG_W("open(srcpath, O_CREAT|O_EXCL|O_CLOEXEC|O_WRONLY, 0644) failed");
 			return false;
 		}
-		if (util::writeToFd(fd, mpt->src_content, mpt->src_content_len) == false) {
-			LOG_W("Writting %zu bytes to '%s' failed", mpt->src_content_len, srcpath);
+		if (util::writeToFd(fd, mpt->src_content.data(), mpt->src_content.length()) ==
+		    false) {
+			LOG_W("Writting %zu bytes to '%s' failed", mpt->src_content.length(),
+			    srcpath);
 			close(fd);
 			return false;
 		}
@@ -195,17 +196,17 @@ static bool mountPt(struct mounts_t* mpt, const char* newroot, const char* tmpdi
 	 * Initially mount it as RW, it will be remounted later on if needed
 	 */
 	unsigned long flags = mpt->flags & ~(MS_RDONLY);
-	if (mount(srcpath, dst, mpt->fs_type, flags, mpt->options) == -1) {
+	if (mount(srcpath, dst, mpt->fs_type.c_str(), flags, mpt->options.c_str()) == -1) {
 		if (errno == EACCES) {
 			PLOG_W(
 			    "mount('%s') src:'%s' dst:'%s' failed. "
 			    "Try fixing this problem by applying 'chmod o+x' to the '%s' "
 			    "directory and its ancestors",
-			    describeMountPt(mpt), srcpath, dst, srcpath);
+			    describeMountPt(*mpt), srcpath, dst, srcpath);
 		} else {
-			PLOG_W("mount('%s') src:'%s' dst:'%s' failed", describeMountPt(mpt),
+			PLOG_W("mount('%s') src:'%s' dst:'%s' failed", describeMountPt(*mpt),
 			    srcpath, dst);
-			if (mpt->fs_type && strcmp(mpt->fs_type, "proc") == 0) {
+			if (strcmp(mpt->fs_type.c_str(), "proc") == 0) {
 				PLOG_W(
 				    "procfs can only be mounted if the original /proc doesn't have "
 				    "any other file-systems mounted on top of it (e.g. /dev/null "
@@ -217,26 +218,26 @@ static bool mountPt(struct mounts_t* mpt, const char* newroot, const char* tmpdi
 		mpt->mounted = true;
 	}
 
-	if (mpt->src_content && unlink(srcpath) == -1) {
+	if (!mpt->src_content.empty() && unlink(srcpath) == -1) {
 		PLOG_W("unlink('%s')", srcpath);
 	}
 	return true;
 }
 
-static bool remountRO(struct mounts_t* mpt) {
-	if (!mpt->mounted) {
+static bool remountRO(const struct mount_t& mpt) {
+	if (!mpt.mounted) {
 		return true;
 	}
-	if (mpt->isSymlink) {
+	if (mpt.isSymlink) {
 		return true;
 	}
-	if ((mpt->flags & MS_RDONLY) == 0) {
+	if ((mpt.flags & MS_RDONLY) == 0) {
 		return true;
 	}
 
 	struct statvfs vfs;
-	if (TEMP_FAILURE_RETRY(statvfs(mpt->dst, &vfs)) == -1) {
-		PLOG_W("statvfs('%s')", mpt->dst);
+	if (TEMP_FAILURE_RETRY(statvfs(mpt.dst.c_str(), &vfs)) == -1) {
+		PLOG_W("statvfs('%s')", mpt.dst.c_str());
 		return false;
 	}
 
@@ -262,9 +263,9 @@ static bool remountRO(struct mounts_t* mpt) {
 		}
 	}
 
-	LOG_D("Re-mounting R/O '%s' (flags:%s)", mpt->dst, flagsToStr(new_flags));
-	if (mount(mpt->dst, mpt->dst, NULL, new_flags, 0) == -1) {
-		PLOG_W("mount('%s', flags:%s)", mpt->dst, flagsToStr(new_flags));
+	LOG_D("Re-mounting R/O '%s' (flags:%s)", mpt.dst.c_str(), flagsToStr(new_flags));
+	if (mount(mpt.dst.c_str(), mpt.dst.c_str(), NULL, new_flags, 0) == -1) {
+		PLOG_W("mount('%s', flags:%s)", mpt.dst.c_str(), flagsToStr(new_flags));
 		return false;
 	}
 
@@ -318,7 +319,7 @@ static bool initNsInternal(struct nsjconf_t* nsjconf) {
 	 * If CLONE_NEWNS is not used, we would be changing the global mount namespace, so simply
 	 * use --chroot in this case
 	 */
-	if (nsjconf->clone_newns == false) {
+	if (!nsjconf->clone_newns) {
 		if (nsjconf->chroot.empty()) {
 			PLOG_E(
 			    "--chroot was not specified, and it's required when not using "
@@ -342,7 +343,7 @@ static bool initNsInternal(struct nsjconf_t* nsjconf) {
 	}
 
 	char destdir[PATH_MAX];
-	if (getDir(nsjconf, destdir, "root") == false) {
+	if (!getDir(nsjconf, destdir, "root")) {
 		LOG_E("Couldn't obtain root mount directories");
 		return false;
 	}
@@ -358,7 +359,7 @@ static bool initNsInternal(struct nsjconf_t* nsjconf) {
 	}
 
 	char tmpdir[PATH_MAX];
-	if (getDir(nsjconf, tmpdir, "tmp") == false) {
+	if (!getDir(nsjconf, tmpdir, "tmp")) {
 		LOG_E("Couldn't obtain temporary mount directories");
 		return false;
 	}
@@ -367,9 +368,8 @@ static bool initNsInternal(struct nsjconf_t* nsjconf) {
 		return false;
 	}
 
-	struct mounts_t* p;
-	TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
-		if (mountPt(p, destdir, tmpdir) == false && p->mandatory) {
+	for (auto& p : nsjconf->mountpts) {
+		if (!mountPt(&p, destdir, tmpdir) && p.mandatory) {
 			return false;
 		}
 	}
@@ -399,8 +399,8 @@ static bool initNsInternal(struct nsjconf_t* nsjconf) {
 		return false;
 	}
 
-	TAILQ_FOREACH(p, &nsjconf->mountpts, pointers) {
-		if (remountRO(p) == false && p->mandatory) {
+	for (const auto& p : nsjconf->mountpts) {
+		if (!remountRO(p) && p.mandatory) {
 			return false;
 		}
 	}
@@ -435,25 +435,19 @@ bool initNs(struct nsjconf_t* nsjconf) {
 	return false;
 }
 
-static bool addMountPt(struct nsjconf_t* nsjconf, bool head, const char* src, const char* dst,
-    const char* fstype, const char* options, uintptr_t flags, isDir_t isDir, bool mandatory,
-    const char* src_env, const char* dst_env, const char* src_content, size_t src_content_len,
-    bool is_symlink) {
-	struct mounts_t* p =
-	    reinterpret_cast<struct mounts_t*>(util::clearAlloc(sizeof(struct mounts_t)));
-
+static bool addMountPt(struct mount_t* mnt, const char* src, const char* dst, const char* fstype,
+    const char* options, uintptr_t flags, isDir_t isDir, bool mandatory, const char* src_env,
+    const char* dst_env, const char* src_content, size_t src_content_len, bool is_symlink) {
 	if (src_env) {
 		const char* e = getenv(src_env);
 		if (e == NULL) {
 			LOG_W("No such envvar:'%s'", src_env);
 			return false;
 		}
-		if (asprintf((char**)&p->src, "%s%s", e, src ? src : "") == -1) {
-			PLOG_W("asprintf() failed");
-			return false;
-		}
-	} else {
-		p->src = util::strDup(src);
+		mnt->src = e;
+	}
+	if (src) {
+		mnt->src.append(src);
 	}
 
 	if (dst_env) {
@@ -462,52 +456,48 @@ static bool addMountPt(struct nsjconf_t* nsjconf, bool head, const char* src, co
 			LOG_W("No such envvar:'%s'", dst_env);
 			return false;
 		}
-		if (asprintf((char**)&p->dst, "%s%s", e, dst ? dst : "") == -1) {
-			PLOG_W("asprintf() failed");
-			return false;
-		}
-	} else {
-		p->dst = util::strDup(dst);
+		mnt->dst = e;
+	}
+	if (dst) {
+		mnt->dst.append(dst);
 	}
 
-	p->fs_type = util::strDup(fstype);
-	p->options = util::strDup(options);
-	p->flags = flags;
-	p->isDir = true;
-	p->isSymlink = is_symlink;
-	p->mandatory = mandatory;
-	p->mounted = false;
+	if (fstype) {
+		mnt->fs_type = fstype;
+	}
+	if (options) {
+		mnt->options = options;
+	}
+	if (src_content) {
+		mnt->src_content.assign(src_content, src_content_len);
+	}
+	mnt->flags = flags;
+	mnt->isDir = true;
+	mnt->isSymlink = is_symlink;
+	mnt->mandatory = mandatory;
+	mnt->mounted = false;
 
 	switch (isDir) {
 	case NS_DIR_YES:
-		p->isDir = true;
+		mnt->isDir = true;
 		break;
 	case NS_DIR_NO:
-		p->isDir = false;
+		mnt->isDir = false;
 		break;
 	case NS_DIR_MAYBE: {
 		if (src_content) {
-			p->isDir = false;
-		} else if (p->src == NULL) {
-			p->isDir = true;
-		} else if (p->flags & MS_BIND) {
-			p->isDir = mnt::isDir(p->src);
+			mnt->isDir = false;
+		} else if (mnt->src.empty()) {
+			mnt->isDir = true;
+		} else if (mnt->flags & MS_BIND) {
+			mnt->isDir = mnt::isDir(mnt->src.c_str());
 		} else {
-			p->isDir = true;
+			mnt->isDir = true;
 		}
 	} break;
 	default:
 		LOG_F("Unknown isDir value: %d", isDir);
 		break;
-	}
-
-	p->src_content = util::memDup((const uint8_t*)src_content, src_content_len);
-	p->src_content_len = src_content_len;
-
-	if (head) {
-		TAILQ_INSERT_HEAD(&nsjconf->mountpts, p, pointers);
-	} else {
-		TAILQ_INSERT_TAIL(&nsjconf->mountpts, p, pointers);
 	}
 
 	return true;
@@ -516,34 +506,43 @@ static bool addMountPt(struct nsjconf_t* nsjconf, bool head, const char* src, co
 bool addMountPtHead(struct nsjconf_t* nsjconf, const char* src, const char* dst, const char* fstype,
     const char* options, uintptr_t flags, isDir_t isDir, bool mandatory, const char* src_env,
     const char* dst_env, const char* src_content, size_t src_content_len, bool is_symlink) {
-	return addMountPt(nsjconf, /* head= */ true, src, dst, fstype, options, flags, isDir,
-	    mandatory, src_env, dst_env, src_content, src_content_len, is_symlink);
+	struct mount_t mnt;
+	if (!addMountPt(&mnt, src, dst, fstype, options, flags, isDir, mandatory, src_env, dst_env,
+		src_content, src_content_len, is_symlink)) {
+		return false;
+	}
+	nsjconf->mountpts.insert(nsjconf->mountpts.begin(), mnt);
+	return true;
 }
 
 bool addMountPtTail(struct nsjconf_t* nsjconf, const char* src, const char* dst, const char* fstype,
     const char* options, uintptr_t flags, isDir_t isDir, bool mandatory, const char* src_env,
     const char* dst_env, const char* src_content, size_t src_content_len, bool is_symlink) {
-	return addMountPt(nsjconf, /* head= */ false, src, dst, fstype, options, flags, isDir,
-	    mandatory, src_env, dst_env, src_content, src_content_len, is_symlink);
+	struct mount_t mnt;
+	if (!addMountPt(&mnt, src, dst, fstype, options, flags, isDir, mandatory, src_env, dst_env,
+		src_content, src_content_len, is_symlink)) {
+		return false;
+	}
+	nsjconf->mountpts.push_back(mnt);
+	return true;
 }
 
-const char* describeMountPt(struct mounts_t* mpt) {
+const char* describeMountPt(const struct mount_t& mpt) {
 	static __thread char mount_pt_descr[4096];
 
 	snprintf(mount_pt_descr, sizeof(mount_pt_descr),
-	    "src:'%s' dst:'%s' type:'%s' flags:%s options:'%s' isDir:%s",
-	    mpt->src ? mpt->src : "[NULL]", mpt->dst, mpt->fs_type ? mpt->fs_type : "[NULL]",
-	    flagsToStr(mpt->flags), mpt->options ? mpt->options : "[NULL]",
-	    mpt->isDir ? "true" : "false");
+	    "src:'%s' dst:'%s' type:'%s' flags:%s options:'%s' isDir:%s", mpt.src.c_str(),
+	    mpt.dst.c_str(), mpt.fs_type.c_str(), flagsToStr(mpt.flags), mpt.options.c_str(),
+	    mpt.isDir ? "true" : "false");
 
-	if (mpt->mandatory == false) {
+	if (!mpt.mandatory) {
 		util::sSnPrintf(mount_pt_descr, sizeof(mount_pt_descr), " mandatory:false");
 	}
-	if (mpt->src_content) {
+	if (!mpt.src_content.empty()) {
 		util::sSnPrintf(mount_pt_descr, sizeof(mount_pt_descr), " src_content_len:%zu",
-		    mpt->src_content_len);
+		    mpt.src_content.length());
 	}
-	if (mpt->isSymlink) {
+	if (mpt.isSymlink) {
 		util::sSnPrintf(mount_pt_descr, sizeof(mount_pt_descr), " symlink:true");
 	}
 

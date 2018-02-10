@@ -34,7 +34,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/prctl.h>
-#include <sys/queue.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>
