@@ -45,7 +45,7 @@
 
 namespace config {
 
-#define DUP_IF_SET(njc, val) (njc.has_##val() ? njc.val().c_str() : NULL)
+#define VAL_IF_SET_OR_NULL(njc, val) (njc.has_##val() ? njc.val().c_str() : NULL)
 
 static uint64_t configRLimit(
     int res, const nsjail::RLimit& rl, const uint64_t val, unsigned long mul = 1UL) {
@@ -186,16 +186,16 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 	nsjconf->clone_newcgroup = njc.clone_newcgroup();
 
 	for (ssize_t i = 0; i < njc.uidmap_size(); i++) {
-		if (user::parseId(nsjconf, DUP_IF_SET(njc.uidmap(i), inside_id),
-			DUP_IF_SET(njc.uidmap(i), outside_id), njc.uidmap(i).count(),
-			false /* is_gid */, njc.uidmap(i).use_newidmap()) == false) {
+		if (!user::parseId(nsjconf, VAL_IF_SET_OR_NULL(njc.uidmap(i), inside_id),
+			VAL_IF_SET_OR_NULL(njc.uidmap(i), outside_id), njc.uidmap(i).count(),
+			false /* is_gid */, njc.uidmap(i).use_newidmap())) {
 			return false;
 		}
 	}
 	for (ssize_t i = 0; i < njc.gidmap_size(); i++) {
-		if (user::parseId(nsjconf, DUP_IF_SET(njc.gidmap(i), inside_id),
-			DUP_IF_SET(njc.gidmap(i), outside_id), njc.gidmap(i).count(),
-			true /* is_gid */, njc.gidmap(i).use_newidmap()) == false) {
+		if (!user::parseId(nsjconf, VAL_IF_SET_OR_NULL(njc.gidmap(i), inside_id),
+			VAL_IF_SET_OR_NULL(njc.gidmap(i), outside_id), njc.gidmap(i).count(),
+			true /* is_gid */, njc.gidmap(i).use_newidmap())) {
 			return false;
 		}
 	}
@@ -266,7 +266,9 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 	nsjconf->cgroup_net_cls_parent = njc.cgroup_net_cls_parent().c_str();
 
 	nsjconf->iface_lo = !(njc.iface_no_lo());
-	nsjconf->iface_vs = DUP_IF_SET(njc, macvlan_iface);
+	if (njc.has_macvlan_iface()) {
+		nsjconf->iface_vs = njc.macvlan_iface();
+	}
 	nsjconf->iface_vs_ip = njc.macvlan_vs_ip().c_str();
 	nsjconf->iface_vs_nm = njc.macvlan_vs_nm().c_str();
 	nsjconf->iface_vs_gw = njc.macvlan_vs_gw().c_str();
