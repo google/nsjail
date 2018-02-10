@@ -120,8 +120,7 @@ struct nsjconf_t {
 	bool skip_setsid;
 	unsigned int max_conns_per_ip;
 	size_t tmpfs_size;
-	bool mount_proc;
-	const char* proc_path;
+	std::string proc_path;
 	bool is_proc_rw;
 	bool iface_lo;
 	std::string iface_vs;

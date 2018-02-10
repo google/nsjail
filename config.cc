@@ -200,7 +200,9 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 		}
 	}
 
-	nsjconf->mount_proc = njc.mount_proc();
+	if (!njc.mount_proc()) {
+		nsjconf->proc_path.clear();
+	}
 	for (ssize_t i = 0; i < njc.mount_size(); i++) {
 		const char* src = (njc.mount(i).has_src()) ? njc.mount(i).src().c_str() : NULL;
 		const char* src_env = (njc.mount(i).has_prefix_src_env())

@@ -359,7 +359,6 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->skip_setsid = false;
 	nsjconf->max_conns_per_ip = 0;
 	nsjconf->tmpfs_size = 4 * (1024 * 1024);
-	nsjconf->mount_proc = true;
 	nsjconf->proc_path = "/proc";
 	nsjconf->is_proc_rw = false;
 	nsjconf->cgroup_mem_mount = "/sys/fs/cgroup/memory";
@@ -559,7 +558,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			    nsjconf->tmpfs_size);
 			break;
 		case 0x0603:
-			nsjconf->mount_proc = false;
+			nsjconf->proc_path.clear();
 			break;
 		case 0x0605:
 			nsjconf->proc_path = optarg;
@@ -748,9 +747,10 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 		return nullptr;
 	}
 
-	if (nsjconf->mount_proc) {
-		if (!mnt::addMountPtTail(nsjconf.get(), /* src= */ NULL, nsjconf->proc_path, "proc",
-			"", nsjconf->is_proc_rw ? 0 : MS_RDONLY, /* isDir= */ mnt::NS_DIR_YES,
+	if (!nsjconf->proc_path.empty()) {
+		if (!mnt::addMountPtTail(nsjconf.get(), /* src= */ NULL, nsjconf->proc_path.c_str(),
+			"proc", "", nsjconf->is_proc_rw ? 0 : MS_RDONLY,
+			/* isDir= */ mnt::NS_DIR_YES,
 			/* mandatory= */ true, NULL, NULL, NULL, 0, /* is_symlink= */ false)) {
 			return nullptr;
 		}
