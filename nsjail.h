@@ -123,7 +123,7 @@ struct nsjconf_t {
 	bool mount_proc;
 	const char* proc_path;
 	bool is_proc_rw;
-	bool iface_no_lo;
+	bool iface_lo;
 	std::string iface_vs;
 	std::string iface_vs_ip;
 	std::string iface_vs_nm;

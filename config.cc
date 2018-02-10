@@ -265,7 +265,7 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 	nsjconf->cgroup_net_cls_mount = njc.cgroup_net_cls_mount().c_str();
 	nsjconf->cgroup_net_cls_parent = njc.cgroup_net_cls_parent().c_str();
 
-	nsjconf->iface_no_lo = njc.iface_no_lo();
+	nsjconf->iface_lo = !(njc.iface_no_lo());
 	nsjconf->iface_vs = DUP_IF_SET(njc, macvlan_iface);
 	nsjconf->iface_vs_ip = njc.macvlan_vs_ip().c_str();
 	nsjconf->iface_vs_nm = njc.macvlan_vs_nm().c_str();

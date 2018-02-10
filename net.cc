@@ -410,16 +410,16 @@ static bool netConfigureVs(nsjconf_t* nsjconf) {
 }
 
 bool initNsFromChild(nsjconf_t* nsjconf) {
-	if (nsjconf->clone_newnet == false) {
+	if (!nsjconf->clone_newnet) {
 		return true;
 	}
-	if (nsjconf->iface_no_lo == false) {
-		if (ifaceUp("lo") == false) {
+	if (nsjconf->iface_lo) {
+		if (!ifaceUp("lo")) {
 			return false;
 		}
 	}
 	if (!nsjconf->iface_vs.empty()) {
-		if (netConfigureVs(nsjconf) == false) {
+		if (!netConfigureVs(nsjconf)) {
 			return false;
 		}
 	}

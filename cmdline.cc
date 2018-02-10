@@ -374,7 +374,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->cgroup_cpu_mount = "/sys/fs/cgroup/cpu";
 	nsjconf->cgroup_cpu_parent = "NSJAIL";
 	nsjconf->cgroup_cpu_ms_per_sec = 0U;
-	nsjconf->iface_no_lo = false;
+	nsjconf->iface_lo = true;
 	nsjconf->iface_vs_ip = "0.0.0.0";
 	nsjconf->iface_vs_nm = "255.255.255.0";
 	nsjconf->iface_vs_gw = "0.0.0.0";
@@ -673,7 +673,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			}
 			break;
 		case 0x700:
-			nsjconf->iface_no_lo = true;
+			nsjconf->iface_lo = false;
 			break;
 		case 'I':
 			nsjconf->iface_vs = optarg;
