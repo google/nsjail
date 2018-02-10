@@ -173,8 +173,8 @@ bool limitConns(nsjconf_t* nsjconf, int connsock) {
 		}
 	}
 	if (cnt >= nsjconf->max_conns_per_ip) {
-		LOG_W("Rejecting connection from '%s', max_conns_per_ip limit reached: %u", connstr.c_str(),
-		    nsjconf->max_conns_per_ip);
+		LOG_W("Rejecting connection from '%s', max_conns_per_ip limit reached: %u",
+		    connstr.c_str(), nsjconf->max_conns_per_ip);
 		return false;
 	}
 

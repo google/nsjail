@@ -124,7 +124,7 @@ static bool mountPt(mount_t* mpt, const char* newroot, const char* tmpdir) {
 	char dst[PATH_MAX];
 	snprintf(dst, sizeof(dst), "%s/%s", newroot, mpt->dst.c_str());
 
-	LOG_D("Mounting '%s'", describeMountPt(*mpt));
+	LOG_D("Mounting '%s'", describeMountPt(*mpt).c_str());
 
 	char srcpath[PATH_MAX];
 	if (!mpt->src.empty()) {
@@ -204,10 +204,10 @@ static bool mountPt(mount_t* mpt, const char* newroot, const char* tmpdir) {
 			    "mount('%s') src:'%s' dst:'%s' failed. "
 			    "Try fixing this problem by applying 'chmod o+x' to the '%s' "
 			    "directory and its ancestors",
-			    describeMountPt(*mpt), srcpath, dst, srcpath);
+			    describeMountPt(*mpt).c_str(), srcpath, dst, srcpath);
 		} else {
-			PLOG_W("mount('%s') src:'%s' dst:'%s' failed", describeMountPt(*mpt),
-			    srcpath, dst);
+			PLOG_W("mount('%s') src:'%s' dst:'%s' failed",
+			    describeMountPt(*mpt).c_str(), srcpath, dst);
 			if (strcmp(mpt->fs_type.c_str(), "proc") == 0) {
 				PLOG_W(
 				    "procfs can only be mounted if the original /proc doesn't have "
@@ -529,8 +529,8 @@ bool addMountPtTail(nsjconf_t* nsjconf, const char* src, const char* dst, const 
 	return true;
 }
 
-const char* describeMountPt(const mount_t& mpt) {
-	static __thread char mount_pt_descr[4096];
+const std::string describeMountPt(const mount_t& mpt) {
+	char mount_pt_descr[256];
 
 	snprintf(mount_pt_descr, sizeof(mount_pt_descr),
 	    "src:'%s' dst:'%s' type:'%s' flags:%s options:'%s' isDir:%s", mpt.src.c_str(),

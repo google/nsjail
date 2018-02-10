@@ -325,8 +325,9 @@ int reapProc(nsjconf_t* nsjconf) {
 			if (WIFSIGNALED(status)) {
 				LOG_I(
 				    "PID: %d (%s) terminated with signal: %s (%d), (PIDs left: %d)",
-				    si.si_pid, remote_txt.c_str(), util::sigName(WTERMSIG(status)).c_str(),
-				    WTERMSIG(status), countProc(nsjconf) - 1);
+				    si.si_pid, remote_txt.c_str(),
+				    util::sigName(WTERMSIG(status)).c_str(), WTERMSIG(status),
+				    countProc(nsjconf) - 1);
 				removeProc(nsjconf, si.si_pid);
 				rv = 100 + WTERMSIG(status);
 			}
