@@ -225,9 +225,9 @@ void logParams(struct nsjconf_t* nsjconf) {
 	    "clone_newnet:%s, clone_newuser:%s, clone_newns:%s, clone_newpid:%s, "
 	    "clone_newipc:%s, clonew_newuts:%s, clone_newcgroup:%s, keep_caps:%s, "
 	    "tmpfs_size:%zu, disable_no_new_privs:%s, max_cpus:%zu",
-	    nsjconf->hostname, nsjconf->chroot ? nsjconf->chroot : "[NULL]", nsjconf->argv[0],
-	    nsjconf->bindhost, nsjconf->port, nsjconf->max_conns_per_ip, nsjconf->tlimit,
-	    nsjconf->personality, logYesNo(nsjconf->daemonize), logYesNo(nsjconf->clone_newnet),
+	    nsjconf->hostname.c_str(), nsjconf->chroot.c_str(), nsjconf->argv[0], nsjconf->bindhost,
+	    nsjconf->port, nsjconf->max_conns_per_ip, nsjconf->tlimit, nsjconf->personality,
+	    logYesNo(nsjconf->daemonize), logYesNo(nsjconf->clone_newnet),
 	    logYesNo(nsjconf->clone_newuser), logYesNo(nsjconf->clone_newns),
 	    logYesNo(nsjconf->clone_newpid), logYesNo(nsjconf->clone_newipc),
 	    logYesNo(nsjconf->clone_newuts), logYesNo(nsjconf->clone_newcgroup),
@@ -329,11 +329,9 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->argv = NULL;
 	nsjconf->hostname = "NSJAIL";
 	nsjconf->cwd = "/";
-	nsjconf->chroot = NULL;
 	nsjconf->port = 0;
 	nsjconf->bindhost = "::";
 	nsjconf->log_fd = STDERR_FILENO;
-	nsjconf->logfile = NULL;
 	nsjconf->loglevel = INFO;
 	nsjconf->daemonize = false;
 	nsjconf->tlimit = 0;
@@ -445,7 +443,7 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 			break;
 		case 'l':
 			nsjconf->logfile = optarg;
-			if (log::initLogFile(nsjconf.get()) == false) {
+			if (!log::initLogFile(nsjconf.get())) {
 				return nullptr;
 			}
 			break;
@@ -769,8 +767,9 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 			return nullptr;
 		}
 	}
-	if (nsjconf->chroot) {
-		if (!mnt::addMountPtHead(nsjconf.get(), nsjconf->chroot, "/", /* fs_type= */ "",
+	if (!(nsjconf->chroot.empty())) {
+		if (!mnt::addMountPtHead(nsjconf.get(), nsjconf->chroot.c_str(), "/",
+			/* fs_type= */ "",
 			/* options= */ "",
 			nsjconf->is_root_rw ? (MS_BIND | MS_REC | MS_PRIVATE)
 					    : (MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY),

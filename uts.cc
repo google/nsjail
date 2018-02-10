@@ -33,9 +33,9 @@ bool initNs(struct nsjconf_t* nsjconf) {
 		return true;
 	}
 
-	LOG_D("Setting hostname to '%s'", nsjconf->hostname);
-	if (sethostname(nsjconf->hostname, strlen(nsjconf->hostname)) == -1) {
-		PLOG_E("sethostname('%s')", nsjconf->hostname);
+	LOG_D("Setting hostname to '%s'", nsjconf->hostname.c_str());
+	if (sethostname(nsjconf->hostname.c_str(), strlen(nsjconf->hostname.c_str())) == -1) {
+		PLOG_E("sethostname('%s')", nsjconf->hostname.c_str());
 		return false;
 	}
 	return true;

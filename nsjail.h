@@ -113,13 +113,13 @@ struct nsjconf_t {
 	bool use_execveat;
 	int exec_fd;
 	const char** argv;
-	const char* hostname;
-	const char* cwd;
-	const char* chroot;
+	std::string hostname;
+	std::string cwd;
+	std::string chroot;
 	int port;
 	const char* bindhost;
 	int log_fd;
-	const char* logfile;
+	std::string logfile;
 	enum llevel_t loglevel;
 	bool daemonize;
 	time_t tlimit;

@@ -319,14 +319,14 @@ static bool initNsInternal(struct nsjconf_t* nsjconf) {
 	 * use --chroot in this case
 	 */
 	if (nsjconf->clone_newns == false) {
-		if (nsjconf->chroot == NULL) {
+		if (nsjconf->chroot.empty()) {
 			PLOG_E(
 			    "--chroot was not specified, and it's required when not using "
 			    "CLONE_NEWNS");
 			return false;
 		}
-		if (chroot(nsjconf->chroot) == -1) {
-			PLOG_E("chroot('%s')", nsjconf->chroot);
+		if (chroot(nsjconf->chroot.c_str()) == -1) {
+			PLOG_E("chroot('%s')", nsjconf->chroot.c_str());
 			return false;
 		}
 		if (chdir("/") == -1) {
@@ -394,8 +394,8 @@ static bool initNsInternal(struct nsjconf_t* nsjconf) {
 		PLOG_E("umount2('/', MNT_DETACH)");
 		return false;
 	}
-	if (chdir(nsjconf->cwd) == -1) {
-		PLOG_E("chdir('%s')", nsjconf->cwd);
+	if (chdir(nsjconf->cwd.c_str()) == -1) {
+		PLOG_E("chdir('%s')", nsjconf->cwd.c_str());
 		return false;
 	}
 

@@ -60,16 +60,16 @@ bool initLogFile(struct nsjconf_t* nsjconf) {
 	log_fd = nsjconf->log_fd;
 	log_level = nsjconf->loglevel;
 
-	if (nsjconf->logfile == NULL && nsjconf->daemonize) {
+	if (nsjconf->logfile.empty() && nsjconf->daemonize) {
 		nsjconf->logfile = _LOG_DEFAULT_FILE;
 	}
-	if (nsjconf->logfile == NULL) {
+	if (nsjconf->logfile.empty()) {
 		log_fd = fcntl(log_fd, F_DUPFD_CLOEXEC, 0);
 	} else {
 		if (TEMP_FAILURE_RETRY(
-			log_fd = open(nsjconf->logfile, O_CREAT | O_RDWR | O_APPEND, 0640)) == -1) {
+			log_fd = open(nsjconf->logfile.c_str(), O_CREAT | O_RDWR | O_APPEND, 0640)) == -1) {
 			log_fd = STDERR_FILENO;
-			PLOG_E("Couldn't open logfile open('%s')", nsjconf->logfile);
+			PLOG_E("Couldn't open logfile open('%s')", nsjconf->logfile.c_str());
 			return false;
 		}
 	}

@@ -83,10 +83,12 @@ static bool configParseInternal(struct nsjconf_t* nsjconf, const nsjail::NsJailC
 		LOG_E("Uknown running mode: %d", njc.mode());
 		return false;
 	}
-	nsjconf->chroot = DUP_IF_SET(njc, chroot_dir);
+	if (njc.has_chroot_dir()) {
+		nsjconf->chroot = njc.chroot_dir();
+	}
 	nsjconf->is_root_rw = njc.is_root_rw();
-	nsjconf->hostname = njc.hostname().c_str();
-	nsjconf->cwd = njc.cwd().c_str();
+	nsjconf->hostname = njc.hostname();
+	nsjconf->cwd = njc.cwd();
 	nsjconf->port = njc.port();
 	nsjconf->bindhost = njc.bindhost().c_str();
 	nsjconf->max_conns_per_ip = njc.max_conns_per_ip();
@@ -97,7 +99,9 @@ static bool configParseInternal(struct nsjconf_t* nsjconf, const nsjail::NsJailC
 	if (njc.has_log_fd()) {
 		nsjconf->log_fd = njc.log_fd();
 	}
-	nsjconf->logfile = DUP_IF_SET(njc, log_file);
+	if (njc.has_log_file()) {
+		nsjconf->logfile = njc.log_file();
+	}
 	if (njc.has_log_level()) {
 		switch (njc.log_level()) {
 		case nsjail::LogLevel::DEBUG:
