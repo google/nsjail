@@ -164,15 +164,13 @@ bool limitConns(struct nsjconf_t* nsjconf, int connsock) {
 	char cs_addr[64];
 	connToText(connsock, true /* remote */, cs_addr, sizeof(cs_addr), &addr);
 
-	unsigned int cnt = 0;
-	struct pids_t* p;
-	TAILQ_FOREACH(p, &nsjconf->pids, pointers) {
-		if (memcmp(addr.sin6_addr.s6_addr, p->remote_addr.sin6_addr.s6_addr,
-			sizeof(p->remote_addr.sin6_addr.s6_addr)) == 0) {
+	unsigned cnt = 0;
+	for (const auto& pid : nsjconf->pids) {
+		if (memcmp(addr.sin6_addr.s6_addr, pid.remote_addr.sin6_addr.s6_addr,
+			sizeof(pid.remote_addr.sin6_addr.s6_addr)) == 0) {
 			cnt++;
 		}
 	}
-
 	if (cnt >= nsjconf->max_conns_per_ip) {
 		LOG_W("Rejecting connection from '%s', max_conns_per_ip limit reached: %u", cs_addr,
 		    nsjconf->max_conns_per_ip);

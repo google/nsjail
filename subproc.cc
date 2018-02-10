@@ -197,61 +197,53 @@ static int subprocNewProc(
 }
 
 static void addProc(struct nsjconf_t* nsjconf, pid_t pid, int sock) {
-	struct pids_t* p = reinterpret_cast<struct pids_t*>(util::memAlloc(sizeof(struct pids_t)));
-	p->pid = pid;
-	p->start = time(NULL);
+	struct pids_t p;
+	p.pid = pid;
+	p.start = time(NULL);
+
 	net::connToText(
-	    sock, true /* remote */, p->remote_txt, sizeof(p->remote_txt), &p->remote_addr);
+	    sock, true /* remote */, p.remote_txt, sizeof(p.remote_txt), &p.remote_addr);
 
 	char fname[PATH_MAX];
 	snprintf(fname, sizeof(fname), "/proc/%d/syscall", (int)pid);
-	p->pid_syscall_fd = TEMP_FAILURE_RETRY(open(fname, O_RDONLY | O_CLOEXEC));
+	p.pid_syscall_fd = TEMP_FAILURE_RETRY(open(fname, O_RDONLY | O_CLOEXEC));
 
-	TAILQ_INSERT_HEAD(&nsjconf->pids, p, pointers);
+	nsjconf->pids.push_back(p);
 
-	LOG_D("Added pid '%d' with start time '%u' to the queue for IP: '%s'", pid,
-	    (unsigned int)p->start, p->remote_txt);
+	LOG_D("Added pid '%d' with start time '%u' to the queue for IP: '%s'", p.pid,
+	    (unsigned int)p.start, p.remote_txt);
 }
 
 static void removeProc(struct nsjconf_t* nsjconf, pid_t pid) {
-	struct pids_t* p;
-	TAILQ_FOREACH(p, &nsjconf->pids, pointers) {
+	for (auto p = nsjconf->pids.begin(); p != nsjconf->pids.end(); ++p) {
 		if (p->pid == pid) {
 			LOG_D("Removing pid '%d' from the queue (IP:'%s', start time:'%s')", p->pid,
 			    p->remote_txt, util::timeToStr(p->start));
 			close(p->pid_syscall_fd);
-			TAILQ_REMOVE(&nsjconf->pids, p, pointers);
-			free(p);
+			nsjconf->pids.erase(p);
 			return;
 		}
 	}
 	LOG_W("PID: %d not found (?)", pid);
 }
 
-int countProc(struct nsjconf_t* nsjconf) {
-	int cnt = 0;
-	struct pids_t* p;
-	TAILQ_FOREACH(p, &nsjconf->pids, pointers) { cnt++; }
-	return cnt;
-}
+int countProc(struct nsjconf_t* nsjconf) { return nsjconf->pids.size(); }
 
 void displayProc(struct nsjconf_t* nsjconf) {
 	LOG_I("Total number of spawned namespaces: %d", countProc(nsjconf));
 	time_t now = time(NULL);
-	struct pids_t* p;
-	TAILQ_FOREACH(p, &nsjconf->pids, pointers) {
-		time_t diff = now - p->start;
+	for (const auto& pid : nsjconf->pids) {
+		time_t diff = now - pid.start;
 		time_t left = nsjconf->tlimit ? nsjconf->tlimit - diff : 0;
-		LOG_I("PID: %d, Remote host: %s, Run time: %ld sec. (time left: %ld sec.)", p->pid,
-		    p->remote_txt, (long)diff, (long)left);
+		LOG_I("PID: %d, Remote host: %s, Run time: %ld sec. (time left: %ld sec.)", pid.pid,
+		    pid.remote_txt, (long)diff, (long)left);
 	}
 }
 
-static struct pids_t* getPidElem(struct nsjconf_t* nsjconf, pid_t pid) {
-	struct pids_t* p;
-	TAILQ_FOREACH(p, &nsjconf->pids, pointers) {
-		if (p->pid == pid) {
-			return p;
+static const struct pids_t* getPidElem(struct nsjconf_t* nsjconf, pid_t pid) {
+	for (const auto& p : nsjconf->pids) {
+		if (p.pid == pid) {
+			return &p;
 		}
 	}
 	return NULL;
@@ -260,7 +252,7 @@ static struct pids_t* getPidElem(struct nsjconf_t* nsjconf, pid_t pid) {
 static void seccompViolation(struct nsjconf_t* nsjconf, siginfo_t* si) {
 	LOG_W("PID: %d commited a syscall/seccomp violation and exited with SIGSYS", si->si_pid);
 
-	struct pids_t* p = getPidElem(nsjconf, si->si_pid);
+	const struct pids_t* p = getPidElem(nsjconf, si->si_pid);
 	if (p == NULL) {
 		LOG_W("PID:%d SiSyscall: %d, SiCode: %d, SiErrno: %d", (int)si->si_pid,
 		    si->si_syscall, si->si_code, si->si_errno);
@@ -317,7 +309,7 @@ int reapProc(struct nsjconf_t* nsjconf) {
 			cgroup::finishFromParent(nsjconf, si.si_pid);
 
 			const char* remote_txt = "[UNKNOWN]";
-			struct pids_t* elem = getPidElem(nsjconf, si.si_pid);
+			const struct pids_t* elem = getPidElem(nsjconf, si.si_pid);
 			if (elem) {
 				remote_txt = elem->remote_txt;
 			}
@@ -344,16 +336,15 @@ int reapProc(struct nsjconf_t* nsjconf) {
 	}
 
 	time_t now = time(NULL);
-	struct pids_t* p;
-	TAILQ_FOREACH(p, &nsjconf->pids, pointers) {
+	for (const auto& p : nsjconf->pids) {
 		if (nsjconf->tlimit == 0) {
 			continue;
 		}
-		pid_t pid = p->pid;
-		time_t diff = now - p->start;
+		pid_t pid = p.pid;
+		time_t diff = now - p.start;
 		if (diff >= nsjconf->tlimit) {
 			LOG_I("PID: %d run time >= time limit (%ld >= %ld) (%s). Killing it", pid,
-			    (long)diff, (long)nsjconf->tlimit, p->remote_txt);
+			    (long)diff, (long)nsjconf->tlimit, p.remote_txt);
 			/*
 			 * Probably a kernel bug - some processes cannot be killed with KILL if
 			 * they're namespaced, and in a stopped state
@@ -368,8 +359,9 @@ int reapProc(struct nsjconf_t* nsjconf) {
 }
 
 void killAll(struct nsjconf_t* nsjconf) {
-	struct pids_t* p;
-	TAILQ_FOREACH(p, &nsjconf->pids, pointers) { kill(p->pid, SIGKILL); }
+	for (const auto& p : nsjconf->pids) {
+		kill(p.pid, SIGKILL);
+	}
 }
 
 static bool initParent(struct nsjconf_t* nsjconf, pid_t pid, int pipefd) {

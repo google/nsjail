@@ -388,7 +388,6 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->openfds.push_back(STDOUT_FILENO);
 	nsjconf->openfds.push_back(STDERR_FILENO);
 
-	TAILQ_INIT(&nsjconf->pids);
 	TAILQ_INIT(&nsjconf->mountpts);
 
 	static char cmdlineTmpfsSz[PATH_MAX] = "size=4194304";
