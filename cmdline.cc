@@ -375,7 +375,6 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->cgroup_cpu_parent = "NSJAIL";
 	nsjconf->cgroup_cpu_ms_per_sec = 0U;
 	nsjconf->iface_no_lo = false;
-	nsjconf->iface_vs = NULL;
 	nsjconf->iface_vs_ip = "0.0.0.0";
 	nsjconf->iface_vs_nm = "255.255.255.0";
 	nsjconf->iface_vs_gw = "0.0.0.0";

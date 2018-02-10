@@ -55,11 +55,12 @@ bool initNsFromParent(nsjconf_t* nsjconf, int pid) {
 	if (nsjconf->clone_newnet == false) {
 		return true;
 	}
-	if (nsjconf->iface_vs == NULL) {
+	if (nsjconf->iface_vs.empty()) {
 		return true;
 	}
 
-	LOG_D("Putting iface:'%s' into namespace of PID:%d (with libnl3)", nsjconf->iface_vs, pid);
+	LOG_D("Putting iface:'%s' into namespace of PID:%d (with libnl3)",
+	    nsjconf->iface_vs.c_str(), pid);
 
 	struct nl_sock* sk = nl_socket_alloc();
 	if (sk == NULL) {
@@ -89,9 +90,9 @@ bool initNsFromParent(nsjconf_t* nsjconf, int pid) {
 		return false;
 	}
 
-	int master_index = rtnl_link_name2i(link_cache, nsjconf->iface_vs);
+	int master_index = rtnl_link_name2i(link_cache, nsjconf->iface_vs.c_str());
 	if (master_index == 0) {
-		LOG_E("rtnl_link_name2i(): Did not find '%s' interface", nsjconf->iface_vs);
+		LOG_E("rtnl_link_name2i(): Did not find '%s' interface", nsjconf->iface_vs.c_str());
 		nl_cache_free(link_cache);
 		rtnl_link_put(rmv);
 		nl_socket_free(sk);
@@ -103,8 +104,8 @@ bool initNsFromParent(nsjconf_t* nsjconf, int pid) {
 	rtnl_link_set_ns_pid(rmv, pid);
 
 	if ((err = rtnl_link_add(sk, rmv, NLM_F_CREATE)) < 0) {
-		LOG_E("rtnl_link_add(name:'%s' link:'%s'): %s", IFACE_NAME, nsjconf->iface_vs,
-		    nl_geterror(err));
+		LOG_E("rtnl_link_add(name:'%s' link:'%s'): %s", IFACE_NAME,
+		    nsjconf->iface_vs.c_str(), nl_geterror(err));
 		nl_cache_free(link_cache);
 		rtnl_link_put(rmv);
 		nl_socket_free(sk);
@@ -122,20 +123,20 @@ bool initNsFromParent(nsjconf_t* nsjconf, int pid) {
 	if (nsjconf->clone_newnet == false) {
 		return true;
 	}
-	if (nsjconf->iface_vs == NULL) {
+	if (nsjconf->iface_vs.empty()) {
 		return true;
 	}
 
-	LOG_D(
-	    "Putting iface:'%s' into namespace of PID:%d (with /sbin/ip)", nsjconf->iface_vs, pid);
+	LOG_D("Putting iface:'%s' into namespace of PID:%d (with /sbin/ip)",
+	    nsjconf->iface_vs.c_str(), pid);
 
 	char pid_str[256];
 	snprintf(pid_str, sizeof(pid_str), "%d", pid);
 
-	const char* argv[] = {"/sbin/ip", "link", "add", "link", (char*)nsjconf->iface_vs, "name",
-	    IFACE_NAME, "netns", pid_str, "type", "macvlan", "mode", "bridge", NULL};
+	const char* argv[] = {"/sbin/ip", "link", "add", "link", (char*)nsjconf->iface_vs.c_str(),
+	    "name", IFACE_NAME, "netns", pid_str, "type", "macvlan", "mode", "bridge", NULL};
 	if (subproc::systemExe(argv, environ) != 0) {
-		LOG_E("Couldn't create MACVTAP interface for '%s'", nsjconf->iface_vs);
+		LOG_E("Couldn't create MACVTAP interface for '%s'", nsjconf->iface_vs.c_str());
 		return false;
 	}
 
@@ -331,8 +332,8 @@ static bool netConfigureVs(nsjconf_t* nsjconf) {
 		return false;
 	}
 
-	if (inet_pton(AF_INET, nsjconf->iface_vs_ip, &addr) != 1) {
-		PLOG_E("Cannot convert '%s' into an IPv4 address", nsjconf->iface_vs_ip);
+	if (inet_pton(AF_INET, nsjconf->iface_vs_ip.c_str(), &addr) != 1) {
+		PLOG_E("Cannot convert '%s' into an IPv4 address", nsjconf->iface_vs_ip.c_str());
 		close(sock);
 		return false;
 	}
@@ -346,20 +347,22 @@ static bool netConfigureVs(nsjconf_t* nsjconf) {
 	sa->sin_family = AF_INET;
 	sa->sin_addr = addr;
 	if (ioctl(sock, SIOCSIFADDR, &ifr) == -1) {
-		PLOG_E("ioctl(iface='%s', SIOCSIFADDR, '%s')", IFACE_NAME, nsjconf->iface_vs_ip);
+		PLOG_E("ioctl(iface='%s', SIOCSIFADDR, '%s')", IFACE_NAME,
+		    nsjconf->iface_vs_ip.c_str());
 		close(sock);
 		return false;
 	}
 
-	if (inet_pton(AF_INET, nsjconf->iface_vs_nm, &addr) != 1) {
-		PLOG_E("Cannot convert '%s' into a IPv4 netmask", nsjconf->iface_vs_nm);
+	if (inet_pton(AF_INET, nsjconf->iface_vs_nm.c_str(), &addr) != 1) {
+		PLOG_E("Cannot convert '%s' into a IPv4 netmask", nsjconf->iface_vs_nm.c_str());
 		close(sock);
 		return false;
 	}
 	sa->sin_family = AF_INET;
 	sa->sin_addr = addr;
 	if (ioctl(sock, SIOCSIFNETMASK, &ifr) == -1) {
-		PLOG_E("ioctl(iface='%s', SIOCSIFNETMASK, '%s')", IFACE_NAME, nsjconf->iface_vs_nm);
+		PLOG_E("ioctl(iface='%s', SIOCSIFNETMASK, '%s')", IFACE_NAME,
+		    nsjconf->iface_vs_nm.c_str());
 		close(sock);
 		return false;
 	}
@@ -369,8 +372,8 @@ static bool netConfigureVs(nsjconf_t* nsjconf) {
 		return false;
 	}
 
-	if (inet_pton(AF_INET, nsjconf->iface_vs_gw, &addr) != 1) {
-		PLOG_E("Cannot convert '%s' into a IPv4 GW address", nsjconf->iface_vs_gw);
+	if (inet_pton(AF_INET, nsjconf->iface_vs_gw.c_str(), &addr) != 1) {
+		PLOG_E("Cannot convert '%s' into a IPv4 GW address", nsjconf->iface_vs_gw.c_str());
 		close(sock);
 		return false;
 	}
@@ -397,7 +400,7 @@ static bool netConfigureVs(nsjconf_t* nsjconf) {
 	rt.rt_dev = rt_dev;
 
 	if (ioctl(sock, SIOCADDRT, &rt) == -1) {
-		PLOG_E("ioctl(SIOCADDRT, '%s')", nsjconf->iface_vs_gw);
+		PLOG_E("ioctl(SIOCADDRT, '%s')", nsjconf->iface_vs_gw.c_str());
 		close(sock);
 		return false;
 	}
@@ -415,7 +418,7 @@ bool initNsFromChild(nsjconf_t* nsjconf) {
 			return false;
 		}
 	}
-	if (nsjconf->iface_vs) {
+	if (!nsjconf->iface_vs.empty()) {
 		if (netConfigureVs(nsjconf) == false) {
 			return false;
 		}

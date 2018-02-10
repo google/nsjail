@@ -124,10 +124,10 @@ struct nsjconf_t {
 	const char* proc_path;
 	bool is_proc_rw;
 	bool iface_no_lo;
-	const char* iface_vs;
-	const char* iface_vs_ip;
-	const char* iface_vs_nm;
-	const char* iface_vs_gw;
+	std::string iface_vs;
+	std::string iface_vs_ip;
+	std::string iface_vs_nm;
+	std::string iface_vs_gw;
 	const char* cgroup_mem_mount;
 	const char* cgroup_mem_parent;
 	size_t cgroup_mem_max;
