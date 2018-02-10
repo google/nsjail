@@ -105,7 +105,7 @@ static bool nsjailSetTimer(nsjconf_t* nsjconf) {
 }
 
 static void nsjailListenMode(nsjconf_t* nsjconf) {
-	int listenfd = net::getRecvSocket(nsjconf->bindhost, nsjconf->port);
+	int listenfd = net::getRecvSocket(nsjconf->bindhost.c_str(), nsjconf->port);
 	if (listenfd == -1) {
 		return;
 	}

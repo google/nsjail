@@ -90,7 +90,7 @@ struct nsjconf_t {
 	std::string cwd;
 	std::string chroot;
 	int port;
-	const char* bindhost;
+	std::string bindhost;
 	std::string logfile;
 	logs::llevel_t loglevel;
 	bool daemonize;
@@ -139,8 +139,8 @@ struct nsjconf_t {
 	const char* cgroup_cpu_mount;
 	const char* cgroup_cpu_parent;
 	unsigned int cgroup_cpu_ms_per_sec;
-	const char* kafel_file_path;
-	const char* kafel_string;
+	std::string kafel_file_path;
+	std::string kafel_string;
 	struct sock_fprog seccomp_fprog;
 	long num_cpus;
 	uid_t orig_uid;

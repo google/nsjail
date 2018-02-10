@@ -242,20 +242,11 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 	}
 
 	if (njc.has_seccomp_policy_file()) {
-		nsjconf->kafel_file_path = njc.seccomp_policy_file().c_str();
-		if (access(nsjconf->kafel_file_path, R_OK) == -1) {
-			PLOG_W("Couldn't open file with seccomp policy '%s'",
-			    nsjconf->kafel_file_path);
-			return false;
-		}
+		nsjconf->kafel_file_path = njc.seccomp_policy_file();
 	}
-
-	std::string kafel_string;
 	for (ssize_t i = 0; i < njc.seccomp_string().size(); i++) {
-		kafel_string += njc.seccomp_string(i);
+		nsjconf->kafel_string += njc.seccomp_string(i);
 	}
-	nsjconf->kafel_string =
-	    njc.seccomp_string().size() > 0 ? util::strDup(kafel_string.c_str()) : NULL;
 
 	nsjconf->cgroup_mem_max = njc.cgroup_mem_max();
 	nsjconf->cgroup_mem_mount = njc.cgroup_mem_mount().c_str();

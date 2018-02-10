@@ -229,44 +229,38 @@ void logParams(nsjconf_t* nsjconf) {
 	    "clone_newnet:%s, clone_newuser:%s, clone_newns:%s, clone_newpid:%s, "
 	    "clone_newipc:%s, clonew_newuts:%s, clone_newcgroup:%s, keep_caps:%s, "
 	    "tmpfs_size:%zu, disable_no_new_privs:%s, max_cpus:%zu",
-	    nsjconf->hostname.c_str(), nsjconf->chroot.c_str(), nsjconf->argv[0], nsjconf->bindhost,
-	    nsjconf->port, nsjconf->max_conns_per_ip, nsjconf->tlimit, nsjconf->personality,
-	    logYesNo(nsjconf->daemonize), logYesNo(nsjconf->clone_newnet),
+	    nsjconf->hostname.c_str(), nsjconf->chroot.c_str(), nsjconf->argv[0],
+	    nsjconf->bindhost.c_str(), nsjconf->port, nsjconf->max_conns_per_ip, nsjconf->tlimit,
+	    nsjconf->personality, logYesNo(nsjconf->daemonize), logYesNo(nsjconf->clone_newnet),
 	    logYesNo(nsjconf->clone_newuser), logYesNo(nsjconf->clone_newns),
 	    logYesNo(nsjconf->clone_newpid), logYesNo(nsjconf->clone_newipc),
 	    logYesNo(nsjconf->clone_newuts), logYesNo(nsjconf->clone_newcgroup),
 	    logYesNo(nsjconf->keep_caps), nsjconf->tmpfs_size,
 	    logYesNo(nsjconf->disable_no_new_privs), nsjconf->max_cpus);
 
-	{
-		for (const auto& p : nsjconf->mountpts) {
-			LOG_I("%s: %s", p.isSymlink ? "Symlink" : "Mount point",
-			    mnt::describeMountPt(p));
+	for (const auto& p : nsjconf->mountpts) {
+		LOG_I("%s: %s", p.isSymlink ? "Symlink" : "Mount point", mnt::describeMountPt(p));
+	}
+	for (const auto& uid : nsjconf->uids) {
+		LOG_I("Uid map: inside_uid:%lu outside_uid:%lu count:%zu newuidmap:%s",
+		    (unsigned long)uid.inside_id, (unsigned long)uid.outside_id, uid.count,
+		    uid.is_newidmap ? "true" : "false");
+		if (uid.outside_id == 0 && nsjconf->clone_newuser) {
+			LOG_W(
+			    "Process will be UID/EUID=0 in the global user namespace, "
+			    "and will have user "
+			    "root-level access to files");
 		}
 	}
-	{
-		idmap_t* p;
-		for (const auto& uid : nsjconf->uids) {
-			LOG_I("Uid map: inside_uid:%lu outside_uid:%lu count:%zu newuidmap:%s",
-			    (unsigned long)uid.inside_id, (unsigned long)uid.outside_id, uid.count,
-			    uid.is_newidmap ? "true" : "false");
-			if (uid.outside_id == 0 && nsjconf->clone_newuser) {
-				LOG_W(
-				    "Process will be UID/EUID=0 in the global user namespace, "
-				    "and will have user "
-				    "root-level access to files");
-			}
-		}
-		for (const auto& gid : nsjconf->gids) {
-			LOG_I("Gid map: inside_gid:%lu outside_gid:%lu count:%zu newgidmap:%s",
-			    (unsigned long)gid.inside_id, (unsigned long)gid.outside_id, gid.count,
-			    gid.is_newidmap ? "true" : "false");
-			if (gid.outside_id == 0 && nsjconf->clone_newuser) {
-				LOG_W(
-				    "Process will be GID/EGID=0 in the global user namespace, "
-				    "and will have group "
-				    "root-level access to files");
-			}
+	for (const auto& gid : nsjconf->gids) {
+		LOG_I("Gid map: inside_gid:%lu outside_gid:%lu count:%zu newgidmap:%s",
+		    (unsigned long)gid.inside_id, (unsigned long)gid.outside_id, gid.count,
+		    gid.is_newidmap ? "true" : "false");
+		if (gid.outside_id == 0 && nsjconf->clone_newuser) {
+			LOG_W(
+			    "Process will be GID/EGID=0 in the global user namespace, "
+			    "and will have group "
+			    "root-level access to files");
 		}
 	}
 }
@@ -379,8 +373,6 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->iface_vs_ip = "0.0.0.0";
 	nsjconf->iface_vs_nm = "255.255.255.0";
 	nsjconf->iface_vs_gw = "0.0.0.0";
-	nsjconf->kafel_file_path = NULL;
-	nsjconf->kafel_string = NULL;
 	nsjconf->orig_uid = getuid();
 	nsjconf->num_cpus = sysconf(_SC_NPROCESSORS_ONLN);
 
@@ -726,13 +718,8 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			break;
 		case 'P':
 			nsjconf->kafel_file_path = optarg;
-			if (access(nsjconf->kafel_file_path, R_OK) == -1) {
-				PLOG_E("kafel config file '%s' cannot be opened for reading",
-				    nsjconf->kafel_file_path);
-				return nullptr;
-			}
 			break;
-		case 0x0901:
+		case 0x901:
 			nsjconf->kafel_string = optarg;
 			break;
 		default:
