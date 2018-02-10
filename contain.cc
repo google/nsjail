@@ -50,15 +50,25 @@
 
 namespace contain {
 
-static bool containUserNs(nsjconf_t* nsjconf) { return user::initNsFromChild(nsjconf); }
+static bool containUserNs(nsjconf_t* nsjconf) {
+	return user::initNsFromChild(nsjconf);
+}
 
-static bool containInitPidNs(nsjconf_t* nsjconf) { return pid::initNs(nsjconf); }
+static bool containInitPidNs(nsjconf_t* nsjconf) {
+	return pid::initNs(nsjconf);
+}
 
-static bool containInitNetNs(nsjconf_t* nsjconf) { return net::initNsFromChild(nsjconf); }
+static bool containInitNetNs(nsjconf_t* nsjconf) {
+	return net::initNsFromChild(nsjconf);
+}
 
-static bool containInitUtsNs(nsjconf_t* nsjconf) { return uts::initNs(nsjconf); }
+static bool containInitUtsNs(nsjconf_t* nsjconf) {
+	return uts::initNs(nsjconf);
+}
 
-static bool containInitCgroupNs(void) { return cgroup::initNs(); }
+static bool containInitCgroupNs(void) {
+	return cgroup::initNs();
+}
 
 static bool containDropPrivs(nsjconf_t* nsjconf) {
 #ifndef PR_SET_NO_NEW_PRIVS
@@ -97,9 +107,13 @@ static bool containPrepareEnv(nsjconf_t* nsjconf) {
 	return true;
 }
 
-static bool containInitMountNs(nsjconf_t* nsjconf) { return mnt::initNs(nsjconf); }
+static bool containInitMountNs(nsjconf_t* nsjconf) {
+	return mnt::initNs(nsjconf);
+}
 
-static bool containCPU(nsjconf_t* nsjconf) { return cpu::initCpu(nsjconf); }
+static bool containCPU(nsjconf_t* nsjconf) {
+	return cpu::initCpu(nsjconf);
+}
 
 static bool containSetLimits(nsjconf_t* nsjconf) {
 	struct rlimit64 rl;

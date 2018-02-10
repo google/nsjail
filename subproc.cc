@@ -225,7 +225,9 @@ static void removeProc(nsjconf_t* nsjconf, pid_t pid) {
 	LOG_W("PID: %d not found (?)", pid);
 }
 
-int countProc(nsjconf_t* nsjconf) { return nsjconf->pids.size(); }
+int countProc(nsjconf_t* nsjconf) {
+	return nsjconf->pids.size();
+}
 
 void displayProc(nsjconf_t* nsjconf) {
 	LOG_I("Total number of spawned namespaces: %d", countProc(nsjconf));

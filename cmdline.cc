@@ -159,7 +159,9 @@ struct custom_option deprecated_opts[] = {
 };
 // clang-format on
 
-static const char* logYesNo(bool yes) { return (yes ? "true" : "false"); }
+static const char* logYesNo(bool yes) {
+	return (yes ? "true" : "false");
+}
 
 static void cmdlineOptUsage(struct custom_option* option) {
 	if (option->opt.val < 0x80) {

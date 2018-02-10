@@ -41,11 +41,13 @@
 
 namespace logs {
 
-static int log_fd = STDERR_FILENO;
-static bool log_fd_isatty = true;
-static enum llevel_t log_level = INFO;
+static int _log_fd = STDERR_FILENO;
+static bool _log_fd_isatty = true;
+static enum llevel_t _log_level = INFO;
 
-__attribute__((constructor)) static void log_init(void) { log_fd_isatty = isatty(log_fd); }
+__attribute__((constructor)) static void log_init(void) {
+	_log_fd_isatty = isatty(_log_fd);
+}
 
 /*
  * Log to stderr by default. Use a dup()d fd, because in the future we'll associate the
@@ -53,28 +55,28 @@ __attribute__((constructor)) static void log_init(void) { log_fd_isatty = isatty
  */
 bool initLog(const std::string& logfile, llevel_t level) {
 	/* Close previous log_fd */
-	if (log_fd > STDERR_FILENO) {
-		close(log_fd);
-		log_fd = STDERR_FILENO;
+	if (_log_fd > STDERR_FILENO) {
+		close(_log_fd);
+		_log_fd = STDERR_FILENO;
 	}
-	log_level = level;
+	_log_level = level;
 	if (logfile.empty()) {
-		log_fd = fcntl(log_fd, F_DUPFD_CLOEXEC, 0);
+		_log_fd = fcntl(_log_fd, F_DUPFD_CLOEXEC, 0);
 	} else {
-		if (TEMP_FAILURE_RETRY(log_fd = open(logfile.c_str(),
+		if (TEMP_FAILURE_RETRY(_log_fd = open(logfile.c_str(),
 					   O_CREAT | O_RDWR | O_APPEND | O_CLOEXEC, 0640)) == -1) {
-			log_fd = STDERR_FILENO;
-			log_fd_isatty = (isatty(log_fd) == 1 ? true : false);
+			_log_fd = STDERR_FILENO;
+			_log_fd_isatty = (isatty(_log_fd) == 1 ? true : false);
 			PLOG_E("Couldn't open logfile open('%s')", logfile.c_str());
 			return false;
 		}
 	}
-	log_fd_isatty = (isatty(log_fd) == 1 ? true : false);
+	_log_fd_isatty = (isatty(_log_fd) == 1 ? true : false);
 	return true;
 }
 
 void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt, ...) {
-	if (ll < log_level) {
+	if (ll < _log_level) {
 		return;
 	}
 
@@ -107,27 +109,27 @@ void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt
 	}
 
 	/* Start printing logs */
-	if (log_fd_isatty) {
-		dprintf(log_fd, "%s", logLevels[ll].prefix);
+	if (_log_fd_isatty) {
+		dprintf(_log_fd, "%s", logLevels[ll].prefix);
 	}
 	if (logLevels[ll].print_time) {
-		dprintf(log_fd, "[%s] ", timestr);
+		dprintf(_log_fd, "[%s] ", timestr);
 	}
 	if (logLevels[ll].print_funcline) {
-		dprintf(log_fd, "[%s][%d] %s():%d ", logLevels[ll].descr, (int)getpid(), fn, ln);
+		dprintf(_log_fd, "[%s][%d] %s():%d ", logLevels[ll].descr, (int)getpid(), fn, ln);
 	}
 
 	va_list args;
 	va_start(args, fmt);
-	vdprintf(log_fd, fmt, args);
+	vdprintf(_log_fd, fmt, args);
 	va_end(args);
 	if (perr) {
-		dprintf(log_fd, ": %s", strerr);
+		dprintf(_log_fd, ": %s", strerr);
 	}
-	if (log_fd_isatty) {
-		dprintf(log_fd, "\033[0m");
+	if (_log_fd_isatty) {
+		dprintf(_log_fd, "\033[0m");
 	}
-	dprintf(log_fd, "\n");
+	dprintf(_log_fd, "\n");
 	/* End printing logs */
 
 	if (ll == FATAL) {
@@ -135,6 +137,8 @@ void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt
 	}
 }
 
-void logStop(int sig) { LOG_I("Server stops due to fatal signal (%d) caught. Exiting", sig); }
+void logStop(int sig) {
+	LOG_I("Server stops due to fatal signal (%d) caught. Exiting", sig);
+}
 
 }  // namespace logs

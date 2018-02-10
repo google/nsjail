@@ -53,7 +53,9 @@ static bool prepareAndCommit(nsjconf_t* nsjconf) {
 	return true;
 }
 
-bool applyPolicy(nsjconf_t* nsjconf) { return prepareAndCommit(nsjconf); }
+bool applyPolicy(nsjconf_t* nsjconf) {
+	return prepareAndCommit(nsjconf);
+}
 
 bool preparePolicy(nsjconf_t* nsjconf) {
 	if (nsjconf->kafel_file_path == NULL && nsjconf->kafel_string == NULL) {

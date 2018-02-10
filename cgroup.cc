@@ -282,6 +282,8 @@ void finishFromParent(nsjconf_t* nsjconf, pid_t pid) {
 	finishFromParentCpu(nsjconf, pid);
 }
 
-bool initNs(void) { return true; }
+bool initNs(void) {
+	return true;
+}
 
 }  // namespace cgroup
