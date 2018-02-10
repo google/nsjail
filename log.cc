@@ -51,7 +51,7 @@ __attribute__((constructor)) static void log_init(void) { log_fd_isatty = isatty
  * Log to stderr by default. Use a dup()d fd, because in the future we'll associate the
  * connection socket with fd (0, 1, 2).
  */
-bool initLogFile(struct nsjconf_t* nsjconf) {
+bool initLogFile(nsjconf_t* nsjconf) {
 	/* Close previous log_fd */
 	if (log_fd > STDERR_FILENO) {
 		close(log_fd);

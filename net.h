@@ -29,12 +29,12 @@
 
 namespace net {
 
-bool limitConns(struct nsjconf_t* nsjconf, int connsock);
+bool limitConns(nsjconf_t* nsjconf, int connsock);
 int getRecvSocket(const char* bindhost, int port);
 int acceptConn(int listenfd);
 void connToText(int fd, bool remote, char* buf, size_t s, struct sockaddr_in6* addr_or_null);
-bool initNsFromParent(struct nsjconf_t* nsjconf, int pid);
-bool initNsFromChild(struct nsjconf_t* nsjconf);
+bool initNsFromParent(nsjconf_t* nsjconf, int pid);
+bool initNsFromChild(nsjconf_t* nsjconf);
 
 }  // namespace net
 

@@ -37,7 +37,7 @@ namespace sandbox {
 #define PR_SET_NO_NEW_PRIVS 38
 #endif /* PR_SET_NO_NEW_PRIVS */
 
-static bool prepareAndCommit(struct nsjconf_t* nsjconf) {
+static bool prepareAndCommit(nsjconf_t* nsjconf) {
 	if (nsjconf->kafel_file_path == NULL && nsjconf->kafel_string == NULL) {
 		return true;
 	}
@@ -53,9 +53,9 @@ static bool prepareAndCommit(struct nsjconf_t* nsjconf) {
 	return true;
 }
 
-bool applyPolicy(struct nsjconf_t* nsjconf) { return prepareAndCommit(nsjconf); }
+bool applyPolicy(nsjconf_t* nsjconf) { return prepareAndCommit(nsjconf); }
 
-bool preparePolicy(struct nsjconf_t* nsjconf) {
+bool preparePolicy(nsjconf_t* nsjconf) {
 	if (nsjconf->kafel_file_path == NULL && nsjconf->kafel_string == NULL) {
 		return true;
 	}

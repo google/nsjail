@@ -28,8 +28,8 @@
 
 namespace sandbox {
 
-bool applyPolicy(struct nsjconf_t* nsjconf);
-bool preparePolicy(struct nsjconf_t* nsjconf);
+bool applyPolicy(nsjconf_t* nsjconf);
+bool preparePolicy(nsjconf_t* nsjconf);
 
 }  // namespace sandbox
 

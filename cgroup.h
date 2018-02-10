@@ -29,9 +29,9 @@
 
 namespace cgroup {
 
-bool initNsFromParent(struct nsjconf_t* nsjconf, pid_t pid);
+bool initNsFromParent(nsjconf_t* nsjconf, pid_t pid);
 bool initNs(void);
-void finishFromParent(struct nsjconf_t* nsjconf, pid_t pid);
+void finishFromParent(nsjconf_t* nsjconf, pid_t pid);
 
 }  // namespace cgroup
 

@@ -51,7 +51,7 @@ namespace net {
 #if defined(NSJAIL_NL3_WITH_MACVLAN)
 #include <netlink/route/link.h>
 #include <netlink/route/link/macvlan.h>
-bool initNsFromParent(struct nsjconf_t* nsjconf, int pid) {
+bool initNsFromParent(nsjconf_t* nsjconf, int pid) {
 	if (nsjconf->clone_newnet == false) {
 		return true;
 	}
@@ -118,7 +118,7 @@ bool initNsFromParent(struct nsjconf_t* nsjconf, int pid) {
 }
 #else   // defined(NSJAIL_NL3_WITH_MACVLAN)
 
-bool initNsFromParent(struct nsjconf_t* nsjconf, int pid) {
+bool initNsFromParent(nsjconf_t* nsjconf, int pid) {
 	if (nsjconf->clone_newnet == false) {
 		return true;
 	}
@@ -153,7 +153,7 @@ static bool isSocket(int fd) {
 	return true;
 }
 
-bool limitConns(struct nsjconf_t* nsjconf, int connsock) {
+bool limitConns(nsjconf_t* nsjconf, int connsock) {
 	/* 0 means 'unlimited' */
 	if (nsjconf->max_conns_per_ip == 0) {
 		return true;
@@ -320,7 +320,7 @@ static bool ifaceUp(const char* ifacename) {
 	return true;
 }
 
-static bool netConfigureVs(struct nsjconf_t* nsjconf) {
+static bool netConfigureVs(nsjconf_t* nsjconf) {
 	struct ifreq ifr = {};
 	snprintf(ifr.ifr_name, IF_NAMESIZE, "%s", IFACE_NAME);
 	struct in_addr addr;
@@ -406,7 +406,7 @@ static bool netConfigureVs(struct nsjconf_t* nsjconf) {
 	return true;
 }
 
-bool initNsFromChild(struct nsjconf_t* nsjconf) {
+bool initNsFromChild(nsjconf_t* nsjconf) {
 	if (nsjconf->clone_newnet == false) {
 		return true;
 	}

@@ -28,7 +28,7 @@
 
 namespace config {
 
-bool parseFile(struct nsjconf_t* nsjconf, const char* file);
+bool parseFile(nsjconf_t* nsjconf, const char* file);
 
 }  // namespace config
 

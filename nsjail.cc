@@ -80,7 +80,7 @@ static bool nsjailSetSigHandlers(void) {
 	return true;
 }
 
-static bool nsjailSetTimer(struct nsjconf_t* nsjconf) {
+static bool nsjailSetTimer(nsjconf_t* nsjconf) {
 	if (nsjconf->mode == MODE_STANDALONE_EXECVE) {
 		return true;
 	}
@@ -104,7 +104,7 @@ static bool nsjailSetTimer(struct nsjconf_t* nsjconf) {
 	return true;
 }
 
-static void nsjailListenMode(struct nsjconf_t* nsjconf) {
+static void nsjailListenMode(nsjconf_t* nsjconf) {
 	int listenfd = net::getRecvSocket(nsjconf->bindhost, nsjconf->port);
 	if (listenfd == -1) {
 		return;
@@ -129,7 +129,7 @@ static void nsjailListenMode(struct nsjconf_t* nsjconf) {
 	}
 }
 
-static int nsjailStandaloneMode(struct nsjconf_t* nsjconf) {
+static int nsjailStandaloneMode(nsjconf_t* nsjconf) {
 	subproc::runChild(nsjconf, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
 	for (;;) {
 		int child_status = subproc::reapProc(nsjconf);
@@ -157,7 +157,7 @@ static int nsjailStandaloneMode(struct nsjconf_t* nsjconf) {
 }
 
 int main(int argc, char* argv[]) {
-	std::unique_ptr<struct nsjconf_t> nsjconf = cmdline::parseArgs(argc, argv);
+	std::unique_ptr<nsjconf_t> nsjconf = cmdline::parseArgs(argc, argv);
 	if (!nsjconf) {
 		LOG_F("Couldn't parse cmdline options");
 	}

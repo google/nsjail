@@ -94,8 +94,8 @@ caps.o: caps.h nsjail.h log.h macros.h util.h
 cgroup.o: cgroup.h nsjail.h log.h util.h
 cmdline.o: cmdline.h nsjail.h caps.h config.h log.h macros.h mnt.h sandbox.h
 cmdline.o: user.h util.h
-config.o: caps.h nsjail.h cmdline.h config.h log.h macros.h mnt.h user.h
-config.o: util.h
+config.o: caps.h nsjail.h cmdline.h config.h config.pb.h log.h macros.h mnt.h
+config.o: user.h util.h
 contain.o: contain.h nsjail.h caps.h cgroup.h cpu.h log.h mnt.h net.h pid.h
 contain.o: user.h uts.h
 cpu.o: cpu.h nsjail.h log.h util.h
@@ -110,3 +110,4 @@ subproc.o: sandbox.h user.h util.h
 uts.o: uts.h nsjail.h log.h
 user.o: user.h nsjail.h log.h macros.h subproc.h util.h
 util.o: util.h nsjail.h log.h macros.h
+config.pb.o: config.pb.h

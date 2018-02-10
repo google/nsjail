@@ -33,7 +33,7 @@
 
 namespace pid {
 
-bool initNs(struct nsjconf_t* nsjconf) {
+bool initNs(nsjconf_t* nsjconf) {
 	if (nsjconf->mode != MODE_STANDALONE_EXECVE) {
 		return true;
 	}

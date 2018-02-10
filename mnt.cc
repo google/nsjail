@@ -118,7 +118,7 @@ static bool isDir(const char* path) {
 	return false;
 }
 
-static bool mountPt(struct mount_t* mpt, const char* newroot, const char* tmpdir) {
+static bool mountPt(mount_t* mpt, const char* newroot, const char* tmpdir) {
 	char dst[PATH_MAX];
 	snprintf(dst, sizeof(dst), "%s/%s", newroot, mpt->dst.c_str());
 
@@ -224,7 +224,7 @@ static bool mountPt(struct mount_t* mpt, const char* newroot, const char* tmpdir
 	return true;
 }
 
-static bool remountRO(const struct mount_t& mpt) {
+static bool remountRO(const mount_t& mpt) {
 	if (!mpt.mounted) {
 		return true;
 	}
@@ -285,7 +285,7 @@ static bool mkdirAndTest(const char* dir) {
 	return true;
 }
 
-static bool getDir(struct nsjconf_t* nsjconf, char* dir, const char* name) {
+static bool getDir(nsjconf_t* nsjconf, char* dir, const char* name) {
 	snprintf(dir, PATH_MAX, "/run/user/%u/nsjail.%s", nsjconf->orig_uid, name);
 	if (mkdirAndTest(dir)) {
 		return true;
@@ -314,7 +314,7 @@ static bool getDir(struct nsjconf_t* nsjconf, char* dir, const char* name) {
 	return false;
 }
 
-static bool initNsInternal(struct nsjconf_t* nsjconf) {
+static bool initNsInternal(nsjconf_t* nsjconf) {
 	/*
 	 * If CLONE_NEWNS is not used, we would be changing the global mount namespace, so simply
 	 * use --chroot in this case
@@ -412,7 +412,7 @@ static bool initNsInternal(struct nsjconf_t* nsjconf) {
  * With mode MODE_STANDALONE_EXECVE it's required to mount /proc inside a new process,
  * as the current process is still in the original PID namespace (man pid_namespaces)
  */
-bool initNs(struct nsjconf_t* nsjconf) {
+bool initNs(nsjconf_t* nsjconf) {
 	if (nsjconf->mode != MODE_STANDALONE_EXECVE) {
 		return initNsInternal(nsjconf);
 	}
@@ -435,7 +435,7 @@ bool initNs(struct nsjconf_t* nsjconf) {
 	return false;
 }
 
-static bool addMountPt(struct mount_t* mnt, const char* src, const char* dst, const char* fstype,
+static bool addMountPt(mount_t* mnt, const char* src, const char* dst, const char* fstype,
     const char* options, uintptr_t flags, isDir_t isDir, bool mandatory, const char* src_env,
     const char* dst_env, const char* src_content, size_t src_content_len, bool is_symlink) {
 	if (src_env) {
@@ -503,10 +503,10 @@ static bool addMountPt(struct mount_t* mnt, const char* src, const char* dst, co
 	return true;
 }
 
-bool addMountPtHead(struct nsjconf_t* nsjconf, const char* src, const char* dst, const char* fstype,
+bool addMountPtHead(nsjconf_t* nsjconf, const char* src, const char* dst, const char* fstype,
     const char* options, uintptr_t flags, isDir_t isDir, bool mandatory, const char* src_env,
     const char* dst_env, const char* src_content, size_t src_content_len, bool is_symlink) {
-	struct mount_t mnt;
+	mount_t mnt;
 	if (!addMountPt(&mnt, src, dst, fstype, options, flags, isDir, mandatory, src_env, dst_env,
 		src_content, src_content_len, is_symlink)) {
 		return false;
@@ -515,10 +515,10 @@ bool addMountPtHead(struct nsjconf_t* nsjconf, const char* src, const char* dst,
 	return true;
 }
 
-bool addMountPtTail(struct nsjconf_t* nsjconf, const char* src, const char* dst, const char* fstype,
+bool addMountPtTail(nsjconf_t* nsjconf, const char* src, const char* dst, const char* fstype,
     const char* options, uintptr_t flags, isDir_t isDir, bool mandatory, const char* src_env,
     const char* dst_env, const char* src_content, size_t src_content_len, bool is_symlink) {
-	struct mount_t mnt;
+	mount_t mnt;
 	if (!addMountPt(&mnt, src, dst, fstype, options, flags, isDir, mandatory, src_env, dst_env,
 		src_content, src_content_len, is_symlink)) {
 		return false;
@@ -527,7 +527,7 @@ bool addMountPtTail(struct nsjconf_t* nsjconf, const char* src, const char* dst,
 	return true;
 }
 
-const char* describeMountPt(const struct mount_t& mpt) {
+const char* describeMountPt(const mount_t& mpt) {
 	static __thread char mount_pt_descr[4096];
 
 	snprintf(mount_pt_descr, sizeof(mount_pt_descr),

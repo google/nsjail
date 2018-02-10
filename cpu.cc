@@ -49,7 +49,7 @@ static void setRandomCpu(cpu_set_t* mask, size_t mask_size, size_t cpu_num) {
 	}
 }
 
-bool initCpu(struct nsjconf_t* nsjconf) {
+bool initCpu(nsjconf_t* nsjconf) {
 	if (nsjconf->num_cpus < 0) {
 		PLOG_W("sysconf(_SC_NPROCESSORS_ONLN) returned %ld", nsjconf->num_cpus);
 		return false;

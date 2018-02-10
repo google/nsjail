@@ -28,10 +28,10 @@
 
 namespace user {
 
-bool initNsFromParent(struct nsjconf_t* nsjconf, pid_t pid);
-bool initNsFromChild(struct nsjconf_t* nsjconf);
+bool initNsFromParent(nsjconf_t* nsjconf, pid_t pid);
+bool initNsFromChild(nsjconf_t* nsjconf);
 
-bool parseId(struct nsjconf_t* nsjconf, const char* i_id, const char* o_id, size_t cnt, bool is_gid,
+bool parseId(nsjconf_t* nsjconf, const char* i_id, const char* o_id, size_t cnt, bool is_gid,
     bool is_newidmap);
 
 }  // namespace user

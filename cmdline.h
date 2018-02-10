@@ -31,8 +31,8 @@
 namespace cmdline {
 
 uint64_t parseRLimit(int res, const char* optarg, unsigned long mul);
-void logParams(struct nsjconf_t* nsjconf);
-std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]);
+void logParams(nsjconf_t* nsjconf);
+std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]);
 
 }  // namespace cmdline
 

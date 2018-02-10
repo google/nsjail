@@ -198,7 +198,7 @@ static bool initNsKeepCaps(cap_user_data_t cap_data) {
 	return true;
 }
 
-bool initNs(struct nsjconf_t* nsjconf) {
+bool initNs(nsjconf_t* nsjconf) {
 	char dbgmsg[4096];
 	struct ints_t* p;
 

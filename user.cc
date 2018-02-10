@@ -96,13 +96,13 @@ static bool setGroups(pid_t pid) {
 	return true;
 }
 
-static bool uidMapSelf(struct nsjconf_t* nsjconf, pid_t pid) {
+static bool uidMapSelf(nsjconf_t* nsjconf, pid_t pid) {
 	char fname[PATH_MAX];
 	snprintf(fname, sizeof(fname), "/proc/%d/uid_map", pid);
 
 	char map[4096] = {[0] = '\0'};
 
-	struct idmap_t* p;
+	idmap_t* p;
 	for (const auto& uid : nsjconf->uids) {
 		if (uid.is_newidmap) {
 			continue;
@@ -124,13 +124,13 @@ static bool uidMapSelf(struct nsjconf_t* nsjconf, pid_t pid) {
 	return true;
 }
 
-static bool gidMapSelf(struct nsjconf_t* nsjconf, pid_t pid) {
+static bool gidMapSelf(nsjconf_t* nsjconf, pid_t pid) {
 	char fname[PATH_MAX];
 	snprintf(fname, sizeof(fname), "/proc/%d/gid_map", pid);
 
 	char map[4096] = {[0] = '\0'};
 
-	struct idmap_t* p;
+	idmap_t* p;
 	for (const auto& gid : nsjconf->gids) {
 		if (gid.is_newidmap) {
 			continue;
@@ -153,7 +153,7 @@ static bool gidMapSelf(struct nsjconf_t* nsjconf, pid_t pid) {
 }
 
 /* Use /usr/bin/newgidmap for writing the gid map */
-static bool gidMapExternal(struct nsjconf_t* nsjconf, pid_t pid UNUSED) {
+static bool gidMapExternal(nsjconf_t* nsjconf, pid_t pid UNUSED) {
 	size_t idx = 0;
 
 	const char* argv[1024];
@@ -165,7 +165,7 @@ static bool gidMapExternal(struct nsjconf_t* nsjconf, pid_t pid UNUSED) {
 	argv[idx] = parms[idx];
 	idx++;
 
-	struct idmap_t* p;
+	idmap_t* p;
 	bool use = false;
 	for (const auto& gid : nsjconf->gids) {
 		if (gid.is_newidmap == false) {
@@ -205,7 +205,7 @@ static bool gidMapExternal(struct nsjconf_t* nsjconf, pid_t pid UNUSED) {
 }
 
 /* Use /usr/bin/newuidmap for writing the uid map */
-static bool uidMapExternal(struct nsjconf_t* nsjconf, pid_t pid UNUSED) {
+static bool uidMapExternal(nsjconf_t* nsjconf, pid_t pid UNUSED) {
 	size_t idx = 0;
 
 	const char* argv[1024];
@@ -218,7 +218,7 @@ static bool uidMapExternal(struct nsjconf_t* nsjconf, pid_t pid UNUSED) {
 	idx++;
 
 	bool use = false;
-	struct idmap_t* p;
+	idmap_t* p;
 	for (const auto& uid : nsjconf->uids) {
 		if (uid.is_newidmap == false) {
 			continue;
@@ -256,7 +256,7 @@ static bool uidMapExternal(struct nsjconf_t* nsjconf, pid_t pid UNUSED) {
 	return true;
 }
 
-static bool uidGidMap(struct nsjconf_t* nsjconf, pid_t pid) {
+static bool uidGidMap(nsjconf_t* nsjconf, pid_t pid) {
 	if (!gidMapSelf(nsjconf, pid)) {
 		return false;
 	}
@@ -272,7 +272,7 @@ static bool uidGidMap(struct nsjconf_t* nsjconf, pid_t pid) {
 	return true;
 }
 
-bool initNsFromParent(struct nsjconf_t* nsjconf, pid_t pid) {
+bool initNsFromParent(nsjconf_t* nsjconf, pid_t pid) {
 	if (setGroups(pid) == false) {
 		return false;
 	}
@@ -285,7 +285,7 @@ bool initNsFromParent(struct nsjconf_t* nsjconf, pid_t pid) {
 	return true;
 }
 
-bool initNsFromChild(struct nsjconf_t* nsjconf) {
+bool initNsFromChild(nsjconf_t* nsjconf) {
 	/*
 	 * Best effort because of /proc/self/setgroups
 	 */
@@ -345,7 +345,7 @@ static gid_t parseGid(const char* id) {
 	return (gid_t)-1;
 }
 
-bool parseId(struct nsjconf_t* nsjconf, const char* i_id, const char* o_id, size_t cnt, bool is_gid,
+bool parseId(nsjconf_t* nsjconf, const char* i_id, const char* o_id, size_t cnt, bool is_gid,
     bool is_newidmap) {
 	uid_t inside_id;
 	uid_t outside_id;
@@ -374,7 +374,7 @@ bool parseId(struct nsjconf_t* nsjconf, const char* i_id, const char* o_id, size
 		}
 	}
 
-	struct idmap_t id;
+	idmap_t id;
 	id.inside_id = inside_id;
 	id.outside_id = outside_id;
 	id.count = cnt;

@@ -36,14 +36,14 @@ typedef enum {
 } isDir_t;
 
 const char* flagsToStr(uintptr_t flags);
-bool initNs(struct nsjconf_t* nsjconf);
-bool addMountPtHead(struct nsjconf_t* nsjconf, const char* src, const char* dst, const char* fstype,
+bool initNs(nsjconf_t* nsjconf);
+bool addMountPtHead(nsjconf_t* nsjconf, const char* src, const char* dst, const char* fstype,
     const char* options, uintptr_t flags, isDir_t isDir, bool mandatory, const char* src_env,
     const char* dst_env, const char* src_content, size_t src_content_len, bool is_symlink);
-bool addMountPtTail(struct nsjconf_t* nsjconf, const char* src, const char* dst, const char* fstype,
+bool addMountPtTail(nsjconf_t* nsjconf, const char* src, const char* dst, const char* fstype,
     const char* options, uintptr_t flags, isDir_t isDir, bool mandatory, const char* src_env,
     const char* dst_env, const char* src_content, size_t src_content_len, bool is_symlink);
-const char* describeMountPt(const struct mount_t& mpt);
+const char* describeMountPt(const mount_t& mpt);
 
 }  // namespace mnt
 

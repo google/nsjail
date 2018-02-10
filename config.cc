@@ -65,7 +65,7 @@ static uint64_t configRLimit(
 	abort();
 }
 
-static bool configParseInternal(struct nsjconf_t* nsjconf, const nsjail::NsJailConfig& njc) {
+static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& njc) {
 	switch (njc.mode()) {
 	case nsjail::Mode::LISTEN:
 		nsjconf->mode = MODE_LISTEN_TCP;
@@ -301,7 +301,7 @@ static void LogHandler(
 	LOG_W("config.cc: '%s'", message.c_str());
 }
 
-bool parseFile(struct nsjconf_t* nsjconf, const char* file) {
+bool parseFile(nsjconf_t* nsjconf, const char* file) {
 	LOG_I("Parsing configuration from '%s'", file);
 
 	int fd = open(file, O_RDONLY | O_CLOEXEC);

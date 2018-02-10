@@ -35,7 +35,7 @@
 
 namespace cgroup {
 
-static bool initNsFromParentMem(struct nsjconf_t* nsjconf, pid_t pid) {
+static bool initNsFromParentMem(nsjconf_t* nsjconf, pid_t pid) {
 	if (nsjconf->cgroup_mem_max == (size_t)0) {
 		return true;
 	}
@@ -81,7 +81,7 @@ static bool initNsFromParentMem(struct nsjconf_t* nsjconf, pid_t pid) {
 	return true;
 }
 
-static bool initNsFromParentPids(struct nsjconf_t* nsjconf, pid_t pid) {
+static bool initNsFromParentPids(nsjconf_t* nsjconf, pid_t pid) {
 	if (nsjconf->cgroup_pids_max == 0U) {
 		return true;
 	}
@@ -118,7 +118,7 @@ static bool initNsFromParentPids(struct nsjconf_t* nsjconf, pid_t pid) {
 	return true;
 }
 
-static bool initNsFromParentNetCls(struct nsjconf_t* nsjconf, pid_t pid) {
+static bool initNsFromParentNetCls(nsjconf_t* nsjconf, pid_t pid) {
 	if (nsjconf->cgroup_net_cls_classid == 0U) {
 		return true;
 	}
@@ -156,7 +156,7 @@ static bool initNsFromParentNetCls(struct nsjconf_t* nsjconf, pid_t pid) {
 	return true;
 }
 
-static bool initNsFromParentCpu(struct nsjconf_t* nsjconf, pid_t pid) {
+static bool initNsFromParentCpu(nsjconf_t* nsjconf, pid_t pid) {
 	if (nsjconf->cgroup_cpu_ms_per_sec == 0U) {
 		return true;
 	}
@@ -203,7 +203,7 @@ static bool initNsFromParentCpu(struct nsjconf_t* nsjconf, pid_t pid) {
 	return true;
 }
 
-bool initNsFromParent(struct nsjconf_t* nsjconf, pid_t pid) {
+bool initNsFromParent(nsjconf_t* nsjconf, pid_t pid) {
 	if (!initNsFromParentMem(nsjconf, pid)) {
 		return false;
 	}
@@ -219,7 +219,7 @@ bool initNsFromParent(struct nsjconf_t* nsjconf, pid_t pid) {
 	return true;
 }
 
-void finishFromParentMem(struct nsjconf_t* nsjconf, pid_t pid) {
+void finishFromParentMem(nsjconf_t* nsjconf, pid_t pid) {
 	if (nsjconf->cgroup_mem_max == (size_t)0) {
 		return;
 	}
@@ -233,7 +233,7 @@ void finishFromParentMem(struct nsjconf_t* nsjconf, pid_t pid) {
 	return;
 }
 
-void finishFromParentPids(struct nsjconf_t* nsjconf, pid_t pid) {
+void finishFromParentPids(nsjconf_t* nsjconf, pid_t pid) {
 	if (nsjconf->cgroup_pids_max == 0U) {
 		return;
 	}
@@ -247,7 +247,7 @@ void finishFromParentPids(struct nsjconf_t* nsjconf, pid_t pid) {
 	return;
 }
 
-void finishFromParentCpu(struct nsjconf_t* nsjconf, pid_t pid) {
+void finishFromParentCpu(nsjconf_t* nsjconf, pid_t pid) {
 	if (nsjconf->cgroup_cpu_ms_per_sec == 0U) {
 		return;
 	}
@@ -261,7 +261,7 @@ void finishFromParentCpu(struct nsjconf_t* nsjconf, pid_t pid) {
 	return;
 }
 
-void finishFromParentNetCls(struct nsjconf_t* nsjconf, pid_t pid) {
+void finishFromParentNetCls(nsjconf_t* nsjconf, pid_t pid) {
 	if (nsjconf->cgroup_net_cls_classid == 0U) {
 		return;
 	}
@@ -275,7 +275,7 @@ void finishFromParentNetCls(struct nsjconf_t* nsjconf, pid_t pid) {
 	return;
 }
 
-void finishFromParent(struct nsjconf_t* nsjconf, pid_t pid) {
+void finishFromParent(nsjconf_t* nsjconf, pid_t pid) {
 	finishFromParentMem(nsjconf, pid);
 	finishFromParentPids(nsjconf, pid);
 	finishFromParentNetCls(nsjconf, pid);

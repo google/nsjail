@@ -45,7 +45,7 @@
 
 namespace log {
 
-bool initLogFile(struct nsjconf_t* nsjconf);
+bool initLogFile(nsjconf_t* nsjconf);
 void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt, ...)
     __attribute__((format(printf, 5, 6)));
 void logStop(int sig);

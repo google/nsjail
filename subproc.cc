@@ -129,8 +129,7 @@ static bool resetEnv(void) {
 
 static const char kSubprocDoneChar = 'D';
 
-static int subprocNewProc(
-    struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err, int pipefd) {
+static int subprocNewProc(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err, int pipefd) {
 	if (contain::setupFD(nsjconf, fd_in, fd_out, fd_err) == false) {
 		_exit(0xff);
 	}
@@ -195,8 +194,8 @@ static int subprocNewProc(
 	_exit(0xff);
 }
 
-static void addProc(struct nsjconf_t* nsjconf, pid_t pid, int sock) {
-	struct pids_t p;
+static void addProc(nsjconf_t* nsjconf, pid_t pid, int sock) {
+	pids_t p;
 	p.pid = pid;
 	p.start = time(NULL);
 
@@ -213,7 +212,7 @@ static void addProc(struct nsjconf_t* nsjconf, pid_t pid, int sock) {
 	    (unsigned int)p.start, p.remote_txt);
 }
 
-static void removeProc(struct nsjconf_t* nsjconf, pid_t pid) {
+static void removeProc(nsjconf_t* nsjconf, pid_t pid) {
 	for (auto p = nsjconf->pids.begin(); p != nsjconf->pids.end(); ++p) {
 		if (p->pid == pid) {
 			LOG_D("Removing pid '%d' from the queue (IP:'%s', start time:'%s')", p->pid,
@@ -226,9 +225,9 @@ static void removeProc(struct nsjconf_t* nsjconf, pid_t pid) {
 	LOG_W("PID: %d not found (?)", pid);
 }
 
-int countProc(struct nsjconf_t* nsjconf) { return nsjconf->pids.size(); }
+int countProc(nsjconf_t* nsjconf) { return nsjconf->pids.size(); }
 
-void displayProc(struct nsjconf_t* nsjconf) {
+void displayProc(nsjconf_t* nsjconf) {
 	LOG_I("Total number of spawned namespaces: %d", countProc(nsjconf));
 	time_t now = time(NULL);
 	for (const auto& pid : nsjconf->pids) {
@@ -239,7 +238,7 @@ void displayProc(struct nsjconf_t* nsjconf) {
 	}
 }
 
-static const struct pids_t* getPidElem(struct nsjconf_t* nsjconf, pid_t pid) {
+static const pids_t* getPidElem(nsjconf_t* nsjconf, pid_t pid) {
 	for (const auto& p : nsjconf->pids) {
 		if (p.pid == pid) {
 			return &p;
@@ -248,10 +247,10 @@ static const struct pids_t* getPidElem(struct nsjconf_t* nsjconf, pid_t pid) {
 	return NULL;
 }
 
-static void seccompViolation(struct nsjconf_t* nsjconf, siginfo_t* si) {
+static void seccompViolation(nsjconf_t* nsjconf, siginfo_t* si) {
 	LOG_W("PID: %d commited a syscall/seccomp violation and exited with SIGSYS", si->si_pid);
 
-	const struct pids_t* p = getPidElem(nsjconf, si->si_pid);
+	const pids_t* p = getPidElem(nsjconf, si->si_pid);
 	if (p == NULL) {
 		LOG_W("PID:%d SiSyscall: %d, SiCode: %d, SiErrno: %d", (int)si->si_pid,
 		    si->si_syscall, si->si_code, si->si_errno);
@@ -287,7 +286,7 @@ static void seccompViolation(struct nsjconf_t* nsjconf, siginfo_t* si) {
 	}
 }
 
-int reapProc(struct nsjconf_t* nsjconf) {
+int reapProc(nsjconf_t* nsjconf) {
 	int status;
 	int rv = 0;
 	siginfo_t si;
@@ -308,7 +307,7 @@ int reapProc(struct nsjconf_t* nsjconf) {
 			cgroup::finishFromParent(nsjconf, si.si_pid);
 
 			const char* remote_txt = "[UNKNOWN]";
-			const struct pids_t* elem = getPidElem(nsjconf, si.si_pid);
+			const pids_t* elem = getPidElem(nsjconf, si.si_pid);
 			if (elem) {
 				remote_txt = elem->remote_txt;
 			}
@@ -357,13 +356,13 @@ int reapProc(struct nsjconf_t* nsjconf) {
 	return rv;
 }
 
-void killAll(struct nsjconf_t* nsjconf) {
+void killAll(nsjconf_t* nsjconf) {
 	for (const auto& p : nsjconf->pids) {
 		kill(p.pid, SIGKILL);
 	}
 }
 
-static bool initParent(struct nsjconf_t* nsjconf, pid_t pid, int pipefd) {
+static bool initParent(nsjconf_t* nsjconf, pid_t pid, int pipefd) {
 	if (net::initNsFromParent(nsjconf, pid) == false) {
 		LOG_E("Couldn't create and put MACVTAP interface into NS of PID '%d'", pid);
 		return false;
@@ -384,7 +383,7 @@ static bool initParent(struct nsjconf_t* nsjconf, pid_t pid, int pipefd) {
 	return true;
 }
 
-void runChild(struct nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
+void runChild(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
 	if (net::limitConns(nsjconf, fd_in) == false) {
 		return;
 	}

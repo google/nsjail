@@ -199,7 +199,7 @@ static void cmdlineUsage(const char* pname) {
 	LOG_HELP_BOLD("  nsjail -Me --chroot / --disable_proc -- /bin/echo \"ABC\"");
 }
 
-void logParams(struct nsjconf_t* nsjconf) {
+void logParams(nsjconf_t* nsjconf) {
 	switch (nsjconf->mode) {
 	case MODE_LISTEN_TCP:
 		LOG_I("Mode: LISTEN_TCP");
@@ -241,7 +241,7 @@ void logParams(struct nsjconf_t* nsjconf) {
 		}
 	}
 	{
-		struct idmap_t* p;
+		idmap_t* p;
 		for (const auto& uid : nsjconf->uids) {
 			LOG_I("Uid map: inside_uid:%lu outside_uid:%lu count:%zu newuidmap:%s",
 			    (unsigned long)uid.inside_id, (unsigned long)uid.outside_id, uid.count,
@@ -319,8 +319,8 @@ static char* cmdlineSplitStrByColon(char* spec) {
 	}
 }
 
-std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
-	std::unique_ptr<struct nsjconf_t> nsjconf = std::make_unique<struct nsjconf_t>();
+std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
+	std::unique_ptr<nsjconf_t> nsjconf = std::make_unique<nsjconf_t>();
 
 	nsjconf->exec_file = NULL;
 	nsjconf->use_execveat = false;
@@ -783,7 +783,7 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 	}
 
 	if (nsjconf->uids.empty()) {
-		struct idmap_t uid;
+		idmap_t uid;
 		uid.inside_id = getuid();
 		uid.outside_id = getuid();
 		uid.count = 1U;
@@ -791,7 +791,7 @@ std::unique_ptr<struct nsjconf_t> parseArgs(int argc, char* argv[]) {
 		nsjconf->uids.push_back(uid);
 	}
 	if (nsjconf->gids.empty()) {
-		struct idmap_t gid;
+		idmap_t gid;
 		gid.inside_id = getgid();
 		gid.outside_id = getgid();
 		gid.count = 1U;
