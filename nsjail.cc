@@ -30,8 +30,8 @@
 #include <unistd.h>
 
 #include "cmdline.h"
-#include "common.h"
 #include "log.h"
+#include "macros.h"
 #include "net.h"
 #include "subproc.h"
 #include "util.h"

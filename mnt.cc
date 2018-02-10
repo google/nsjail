@@ -41,8 +41,8 @@
 #include <syscall.h>
 #include <unistd.h>
 
-#include "common.h"
 #include "log.h"
+#include "macros.h"
 #include "subproc.h"
 #include "util.h"
 

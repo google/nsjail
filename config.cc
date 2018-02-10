@@ -35,10 +35,10 @@
 
 #include "caps.h"
 #include "cmdline.h"
-#include "common.h"
 #include "config.h"
 #include "config.pb.h"
 #include "log.h"
+#include "macros.h"
 #include "mnt.h"
 #include "user.h"
 #include "util.h"

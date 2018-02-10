@@ -43,9 +43,9 @@
 #include <unistd.h>
 
 #include "cgroup.h"
-#include "common.h"
 #include "contain.h"
 #include "log.h"
+#include "macros.h"
 #include "net.h"
 #include "sandbox.h"
 #include "user.h"

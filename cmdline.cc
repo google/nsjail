@@ -45,9 +45,9 @@
 #include <memory>
 
 #include "caps.h"
-#include "common.h"
 #include "config.h"
 #include "log.h"
+#include "macros.h"
 #include "mnt.h"
 #include "sandbox.h"
 #include "user.h"

@@ -36,17 +36,6 @@
 #include <string>
 #include <vector>
 
-#if !defined(TEMP_FAILURE_RETRY)
-#define TEMP_FAILURE_RETRY(expression)                     \
-	(__extension__({                                   \
-		long int __result;                         \
-		do                                         \
-			__result = (long int)(expression); \
-		while (__result == -1L && errno == EINTR); \
-		__result;                                  \
-	}))
-#endif /* !defined(TEMP_FAILURE_RETRY) */
-
 static const int nssigs[] = {
     SIGINT,
     SIGQUIT,
@@ -62,8 +51,6 @@ struct pids_t {
 	char remote_txt[64];
 	struct sockaddr_in6 remote_addr;
 	int pid_syscall_fd;
-	TAILQ_ENTRY(pids_t)
-	pointers;
 };
 
 struct mounts_t {
@@ -78,8 +65,7 @@ struct mounts_t {
 	bool isSymlink;
 	bool mandatory;
 	bool mounted;
-	TAILQ_ENTRY(mounts_t)
-	pointers;
+	TAILQ_ENTRY(mounts_t) pointers;
 };
 
 struct idmap_t {
@@ -87,8 +73,6 @@ struct idmap_t {
 	uid_t outside_id;
 	size_t count;
 	bool is_newidmap;
-	TAILQ_ENTRY(idmap_t)
-	pointers;
 };
 
 enum ns_mode_t {

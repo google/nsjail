@@ -90,23 +90,23 @@ indent:
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 
-caps.o: caps.h nsjail.h common.h log.h util.h
+caps.o: caps.h nsjail.h log.h macros.h util.h
 cgroup.o: cgroup.h nsjail.h log.h util.h
-cmdline.o: cmdline.h nsjail.h caps.h common.h config.h log.h mnt.h sandbox.h
+cmdline.o: cmdline.h nsjail.h caps.h config.h log.h macros.h mnt.h sandbox.h
 cmdline.o: user.h util.h
-config.o: caps.h nsjail.h cmdline.h common.h config.h log.h mnt.h user.h
+config.o: caps.h nsjail.h cmdline.h config.h log.h macros.h mnt.h user.h
 config.o: util.h
 contain.o: contain.h nsjail.h caps.h cgroup.h cpu.h log.h mnt.h net.h pid.h
 contain.o: user.h uts.h
 cpu.o: cpu.h nsjail.h log.h util.h
 log.o: log.h nsjail.h
-mnt.o: mnt.h nsjail.h common.h log.h subproc.h util.h
+mnt.o: mnt.h nsjail.h log.h macros.h subproc.h util.h
 net.o: net.h nsjail.h log.h subproc.h
-nsjail.o: nsjail.h cmdline.h common.h log.h net.h subproc.h util.h
+nsjail.o: nsjail.h cmdline.h log.h macros.h net.h subproc.h util.h
 pid.o: pid.h nsjail.h log.h subproc.h
 sandbox.o: sandbox.h nsjail.h kafel/include/kafel.h log.h
-subproc.o: subproc.h nsjail.h cgroup.h common.h contain.h log.h net.h
+subproc.o: subproc.h nsjail.h cgroup.h contain.h log.h macros.h net.h
 subproc.o: sandbox.h user.h util.h
 uts.o: uts.h nsjail.h log.h
-user.o: user.h nsjail.h common.h log.h subproc.h util.h
-util.o: util.h nsjail.h common.h log.h
+user.o: user.h nsjail.h log.h macros.h subproc.h util.h
+util.o: util.h nsjail.h log.h macros.h
