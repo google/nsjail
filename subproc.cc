@@ -43,7 +43,7 @@
 
 #include "cgroup.h"
 #include "contain.h"
-#include "log.h"
+#include "logs.h"
 #include "macros.h"
 #include "net.h"
 #include "sandbox.h"

@@ -41,7 +41,7 @@
 #include "caps.h"
 #include "cgroup.h"
 #include "cpu.h"
-#include "log.h"
+#include "logs.h"
 #include "mnt.h"
 #include "net.h"
 #include "pid.h"

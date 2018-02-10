@@ -35,6 +35,8 @@
 #include <string>
 #include <vector>
 
+#include "logs.h"
+
 static const int nssigs[] = {
     SIGINT,
     SIGQUIT,
@@ -79,16 +81,6 @@ enum ns_mode_t {
 	MODE_STANDALONE_RERUN
 };
 
-enum llevel_t {
-	DEBUG = 0,
-	INFO,
-	WARNING,
-	ERROR,
-	FATAL,
-	HELP,
-	HELP_BOLD,
-};
-
 struct nsjconf_t {
 	const char* exec_file;
 	bool use_execveat;
@@ -99,9 +91,8 @@ struct nsjconf_t {
 	std::string chroot;
 	int port;
 	const char* bindhost;
-	int log_fd;
 	std::string logfile;
-	enum llevel_t loglevel;
+	logs::llevel_t loglevel;
 	bool daemonize;
 	time_t tlimit;
 	size_t max_cpus;

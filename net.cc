@@ -39,7 +39,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "log.h"
+#include "logs.h"
 #include "subproc.h"
 
 extern char** environ;

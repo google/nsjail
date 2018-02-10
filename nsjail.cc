@@ -30,7 +30,7 @@
 #include <unistd.h>
 
 #include "cmdline.h"
-#include "log.h"
+#include "logs.h"
 #include "macros.h"
 #include "net.h"
 #include "subproc.h"
@@ -112,7 +112,7 @@ static void nsjailListenMode(nsjconf_t* nsjconf) {
 	for (;;) {
 		if (nsjailSigFatal > 0) {
 			subproc::killAll(nsjconf);
-			log::logStop(nsjailSigFatal);
+			logs::logStop(nsjailSigFatal);
 			close(listenfd);
 			return;
 		}
@@ -147,7 +147,7 @@ static int nsjailStandaloneMode(nsjconf_t* nsjconf) {
 		}
 		if (nsjailSigFatal > 0) {
 			subproc::killAll(nsjconf);
-			log::logStop(nsjailSigFatal);
+			logs::logStop(nsjailSigFatal);
 			return -1;
 		}
 

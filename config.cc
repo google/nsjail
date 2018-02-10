@@ -37,7 +37,7 @@
 #include "cmdline.h"
 #include "config.h"
 #include "config.pb.h"
-#include "log.h"
+#include "logs.h"
 #include "macros.h"
 #include "mnt.h"
 #include "user.h"
@@ -97,7 +97,7 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 	nsjconf->daemonize = njc.daemon();
 
 	if (njc.has_log_fd()) {
-		nsjconf->log_fd = njc.log_fd();
+		nsjconf->logfile = "/dev/fd/" + std::to_string(njc.log_fd());
 	}
 	if (njc.has_log_file()) {
 		nsjconf->logfile = njc.log_file();
@@ -105,28 +105,22 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 	if (njc.has_log_level()) {
 		switch (njc.log_level()) {
 		case nsjail::LogLevel::DEBUG:
-			nsjconf->loglevel = DEBUG;
+			nsjconf->loglevel = logs::DEBUG;
 			break;
 		case nsjail::LogLevel::INFO:
-			nsjconf->loglevel = INFO;
+			nsjconf->loglevel = logs::INFO;
 			break;
 		case nsjail::LogLevel::WARNING:
-			nsjconf->loglevel = WARNING;
+			nsjconf->loglevel = logs::WARNING;
 			break;
 		case nsjail::LogLevel::ERROR:
-			nsjconf->loglevel = ERROR;
+			nsjconf->loglevel = logs::ERROR;
 			break;
 		case nsjail::LogLevel::FATAL:
-			nsjconf->loglevel = FATAL;
+			nsjconf->loglevel = logs::FATAL;
 			break;
 		default:
 			LOG_E("Unknown log_level: %d", njc.log_level());
-			return false;
-		}
-	}
-
-	if (njc.has_log_fd() || njc.has_log_file() || njc.has_log_level()) {
-		if (log::initLogFile(nsjconf) == false) {
 			return false;
 		}
 	}

@@ -40,7 +40,7 @@
 #include <syscall.h>
 #include <unistd.h>
 
-#include "log.h"
+#include "logs.h"
 #include "macros.h"
 #include "subproc.h"
 #include "util.h"

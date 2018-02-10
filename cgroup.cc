@@ -30,7 +30,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "log.h"
+#include "logs.h"
 #include "util.h"
 
 namespace cgroup {

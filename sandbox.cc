@@ -29,7 +29,7 @@
 extern "C" {
 #include "kafel.h"
 }
-#include "log.h"
+#include "logs.h"
 
 namespace sandbox {
 

@@ -19,7 +19,7 @@
 
 */
 
-#include "log.h"
+#include "logs.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -37,13 +37,13 @@
 
 #include "nsjail.h"
 
-namespace log {
+#include <string.h>
+
+namespace logs {
 
 static int log_fd = STDERR_FILENO;
 static bool log_fd_isatty = true;
 static enum llevel_t log_level = INFO;
-
-#define _LOG_DEFAULT_FILE "/var/log/nsjail.log"
 
 __attribute__((constructor)) static void log_init(void) { log_fd_isatty = isatty(log_fd); }
 
@@ -51,25 +51,21 @@ __attribute__((constructor)) static void log_init(void) { log_fd_isatty = isatty
  * Log to stderr by default. Use a dup()d fd, because in the future we'll associate the
  * connection socket with fd (0, 1, 2).
  */
-bool initLogFile(nsjconf_t* nsjconf) {
+bool initLog(const std::string& logfile, llevel_t level) {
 	/* Close previous log_fd */
 	if (log_fd > STDERR_FILENO) {
 		close(log_fd);
 		log_fd = STDERR_FILENO;
 	}
-	log_fd = nsjconf->log_fd;
-	log_level = nsjconf->loglevel;
-
-	if (nsjconf->logfile.empty() && nsjconf->daemonize) {
-		nsjconf->logfile = _LOG_DEFAULT_FILE;
-	}
-	if (nsjconf->logfile.empty()) {
+	log_level = level;
+	if (logfile.empty()) {
 		log_fd = fcntl(log_fd, F_DUPFD_CLOEXEC, 0);
 	} else {
-		if (TEMP_FAILURE_RETRY(log_fd = open(nsjconf->logfile.c_str(),
+		if (TEMP_FAILURE_RETRY(log_fd = open(logfile.c_str(),
 					   O_CREAT | O_RDWR | O_APPEND | O_CLOEXEC, 0640)) == -1) {
 			log_fd = STDERR_FILENO;
-			PLOG_E("Couldn't open logfile open('%s')", nsjconf->logfile.c_str());
+			log_fd_isatty = (isatty(log_fd) == 1 ? true : false);
+			PLOG_E("Couldn't open logfile open('%s')", logfile.c_str());
 			return false;
 		}
 	}
@@ -141,4 +137,4 @@ void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt
 
 void logStop(int sig) { LOG_I("Server stops due to fatal signal (%d) caught. Exiting", sig); }
 
-}  // namespace log
+}  // namespace logs

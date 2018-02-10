@@ -46,7 +46,7 @@
 
 #include "caps.h"
 #include "config.h"
-#include "log.h"
+#include "logs.h"
 #include "macros.h"
 #include "mnt.h"
 #include "sandbox.h"
@@ -54,6 +54,8 @@
 #include "util.h"
 
 namespace cmdline {
+
+#define _LOG_DEFAULT_FILE "/var/log/nsjail.log"
 
 struct custom_option {
 	struct option opt;
@@ -330,8 +332,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->cwd = "/";
 	nsjconf->port = 0;
 	nsjconf->bindhost = "::";
-	nsjconf->log_fd = STDERR_FILENO;
-	nsjconf->loglevel = INFO;
+	nsjconf->loglevel = logs::INFO;
 	nsjconf->daemonize = false;
 	nsjconf->tlimit = 0;
 	nsjconf->max_cpus = 0;
@@ -439,36 +440,21 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			break;
 		case 'l':
 			nsjconf->logfile = optarg;
-			if (!log::initLogFile(nsjconf.get())) {
-				return nullptr;
-			}
 			break;
 		case 'L':
-			nsjconf->log_fd = strtol(optarg, NULL, 0);
-			if (log::initLogFile(nsjconf.get()) == false) {
-				return nullptr;
-			}
+			nsjconf->logfile = "/dev/fd/" + std::to_string(strtol(optarg, NULL, 0));
 			break;
 		case 'd':
 			nsjconf->daemonize = true;
 			break;
 		case 'v':
-			nsjconf->loglevel = DEBUG;
-			if (log::initLogFile(nsjconf.get()) == false) {
-				return nullptr;
-			}
+			nsjconf->loglevel = logs::DEBUG;
 			break;
 		case 'q':
-			nsjconf->loglevel = WARNING;
-			if (log::initLogFile(nsjconf.get()) == false) {
-				return nullptr;
-			}
+			nsjconf->loglevel = logs::WARNING;
 			break;
 		case 'Q':
-			nsjconf->loglevel = FATAL;
-			if (log::initLogFile(nsjconf.get()) == false) {
-				return nullptr;
-			}
+			nsjconf->loglevel = logs::FATAL;
 			break;
 		case 'e':
 			nsjconf->keep_env = true;
@@ -756,6 +742,13 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 		}
 	}
 
+	if (nsjconf->daemonize && nsjconf->logfile.empty()) {
+		nsjconf->logfile = _LOG_DEFAULT_FILE;
+	}
+	if (!logs::initLog(nsjconf->logfile, nsjconf->loglevel)) {
+		return nullptr;
+	}
+
 	if (nsjconf->mount_proc) {
 		if (!mnt::addMountPtTail(nsjconf.get(), /* src= */ NULL, nsjconf->proc_path, "proc",
 			"", nsjconf->is_proc_rw ? 0 : MS_RDONLY, /* isDir= */ mnt::NS_DIR_YES,
@@ -797,10 +790,6 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 		gid.count = 1U;
 		gid.is_newidmap = false;
 		nsjconf->gids.push_back(gid);
-	}
-
-	if (log::initLogFile(nsjconf.get()) == false) {
-		return nullptr;
 	}
 
 	if (argv[optind]) {

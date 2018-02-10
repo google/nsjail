@@ -28,7 +28,7 @@
 #include <sys/prctl.h>
 #include <unistd.h>
 
-#include "log.h"
+#include "logs.h"
 #include "subproc.h"
 
 namespace pid {
