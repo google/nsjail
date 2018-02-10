@@ -165,9 +165,8 @@ static int subprocNewProc(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err,
 		putenv(const_cast<char*>(env.c_str()));
 	}
 
-	char cs_addr[64];
-	net::connToText(fd_in, true /* remote */, cs_addr, sizeof(cs_addr), NULL);
-	LOG_I("Executing '%s' for '%s'", nsjconf->exec_file, cs_addr);
+	auto connstr = net::connToText(fd_in, /* remote= */ true, NULL);
+	LOG_I("Executing '%s' for '%s'", nsjconf->exec_file, connstr.c_str());
 
 	for (size_t i = 0; nsjconf->argv[i]; i++) {
 		LOG_D(" Arg[%zu]: '%s'", i, nsjconf->argv[i]);
@@ -196,11 +195,10 @@ static int subprocNewProc(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err,
 
 static void addProc(nsjconf_t* nsjconf, pid_t pid, int sock) {
 	pids_t p;
+
 	p.pid = pid;
 	p.start = time(NULL);
-
-	net::connToText(
-	    sock, true /* remote */, p.remote_txt, sizeof(p.remote_txt), &p.remote_addr);
+	p.remote_txt = net::connToText(sock, /* remote= */ true, &p.remote_addr);
 
 	char fname[PATH_MAX];
 	snprintf(fname, sizeof(fname), "/proc/%d/syscall", (int)pid);
@@ -209,14 +207,14 @@ static void addProc(nsjconf_t* nsjconf, pid_t pid, int sock) {
 	nsjconf->pids.push_back(p);
 
 	LOG_D("Added pid '%d' with start time '%u' to the queue for IP: '%s'", p.pid,
-	    (unsigned int)p.start, p.remote_txt);
+	    (unsigned int)p.start, p.remote_txt.c_str());
 }
 
 static void removeProc(nsjconf_t* nsjconf, pid_t pid) {
 	for (auto p = nsjconf->pids.begin(); p != nsjconf->pids.end(); ++p) {
 		if (p->pid == pid) {
 			LOG_D("Removing pid '%d' from the queue (IP:'%s', start time:'%s')", p->pid,
-			    p->remote_txt, util::timeToStr(p->start).c_str());
+			    p->remote_txt.c_str(), util::timeToStr(p->start).c_str());
 			close(p->pid_syscall_fd);
 			nsjconf->pids.erase(p);
 			return;
@@ -236,7 +234,7 @@ void displayProc(nsjconf_t* nsjconf) {
 		time_t diff = now - pid.start;
 		time_t left = nsjconf->tlimit ? nsjconf->tlimit - diff : 0;
 		LOG_I("PID: %d, Remote host: %s, Run time: %ld sec. (time left: %ld sec.)", pid.pid,
-		    pid.remote_txt, (long)diff, (long)left);
+		    pid.remote_txt.c_str(), (long)diff, (long)left);
 	}
 }
 
@@ -308,7 +306,7 @@ int reapProc(nsjconf_t* nsjconf) {
 		if (wait4(si.si_pid, &status, WNOHANG, NULL) == si.si_pid) {
 			cgroup::finishFromParent(nsjconf, si.si_pid);
 
-			const char* remote_txt = "[UNKNOWN]";
+			std::string remote_txt = "[UNKNOWN]";
 			const pids_t* elem = getPidElem(nsjconf, si.si_pid);
 			if (elem) {
 				remote_txt = elem->remote_txt;
@@ -316,7 +314,7 @@ int reapProc(nsjconf_t* nsjconf) {
 
 			if (WIFEXITED(status)) {
 				LOG_I("PID: %d (%s) exited with status: %d, (PIDs left: %d)",
-				    si.si_pid, remote_txt, WEXITSTATUS(status),
+				    si.si_pid, remote_txt.c_str(), WEXITSTATUS(status),
 				    countProc(nsjconf) - 1);
 				removeProc(nsjconf, si.si_pid);
 				rv = WEXITSTATUS(status) % 100;
@@ -327,7 +325,7 @@ int reapProc(nsjconf_t* nsjconf) {
 			if (WIFSIGNALED(status)) {
 				LOG_I(
 				    "PID: %d (%s) terminated with signal: %s (%d), (PIDs left: %d)",
-				    si.si_pid, remote_txt, util::sigName(WTERMSIG(status)).c_str(),
+				    si.si_pid, remote_txt.c_str(), util::sigName(WTERMSIG(status)).c_str(),
 				    WTERMSIG(status), countProc(nsjconf) - 1);
 				removeProc(nsjconf, si.si_pid);
 				rv = 100 + WTERMSIG(status);
@@ -344,7 +342,7 @@ int reapProc(nsjconf_t* nsjconf) {
 		time_t diff = now - p.start;
 		if (diff >= nsjconf->tlimit) {
 			LOG_I("PID: %d run time >= time limit (%ld >= %ld) (%s). Killing it", pid,
-			    (long)diff, (long)nsjconf->tlimit, p.remote_txt);
+			    (long)diff, (long)nsjconf->tlimit, p.remote_txt.c_str());
 			/*
 			 * Probably a kernel bug - some processes cannot be killed with KILL if
 			 * they're namespaced, and in a stopped state
@@ -447,8 +445,6 @@ void runChild(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
 	}
 
 	close(parent_fd);
-	char cs_addr[64];
-	net::connToText(fd_in, true /* remote */, cs_addr, sizeof(cs_addr), NULL);
 }
 
 /*

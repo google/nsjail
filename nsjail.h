@@ -49,7 +49,7 @@ static const int nssigs[] = {
 struct pids_t {
 	pid_t pid;
 	time_t start;
-	char remote_txt[64];
+	std::string remote_txt;
 	struct sockaddr_in6 remote_addr;
 	int pid_syscall_fd;
 };

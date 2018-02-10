@@ -25,6 +25,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#include <string>
+
 #include "nsjail.h"
 
 namespace net {
@@ -32,7 +34,7 @@ namespace net {
 bool limitConns(nsjconf_t* nsjconf, int connsock);
 int getRecvSocket(const char* bindhost, int port);
 int acceptConn(int listenfd);
-void connToText(int fd, bool remote, char* buf, size_t s, struct sockaddr_in6* addr_or_null);
+const std::string connToText(int fd, bool remote, struct sockaddr_in6* addr_or_null);
 bool initNsFromParent(nsjconf_t* nsjconf, int pid);
 bool initNsFromChild(nsjconf_t* nsjconf);
 

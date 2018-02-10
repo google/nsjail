@@ -39,6 +39,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <string>
+
 #include "logs.h"
 #include "subproc.h"
 
@@ -161,8 +163,7 @@ bool limitConns(nsjconf_t* nsjconf, int connsock) {
 	}
 
 	struct sockaddr_in6 addr;
-	char cs_addr[64];
-	connToText(connsock, true /* remote */, cs_addr, sizeof(cs_addr), &addr);
+	auto connstr = connToText(connsock, true /* remote */, &addr);
 
 	unsigned cnt = 0;
 	for (const auto& pid : nsjconf->pids) {
@@ -172,7 +173,7 @@ bool limitConns(nsjconf_t* nsjconf, int connsock) {
 		}
 	}
 	if (cnt >= nsjconf->max_conns_per_ip) {
-		LOG_W("Rejecting connection from '%s', max_conns_per_ip limit reached: %u", cs_addr,
+		LOG_W("Rejecting connection from '%s', max_conns_per_ip limit reached: %u", connstr.c_str(),
 		    nsjconf->max_conns_per_ip);
 		return false;
 	}
@@ -231,9 +232,8 @@ int getRecvSocket(const char* bindhost, int port) {
 		return -1;
 	}
 
-	char ss_addr[64];
-	connToText(sockfd, false /* remote */, ss_addr, sizeof(ss_addr), NULL);
-	LOG_I("Listening on %s", ss_addr);
+	auto connstr = connToText(sockfd, false /* remote */, NULL);
+	LOG_I("Listening on %s", connstr.c_str());
 
 	return sockfd;
 }
@@ -249,18 +249,18 @@ int acceptConn(int listenfd) {
 		return -1;
 	}
 
-	char cs_addr[64], ss_addr[64];
-	connToText(connfd, true /* remote */, cs_addr, sizeof(cs_addr), NULL);
-	connToText(connfd, false /* remote */, ss_addr, sizeof(ss_addr), NULL);
-	LOG_I("New connection from: %s on: %s", cs_addr, ss_addr);
+	auto connremotestr = connToText(connfd, true /* remote */, NULL);
+	auto connlocalstr = connToText(connfd, false /* remote */, NULL);
+	LOG_I("New connection from: %s on: %s", connremotestr.c_str(), connlocalstr.c_str());
 
 	return connfd;
 }
 
-void connToText(int fd, bool remote, char* buf, size_t s, struct sockaddr_in6* addr_or_null) {
-	if (isSocket(fd) == false) {
-		snprintf(buf, s, "[STANDALONE_MODE]");
-		return;
+const std::string connToText(int fd, bool remote, struct sockaddr_in6* addr_or_null) {
+	std::string res;
+
+	if (!isSocket(fd)) {
+		return "[STANDALONE MODE]";
 	}
 
 	struct sockaddr_in6 addr;
@@ -268,14 +268,12 @@ void connToText(int fd, bool remote, char* buf, size_t s, struct sockaddr_in6* a
 	if (remote) {
 		if (getpeername(fd, (struct sockaddr*)&addr, &addrlen) == -1) {
 			PLOG_W("getpeername(%d)", fd);
-			snprintf(buf, s, "[unknown]");
-			return;
+			return "[unknown]";
 		}
 	} else {
 		if (getsockname(fd, (struct sockaddr*)&addr, &addrlen) == -1) {
 			PLOG_W("getsockname(%d)", fd);
-			snprintf(buf, s, "[unknown]");
-			return;
+			return "[unknown]";
 		}
 	}
 
@@ -283,14 +281,17 @@ void connToText(int fd, bool remote, char* buf, size_t s, struct sockaddr_in6* a
 		memcpy(addr_or_null, &addr, sizeof(*addr_or_null));
 	}
 
-	char tmp[s];
-	if (inet_ntop(AF_INET6, addr.sin6_addr.s6_addr, tmp, s) == NULL) {
+	char addrstr[128];
+	if (!inet_ntop(AF_INET6, addr.sin6_addr.s6_addr, addrstr, sizeof(addrstr))) {
 		PLOG_W("inet_ntop()");
-		snprintf(buf, s, "[unknown]:%hu", ntohs(addr.sin6_port));
-		return;
+		snprintf(addrstr, sizeof(addrstr), "[unknown](%s)", strerror(errno));
 	}
-	snprintf(buf, s, "[%s]:%hu", tmp, ntohs(addr.sin6_port));
-	return;
+
+	res.append("[");
+	res.append(addrstr);
+	res.append("]:");
+	res.append(std::to_string(ntohs(addr.sin6_port)));
+	return res;
 }
 
 static bool ifaceUp(const char* ifacename) {
