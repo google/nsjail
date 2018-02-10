@@ -47,50 +47,15 @@
 
 namespace util {
 
-void* memAlloc(size_t sz) {
-	void* ret = malloc(sz);
-	if (ret == NULL) {
-		LOG_F("malloc(sz=%zu) failed", sz);
-	}
-	return ret;
-}
-
-void* clearAlloc(size_t sz) {
-	void* r = malloc(sz);
-	memset(r, '\0', sz);
-	return r;
-}
-
-char* strDup(const char* str) {
-	if (str == NULL) {
-		return NULL;
-	}
-	char* ret = strdup(str);
-	if (ret == NULL) {
-		LOG_E("Cannot allocate memory for strdup(sz=%zu)", strlen(str));
-	}
-	return ret;
-}
-
-uint8_t* memDup(const uint8_t* src, size_t len) {
-	if (src == NULL) {
-		return NULL;
-	}
-	uint8_t* ret = reinterpret_cast<uint8_t*>(malloc(len));
-	memcpy(ret, src, len);
-	return ret;
-}
-
 ssize_t readFromFd(int fd, void* buf, size_t len) {
 	uint8_t* charbuf = (uint8_t*)buf;
 
 	size_t readSz = 0;
 	while (readSz < len) {
-		ssize_t sz = read(fd, &charbuf[readSz], len - readSz);
-		if (sz < 0 && errno == EINTR) continue;
-
-		if (sz <= 0) break;
-
+		ssize_t sz = TEMP_FAILURE_RETRY(read(fd, &charbuf[readSz], len - readSz));
+		if (sz <= 0) {
+			break;
+		}
 		readSz += sz;
 	}
 	return readSz;
@@ -113,11 +78,10 @@ ssize_t writeToFd(int fd, const void* buf, size_t len) {
 
 	size_t writtenSz = 0;
 	while (writtenSz < len) {
-		ssize_t sz = write(fd, &charbuf[writtenSz], len - writtenSz);
-		if (sz < 0 && errno == EINTR) continue;
-
-		if (sz < 0) return false;
-
+		ssize_t sz = TEMP_FAILURE_RETRY(write(fd, &charbuf[writtenSz], len - writtenSz));
+		if (sz < 0) {
+			return false;
+		}
 		writtenSz += sz;
 	}
 	return true;

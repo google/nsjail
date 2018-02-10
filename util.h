@@ -32,10 +32,6 @@
 
 namespace util {
 
-void* memAlloc(size_t sz);
-void* clearAlloc(size_t sz);
-char* strDup(const char* str);
-uint8_t* memDup(const uint8_t* src, size_t len);
 ssize_t readFromFd(int fd, void* buf, size_t len);
 ssize_t readFromFile(const char* fname, void* buf, size_t len);
 ssize_t writeToFd(int fd, const void* buf, size_t len);

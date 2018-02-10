@@ -246,6 +246,7 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 	}
 	for (ssize_t i = 0; i < njc.seccomp_string().size(); i++) {
 		nsjconf->kafel_string += njc.seccomp_string(i);
+		nsjconf->kafel_string += '\n';
 	}
 
 	nsjconf->cgroup_mem_max = njc.cgroup_mem_max();

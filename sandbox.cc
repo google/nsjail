@@ -72,8 +72,10 @@ bool preparePolicy(nsjconf_t* nsjconf) {
 	kafel_ctxt_t ctxt = kafel_ctxt_create();
 
 	if (f) {
+		LOG_D("Compiling seccomp policy from file: '%s'", nsjconf->kafel_file_path.c_str());
 		kafel_set_input_file(ctxt, f);
 	} else if (!nsjconf->kafel_string.empty()) {
+		LOG_D("Compiling seccomp policy from string: '%s'", nsjconf->kafel_string.c_str());
 		kafel_set_input_string(ctxt, nsjconf->kafel_string.c_str());
 	} else {
 		LOG_F(
