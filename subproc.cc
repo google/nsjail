@@ -41,6 +41,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <string>
+
 #include "cgroup.h"
 #include "contain.h"
 #include "logs.h"
@@ -56,9 +58,8 @@ namespace subproc {
 #define CLONE_NEWCGROUP 0x02000000
 #endif /* !defined(CLONE_NEWCGROUP) */
 
-static const char* cloneFlagsToStr(uintptr_t flags) {
-	static __thread char cloneFlagName[1024];
-	cloneFlagName[0] = '\0';
+static const std::string cloneFlagsToStr(uintptr_t flags) {
+	std::string res;
 
 	static struct {
 		const uintptr_t flag;
@@ -89,23 +90,22 @@ static const char* cloneFlagsToStr(uintptr_t flags) {
 	    NS_VALSTR_STRUCT(CLONE_IO),
 	};
 
-	for (size_t i = 0; i < ARRAYSIZE(cloneFlags); i++) {
-		if (flags & cloneFlags[i].flag) {
-			util::sSnPrintf(
-			    cloneFlagName, sizeof(cloneFlagName), "%s|", cloneFlags[i].name);
-		}
-	}
-
 	uintptr_t knownFlagMask = CSIGNAL;
 	for (size_t i = 0; i < ARRAYSIZE(cloneFlags); i++) {
+		if (flags & cloneFlags[i].flag) {
+			res.append(cloneFlags[i].name);
+			res.append("|");
+		}
 		knownFlagMask |= cloneFlags[i].flag;
 	}
+
 	if (flags & ~(knownFlagMask)) {
-		util::sSnPrintf(
-		    cloneFlagName, sizeof(cloneFlagName), "%#tx|", flags & ~(knownFlagMask));
+		char flagstr[32];
+		snprintf(flagstr, sizeof(flagstr), "%#tx|", flags & ~(knownFlagMask));
+		res.append(flagstr);
 	}
-	util::sSnPrintf(cloneFlagName, sizeof(cloneFlagName), "%s", util::sigName(flags & CSIGNAL));
-	return cloneFlagName;
+	res.append(util::sigName(flags & CSIGNAL).c_str());
+	return res;
 }
 
 /* Reset the execution environment for the new process */
@@ -113,7 +113,7 @@ static bool resetEnv(void) {
 	/* Set all previously changed signals to their default behavior */
 	for (size_t i = 0; i < ARRAYSIZE(nssigs); i++) {
 		if (signal(nssigs[i], SIG_DFL) == SIG_ERR) {
-			PLOG_W("signal(%s, SIG_DFL)", util::sigName(nssigs[i]));
+			PLOG_W("signal(%s, SIG_DFL)", util::sigName(nssigs[i]).c_str());
 			return false;
 		}
 	}
@@ -216,7 +216,7 @@ static void removeProc(nsjconf_t* nsjconf, pid_t pid) {
 	for (auto p = nsjconf->pids.begin(); p != nsjconf->pids.end(); ++p) {
 		if (p->pid == pid) {
 			LOG_D("Removing pid '%d' from the queue (IP:'%s', start time:'%s')", p->pid,
-			    p->remote_txt, util::timeToStr(p->start));
+			    p->remote_txt, util::timeToStr(p->start).c_str());
 			close(p->pid_syscall_fd);
 			nsjconf->pids.erase(p);
 			return;
@@ -327,7 +327,7 @@ int reapProc(nsjconf_t* nsjconf) {
 			if (WIFSIGNALED(status)) {
 				LOG_I(
 				    "PID: %d (%s) terminated with signal: %s (%d), (PIDs left: %d)",
-				    si.si_pid, remote_txt, util::sigName(WTERMSIG(status)),
+				    si.si_pid, remote_txt, util::sigName(WTERMSIG(status)).c_str(),
 				    WTERMSIG(status), countProc(nsjconf) - 1);
 				removeProc(nsjconf, si.si_pid);
 				rv = 100 + WTERMSIG(status);
@@ -399,16 +399,16 @@ void runChild(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
 	flags |= (nsjconf->clone_newcgroup ? CLONE_NEWCGROUP : 0);
 
 	if (nsjconf->mode == MODE_STANDALONE_EXECVE) {
-		LOG_D("Entering namespace with flags:%s", cloneFlagsToStr(flags));
+		LOG_D("Entering namespace with flags:%s", cloneFlagsToStr(flags).c_str());
 		if (unshare(flags) == -1) {
-			PLOG_E("unshare(%s)", cloneFlagsToStr(flags));
+			PLOG_E("unshare(%s)", cloneFlagsToStr(flags).c_str());
 			_exit(0xff);
 		}
 		subprocNewProc(nsjconf, fd_in, fd_out, fd_err, -1);
 	}
 
 	flags |= SIGCHLD;
-	LOG_D("Creating new process with clone flags:%s", cloneFlagsToStr(flags));
+	LOG_D("Creating new process with clone flags:%s", cloneFlagsToStr(flags).c_str());
 
 	int sv[2];
 	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, sv) == -1) {
@@ -435,7 +435,7 @@ void runChild(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
 		    "doesn't support CLONE_NEWUSER. Alternatively, you might want to recompile "
 		    "your kernel with support for namespaces or check the setting of the "
 		    "kernel.unprivileged_userns_clone sysctl",
-		    cloneFlagsToStr(flags));
+		    cloneFlagsToStr(flags).c_str());
 		close(parent_fd);
 		return;
 	}
@@ -476,7 +476,7 @@ pid_t cloneProc(uintptr_t flags) {
 	}
 
 	if (setjmp(env) == 0) {
-		LOG_D("Cloning process with flags:%s", cloneFlagsToStr(flags));
+		LOG_D("Cloning process with flags:%s", cloneFlagsToStr(flags).c_str());
 		/*
 		 * Avoid the problem of the stack growing up/down under different CPU architectures,
 		 * by using middle of the static stack buffer (which is temporary, and used only
@@ -547,7 +547,7 @@ int systemExe(const char** argv, char** env) {
 		if (WIFSIGNALED(status)) {
 			int exit_signal = WTERMSIG(status);
 			LOG_W("PID %d killed by signal: %d (%s)", pid, exit_signal,
-			    util::sigName(exit_signal));
+			    util::sigName(exit_signal).c_str());
 			return 2;
 		}
 		LOG_W("Unknown exit status: %d", status);

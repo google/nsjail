@@ -26,6 +26,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include <string>
+
 #include "nsjail.h"
 
 namespace util {
@@ -42,8 +44,8 @@ bool createDirRecursively(const char* dir);
 int sSnPrintf(char* str, size_t size, const char* format, ...);
 bool isANumber(const char* s);
 uint64_t rnd64(void);
-const char* sigName(int signo);
-const char* timeToStr(time_t t);
+const std::string sigName(int signo);
+const std::string timeToStr(time_t t);
 
 }  // namespace util
 

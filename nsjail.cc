@@ -54,7 +54,7 @@ static void nsjailSig(int sig) {
 }
 
 static bool nsjailSetSigHandler(int sig) {
-	LOG_D("Setting sighandler for signal %s (%d)", util::sigName(sig), sig);
+	LOG_D("Setting sighandler for signal %s (%d)", util::sigName(sig).c_str(), sig);
 
 	sigset_t smask;
 	sigemptyset(&smask);

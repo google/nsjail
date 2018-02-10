@@ -28,6 +28,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <string>
+
 #include "logs.h"
 #include "macros.h"
 #include "util.h"
@@ -90,17 +92,18 @@ int nameToVal(const char* name) {
 	return -1;
 }
 
-static const char* valToStr(int val) {
-	static __thread char capsStr[1024];
+static const std::string capToStr(int val) {
+	std::string res;
 	for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
 		if (val == capNames[i].val) {
-			snprintf(capsStr, sizeof(capsStr), "%s", capNames[i].name);
-			return capsStr;
+			return capNames[i].name;
 		}
 	}
 
-	snprintf(capsStr, sizeof(capsStr), "CAP_UNKNOWN(%d)", val);
-	return capsStr;
+	res.append("CAP_UNKNOWN(");
+	res.append(std::to_string(val));
+	res.append(")");
+	return res;
 }
 
 static cap_user_data_t getCaps() {
@@ -226,10 +229,11 @@ bool initNs(nsjconf_t* nsjconf) {
 	dbgmsg[0] = '\0';
 	for (const auto& cap : nsjconf->caps) {
 		if (getPermitted(cap_data, cap) == false) {
-			LOG_W("Capability %s is not permitted in the namespace", valToStr(cap));
+			LOG_W("Capability %s is not permitted in the namespace",
+			    capToStr(cap).c_str());
 			return false;
 		}
-		util::sSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", valToStr(cap));
+		util::sSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capToStr(cap).c_str());
 		setInheritable(cap_data, cap);
 	}
 	LOG_D("Adding the following capabilities to the inheritable set:%s", dbgmsg);
@@ -263,9 +267,10 @@ bool initNs(nsjconf_t* nsjconf) {
 	for (const auto& cap : nsjconf->caps) {
 		if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)cap, 0UL, 0UL) ==
 		    -1) {
-			PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s)", valToStr(cap));
+			PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s)",
+			    capToStr(cap).c_str());
 		} else {
-			util::sSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", valToStr(cap));
+			util::sSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capToStr(cap).c_str());
 		}
 	}
 	LOG_D("Added the following capabilities to the ambient set:%s", dbgmsg);

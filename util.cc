@@ -40,6 +40,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <string>
+
 #include "logs.h"
 #include "macros.h"
 
@@ -244,9 +246,8 @@ uint64_t rnd64(void) {
 	return rndX;
 }
 
-const char* sigName(int signo) {
-	static __thread char sigstr[32];
-	sigstr[0] = '\0';
+const std::string sigName(int signo) {
+	std::string res;
 
 	static struct {
 		const int signo;
@@ -285,21 +286,27 @@ const char* sigName(int signo) {
 
 	for (size_t i = 0; i < ARRAYSIZE(sigNames); i++) {
 		if (signo == sigNames[i].signo) {
-			snprintf(sigstr, sizeof(sigstr), "%s", sigNames[i].name);
-			return sigstr;
+			res.append(sigNames[i].name);
+			return res;
 		}
 	}
 
 	if (signo > SIGRTMIN) {
-		snprintf(sigstr, sizeof(sigstr), "SIG%d-RTMIN+%d", signo, signo - SIGRTMIN);
-		return sigstr;
+		res.append("SIG");
+		res.append(std::to_string(signo));
+		res.append("-RTMIN+");
+		res.append(std::to_string(signo - SIGRTMIN));
+		return res;
 	}
-	snprintf(sigstr, sizeof(sigstr), "UNKNOWN-%d", signo);
-	return sigstr;
+
+	res.append("SIGUNKNOWN(");
+	res.append(std::to_string(signo));
+	res.append(")");
+	return res;
 }
 
-static __thread char timestr[64];
-const char* timeToStr(time_t t) {
+const std::string timeToStr(time_t t) {
+	char timestr[128];
 	struct tm utctime;
 	localtime_r(&t, &utctime);
 	if (strftime(timestr, sizeof(timestr) - 1, "%FT%T%z", &utctime) == 0) {

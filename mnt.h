@@ -25,6 +25,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include <string>
+
 #include "nsjail.h"
 
 namespace mnt {
@@ -35,7 +37,6 @@ typedef enum {
 	NS_DIR_MAYBE,
 } isDir_t;
 
-const char* flagsToStr(uintptr_t flags);
 bool initNs(nsjconf_t* nsjconf);
 bool addMountPtHead(nsjconf_t* nsjconf, const char* src, const char* dst, const char* fstype,
     const char* options, uintptr_t flags, isDir_t isDir, bool mandatory, const char* src_env,

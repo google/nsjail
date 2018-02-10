@@ -40,6 +40,8 @@
 #include <syscall.h>
 #include <unistd.h>
 
+#include <string>
+
 #include "logs.h"
 #include "macros.h"
 #include "subproc.h"
@@ -51,9 +53,8 @@ namespace mnt {
 #define MS_LAZYTIME (1 << 25)
 #endif /* if !defined(MS_LAZYTIME) */
 
-const char* flagsToStr(uintptr_t flags) {
-	static __thread char mountFlagsStr[1024];
-	mountFlagsStr[0] = '\0';
+static const std::string flagsToStr(uintptr_t flags) {
+	std::string res;
 
 	static struct {
 		const uintptr_t flag;
@@ -85,19 +86,20 @@ const char* flagsToStr(uintptr_t flags) {
 	    NS_VALSTR_STRUCT(MS_LAZYTIME),
 	};
 
-	for (size_t i = 0; i < ARRAYSIZE(mountFlags); i++) {
-		if (flags & mountFlags[i].flag) {
-			util::sSnPrintf(
-			    mountFlagsStr, sizeof(mountFlagsStr), "%s|", mountFlags[i].name);
-		}
-	}
-
 	uintptr_t knownFlagMask = 0U;
 	for (size_t i = 0; i < ARRAYSIZE(mountFlags); i++) {
+		if (flags & mountFlags[i].flag) {
+			res.append(mountFlags[i].name);
+			res.append("|");
+		}
 		knownFlagMask |= mountFlags[i].flag;
 	}
-	util::sSnPrintf(mountFlagsStr, sizeof(mountFlagsStr), "%#tx", flags & ~(knownFlagMask));
-	return mountFlagsStr;
+
+	char flagstr[32];
+	snprintf(flagstr, sizeof(flagstr), "%#tx", flags & ~(knownFlagMask));
+	res.append(flagstr);
+
+	return res;
 }
 
 static bool isDir(const char* path) {
@@ -263,9 +265,9 @@ static bool remountRO(const mount_t& mpt) {
 		}
 	}
 
-	LOG_D("Re-mounting R/O '%s' (flags:%s)", mpt.dst.c_str(), flagsToStr(new_flags));
+	LOG_D("Re-mounting R/O '%s' (flags:%s)", mpt.dst.c_str(), flagsToStr(new_flags).c_str());
 	if (mount(mpt.dst.c_str(), mpt.dst.c_str(), NULL, new_flags, 0) == -1) {
-		PLOG_W("mount('%s', flags:%s)", mpt.dst.c_str(), flagsToStr(new_flags));
+		PLOG_W("mount('%s', flags:%s)", mpt.dst.c_str(), flagsToStr(new_flags).c_str());
 		return false;
 	}
 
@@ -532,8 +534,8 @@ const char* describeMountPt(const mount_t& mpt) {
 
 	snprintf(mount_pt_descr, sizeof(mount_pt_descr),
 	    "src:'%s' dst:'%s' type:'%s' flags:%s options:'%s' isDir:%s", mpt.src.c_str(),
-	    mpt.dst.c_str(), mpt.fs_type.c_str(), flagsToStr(mpt.flags), mpt.options.c_str(),
-	    mpt.isDir ? "true" : "false");
+	    mpt.dst.c_str(), mpt.fs_type.c_str(), flagsToStr(mpt.flags).c_str(),
+	    mpt.options.c_str(), mpt.isDir ? "true" : "false");
 
 	if (!mpt.mandatory) {
 		util::sSnPrintf(mount_pt_descr, sizeof(mount_pt_descr), " mandatory:false");
