@@ -66,8 +66,8 @@ bool initLogFile(struct nsjconf_t* nsjconf) {
 	if (nsjconf->logfile.empty()) {
 		log_fd = fcntl(log_fd, F_DUPFD_CLOEXEC, 0);
 	} else {
-		if (TEMP_FAILURE_RETRY(
-			log_fd = open(nsjconf->logfile.c_str(), O_CREAT | O_RDWR | O_APPEND, 0640)) == -1) {
+		if (TEMP_FAILURE_RETRY(log_fd = open(nsjconf->logfile.c_str(),
+					   O_CREAT | O_RDWR | O_APPEND | O_CLOEXEC, 0640)) == -1) {
 			log_fd = STDERR_FILENO;
 			PLOG_E("Couldn't open logfile open('%s')", nsjconf->logfile.c_str());
 			return false;
