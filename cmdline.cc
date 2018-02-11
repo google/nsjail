@@ -425,7 +425,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			nsjconf->logfile = optarg;
 			break;
 		case 'L':
-			nsjconf->logfile = "/dev/fd/" + std::to_string(strtol(optarg, NULL, 0));
+			nsjconf->logfile = "/dev/fd/" + std::to_string(std::strtol(optarg, NULL, 10));
 			break;
 		case 'd':
 			nsjconf->daemonize = true;
