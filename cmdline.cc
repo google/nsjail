@@ -807,8 +807,8 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 		    "specified the --execute_fd flag");
 		return nullptr;
 #endif /* !defined(__NR_execveat) */
-		if ((nsjconf->exec_fd = open(nsjconf->exec_file, O_RDONLY | O_PATH | O_CLOEXEC)) ==
-		    -1) {
+		if ((nsjconf->exec_fd = TEMP_FAILURE_RETRY(
+			 open(nsjconf->exec_file, O_RDONLY | O_PATH | O_CLOEXEC))) == -1) {
 			PLOG_W("Couldn't open '%s' file", nsjconf->exec_file);
 			return nullptr;
 		}
