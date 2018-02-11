@@ -38,12 +38,14 @@ typedef enum {
 } isDir_t;
 
 bool initNs(nsjconf_t* nsjconf);
-bool addMountPtHead(nsjconf_t* nsjconf, const char* src, const char* dst, const char* fstype,
-    const char* options, uintptr_t flags, isDir_t isDir, bool mandatory, const char* src_env,
-    const char* dst_env, const char* src_content, size_t src_content_len, bool is_symlink);
-bool addMountPtTail(nsjconf_t* nsjconf, const char* src, const char* dst, const char* fstype,
-    const char* options, uintptr_t flags, isDir_t isDir, bool mandatory, const char* src_env,
-    const char* dst_env, const char* src_content, size_t src_content_len, bool is_symlink);
+bool addMountPtHead(nsjconf_t* nsjconf, const std::string& src, const std::string& dst,
+    const std::string& fstype, const std::string& options, uintptr_t flags, isDir_t is_dir,
+    bool is_mandatory, const std::string& src_env, const std::string& dst_env,
+    const std::string& src_content, bool is_symlink);
+bool addMountPtTail(nsjconf_t* nsjconf, const std::string& src, const std::string& dst,
+    const std::string& fstype, const std::string& options, uintptr_t flags, isDir_t is_dir,
+    bool is_mandatory, const std::string& src_env, const std::string& dst_env,
+    const std::string& src_content, bool is_symlink);
 const std::string describeMountPt(const mount_t& mpt);
 
 }  // namespace mnt

@@ -200,39 +200,28 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 		nsjconf->proc_path.clear();
 	}
 	for (ssize_t i = 0; i < njc.mount_size(); i++) {
-		const char* src = (njc.mount(i).has_src()) ? njc.mount(i).src().c_str() : NULL;
-		const char* src_env = (njc.mount(i).has_prefix_src_env())
-					  ? njc.mount(i).prefix_src_env().c_str()
-					  : NULL;
-		const char* dst = (njc.mount(i).has_dst()) ? njc.mount(i).dst().c_str() : NULL;
-		const char* dst_env = (njc.mount(i).has_prefix_dst_env())
-					  ? njc.mount(i).prefix_dst_env().c_str()
-					  : NULL;
-		const char* fstype =
-		    (njc.mount(i).has_fstype()) ? njc.mount(i).fstype().c_str() : NULL;
-		const char* options =
-		    (njc.mount(i).has_options()) ? njc.mount(i).options().c_str() : NULL;
+		std::string src = njc.mount(i).src();
+		std::string src_env = njc.mount(i).prefix_src_env();
+		std::string dst = njc.mount(i).dst();
+		std::string dst_env = njc.mount(i).prefix_dst_env();
+		std::string fstype = njc.mount(i).fstype();
+		std::string options = njc.mount(i).options();
 
 		uintptr_t flags = (njc.mount(i).rw() == false) ? MS_RDONLY : 0;
 		flags |= njc.mount(i).is_bind() ? (MS_BIND | MS_REC | MS_PRIVATE) : 0;
-		bool mandatory = njc.mount(i).mandatory();
+		bool is_mandatory = njc.mount(i).mandatory();
+		bool is_symlink = njc.mount(i).is_symlink();
+		std::string src_content = njc.mount(i).src_content();
 
-		mnt::isDir_t isDir = mnt::NS_DIR_MAYBE;
+		mnt::isDir_t is_dir = mnt::NS_DIR_MAYBE;
 		if (njc.mount(i).has_is_dir()) {
-			isDir = njc.mount(i).is_dir() ? mnt::NS_DIR_YES : mnt::NS_DIR_NO;
+			is_dir = njc.mount(i).is_dir() ? mnt::NS_DIR_YES : mnt::NS_DIR_NO;
 		}
 
-		const char* src_content = NULL;
-		size_t src_content_len = 0;
-		if (njc.mount(i).has_src_content()) {
-			src_content = njc.mount(i).src_content().data();
-			src_content_len = njc.mount(i).src_content().size();
-		}
-
-		if (mnt::addMountPtTail(nsjconf, src, dst, fstype, options, flags, isDir, mandatory,
-			src_env, dst_env, src_content, src_content_len,
-			njc.mount(i).is_symlink()) == false) {
-			LOG_E("Couldn't add mountpoint for src:'%s' dst:'%s'", src, dst);
+		if (!mnt::addMountPtTail(nsjconf, src, dst, fstype, options, flags, is_dir,
+			is_mandatory, src_env, dst_env, src_content, is_symlink)) {
+			LOG_E("Couldn't add mountpoint for src:'%s' dst:'%s'", src.c_str(),
+			    dst.c_str());
 			return false;
 		}
 	}

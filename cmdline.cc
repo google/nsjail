@@ -242,7 +242,7 @@ void logParams(nsjconf_t* nsjconf) {
 	    logYesNo(nsjconf->disable_no_new_privs), nsjconf->max_cpus);
 
 	for (const auto& p : nsjconf->mountpts) {
-		LOG_I("%s: %s", p.isSymlink ? "Symlink" : "Mount point",
+		LOG_I("%s: %s", p.is_symlink ? "Symlink" : "Mount point",
 		    mnt::describeMountPt(p).c_str());
 	}
 	for (const auto& uid : nsjconf->uids) {
@@ -603,11 +603,11 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			if (dst.empty()) {
 				dst = src;
 			}
-			if (!mnt::addMountPtTail(nsjconf.get(), src.c_str(), dst.c_str(),
-				/* fs_type= */ "", /* options= */ "",
-				MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY,
-				/* isDir= */ mnt::NS_DIR_MAYBE, /* mandatory= */ true, NULL, NULL,
-				NULL, 0, /* is_symlink= */ false)) {
+			if (!mnt::addMountPtTail(nsjconf.get(), src, dst, /* fs_type= */ "",
+				/* options= */ "", MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY,
+				/* is_dir= */ mnt::NS_DIR_MAYBE, /* is_mandatory= */ true,
+				/* src_env= */ "", /* dst_env= */ "", /* src_content= */ "",
+				/* is_symlink= */ false)) {
 				return nullptr;
 			}
 		}; break;
@@ -617,18 +617,19 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			if (dst.empty()) {
 				dst = src;
 			}
-			if (!mnt::addMountPtTail(nsjconf.get(), src.c_str(), dst.c_str(),
-				/* fs_type= */ "", /* options= */ "", MS_BIND | MS_REC | MS_PRIVATE,
-				/* isDir= */ mnt::NS_DIR_MAYBE, /* mandatory= */ true, NULL, NULL,
-				NULL, 0, /* is_symlink= */ false)) {
+			if (!mnt::addMountPtTail(nsjconf.get(), src, dst, /* fs_type= */ "",
+				/* options= */ "", MS_BIND | MS_REC | MS_PRIVATE,
+				/* is_dir= */ mnt::NS_DIR_MAYBE, /* is_mandatory= */ true,
+				/* src_env= */ "", /* dst_env= */ "", /* src_content= */ "",
+				/* is_symlink= */ false)) {
 				return nullptr;
 			}
 		}; break;
 		case 'T': {
-			if (!mnt::addMountPtTail(nsjconf.get(), /* src= */ NULL, optarg, "tmpfs",
+			if (!mnt::addMountPtTail(nsjconf.get(), /* src= */ "", optarg, "tmpfs",
 				/* options= */ cmdlineTmpfsSz, /* flags= */ 0,
-				/* isDir= */ mnt::NS_DIR_YES,
-				/* mandatory= */ true, NULL, NULL, NULL, 0,
+				/* is_dir= */ mnt::NS_DIR_YES, /* is_mandatory= */ true,
+				/* src_env= */ "", /* dst_env= */ "", /* src_content= */ "",
 				/* is_symlink= */ false)) {
 				return nullptr;
 			}
@@ -641,11 +642,11 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			}
 			std::string fs_type = argByColon(optarg, 2);
 			std::string options = argByColon(optarg, 3);
-			if (!mnt::addMountPtTail(nsjconf.get(), src.c_str(), dst.c_str(),
-				/* fs_type= */ fs_type.c_str(), /* options= */ options.c_str(),
-				/* flags= */ 0,
-				/* isDir= */ mnt::NS_DIR_MAYBE, /* mandatory= */ true, NULL, NULL,
-				NULL, 0, /* is_symlink= */ false)) {
+			if (!mnt::addMountPtTail(nsjconf.get(), src, dst, /* fs_type= */ fs_type,
+				/* options= */ options, /* flags= */ 0,
+				/* is_dir= */ mnt::NS_DIR_MAYBE, /* is_mandatory= */ true,
+				/* src_env= */ "", /* dst_env= */ "", /* src_content= */ "",
+				/* is_symlink= */ false)) {
 				return nullptr;
 			}
 		}; break;
@@ -745,28 +746,28 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	}
 
 	if (!nsjconf->proc_path.empty()) {
-		if (!mnt::addMountPtTail(nsjconf.get(), /* src= */ NULL, nsjconf->proc_path.c_str(),
-			"proc", "", nsjconf->is_proc_rw ? 0 : MS_RDONLY,
-			/* isDir= */ mnt::NS_DIR_YES,
-			/* mandatory= */ true, NULL, NULL, NULL, 0, /* is_symlink= */ false)) {
+		if (!mnt::addMountPtTail(nsjconf.get(), /* src= */ "", nsjconf->proc_path, "proc",
+			/* options= */ "", nsjconf->is_proc_rw ? 0 : MS_RDONLY,
+			/* is_dir= */ mnt::NS_DIR_YES, /* is_mandatory= */ true, /* src_env= */ "",
+			/* dst_env= */ "", /* src_content= */ "", /* is_symlink= */ false)) {
 			return nullptr;
 		}
 	}
 	if (!(nsjconf->chroot.empty())) {
-		if (!mnt::addMountPtHead(nsjconf.get(), nsjconf->chroot.c_str(), "/",
-			/* fs_type= */ "",
+		if (!mnt::addMountPtHead(nsjconf.get(), nsjconf->chroot, "/", /* fs_type= */ "",
 			/* options= */ "",
 			nsjconf->is_root_rw ? (MS_BIND | MS_REC | MS_PRIVATE)
 					    : (MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY),
-			/* isDir= */ mnt::NS_DIR_YES, /* mandatory= */ true, NULL, NULL, NULL, 0,
-			/* is_symlink= */ false)) {
+			/* is_dir= */ mnt::NS_DIR_YES, /* is_mandatory= */ true, /* src_env= */ "",
+			/* dst_env= */ "", /* src_content= */ "", /* is_symlink= */ false)) {
 			return nullptr;
 		}
 	} else {
-		if (!mnt::addMountPtHead(nsjconf.get(), /* src= */ NULL, "/", "tmpfs",
+		if (!mnt::addMountPtHead(nsjconf.get(), /* src= */ "", "/", "tmpfs",
 			/* options= */ "", nsjconf->is_root_rw ? 0 : MS_RDONLY,
-			/* isDir= */ mnt::NS_DIR_YES,
-			/* mandatory= */ true, NULL, NULL, NULL, 0, /* is_symlink= */ false)) {
+			/* is_dir= */ mnt::NS_DIR_YES,
+			/* is_mandatory= */ true, /* src_env= */ "", /* dst_env= */ "",
+			/* src_content= */ "", /* is_symlink= */ false)) {
 			return nullptr;
 		}
 	}

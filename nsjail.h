@@ -61,9 +61,9 @@ struct mount_t {
 	std::string fs_type;
 	std::string options;
 	uintptr_t flags;
-	bool isDir;
-	bool isSymlink;
-	bool mandatory;
+	bool is_dir;
+	bool is_symlink;
+	bool is_mandatory;
 	bool mounted;
 };
 

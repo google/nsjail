@@ -27,15 +27,15 @@ message IdMap {
 }
 message MountPt {
     /* Can be skipped for filesystems like 'proc' */
-    optional string src = 1;
+    optional string src = 1 [default = ""];
     /* Should 'src' path be prefixed with this envvar? */
-    optional string prefix_src_env = 2;
+    optional string prefix_src_env = 2 [default = ""];
     /* If specified, contains buffer that will be written to the dst file */
-    optional bytes src_content = 3;
+    optional bytes src_content = 3 [default = ""];
     /* Mount point inside jail */
-    required string dst = 4;
+    required string dst = 4 [default = ""];
     /* Should 'dst' path be prefixed with this envvar? */
-    optional string prefix_dst_env = 5;
+    optional string prefix_dst_env = 5 [default = ""];
     /* Can be empty for mount --bind mounts */
     optional string fstype = 6 [default = ""];
     /* E.g. size=5000000 for 'tmpfs' */

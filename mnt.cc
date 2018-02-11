@@ -133,12 +133,12 @@ static bool mountPt(mount_t* mpt, const char* newroot, const char* tmpdir) {
 		snprintf(srcpath, sizeof(srcpath), "none");
 	}
 
-	if (mpt->isSymlink) {
+	if (mpt->is_symlink) {
 		if (!util::createDirRecursively(dst)) {
 			LOG_W("Couldn't create upper directories for '%s'", dst);
 			return false;
 		}
-	} else if (mpt->isDir) {
+	} else if (mpt->is_dir) {
 		if (!util::createDirRecursively(dst)) {
 			LOG_W("Couldn't create upper directories for '%s'", dst);
 			return false;
@@ -159,10 +159,10 @@ static bool mountPt(mount_t* mpt, const char* newroot, const char* tmpdir) {
 		}
 	}
 
-	if (mpt->isSymlink) {
+	if (mpt->is_symlink) {
 		LOG_D("symlink('%s', '%s')", srcpath, dst);
 		if (symlink(srcpath, dst) == -1) {
-			if (mpt->mandatory) {
+			if (mpt->is_mandatory) {
 				PLOG_W("symlink('%s', '%s')", srcpath, dst);
 				return false;
 			} else {
@@ -230,7 +230,7 @@ static bool remountRO(const mount_t& mpt) {
 	if (!mpt.mounted) {
 		return true;
 	}
-	if (mpt.isSymlink) {
+	if (mpt.is_symlink) {
 		return true;
 	}
 	if ((mpt.flags & MS_RDONLY) == 0) {
@@ -371,7 +371,7 @@ static bool initNsInternal(nsjconf_t* nsjconf) {
 	}
 
 	for (auto& p : nsjconf->mountpts) {
-		if (!mountPt(&p, destdir, tmpdir) && p.mandatory) {
+		if (!mountPt(&p, destdir, tmpdir) && p.is_mandatory) {
 			return false;
 		}
 	}
@@ -402,7 +402,7 @@ static bool initNsInternal(nsjconf_t* nsjconf) {
 	}
 
 	for (const auto& p : nsjconf->mountpts) {
-		if (!remountRO(p) && p.mandatory) {
+		if (!remountRO(p) && p.is_mandatory) {
 			return false;
 		}
 	}
@@ -437,92 +437,84 @@ bool initNs(nsjconf_t* nsjconf) {
 	return false;
 }
 
-static bool addMountPt(mount_t* mnt, const char* src, const char* dst, const char* fstype,
-    const char* options, uintptr_t flags, isDir_t isDir, bool mandatory, const char* src_env,
-    const char* dst_env, const char* src_content, size_t src_content_len, bool is_symlink) {
-	if (src_env) {
-		const char* e = getenv(src_env);
+static bool addMountPt(mount_t* mnt, const std::string& src, const std::string& dst,
+    const std::string& fstype, const std::string& options, uintptr_t flags, isDir_t is_dir,
+    bool is_mandatory, const std::string& src_env, const std::string& dst_env,
+    const std::string& src_content, bool is_symlink) {
+	if (!src_env.empty()) {
+		const char* e = getenv(src_env.c_str());
 		if (e == NULL) {
-			LOG_W("No such envvar:'%s'", src_env);
+			LOG_W("No such envvar:'%s'", src_env.c_str());
 			return false;
 		}
 		mnt->src = e;
 	}
-	if (src) {
-		mnt->src.append(src);
-	}
+	mnt->src.append(src);
 
-	if (dst_env) {
-		const char* e = getenv(dst_env);
+	if (!dst_env.empty()) {
+		const char* e = getenv(dst_env.c_str());
 		if (e == NULL) {
-			LOG_W("No such envvar:'%s'", dst_env);
+			LOG_W("No such envvar:'%s'", dst_env.c_str());
 			return false;
 		}
 		mnt->dst = e;
 	}
-	if (dst) {
-		mnt->dst.append(dst);
-	}
+	mnt->dst.append(dst);
 
-	if (fstype) {
-		mnt->fs_type = fstype;
-	}
-	if (options) {
-		mnt->options = options;
-	}
-	if (src_content) {
-		mnt->src_content.assign(src_content, src_content_len);
-	}
+	mnt->fs_type = fstype;
+	mnt->options = options;
 	mnt->flags = flags;
-	mnt->isDir = true;
-	mnt->isSymlink = is_symlink;
-	mnt->mandatory = mandatory;
+	mnt->is_symlink = is_symlink;
+	mnt->is_mandatory = is_mandatory;
 	mnt->mounted = false;
+	mnt->src_content = src_content;
 
-	switch (isDir) {
+	switch (is_dir) {
 	case NS_DIR_YES:
-		mnt->isDir = true;
+		mnt->is_dir = true;
 		break;
 	case NS_DIR_NO:
-		mnt->isDir = false;
+		mnt->is_dir = false;
 		break;
 	case NS_DIR_MAYBE: {
-		if (src_content) {
-			mnt->isDir = false;
+		if (!src_content.empty()) {
+			mnt->is_dir = false;
 		} else if (mnt->src.empty()) {
-			mnt->isDir = true;
+			mnt->is_dir = true;
 		} else if (mnt->flags & MS_BIND) {
-			mnt->isDir = mnt::isDir(mnt->src.c_str());
+			mnt->is_dir = mnt::isDir(mnt->src.c_str());
 		} else {
-			mnt->isDir = true;
+			mnt->is_dir = true;
 		}
 	} break;
 	default:
-		LOG_F("Unknown isDir value: %d", isDir);
-		break;
+		LOG_E("Unknown is_dir value: %d", is_dir);
+		return false;
 	}
 
 	return true;
 }
 
-bool addMountPtHead(nsjconf_t* nsjconf, const char* src, const char* dst, const char* fstype,
-    const char* options, uintptr_t flags, isDir_t isDir, bool mandatory, const char* src_env,
-    const char* dst_env, const char* src_content, size_t src_content_len, bool is_symlink) {
+bool addMountPtHead(nsjconf_t* nsjconf, const std::string& src, const std::string& dst,
+    const std::string& fstype, const std::string& options, uintptr_t flags, isDir_t is_dir,
+    bool is_mandatory, const std::string& src_env, const std::string& dst_env,
+    const std::string& src_content, bool is_symlink) {
 	mount_t mnt;
-	if (!addMountPt(&mnt, src, dst, fstype, options, flags, isDir, mandatory, src_env, dst_env,
-		src_content, src_content_len, is_symlink)) {
+	if (!addMountPt(&mnt, src, dst, fstype, options, flags, is_dir, is_mandatory, src_env,
+		dst_env, src_content, is_symlink)) {
 		return false;
 	}
 	nsjconf->mountpts.insert(nsjconf->mountpts.begin(), mnt);
 	return true;
 }
 
-bool addMountPtTail(nsjconf_t* nsjconf, const char* src, const char* dst, const char* fstype,
-    const char* options, uintptr_t flags, isDir_t isDir, bool mandatory, const char* src_env,
-    const char* dst_env, const char* src_content, size_t src_content_len, bool is_symlink) {
+bool addMountPtTail(nsjconf_t* nsjconf, const std::string& src, const std::string& dst,
+    const std::string& fstype, const std::string& options, uintptr_t flags, isDir_t is_dir,
+    bool is_mandatory, const std::string& src_env, const std::string& dst_env,
+    const std::string& src_content, bool is_symlink) {
 	mount_t mnt;
-	if (!addMountPt(&mnt, src, dst, fstype, options, flags, isDir, mandatory, src_env, dst_env,
-		src_content, src_content_len, is_symlink)) {
+	if (!addMountPt(&mnt, src, dst, fstype, options, flags, is_dir, is_mandatory, src_env,
+		dst_env, src_content, is_symlink)) {
 		return false;
 	}
 	nsjconf->mountpts.push_back(mnt);
@@ -535,16 +527,16 @@ const std::string describeMountPt(const mount_t& mpt) {
 	snprintf(mount_pt_descr, sizeof(mount_pt_descr),
 	    "src:'%s' dst:'%s' type:'%s' flags:%s options:'%s' isDir:%s", mpt.src.c_str(),
 	    mpt.dst.c_str(), mpt.fs_type.c_str(), flagsToStr(mpt.flags).c_str(),
-	    mpt.options.c_str(), mpt.isDir ? "true" : "false");
+	    mpt.options.c_str(), mpt.is_dir ? "true" : "false");
 
-	if (!mpt.mandatory) {
+	if (!mpt.is_mandatory) {
 		util::sSnPrintf(mount_pt_descr, sizeof(mount_pt_descr), " mandatory:false");
 	}
 	if (!mpt.src_content.empty()) {
 		util::sSnPrintf(mount_pt_descr, sizeof(mount_pt_descr), " src_content_len:%zu",
 		    mpt.src_content.length());
 	}
-	if (mpt.isSymlink) {
+	if (mpt.is_symlink) {
 		util::sSnPrintf(mount_pt_descr, sizeof(mount_pt_descr), " symlink:true");
 	}
 
