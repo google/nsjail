@@ -126,6 +126,7 @@ struct custom_option custom_opts[] = {
     { { "bindmount", required_argument, NULL, 'B' }, "List of mountpoints to be mounted --bind (rw) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'" },
     { { "tmpfsmount", required_argument, NULL, 'T' }, "List of mountpoints to be mounted as tmpfs (R/W) inside the container. Can be specified multiple times. Supports 'dest' syntax" },
     { { "tmpfs_size", required_argument, NULL, 0x0602 }, "Number of bytes to allocate for tmpfsmounts (default: 4194304)" },
+    { { "mount", required_argument, NULL, 'm' }, "Arbitrary mount, format src:dst:fs_type:options" },
     { { "disable_proc", no_argument, NULL, 0x0603 }, "Disable mounting procfs in the jail" },
     { { "proc_path", required_argument, NULL, 0x0605 }, "Path used to mount procfs (default: '/proc')" },
     { { "proc_rw", no_argument, NULL, 0x0606 }, "Is procfs mounted as R/W (default: R/O)" },
@@ -301,7 +302,7 @@ static std::string argByColon(const char* str, size_t pos) {
 	}
 	std::vector<std::string> vec;
 	util::strSplit(str, &vec, ':');
-	if (pos > vec.size()) {
+	if (pos >= vec.size()) {
 		return "";
 	}
 	return vec[pos];
@@ -388,7 +389,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	int opt_index = 0;
 	for (;;) {
 		int c = getopt_long(argc, argv,
-		    "x:H:D:C:c:p:i:u:g:l:L:t:M:NdvqQeh?E:R:B:T:P:I:U:G:", opts, &opt_index);
+		    "x:H:D:C:c:p:i:u:g:l:L:t:M:NdvqQeh?E:R:B:T:m:P:I:U:G:", opts, &opt_index);
 		if (c == -1) {
 			break;
 		}
@@ -629,6 +630,22 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 				/* isDir= */ mnt::NS_DIR_YES,
 				/* mandatory= */ true, NULL, NULL, NULL, 0,
 				/* is_symlink= */ false)) {
+				return nullptr;
+			}
+		}; break;
+		case 'm': {
+			std::string src = argByColon(optarg, 0);
+			std::string dst = argByColon(optarg, 1);
+			if (dst.empty()) {
+				dst = src;
+			}
+			std::string fs_type = argByColon(optarg, 2);
+			std::string options = argByColon(optarg, 3);
+			if (!mnt::addMountPtTail(nsjconf.get(), src.c_str(), dst.c_str(),
+				/* fs_type= */ fs_type.c_str(), /* options= */ options.c_str(),
+				/* flags= */ 0,
+				/* isDir= */ mnt::NS_DIR_MAYBE, /* mandatory= */ true, NULL, NULL,
+				NULL, 0, /* is_symlink= */ false)) {
 				return nullptr;
 			}
 		}; break;
