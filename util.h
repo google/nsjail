@@ -27,6 +27,7 @@
 #include <stdlib.h>
 
 #include <string>
+#include <vector>
 
 #include "nsjail.h"
 
@@ -42,6 +43,7 @@ bool isANumber(const char* s);
 uint64_t rnd64(void);
 const std::string sigName(int signo);
 const std::string timeToStr(time_t t);
+void strSplit(const std::string str, std::vector<std::string>* vec, char delim);
 
 }  // namespace util
 

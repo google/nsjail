@@ -40,7 +40,9 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <sstream>
 #include <string>
+#include <vector>
 
 #include "logs.h"
 #include "macros.h"
@@ -277,6 +279,14 @@ const std::string timeToStr(time_t t) {
 		return "[Time conv error]";
 	}
 	return timestr;
+}
+
+void strSplit(const std::string str, std::vector<std::string>* vec, char delim) {
+	std::string word;
+	std::istringstream stream(str);
+	for (std::string word; std::getline(stream, word, delim);) {
+		vec->push_back(word);
+	}
 }
 
 }  // namespace util

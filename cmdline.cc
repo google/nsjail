@@ -43,6 +43,8 @@
 #include <unistd.h>
 
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "caps.h"
 #include "config.h"
@@ -293,29 +295,16 @@ uint64_t parseRLimit(int res, const char* optarg, unsigned long mul) {
 	return val;
 }
 
-/* findSpecDestination mutates spec (source:dest) to have a null byte instead
- * of ':' in between source and dest, then returns a pointer to the dest
- * string. */
-static char* cmdlineSplitStrByColon(char* spec) {
-	if (spec == NULL) {
-		return NULL;
+static std::string argByColon(const char* str, size_t pos) {
+	if (!str) {
+		return "";
 	}
-
-	char* dest = spec;
-	while (*dest != ':' && *dest != '\0') {
-		dest++;
+	std::vector<std::string> vec;
+	util::strSplit(str, &vec, ':');
+	if (pos > vec.size()) {
+		return "";
 	}
-
-	switch (*dest) {
-	case ':':
-		*dest = '\0';
-		return dest + 1;
-	case '\0':
-		return NULL;
-	default:
-		LOG_F("Impossible condition in cmdlineSplitStrByColon()");
-		return NULL;
-	}
+	return vec[pos];
 }
 
 std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
@@ -568,66 +557,67 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			nsjconf->envs.push_back(optarg);
 			break;
 		case 'u': {
-			char* i_id = optarg;
-			char* o_id = cmdlineSplitStrByColon(i_id);
-			char* cnt = cmdlineSplitStrByColon(o_id);
-			size_t count =
-			    (cnt == NULL || strlen(cnt) == 0) ? 1U : (size_t)strtoull(cnt, NULL, 0);
-			if (user::parseId(nsjconf.get(), i_id, o_id, count, false /* is_gid */,
-				false /* is_newidmap */) == false) {
+			std::string i_id = argByColon(optarg, 0);
+			std::string o_id = argByColon(optarg, 1);
+			std::string cnt = argByColon(optarg, 2);
+			size_t count = std::strtoul(cnt.c_str(), nullptr, 0);
+			if (!user::parseId(nsjconf.get(), i_id, o_id, count, /* is_gid= */ false,
+				/* is_newidmap= */ false)) {
 				return nullptr;
 			}
 		} break;
 		case 'g': {
-			char* i_id = optarg;
-			char* o_id = cmdlineSplitStrByColon(i_id);
-			char* cnt = cmdlineSplitStrByColon(o_id);
-			size_t count =
-			    (cnt == NULL || strlen(cnt) == 0) ? 1U : (size_t)strtoull(cnt, NULL, 0);
-			if (user::parseId(nsjconf.get(), i_id, o_id, count, true /* is_gid */,
-				false /* is_newidmap */) == false) {
+			std::string i_id = argByColon(optarg, 0);
+			std::string o_id = argByColon(optarg, 1);
+			std::string cnt = argByColon(optarg, 2);
+			size_t count = std::strtoul(cnt.c_str(), nullptr, 0);
+			if (!user::parseId(nsjconf.get(), i_id, o_id, count, /* is_gid= */ true,
+				/* is_newidmap= */ false)) {
 				return nullptr;
 			}
 		} break;
 		case 'U': {
-			char* i_id = optarg;
-			char* o_id = cmdlineSplitStrByColon(i_id);
-			char* cnt = cmdlineSplitStrByColon(o_id);
-			size_t count =
-			    (cnt == NULL || strlen(cnt) == 0) ? 1U : (size_t)strtoull(cnt, NULL, 0);
-			if (user::parseId(nsjconf.get(), i_id, o_id, count, false /* is_gid */,
-				true /* is_newidmap */) == false) {
+			std::string i_id = argByColon(optarg, 0);
+			std::string o_id = argByColon(optarg, 1);
+			std::string cnt = argByColon(optarg, 2);
+			size_t count = std::strtoul(cnt.c_str(), nullptr, 0);
+			if (!user::parseId(nsjconf.get(), i_id, o_id, count, /* is_gid= */ false,
+				/* is_newidmap= */ true)) {
 				return nullptr;
 			}
 		} break;
 		case 'G': {
-			char* i_id = optarg;
-			char* o_id = cmdlineSplitStrByColon(i_id);
-			char* cnt = cmdlineSplitStrByColon(o_id);
-			size_t count =
-			    (cnt == NULL || strlen(cnt) == 0) ? 1U : (size_t)strtoull(cnt, NULL, 0);
-			if (user::parseId(nsjconf.get(), i_id, o_id, count, true /* is_gid */,
-				true /* is_newidmap */) == false) {
+			std::string i_id = argByColon(optarg, 0);
+			std::string o_id = argByColon(optarg, 1);
+			std::string cnt = argByColon(optarg, 2);
+			size_t count = std::strtoul(cnt.c_str(), nullptr, 0);
+			if (!user::parseId(nsjconf.get(), i_id, o_id, count, /* is_gid= */ true,
+				/* is_newidmap= */ true)) {
 				return nullptr;
 			}
 		} break;
 		case 'R': {
-			const char* dst = cmdlineSplitStrByColon(optarg);
-			dst = dst ? dst : optarg;
-			if (!mnt::addMountPtTail(nsjconf.get(), /* src= */ optarg, dst,
-				/* fs_type= */ "",
-				/* options= */ "", MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY,
+			std::string src = argByColon(optarg, 0);
+			std::string dst = argByColon(optarg, 1);
+			if (dst.empty()) {
+				dst = src;
+			}
+			if (!mnt::addMountPtTail(nsjconf.get(), src.c_str(), dst.c_str(),
+				/* fs_type= */ "", /* options= */ "",
+				MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY,
 				/* isDir= */ mnt::NS_DIR_MAYBE, /* mandatory= */ true, NULL, NULL,
 				NULL, 0, /* is_symlink= */ false)) {
 				return nullptr;
 			}
 		}; break;
 		case 'B': {
-			const char* dst = cmdlineSplitStrByColon(optarg);
-			dst = dst ? dst : optarg;
-			if (!mnt::addMountPtTail(nsjconf.get(), /* src= */ optarg, dst,
-				/* fs_type= */ "",
-				/* options= */ "", MS_BIND | MS_REC | MS_PRIVATE,
+			std::string src = argByColon(optarg, 0);
+			std::string dst = argByColon(optarg, 1);
+			if (dst.empty()) {
+				dst = src;
+			}
+			if (!mnt::addMountPtTail(nsjconf.get(), src.c_str(), dst.c_str(),
+				/* fs_type= */ "", /* options= */ "", MS_BIND | MS_REC | MS_PRIVATE,
 				/* isDir= */ mnt::NS_DIR_MAYBE, /* mandatory= */ true, NULL, NULL,
 				NULL, 0, /* is_symlink= */ false)) {
 				return nullptr;

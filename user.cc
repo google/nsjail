@@ -265,59 +265,63 @@ bool initNsFromChild(nsjconf_t* nsjconf) {
 	return true;
 }
 
-static uid_t parseUid(const char* id) {
-	if (id == NULL || strlen(id) == 0) {
+static uid_t parseUid(const std::string& id) {
+	if (id.empty()) {
 		return getuid();
 	}
-	struct passwd* pw = getpwnam(id);
+	struct passwd* pw = getpwnam(id.c_str());
 	if (pw != NULL) {
 		return pw->pw_uid;
 	}
-	if (util::isANumber(id)) {
-		return (uid_t)strtoull(id, NULL, 0);
+	if (util::isANumber(id.c_str())) {
+		return (uid_t)strtoull(id.c_str(), NULL, 0);
 	}
 	return (uid_t)-1;
 }
 
-static gid_t parseGid(const char* id) {
-	if (id == NULL || strlen(id) == 0) {
+static gid_t parseGid(const std::string& id) {
+	if (id.empty()) {
 		return getgid();
 	}
-	struct group* gr = getgrnam(id);
+	struct group* gr = getgrnam(id.c_str());
 	if (gr != NULL) {
 		return gr->gr_gid;
 	}
-	if (util::isANumber(id)) {
-		return (gid_t)strtoull(id, NULL, 0);
+	if (util::isANumber(id.c_str())) {
+		return (gid_t)strtoull(id.c_str(), NULL, 0);
 	}
 	return (gid_t)-1;
 }
 
-bool parseId(nsjconf_t* nsjconf, const char* i_id, const char* o_id, size_t cnt, bool is_gid,
-    bool is_newidmap) {
+bool parseId(nsjconf_t* nsjconf, const std::string& i_id, const std::string& o_id, size_t cnt,
+    bool is_gid, bool is_newidmap) {
+	if (cnt < 1) {
+		cnt = 1;
+	}
+
 	uid_t inside_id;
 	uid_t outside_id;
 
 	if (is_gid) {
 		inside_id = parseGid(i_id);
 		if (inside_id == (uid_t)-1) {
-			LOG_W("Cannot parse '%s' as GID", i_id);
+			LOG_W("Cannot parse '%s' as GID", i_id.c_str());
 			return false;
 		}
 		outside_id = parseGid(o_id);
 		if (outside_id == (uid_t)-1) {
-			LOG_W("Cannot parse '%s' as GID", o_id);
+			LOG_W("Cannot parse '%s' as GID", o_id.c_str());
 			return false;
 		}
 	} else {
 		inside_id = parseUid(i_id);
 		if (inside_id == (uid_t)-1) {
-			LOG_W("Cannot parse '%s' as UID", i_id);
+			LOG_W("Cannot parse '%s' as UID", i_id.c_str());
 			return false;
 		}
 		outside_id = parseUid(o_id);
 		if (outside_id == (uid_t)-1) {
-			LOG_W("Cannot parse '%s' as UID", o_id);
+			LOG_W("Cannot parse '%s' as UID", o_id.c_str());
 			return false;
 		}
 	}
