@@ -42,7 +42,7 @@ static bool initNsFromParentMem(nsjconf_t* nsjconf, pid_t pid) {
 
 	char mem_cgroup_path[PATH_MAX];
 	snprintf(mem_cgroup_path, sizeof(mem_cgroup_path), "%s/%s/NSJAIL.%d",
-	    nsjconf->cgroup_mem_mount, nsjconf->cgroup_mem_parent, (int)pid);
+	    nsjconf->cgroup_mem_mount.c_str(), nsjconf->cgroup_mem_parent.c_str(), (int)pid);
 	LOG_D("Create '%s' for PID=%d", mem_cgroup_path, (int)pid);
 	if (mkdir(mem_cgroup_path, 0700) == -1 && errno != EEXIST) {
 		PLOG_E("mkdir('%s', 0700) failed", mem_cgroup_path);
@@ -88,7 +88,7 @@ static bool initNsFromParentPids(nsjconf_t* nsjconf, pid_t pid) {
 
 	char pids_cgroup_path[PATH_MAX];
 	snprintf(pids_cgroup_path, sizeof(pids_cgroup_path), "%s/%s/NSJAIL.%d",
-	    nsjconf->cgroup_pids_mount, nsjconf->cgroup_pids_parent, (int)pid);
+	    nsjconf->cgroup_pids_mount.c_str(), nsjconf->cgroup_pids_parent.c_str(), (int)pid);
 	LOG_D("Create '%s' for PID=%d", pids_cgroup_path, (int)pid);
 	if (mkdir(pids_cgroup_path, 0700) == -1 && errno != EEXIST) {
 		PLOG_E("mkdir('%s', 0700) failed", pids_cgroup_path);
@@ -125,7 +125,7 @@ static bool initNsFromParentNetCls(nsjconf_t* nsjconf, pid_t pid) {
 
 	char net_cls_cgroup_path[PATH_MAX];
 	snprintf(net_cls_cgroup_path, sizeof(net_cls_cgroup_path), "%s/%s/NSJAIL.%d",
-	    nsjconf->cgroup_net_cls_mount, nsjconf->cgroup_net_cls_parent, (int)pid);
+	    nsjconf->cgroup_net_cls_mount.c_str(), nsjconf->cgroup_net_cls_parent.c_str(), (int)pid);
 	LOG_D("Create '%s' for PID=%d", net_cls_cgroup_path, (int)pid);
 	if (mkdir(net_cls_cgroup_path, 0700) == -1 && errno != EEXIST) {
 		PLOG_E("mkdir('%s', 0700) failed", net_cls_cgroup_path);
@@ -163,7 +163,7 @@ static bool initNsFromParentCpu(nsjconf_t* nsjconf, pid_t pid) {
 
 	char cpu_cgroup_path[PATH_MAX];
 	snprintf(cpu_cgroup_path, sizeof(cpu_cgroup_path), "%s/%s/NSJAIL.%d",
-	    nsjconf->cgroup_cpu_mount, nsjconf->cgroup_cpu_parent, (int)pid);
+	    nsjconf->cgroup_cpu_mount.c_str(), nsjconf->cgroup_cpu_parent.c_str(), (int)pid);
 	LOG_D("Create '%s' for PID=%d", cpu_cgroup_path, (int)pid);
 	if (mkdir(cpu_cgroup_path, 0700) == -1 && errno != EEXIST) {
 		PLOG_E("mkdir('%s', 0700) failed", cpu_cgroup_path);
@@ -225,7 +225,7 @@ void finishFromParentMem(nsjconf_t* nsjconf, pid_t pid) {
 	}
 	char mem_cgroup_path[PATH_MAX];
 	snprintf(mem_cgroup_path, sizeof(mem_cgroup_path), "%s/%s/NSJAIL.%d",
-	    nsjconf->cgroup_mem_mount, nsjconf->cgroup_mem_parent, (int)pid);
+	    nsjconf->cgroup_mem_mount.c_str(), nsjconf->cgroup_mem_parent.c_str(), (int)pid);
 	LOG_D("Remove '%s'", mem_cgroup_path);
 	if (rmdir(mem_cgroup_path) == -1) {
 		PLOG_W("rmdir('%s') failed", mem_cgroup_path);
@@ -239,7 +239,7 @@ void finishFromParentPids(nsjconf_t* nsjconf, pid_t pid) {
 	}
 	char pids_cgroup_path[PATH_MAX];
 	snprintf(pids_cgroup_path, sizeof(pids_cgroup_path), "%s/%s/NSJAIL.%d",
-	    nsjconf->cgroup_pids_mount, nsjconf->cgroup_pids_parent, (int)pid);
+	    nsjconf->cgroup_pids_mount.c_str(), nsjconf->cgroup_pids_parent.c_str(), (int)pid);
 	LOG_D("Remove '%s'", pids_cgroup_path);
 	if (rmdir(pids_cgroup_path) == -1) {
 		PLOG_W("rmdir('%s') failed", pids_cgroup_path);
@@ -253,7 +253,7 @@ void finishFromParentCpu(nsjconf_t* nsjconf, pid_t pid) {
 	}
 	char cpu_cgroup_path[PATH_MAX];
 	snprintf(cpu_cgroup_path, sizeof(cpu_cgroup_path), "%s/%s/NSJAIL.%d",
-	    nsjconf->cgroup_cpu_mount, nsjconf->cgroup_cpu_parent, (int)pid);
+	    nsjconf->cgroup_cpu_mount.c_str(), nsjconf->cgroup_cpu_parent.c_str(), (int)pid);
 	LOG_D("Remove '%s'", cpu_cgroup_path);
 	if (rmdir(cpu_cgroup_path) == -1) {
 		PLOG_W("rmdir('%s') failed", cpu_cgroup_path);
@@ -267,7 +267,7 @@ void finishFromParentNetCls(nsjconf_t* nsjconf, pid_t pid) {
 	}
 	char net_cls_cgroup_path[PATH_MAX];
 	snprintf(net_cls_cgroup_path, sizeof(net_cls_cgroup_path), "%s/%s/NSJAIL.%d",
-	    nsjconf->cgroup_net_cls_mount, nsjconf->cgroup_net_cls_parent, (int)pid);
+	    nsjconf->cgroup_net_cls_mount.c_str(), nsjconf->cgroup_net_cls_parent.c_str(), (int)pid);
 	LOG_D("Remove '%s'", net_cls_cgroup_path);
 	if (rmdir(net_cls_cgroup_path) == -1) {
 		PLOG_W("rmdir('%s') failed", net_cls_cgroup_path);
