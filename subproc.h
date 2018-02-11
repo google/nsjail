@@ -26,6 +26,9 @@
 #include <stdbool.h>
 #include <unistd.h>
 
+#include <string>
+#include <vector>
+
 #include "nsjail.h"
 
 namespace subproc {
@@ -36,7 +39,7 @@ void displayProc(nsjconf_t* nsjconf);
 void killAll(nsjconf_t* nsjconf);
 /* Returns the exit code of the first failing subprocess, or 0 if none fail */
 int reapProc(nsjconf_t* nsjconf);
-int systemExe(const char** argv, char** env);
+int systemExe(const std::vector<std::string>& args, char** env);
 pid_t cloneProc(uintptr_t flags);
 
 }  // namespace subproc

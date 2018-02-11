@@ -42,6 +42,7 @@
 #include <unistd.h>
 
 #include <string>
+#include <vector>
 
 #include "cgroup.h"
 #include "contain.h"
@@ -487,8 +488,14 @@ pid_t cloneProc(uintptr_t flags) {
 	return 0;
 }
 
-int systemExe(const char** argv, char** env) {
+int systemExe(const std::vector<std::string>& args, char** env) {
 	bool exec_failed = false;
+
+	std::vector<const char*> argv;
+	for (const auto& a : args) {
+			argv.push_back(a.c_str());
+	}
+	argv.push_back(nullptr);
 
 	int sv[2];
 	if (pipe2(sv, O_CLOEXEC) == -1) {
@@ -506,7 +513,7 @@ int systemExe(const char** argv, char** env) {
 
 	if (pid == 0) {
 		close(sv[0]);
-		execve(argv[0], (char* const*)argv, (char* const*)env);
+		execve(argv[0], (char* const*)argv.data(), (char* const*)env);
 		PLOG_W("execve('%s')", argv[0]);
 		util::writeToFd(sv[1], "A", 1);
 		exit(0);

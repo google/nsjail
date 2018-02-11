@@ -97,26 +97,27 @@ static bool setGroups(pid_t pid) {
 }
 
 static bool uidMapSelf(nsjconf_t* nsjconf, pid_t pid) {
-	char fname[PATH_MAX];
-	snprintf(fname, sizeof(fname), "/proc/%d/uid_map", pid);
-
-	char map[4096] = {[0] = '\0'};
-
+	std::string map;
 	for (const auto& uid : nsjconf->uids) {
 		if (uid.is_newidmap) {
 			continue;
 		}
-		util::sSnPrintf(map, sizeof(map), "%lu %lu %zu\n", (unsigned long)uid.inside_id,
-		    (unsigned long)uid.outside_id, uid.count);
+		map.append(std::to_string(uid.inside_id));
+		map.append(" ");
+		map.append(std::to_string(uid.outside_id));
+		map.append(" ");
+		map.append(std::to_string(uid.count));
+		map.append("\n");
 	}
-
-	if (strlen(map) == 0) {
+	if (map.empty()) {
 		return true;
 	}
 
-	LOG_D("Writing '%s' to '%s'", map, fname);
-	if (!util::writeBufToFile(fname, map, strlen(map), O_WRONLY | O_CLOEXEC)) {
-		LOG_E("util::writeBufToFile('%s', '%s') failed", fname, map);
+	char fname[PATH_MAX];
+	snprintf(fname, sizeof(fname), "/proc/%d/uid_map", pid);
+	LOG_D("Writing '%s' to '%s'", map.c_str(), fname);
+	if (!util::writeBufToFile(fname, map.data(), map.length(), O_WRONLY | O_CLOEXEC)) {
+		LOG_E("util::writeBufToFile('%s', '%s') failed", fname, map.c_str());
 		return false;
 	}
 
@@ -124,26 +125,27 @@ static bool uidMapSelf(nsjconf_t* nsjconf, pid_t pid) {
 }
 
 static bool gidMapSelf(nsjconf_t* nsjconf, pid_t pid) {
-	char fname[PATH_MAX];
-	snprintf(fname, sizeof(fname), "/proc/%d/gid_map", pid);
-
-	char map[4096] = {[0] = '\0'};
-
+	std::string map;
 	for (const auto& gid : nsjconf->gids) {
 		if (gid.is_newidmap) {
 			continue;
 		}
-		util::sSnPrintf(map, sizeof(map), "%lu %lu %zu\n", (unsigned long)gid.inside_id,
-		    (unsigned long)gid.outside_id, gid.count);
+		map.append(std::to_string(gid.inside_id));
+		map.append(" ");
+		map.append(std::to_string(gid.outside_id));
+		map.append(" ");
+		map.append(std::to_string(gid.count));
+		map.append("\n");
 	}
-
-	if (strlen(map) == 0) {
+	if (map.empty()) {
 		return true;
 	}
 
-	LOG_D("Writing '%s' to '%s'", map, fname);
-	if (!util::writeBufToFile(fname, map, strlen(map), O_WRONLY | O_CLOEXEC)) {
-		LOG_E("util::writeBufToFile('%s', '%s') failed", fname, map);
+	char fname[PATH_MAX];
+	snprintf(fname, sizeof(fname), "/proc/%d/gid_map", pid);
+	LOG_D("Writing '%s' to '%s'", map.c_str(), fname);
+	if (!util::writeBufToFile(fname, map.data(), map.length(), O_WRONLY | O_CLOEXEC)) {
+		LOG_E("util::writeBufToFile('%s', '%s') failed", fname, map.c_str());
 		return false;
 	}
 
@@ -152,47 +154,22 @@ static bool gidMapSelf(nsjconf_t* nsjconf, pid_t pid) {
 
 /* Use /usr/bin/newgidmap for writing the gid map */
 static bool gidMapExternal(nsjconf_t* nsjconf, pid_t pid UNUSED) {
-	size_t idx = 0;
-
-	const char* argv[1024];
-	char parms[1024][256];
-
-	argv[idx++] = "/usr/bin/newgidmap";
-
-	snprintf(parms[idx], sizeof(parms[idx]), "%u", (unsigned)pid);
-	argv[idx] = parms[idx];
-	idx++;
-
 	bool use = false;
+
+	std::vector<std::string> argv = { "/usr/bin/newgidmap", std::to_string(pid) };
 	for (const auto& gid : nsjconf->gids) {
-		if (gid.is_newidmap == false) {
+		if (!gid.is_newidmap) {
 			continue;
-		}
-		if ((idx + 4) >= ARRAYSIZE(argv)) {
-			LOG_W("Too many arguments for '/usr/bin/newgidmap'");
-			return false;
 		}
 		use = true;
 
-		snprintf(parms[idx], sizeof(parms[idx]), "%u", (unsigned)gid.inside_id);
-		argv[idx] = parms[idx];
-		idx++;
-
-		snprintf(parms[idx], sizeof(parms[idx]), "%u", (unsigned)gid.outside_id);
-		argv[idx] = parms[idx];
-		idx++;
-
-		snprintf(parms[idx], sizeof(parms[idx]), "%zu", gid.count);
-		argv[idx] = parms[idx];
-		idx++;
+		argv.push_back(std::to_string(gid.inside_id));
+		argv.push_back(std::to_string(gid.outside_id));
+		argv.push_back(std::to_string(gid.count));
 	}
-
-	argv[idx] = NULL;
-
 	if (!use) {
 		return true;
 	}
-
 	if (subproc::systemExe(argv, environ) != 0) {
 		LOG_E("'/usr/bin/newgidmap' failed");
 		return false;
@@ -203,47 +180,22 @@ static bool gidMapExternal(nsjconf_t* nsjconf, pid_t pid UNUSED) {
 
 /* Use /usr/bin/newuidmap for writing the uid map */
 static bool uidMapExternal(nsjconf_t* nsjconf, pid_t pid UNUSED) {
-	size_t idx = 0;
-
-	const char* argv[1024];
-	char parms[1024][256];
-
-	argv[idx++] = "/usr/bin/newuidmap";
-
-	snprintf(parms[idx], sizeof(parms[idx]), "%u", (unsigned)pid);
-	argv[idx] = parms[idx];
-	idx++;
-
 	bool use = false;
+
+	std::vector<std::string> argv = { "/usr/bin/newuidmap", std::to_string(pid) };
 	for (const auto& uid : nsjconf->uids) {
-		if (uid.is_newidmap == false) {
+		if (!uid.is_newidmap) {
 			continue;
-		}
-		if ((idx + 4) >= ARRAYSIZE(argv)) {
-			LOG_W("Too many arguments for '/usr/bin/newuidmap'");
-			return false;
 		}
 		use = true;
 
-		snprintf(parms[idx], sizeof(parms[idx]), "%u", (unsigned)uid.inside_id);
-		argv[idx] = parms[idx];
-		idx++;
-
-		snprintf(parms[idx], sizeof(parms[idx]), "%u", (unsigned)uid.outside_id);
-		argv[idx] = parms[idx];
-		idx++;
-
-		snprintf(parms[idx], sizeof(parms[idx]), "%zu", uid.count);
-		argv[idx] = parms[idx];
-		idx++;
+		argv.push_back(std::to_string(uid.inside_id));
+		argv.push_back(std::to_string(uid.outside_id));
+		argv.push_back(std::to_string(uid.count));
 	}
-
-	argv[idx] = NULL;
-
 	if (!use) {
 		return true;
 	}
-
 	if (subproc::systemExe(argv, environ) != 0) {
 		LOG_E("'/usr/bin/newuidmap' failed");
 		return false;
