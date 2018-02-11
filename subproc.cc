@@ -493,7 +493,7 @@ int systemExe(const std::vector<std::string>& args, char** env) {
 
 	std::vector<const char*> argv;
 	for (const auto& a : args) {
-			argv.push_back(a.c_str());
+		argv.push_back(a.c_str());
 	}
 	argv.push_back(nullptr);
 

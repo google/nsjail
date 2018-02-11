@@ -125,7 +125,8 @@ static bool initNsFromParentNetCls(nsjconf_t* nsjconf, pid_t pid) {
 
 	char net_cls_cgroup_path[PATH_MAX];
 	snprintf(net_cls_cgroup_path, sizeof(net_cls_cgroup_path), "%s/%s/NSJAIL.%d",
-	    nsjconf->cgroup_net_cls_mount.c_str(), nsjconf->cgroup_net_cls_parent.c_str(), (int)pid);
+	    nsjconf->cgroup_net_cls_mount.c_str(), nsjconf->cgroup_net_cls_parent.c_str(),
+	    (int)pid);
 	LOG_D("Create '%s' for PID=%d", net_cls_cgroup_path, (int)pid);
 	if (mkdir(net_cls_cgroup_path, 0700) == -1 && errno != EEXIST) {
 		PLOG_E("mkdir('%s', 0700) failed", net_cls_cgroup_path);
@@ -267,7 +268,8 @@ void finishFromParentNetCls(nsjconf_t* nsjconf, pid_t pid) {
 	}
 	char net_cls_cgroup_path[PATH_MAX];
 	snprintf(net_cls_cgroup_path, sizeof(net_cls_cgroup_path), "%s/%s/NSJAIL.%d",
-	    nsjconf->cgroup_net_cls_mount.c_str(), nsjconf->cgroup_net_cls_parent.c_str(), (int)pid);
+	    nsjconf->cgroup_net_cls_mount.c_str(), nsjconf->cgroup_net_cls_parent.c_str(),
+	    (int)pid);
 	LOG_D("Remove '%s'", net_cls_cgroup_path);
 	if (rmdir(net_cls_cgroup_path) == -1) {
 		PLOG_W("rmdir('%s') failed", net_cls_cgroup_path);

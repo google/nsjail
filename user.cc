@@ -156,7 +156,7 @@ static bool gidMapSelf(nsjconf_t* nsjconf, pid_t pid) {
 static bool gidMapExternal(nsjconf_t* nsjconf, pid_t pid UNUSED) {
 	bool use = false;
 
-	std::vector<std::string> argv = { "/usr/bin/newgidmap", std::to_string(pid) };
+	std::vector<std::string> argv = {"/usr/bin/newgidmap", std::to_string(pid)};
 	for (const auto& gid : nsjconf->gids) {
 		if (!gid.is_newidmap) {
 			continue;
@@ -182,7 +182,7 @@ static bool gidMapExternal(nsjconf_t* nsjconf, pid_t pid UNUSED) {
 static bool uidMapExternal(nsjconf_t* nsjconf, pid_t pid UNUSED) {
 	bool use = false;
 
-	std::vector<std::string> argv = { "/usr/bin/newuidmap", std::to_string(pid) };
+	std::vector<std::string> argv = {"/usr/bin/newuidmap", std::to_string(pid)};
 	for (const auto& uid : nsjconf->uids) {
 		if (!uid.is_newidmap) {
 			continue;
