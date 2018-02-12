@@ -33,6 +33,7 @@
 #include "logs.h"
 #include "macros.h"
 #include "net.h"
+#include "sandbox.h"
 #include "subproc.h"
 #include "util.h"
 
@@ -173,6 +174,9 @@ int main(int argc, char* argv[]) {
 	}
 	if (nsjailSetTimer(nsjconf.get()) == false) {
 		LOG_F("nsjailSetTimer() failed");
+	}
+	if (!sandbox::preparePolicy(nsjconf.get())) {
+		LOG_F("Couldn't prepare sandboxing policy");
 	}
 
 	if (nsjconf->mode == MODE_LISTEN_TCP) {

@@ -51,7 +51,6 @@
 #include "logs.h"
 #include "macros.h"
 #include "mnt.h"
-#include "sandbox.h"
 #include "user.h"
 #include "util.h"
 
@@ -433,12 +432,15 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			break;
 		case 'v':
 			nsjconf->loglevel = logs::DEBUG;
+			logs::logLevel(nsjconf->loglevel);
 			break;
 		case 'q':
 			nsjconf->loglevel = logs::WARNING;
+			logs::logLevel(nsjconf->loglevel);
 			break;
 		case 'Q':
 			nsjconf->loglevel = logs::FATAL;
+			logs::logLevel(nsjconf->loglevel);
 			break;
 		case 'e':
 			nsjconf->keep_env = true;
@@ -814,11 +816,6 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			PLOG_W("Couldn't open '%s' file", nsjconf->exec_file);
 			return nullptr;
 		}
-	}
-
-	if (!sandbox::preparePolicy(nsjconf.get())) {
-		LOG_E("Couldn't prepare sandboxing setup");
-		return nullptr;
 	}
 
 	return nsjconf;

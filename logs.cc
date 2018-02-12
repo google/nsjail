@@ -141,4 +141,8 @@ void logStop(int sig) {
 	LOG_I("Server stops due to fatal signal (%d) caught. Exiting", sig);
 }
 
+void logLevel(enum llevel_t ll) {
+	_log_level = ll;
+}
+
 }  // namespace logs

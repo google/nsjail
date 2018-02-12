@@ -121,6 +121,7 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 			LOG_E("Unknown log_level: %d", njc.log_level());
 			return false;
 		}
+		logs::logLevel(nsjconf->loglevel);
 	}
 
 	nsjconf->keep_env = njc.keep_env();

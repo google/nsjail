@@ -59,6 +59,7 @@ bool initLog(const std::string& logfile, llevel_t loglevel);
 void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt, ...)
     __attribute__((format(printf, 5, 6)));
 void logStop(int sig);
+void logLevel(enum llevel_t ll);
 
 }  // namespace logs
 
