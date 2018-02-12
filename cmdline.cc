@@ -363,8 +363,8 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->iface_vs_gw = "0.0.0.0";
 	nsjconf->orig_uid = getuid();
 	nsjconf->num_cpus = sysconf(_SC_NPROCESSORS_ONLN);
-        nsjconf->seccomp_fprog.filter = NULL;
-        nsjconf->seccomp_fprog.len = 0;
+	nsjconf->seccomp_fprog.filter = NULL;
+	nsjconf->seccomp_fprog.len = 0;
 
 	nsjconf->openfds.push_back(STDIN_FILENO);
 	nsjconf->openfds.push_back(STDOUT_FILENO);
@@ -792,8 +792,8 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 		nsjconf->gids.push_back(gid);
 	}
 
-	for (size_t i = optind; optind < argc; i++) {
-		nsjconf->argv[i] = argv[optind];
+	for (int i = optind; i < argc; i++) {
+		nsjconf->argv.push_back(argv[i]);
 	}
 	if (nsjconf->argv.empty()) {
 		cmdlineUsage(argv[0]);
