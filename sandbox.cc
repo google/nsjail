@@ -62,7 +62,7 @@ bool preparePolicy(nsjconf_t* nsjconf) {
 		return true;
 	}
 	if (!nsjconf->kafel_file_path.empty() && !nsjconf->kafel_string.empty()) {
-		LOG_E(
+		LOG_W(
 		    "You specified both kafel seccomp policy, and kafel seccomp file. Specify one "
 		    "only");
 		return false;
@@ -87,7 +87,7 @@ bool preparePolicy(nsjconf_t* nsjconf) {
 	}
 
 	if (kafel_compile(ctxt, &nsjconf->seccomp_fprog) != 0) {
-		LOG_E("Could not compile policy: %s", kafel_error_msg(ctxt));
+		LOG_W("Could not compile policy: %s", kafel_error_msg(ctxt));
 		kafel_ctxt_destroy(&ctxt);
 		return false;
 	}
