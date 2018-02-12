@@ -170,7 +170,7 @@ int sSnPrintf(char* str, size_t size, const char* format, ...) {
 }
 
 bool isANumber(const char* s) {
-	for (int i = 0; s[i]; s++) {
+	for (size_t i = 0; s[i]; s++) {
 		if (!isdigit(s[i]) && s[i] != 'x') {
 			return false;
 		}
