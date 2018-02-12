@@ -61,26 +61,29 @@ bool preparePolicy(nsjconf_t* nsjconf) {
 	if (nsjconf->kafel_file_path.empty() && nsjconf->kafel_string.empty()) {
 		return true;
 	}
-	FILE* f = NULL;
-	if (!nsjconf->kafel_file_path.empty() &&
-	    !(f = fopen(nsjconf->kafel_file_path.c_str(), "r"))) {
-		PLOG_W("Couldn't open the kafel seccomp policy file '%s'",
-		    nsjconf->kafel_file_path.c_str());
+	if (!nsjconf->kafel_file_path.empty() && !nsjconf->kafel_string.empty()) {
+		LOG_E(
+		    "You specified both kafel seccomp policy, and kafel seccomp file. Specify one "
+		    "only");
 		return false;
 	}
 
 	kafel_ctxt_t ctxt = kafel_ctxt_create();
 
-	if (f) {
+	if (!nsjconf->kafel_file_path.empty()) {
+		FILE* f = fopen(nsjconf->kafel_file_path.c_str(), "r");
+		if (!f) {
+			PLOG_W("Couldn't open the kafel seccomp policy file '%s'",
+			    nsjconf->kafel_file_path.c_str());
+			kafel_ctxt_destroy(&ctxt);
+			return false;
+		}
 		LOG_D("Compiling seccomp policy from file: '%s'", nsjconf->kafel_file_path.c_str());
 		kafel_set_input_file(ctxt, f);
-	} else if (!nsjconf->kafel_string.empty()) {
+	}
+	if (!nsjconf->kafel_string.empty()) {
 		LOG_D("Compiling seccomp policy from string: '%s'", nsjconf->kafel_string.c_str());
 		kafel_set_input_string(ctxt, nsjconf->kafel_string.c_str());
-	} else {
-		LOG_F(
-		    "No kafel seccomp-bpf config file available, nor policy as a string was "
-		    "defined");
 	}
 
 	if (kafel_compile(ctxt, &nsjconf->seccomp_fprog) != 0) {
