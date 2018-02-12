@@ -82,10 +82,10 @@ enum ns_mode_t {
 };
 
 struct nsjconf_t {
-	const char* exec_file;
+	std::string exec_file;
 	bool use_execveat;
 	int exec_fd;
-	const char** argv;
+	std::vector<std::string> argv;
 	std::string hostname;
 	std::string cwd;
 	std::string chroot;

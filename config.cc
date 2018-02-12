@@ -254,18 +254,14 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 	nsjconf->iface_vs_gw = njc.macvlan_vs_gw();
 
 	if (njc.has_exec_bin()) {
-		static std::vector<const char*> argv;
-		if (njc.exec_bin().has_arg0()) {
-			argv.push_back(njc.exec_bin().arg0().c_str());
-			nsjconf->exec_file = njc.exec_bin().path().c_str();
-		} else {
-			argv.push_back(njc.exec_bin().path().c_str());
-		}
+		nsjconf->exec_file = njc.exec_bin().path();
+		nsjconf->argv.push_back(njc.exec_bin().path());
 		for (ssize_t i = 0; i < njc.exec_bin().arg().size(); i++) {
-			argv.push_back(njc.exec_bin().arg(i).c_str());
+			nsjconf->argv.push_back(njc.exec_bin().arg(i));
 		}
-		argv.push_back(nullptr);
-		nsjconf->argv = argv.data();
+		if (njc.exec_bin().has_arg0()) {
+			nsjconf->argv[0] = njc.exec_bin().arg0();
+		}
 		nsjconf->use_execveat = njc.exec_bin().exec_fd();
 	}
 

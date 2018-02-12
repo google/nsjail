@@ -167,11 +167,14 @@ static int subprocNewProc(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err,
 	}
 
 	auto connstr = net::connToText(fd_in, /* remote= */ true, NULL);
-	LOG_I("Executing '%s' for '%s'", nsjconf->exec_file, connstr.c_str());
+	LOG_I("Executing '%s' for '%s'", nsjconf->exec_file.c_str(), connstr.c_str());
 
-	for (size_t i = 0; nsjconf->argv[i]; i++) {
-		LOG_D(" Arg[%zu]: '%s'", i, nsjconf->argv[i]);
+	std::vector<const char*> argv;
+	for (const auto& s : nsjconf->argv) {
+		argv.push_back(s.c_str());
+		LOG_D(" Arg: '%s'", s.c_str());
 	}
+	argv.push_back(nullptr);
 
 	/* Should be the last one in the sequence */
 	if (!sandbox::applyPolicy(nsjconf)) {
@@ -180,16 +183,16 @@ static int subprocNewProc(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err,
 
 	if (nsjconf->use_execveat) {
 #if defined(__NR_execveat)
-		syscall(__NR_execveat, (uintptr_t)nsjconf->exec_fd, "",
-		    (char* const*)&nsjconf->argv[0], environ, (uintptr_t)AT_EMPTY_PATH);
+		syscall(__NR_execveat, (uintptr_t)nsjconf->exec_fd, "", (char* const*)argv.data(),
+		    environ, (uintptr_t)AT_EMPTY_PATH);
 #else  /* defined(__NR_execveat) */
 		LOG_F("Your system doesn't support execveat() syscall");
 #endif /* defined(__NR_execveat) */
 	} else {
-		execv(nsjconf->exec_file, (char* const*)&nsjconf->argv[0]);
+		execv(nsjconf->exec_file.c_str(), (char* const*)argv.data());
 	}
 
-	PLOG_E("execve('%s') failed", nsjconf->exec_file);
+	PLOG_E("execve('%s') failed", nsjconf->exec_file.c_str());
 
 	_exit(0xff);
 }

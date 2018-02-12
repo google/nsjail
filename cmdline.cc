@@ -231,7 +231,7 @@ void logParams(nsjconf_t* nsjconf) {
 	    "clone_newnet:%s, clone_newuser:%s, clone_newns:%s, clone_newpid:%s, "
 	    "clone_newipc:%s, clonew_newuts:%s, clone_newcgroup:%s, keep_caps:%s, "
 	    "tmpfs_size:%zu, disable_no_new_privs:%s, max_cpus:%zu",
-	    nsjconf->hostname.c_str(), nsjconf->chroot.c_str(), nsjconf->argv[0],
+	    nsjconf->hostname.c_str(), nsjconf->chroot.c_str(), nsjconf->argv[0].c_str(),
 	    nsjconf->bindhost.c_str(), nsjconf->port, nsjconf->max_conns_per_ip, nsjconf->tlimit,
 	    nsjconf->personality, logYesNo(nsjconf->daemonize), logYesNo(nsjconf->clone_newnet),
 	    logYesNo(nsjconf->clone_newuser), logYesNo(nsjconf->clone_newns),
@@ -310,10 +310,8 @@ static std::string argByColon(const char* str, size_t pos) {
 std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	std::unique_ptr<nsjconf_t> nsjconf = std::make_unique<nsjconf_t>();
 
-	nsjconf->exec_file = NULL;
 	nsjconf->use_execveat = false;
 	nsjconf->exec_fd = -1;
-	nsjconf->argv = NULL;
 	nsjconf->hostname = "NSJAIL";
 	nsjconf->cwd = "/";
 	nsjconf->port = 0;
@@ -792,15 +790,15 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 		nsjconf->gids.push_back(gid);
 	}
 
-	if (argv[optind]) {
-		nsjconf->argv = (const char**)&argv[optind];
+	for (size_t i = optind; optind < argc; i++) {
+		nsjconf->argv[i] = argv[optind];
 	}
-	if (nsjconf->argv == NULL || nsjconf->argv[0] == NULL) {
+	if (nsjconf->argv.empty()) {
 		cmdlineUsage(argv[0]);
 		LOG_E("No command provided");
 		return nullptr;
 	}
-	if (nsjconf->exec_file == NULL) {
+	if (nsjconf->exec_file.empty()) {
 		nsjconf->exec_file = nsjconf->argv[0];
 	}
 
@@ -812,8 +810,8 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 		return nullptr;
 #endif /* !defined(__NR_execveat) */
 		if ((nsjconf->exec_fd = TEMP_FAILURE_RETRY(
-			 open(nsjconf->exec_file, O_RDONLY | O_PATH | O_CLOEXEC))) == -1) {
-			PLOG_W("Couldn't open '%s' file", nsjconf->exec_file);
+			 open(nsjconf->exec_file.c_str(), O_RDONLY | O_PATH | O_CLOEXEC))) == -1) {
+			PLOG_W("Couldn't open '%s' file", nsjconf->exec_file.c_str());
 			return nullptr;
 		}
 	}
