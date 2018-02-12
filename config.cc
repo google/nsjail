@@ -208,7 +208,7 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 		std::string fstype = njc.mount(i).fstype();
 		std::string options = njc.mount(i).options();
 
-		uintptr_t flags = (njc.mount(i).rw() == false) ? MS_RDONLY : 0;
+		uintptr_t flags = (!njc.mount(i).rw()) ? MS_RDONLY : 0;
 		flags |= njc.mount(i).is_bind() ? (MS_BIND | MS_REC | MS_PRIVATE) : 0;
 		bool is_mandatory = njc.mount(i).mandatory();
 		bool is_symlink = njc.mount(i).is_symlink();

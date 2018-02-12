@@ -97,7 +97,7 @@ bool writeBufToFile(const char* filename, const void* buf, size_t len, int open_
 		return false;
 	}
 
-	if (writeToFd(fd, buf, len) == false) {
+	if (!writeToFd(fd, buf, len)) {
 		PLOG_E("Couldn't write '%zu' bytes to file '%s' (fd='%d')", len, filename, fd);
 		close(fd);
 		unlink(filename);

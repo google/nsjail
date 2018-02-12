@@ -131,7 +131,7 @@ static bool resetEnv(void) {
 static const char kSubprocDoneChar = 'D';
 
 static int subprocNewProc(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err, int pipefd) {
-	if (contain::setupFD(nsjconf, fd_in, fd_out, fd_err) == false) {
+	if (!contain::setupFD(nsjconf, fd_in, fd_out, fd_err)) {
 		_exit(0xff);
 	}
 	if (!resetEnv()) {
@@ -139,11 +139,11 @@ static int subprocNewProc(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err,
 	}
 
 	if (pipefd == -1) {
-		if (user::initNsFromParent(nsjconf, getpid()) == false) {
+		if (!user::initNsFromParent(nsjconf, getpid())) {
 			LOG_E("Couldn't initialize net user namespace");
 			_exit(0xff);
 		}
-		if (cgroup::initNsFromParent(nsjconf, getpid()) == false) {
+		if (!cgroup::initNsFromParent(nsjconf, getpid())) {
 			LOG_E("Couldn't initialize net user namespace");
 			_exit(0xff);
 		}
@@ -156,10 +156,10 @@ static int subprocNewProc(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err,
 			_exit(0xff);
 		}
 	}
-	if (contain::containProc(nsjconf) == false) {
+	if (!contain::containProc(nsjconf)) {
 		_exit(0xff);
 	}
-	if (nsjconf->keep_env == false) {
+	if (!nsjconf->keep_env) {
 		clearenv();
 	}
 	for (const auto& env : nsjconf->envs) {
@@ -174,7 +174,7 @@ static int subprocNewProc(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err,
 	}
 
 	/* Should be the last one in the sequence */
-	if (sandbox::applyPolicy(nsjconf) == false) {
+	if (!sandbox::applyPolicy(nsjconf)) {
 		exit(0xff);
 	}
 
@@ -365,15 +365,15 @@ void killAll(nsjconf_t* nsjconf) {
 }
 
 static bool initParent(nsjconf_t* nsjconf, pid_t pid, int pipefd) {
-	if (net::initNsFromParent(nsjconf, pid) == false) {
+	if (!net::initNsFromParent(nsjconf, pid)) {
 		LOG_E("Couldn't create and put MACVTAP interface into NS of PID '%d'", pid);
 		return false;
 	}
-	if (cgroup::initNsFromParent(nsjconf, pid) == false) {
+	if (!cgroup::initNsFromParent(nsjconf, pid)) {
 		LOG_E("Couldn't initialize cgroup user namespace");
 		exit(0xff);
 	}
-	if (user::initNsFromParent(nsjconf, pid) == false) {
+	if (!user::initNsFromParent(nsjconf, pid)) {
 		LOG_E("Couldn't initialize user namespaces for pid %d", pid);
 		return false;
 	}
@@ -386,7 +386,7 @@ static bool initParent(nsjconf_t* nsjconf, pid_t pid, int pipefd) {
 }
 
 void runChild(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
-	if (net::limitConns(nsjconf, fd_in) == false) {
+	if (!net::limitConns(nsjconf, fd_in)) {
 		return;
 	}
 	unsigned long flags = 0UL;
@@ -441,7 +441,7 @@ void runChild(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
 	}
 	addProc(nsjconf, pid, fd_in);
 
-	if (initParent(nsjconf, pid, parent_fd) == false) {
+	if (!initParent(nsjconf, pid, parent_fd)) {
 		close(parent_fd);
 		return;
 	}

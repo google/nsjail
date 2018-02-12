@@ -282,7 +282,7 @@ uint64_t parseRLimit(int res, const char* optarg, unsigned long mul) {
 	if (strcasecmp(optarg, "max") == 0 || strcasecmp(optarg, "hard") == 0) {
 		return cur.rlim_max;
 	}
-	if (util::isANumber(optarg) == false) {
+	if (!util::isANumber(optarg)) {
 		LOG_F(
 		    "RLIMIT %d needs a numeric or 'max'/'hard'/'def'/'soft'/'inf' value ('%s' "
 		    "provided)",
@@ -403,7 +403,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			nsjconf->cwd = optarg;
 			break;
 		case 'C':
-			if (config::parseFile(nsjconf.get(), optarg) == false) {
+			if (!config::parseFile(nsjconf.get(), optarg)) {
 				LOG_F("Couldn't parse configuration from '%s' file", optarg);
 			}
 			break;

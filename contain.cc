@@ -74,14 +74,14 @@ static bool containDropPrivs(nsjconf_t* nsjconf) {
 #ifndef PR_SET_NO_NEW_PRIVS
 #define PR_SET_NO_NEW_PRIVS 38
 #endif
-	if (nsjconf->disable_no_new_privs == false) {
+	if (!nsjconf->disable_no_new_privs) {
 		if (prctl(PR_SET_NO_NEW_PRIVS, 1UL, 0UL, 0UL, 0UL) == -1) {
 			/* Only new kernels support it */
 			PLOG_W("prctl(PR_SET_NO_NEW_PRIVS, 1)");
 		}
 	}
 
-	if (caps::initNs(nsjconf) == false) {
+	if (!caps::initNs(nsjconf)) {
 		return false;
 	}
 
@@ -101,7 +101,7 @@ static bool containPrepareEnv(nsjconf_t* nsjconf) {
 	if (setpriority(PRIO_PROCESS, 0, 19) == -1 && errno != 0) {
 		PLOG_W("setpriority(19)");
 	}
-	if (nsjconf->skip_setsid == false) {
+	if (!nsjconf->skip_setsid) {
 		setsid();
 	}
 	return true;
@@ -261,7 +261,7 @@ static bool containMakeFdsCOE(nsjconf_t* nsjconf) {
 
 bool setupFD(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
 	if (nsjconf->mode != MODE_LISTEN_TCP) {
-		if (nsjconf->is_silent == false) {
+		if (!nsjconf->is_silent) {
 			return true;
 		}
 		if (TEMP_FAILURE_RETRY(fd_in = fd_out = fd_err = open("/dev/null", O_RDWR)) == -1) {
@@ -286,39 +286,39 @@ bool setupFD(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
 }
 
 bool containProc(nsjconf_t* nsjconf) {
-	if (containUserNs(nsjconf) == false) {
+	if (!containUserNs(nsjconf)) {
 		return false;
 	}
-	if (containInitPidNs(nsjconf) == false) {
+	if (!containInitPidNs(nsjconf)) {
 		return false;
 	}
-	if (containInitMountNs(nsjconf) == false) {
+	if (!containInitMountNs(nsjconf)) {
 		return false;
 	}
-	if (containInitNetNs(nsjconf) == false) {
+	if (!containInitNetNs(nsjconf)) {
 		return false;
 	}
-	if (containInitUtsNs(nsjconf) == false) {
+	if (!containInitUtsNs(nsjconf)) {
 		return false;
 	}
-	if (containInitCgroupNs() == false) {
+	if (!containInitCgroupNs()) {
 		return false;
 	}
-	if (containDropPrivs(nsjconf) == false) {
+	if (!containDropPrivs(nsjconf)) {
 		return false;
 	}
 	/* */
 	/* As non-root */
-	if (containCPU(nsjconf) == false) {
+	if (!containCPU(nsjconf)) {
 		return false;
 	}
-	if (containSetLimits(nsjconf) == false) {
+	if (!containSetLimits(nsjconf)) {
 		return false;
 	}
-	if (containPrepareEnv(nsjconf) == false) {
+	if (!containPrepareEnv(nsjconf)) {
 		return false;
 	}
-	if (containMakeFdsCOE(nsjconf) == false) {
+	if (!containMakeFdsCOE(nsjconf)) {
 		return false;
 	}
 	return true;

@@ -179,14 +179,14 @@ static bool initNsKeepCaps(cap_user_data_t cap_data) {
 	}
 	LOG_D("Adding the following capabilities to the inheritable set:%s", dbgmsg);
 
-	if (setCaps(cap_data) == false) {
+	if (!setCaps(cap_data)) {
 		return false;
 	}
 
 	/* Make sure the inheritable set is preserved across execve via the ambient set */
 	dbgmsg[0] = '\0';
 	for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
-		if (getPermitted(cap_data, capNames[i].val) == false) {
+		if (!getPermitted(cap_data, capNames[i].val)) {
 			continue;
 		}
 		if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)capNames[i].val, 0UL,
@@ -228,7 +228,7 @@ bool initNs(nsjconf_t* nsjconf) {
 	 */
 	dbgmsg[0] = '\0';
 	for (const auto& cap : nsjconf->caps) {
-		if (getPermitted(cap_data, cap) == false) {
+		if (!getPermitted(cap_data, cap)) {
 			LOG_W("Capability %s is not permitted in the namespace",
 			    capToStr(cap).c_str());
 			return false;
@@ -238,7 +238,7 @@ bool initNs(nsjconf_t* nsjconf) {
 	}
 	LOG_D("Adding the following capabilities to the inheritable set:%s", dbgmsg);
 
-	if (setCaps(cap_data) == false) {
+	if (!setCaps(cap_data)) {
 		return false;
 	}
 

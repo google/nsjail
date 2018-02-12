@@ -162,17 +162,17 @@ int main(int argc, char* argv[]) {
 	if (!nsjconf) {
 		LOG_F("Couldn't parse cmdline options");
 	}
-	if (nsjconf->clone_newuser == false && geteuid() != 0) {
+	if (!nsjconf->clone_newuser && geteuid() != 0) {
 		LOG_W("--disable_clone_newuser might require root() privs");
 	}
 	if (nsjconf->daemonize && (daemon(0, 0) == -1)) {
 		PLOG_F("daemon");
 	}
 	cmdline::logParams(nsjconf.get());
-	if (nsjailSetSigHandlers() == false) {
+	if (!nsjailSetSigHandlers()) {
 		LOG_F("nsjailSetSigHandlers() failed");
 	}
-	if (nsjailSetTimer(nsjconf.get()) == false) {
+	if (!nsjailSetTimer(nsjconf.get())) {
 		LOG_F("nsjailSetTimer() failed");
 	}
 	if (!sandbox::preparePolicy(nsjconf.get())) {

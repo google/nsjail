@@ -54,7 +54,7 @@ namespace net {
 #include <netlink/route/link.h>
 #include <netlink/route/link/macvlan.h>
 bool initNsFromParent(nsjconf_t* nsjconf, int pid) {
-	if (nsjconf->clone_newnet == false) {
+	if (!nsjconf->clone_newnet) {
 		return true;
 	}
 	if (nsjconf->iface_vs.empty()) {
@@ -122,7 +122,7 @@ bool initNsFromParent(nsjconf_t* nsjconf, int pid) {
 #else   // defined(NSJAIL_NL3_WITH_MACVLAN)
 
 bool initNsFromParent(nsjconf_t* nsjconf, int pid) {
-	if (nsjconf->clone_newnet == false) {
+	if (!nsjconf->clone_newnet) {
 		return true;
 	}
 	if (nsjconf->iface_vs.empty()) {
@@ -369,7 +369,7 @@ static bool netConfigureVs(nsjconf_t* nsjconf) {
 		return false;
 	}
 
-	if (ifaceUp(IFACE_NAME) == false) {
+	if (!ifaceUp(IFACE_NAME)) {
 		close(sock);
 		return false;
 	}

@@ -221,13 +221,13 @@ static bool uidGidMap(nsjconf_t* nsjconf, pid_t pid) {
 }
 
 bool initNsFromParent(nsjconf_t* nsjconf, pid_t pid) {
-	if (setGroups(pid) == false) {
+	if (!setGroups(pid)) {
 		return false;
 	}
-	if (nsjconf->clone_newuser == false) {
+	if (!nsjconf->clone_newuser) {
 		return true;
 	}
-	if (uidGidMap(nsjconf, pid) == false) {
+	if (!uidGidMap(nsjconf, pid)) {
 		return false;
 	}
 	return true;

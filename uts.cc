@@ -29,7 +29,7 @@
 namespace uts {
 
 bool initNs(nsjconf_t* nsjconf) {
-	if (nsjconf->clone_newuts == false) {
+	if (!nsjconf->clone_newuts) {
 		return true;
 	}
 
