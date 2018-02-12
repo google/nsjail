@@ -95,4 +95,13 @@ bool preparePolicy(nsjconf_t* nsjconf) {
 	return true;
 }
 
+void closePolicy(nsjconf_t* nsjconf) {
+  if (!nsjconf->seccomp_fprog.filter) {
+    return;
+  }
+  free(nsjconf->seccomp_fprog.filter);
+  nsjconf->seccomp_fprog.filter = nullptr;
+  nsjconf->seccomp_fprog.len = 0;
+}
+
 }  // namespace sandbox

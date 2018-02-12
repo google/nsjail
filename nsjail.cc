@@ -179,10 +179,12 @@ int main(int argc, char* argv[]) {
 		LOG_F("Couldn't prepare sandboxing policy");
 	}
 
+        int ret = 0;
 	if (nsjconf->mode == MODE_LISTEN_TCP) {
 		nsjailListenMode(nsjconf.get());
 	} else {
-		return nsjailStandaloneMode(nsjconf.get());
+		ret = nsjailStandaloneMode(nsjconf.get());
 	}
-	return 0;
+        sandbox::closePolicy(nsjconf.get());
+	return ret;
 }
