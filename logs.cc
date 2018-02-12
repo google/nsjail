@@ -35,7 +35,7 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "nsjail.h"
+#include "util.h"
 
 #include <string.h>
 
@@ -100,20 +100,13 @@ void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt
 	    {"HB", "\033[1m", false, false},
 	};
 
-	time_t ltstamp = time(NULL);
-	struct tm utctime;
-	localtime_r(&ltstamp, &utctime);
-	char timestr[32];
-	if (strftime(timestr, sizeof(timestr) - 1, "%FT%T%z", &utctime) == 0) {
-		timestr[0] = '\0';
-	}
-
 	/* Start printing logs */
 	if (_log_fd_isatty) {
 		dprintf(_log_fd, "%s", logLevels[ll].prefix);
 	}
 	if (logLevels[ll].print_time) {
-		dprintf(_log_fd, "[%s] ", timestr);
+		const auto timestr = util::timeToStr(time(NULL));
+		dprintf(_log_fd, "[%s] ", timestr.c_str());
 	}
 	if (logLevels[ll].print_funcline) {
 		dprintf(_log_fd, "[%s][%d] %s():%d ", logLevels[ll].descr, (int)getpid(), fn, ln);

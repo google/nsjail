@@ -99,7 +99,7 @@ config.o: mnt.h user.h util.h
 contain.o: contain.h nsjail.h logs.h caps.h cgroup.h cpu.h mnt.h net.h pid.h
 contain.o: user.h uts.h
 cpu.o: cpu.h nsjail.h logs.h util.h
-logs.o: logs.h nsjail.h
+logs.o: logs.h util.h nsjail.h
 mnt.o: mnt.h nsjail.h logs.h macros.h subproc.h util.h
 net.o: net.h nsjail.h logs.h subproc.h
 nsjail.o: nsjail.h logs.h cmdline.h macros.h net.h sandbox.h subproc.h util.h
