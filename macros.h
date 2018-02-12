@@ -35,7 +35,9 @@
 	}))
 #endif /* !defined(TEMP_FAILURE_RETRY) */
 
+#if !defined(ARRAYSIZE)
 #define ARRAYSIZE(array) (sizeof(array) / sizeof(*array))
+#endif /* !defined(ARRAYSIZE) */
 #define UNUSED __attribute__((unused))
 
 #if 0 /* Works, but needs -fblocks and libBlocksRuntime with clang */
