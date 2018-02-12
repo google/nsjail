@@ -88,7 +88,7 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 	nsjconf->hostname = njc.hostname();
 	nsjconf->cwd = njc.cwd();
 	nsjconf->port = njc.port();
-	nsjconf->bindhost = njc.bindhost().c_str();
+	nsjconf->bindhost = njc.bindhost();
 	nsjconf->max_conns_per_ip = njc.max_conns_per_ip();
 	nsjconf->tlimit = njc.time_limit();
 	nsjconf->max_cpus = njc.max_cpus();
@@ -236,22 +236,22 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 	}
 
 	nsjconf->cgroup_mem_max = njc.cgroup_mem_max();
-	nsjconf->cgroup_mem_mount = njc.cgroup_mem_mount().c_str();
-	nsjconf->cgroup_mem_parent = njc.cgroup_mem_parent().c_str();
+	nsjconf->cgroup_mem_mount = njc.cgroup_mem_mount();
+	nsjconf->cgroup_mem_parent = njc.cgroup_mem_parent();
 	nsjconf->cgroup_pids_max = njc.cgroup_pids_max();
-	nsjconf->cgroup_pids_mount = njc.cgroup_pids_mount().c_str();
-	nsjconf->cgroup_pids_parent = njc.cgroup_pids_parent().c_str();
+	nsjconf->cgroup_pids_mount = njc.cgroup_pids_mount();
+	nsjconf->cgroup_pids_parent = njc.cgroup_pids_parent();
 	nsjconf->cgroup_net_cls_classid = njc.cgroup_net_cls_classid();
-	nsjconf->cgroup_net_cls_mount = njc.cgroup_net_cls_mount().c_str();
-	nsjconf->cgroup_net_cls_parent = njc.cgroup_net_cls_parent().c_str();
+	nsjconf->cgroup_net_cls_mount = njc.cgroup_net_cls_mount();
+	nsjconf->cgroup_net_cls_parent = njc.cgroup_net_cls_parent();
 
 	nsjconf->iface_lo = !(njc.iface_no_lo());
 	if (njc.has_macvlan_iface()) {
 		nsjconf->iface_vs = njc.macvlan_iface();
 	}
-	nsjconf->iface_vs_ip = njc.macvlan_vs_ip().c_str();
-	nsjconf->iface_vs_nm = njc.macvlan_vs_nm().c_str();
-	nsjconf->iface_vs_gw = njc.macvlan_vs_gw().c_str();
+	nsjconf->iface_vs_ip = njc.macvlan_vs_ip();
+	nsjconf->iface_vs_nm = njc.macvlan_vs_nm();
+	nsjconf->iface_vs_gw = njc.macvlan_vs_gw();
 
 	if (njc.has_exec_bin()) {
 		static std::vector<const char*> argv;
