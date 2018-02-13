@@ -92,7 +92,7 @@ static const std::string cloneFlagsToStr(uintptr_t flags) {
 	};
 
 	uintptr_t knownFlagMask = CSIGNAL;
-	for (size_t i = 0; i < ARRAYSIZE(cloneFlags); i++) {
+	for (size_t i = 0; i < ARR_SZ(cloneFlags); i++) {
 		if (flags & cloneFlags[i].flag) {
 			res.append(cloneFlags[i].name);
 			res.append("|");
@@ -112,7 +112,7 @@ static const std::string cloneFlagsToStr(uintptr_t flags) {
 /* Reset the execution environment for the new process */
 static bool resetEnv(void) {
 	/* Set all previously changed signals to their default behavior */
-	for (size_t i = 0; i < ARRAYSIZE(nssigs); i++) {
+	for (size_t i = 0; i < ARR_SZ(nssigs); i++) {
 		if (signal(nssigs[i], SIG_DFL) == SIG_ERR) {
 			PLOG_W("signal(%s, SIG_DFL)", util::sigName(nssigs[i]).c_str());
 			return false;

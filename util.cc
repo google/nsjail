@@ -250,7 +250,7 @@ const std::string sigName(int signo) {
 	    NS_VALSTR_STRUCT(SIGWINCH),
 	};
 
-	for (size_t i = 0; i < ARRAYSIZE(sigNames); i++) {
+	for (size_t i = 0; i < ARR_SZ(sigNames); i++) {
 		if (signo == sigNames[i].signo) {
 			res.append(sigNames[i].name);
 			return res;

@@ -179,14 +179,14 @@ static void cmdlineOptUsage(struct custom_option* option) {
 static void cmdlineUsage(const char* pname) {
 	LOG_HELP_BOLD("Usage: %s [options] -- path_to_command [args]", pname);
 	LOG_HELP_BOLD("Options:");
-	for (size_t i = 0; i < ARRAYSIZE(custom_opts); i++) {
+	for (size_t i = 0; i < ARR_SZ(custom_opts); i++) {
 		cmdlineOptUsage(&custom_opts[i]);
 	}
 	LOG_HELP_BOLD("\nDeprecated options:");
-	for (size_t i = 0; i < ARRAYSIZE(deprecated_opts); i++) {
+	for (size_t i = 0; i < ARR_SZ(deprecated_opts); i++) {
 		cmdlineOptUsage(&deprecated_opts[i]);
 		// Find replacement flag.
-		for (size_t j = 0; j < ARRAYSIZE(custom_opts); j++) {
+		for (size_t j = 0; j < ARR_SZ(custom_opts); j++) {
 			if (custom_opts[j].opt.val == deprecated_opts[i].opt.val) {
 				LOG_HELP_BOLD(
 				    "\tDEPRECATED: Use %s instead.", custom_opts[j].opt.name);
@@ -373,13 +373,13 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	static char cmdlineTmpfsSz[PATH_MAX] = "size=4194304";
 
 	// Generate options array for getopt_long.
-	size_t options_length = ARRAYSIZE(custom_opts) + ARRAYSIZE(deprecated_opts) + 1;
+	size_t options_length = ARR_SZ(custom_opts) + ARR_SZ(deprecated_opts) + 1;
 	struct option opts[options_length];
-	for (unsigned i = 0; i < ARRAYSIZE(custom_opts); i++) {
+	for (unsigned i = 0; i < ARR_SZ(custom_opts); i++) {
 		opts[i] = custom_opts[i].opt;
 	}
-	for (unsigned i = 0; i < ARRAYSIZE(deprecated_opts); i++) {
-		opts[ARRAYSIZE(custom_opts) + i] = deprecated_opts[i].opt;
+	for (unsigned i = 0; i < ARR_SZ(deprecated_opts); i++) {
+		opts[ARR_SZ(custom_opts) + i] = deprecated_opts[i].opt;
 	}
 	// Last, NULL option as a terminator.
 	struct option terminator = {NULL, 0, NULL, 0};

@@ -83,7 +83,7 @@ static struct {
 };
 
 int nameToVal(const char* name) {
-	for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
+	for (size_t i = 0; i < ARR_SZ(capNames); i++) {
 		if (strcmp(name, capNames[i].name) == 0) {
 			return capNames[i].val;
 		}
@@ -94,7 +94,7 @@ int nameToVal(const char* name) {
 
 static const std::string capToStr(int val) {
 	std::string res;
-	for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
+	for (size_t i = 0; i < ARR_SZ(capNames); i++) {
 		if (val == capNames[i].val) {
 			return capNames[i].name;
 		}
@@ -171,7 +171,7 @@ static bool initNsKeepCaps(cap_user_data_t cap_data) {
 
 	/* Copy all permitted caps to the inheritable set */
 	dbgmsg[0] = '\0';
-	for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
+	for (size_t i = 0; i < ARR_SZ(capNames); i++) {
 		if (getPermitted(cap_data, capNames[i].val)) {
 			util::sSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capNames[i].name);
 			setInheritable(cap_data, capNames[i].val);
@@ -185,7 +185,7 @@ static bool initNsKeepCaps(cap_user_data_t cap_data) {
 
 	/* Make sure the inheritable set is preserved across execve via the ambient set */
 	dbgmsg[0] = '\0';
-	for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
+	for (size_t i = 0; i < ARR_SZ(capNames); i++) {
 		if (!getPermitted(cap_data, capNames[i].val)) {
 			continue;
 		}
@@ -248,7 +248,7 @@ bool initNs(nsjconf_t* nsjconf) {
 	 */
 	if (getEffective(cap_data, CAP_SETPCAP)) {
 		dbgmsg[0] = '\0';
-		for (size_t i = 0; i < ARRAYSIZE(capNames); i++) {
+		for (size_t i = 0; i < ARR_SZ(capNames); i++) {
 			if (getInheritable(cap_data, capNames[i].val)) {
 				continue;
 			}

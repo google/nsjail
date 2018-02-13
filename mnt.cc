@@ -87,7 +87,7 @@ static const std::string flagsToStr(uintptr_t flags) {
 	};
 
 	uintptr_t knownFlagMask = 0U;
-	for (size_t i = 0; i < ARRAYSIZE(mountFlags); i++) {
+	for (size_t i = 0; i < ARR_SZ(mountFlags); i++) {
 		if (flags & mountFlags[i].flag) {
 			res.append(mountFlags[i].name);
 			res.append("|");
@@ -259,7 +259,7 @@ static bool remountRO(const mount_t& mpt) {
 	};
 
 	unsigned long new_flags = MS_REMOUNT | MS_RDONLY | MS_BIND;
-	for (size_t i = 0; i < ARRAYSIZE(mountPairs); i++) {
+	for (size_t i = 0; i < ARR_SZ(mountPairs); i++) {
 		if (vfs.f_flag & mountPairs[i].vfs_flag) {
 			new_flags |= mountPairs[i].mount_flag;
 		}
