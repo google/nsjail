@@ -16,6 +16,11 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+PKG_CONFIG=$(shell which pkg-config)
+ifeq ($(PKG_CONFIG),)
+$(error "Install pkg-config to make it work")
+endif
+
 CC ?= gcc
 CXX ?= g++
 
