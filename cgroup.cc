@@ -45,17 +45,17 @@ static bool initNsFromParentMem(nsjconf_t* nsjconf, pid_t pid) {
 	    nsjconf->cgroup_mem_mount.c_str(), nsjconf->cgroup_mem_parent.c_str(), (int)pid);
 	LOG_D("Create '%s' for PID=%d", mem_cgroup_path, (int)pid);
 	if (mkdir(mem_cgroup_path, 0700) == -1 && errno != EEXIST) {
-		PLOG_E("mkdir('%s', 0700) failed", mem_cgroup_path);
+		PLOG_W("mkdir('%s', 0700) failed", mem_cgroup_path);
 		return false;
 	}
 
 	char fname[PATH_MAX];
-	char mem_max_str[512];
-	snprintf(mem_max_str, sizeof(mem_max_str), "%zu", nsjconf->cgroup_mem_max);
+	std::string mem_max_str = std::to_string(nsjconf->cgroup_mem_max);
 	snprintf(fname, sizeof(fname), "%s/memory.limit_in_bytes", mem_cgroup_path);
-	LOG_D("Setting '%s' to '%s'", fname, mem_max_str);
-	if (!util::writeBufToFile(fname, mem_max_str, strlen(mem_max_str), O_WRONLY | O_CLOEXEC)) {
-		LOG_E("Could not update memory cgroup max limit");
+	LOG_D("Setting '%s' to '%s'", fname, mem_max_str.c_str());
+	if (!util::writeBufToFile(
+		fname, mem_max_str.data(), mem_max_str.length(), O_WRONLY | O_CLOEXEC)) {
+		LOG_W("Could not update memory cgroup max limit");
 		return false;
 	}
 
@@ -65,16 +65,15 @@ static bool initNsFromParentMem(nsjconf_t* nsjconf, pid_t pid) {
 	snprintf(fname, sizeof(fname), "%s/memory.oom_control", mem_cgroup_path);
 	LOG_D("Writting '0' '%s'", fname);
 	if (!util::writeBufToFile(fname, "0", strlen("0"), O_WRONLY | O_CLOEXEC)) {
-		LOG_E("Could not update memory cgroup oom control");
+		LOG_W("Could not update memory cgroup oom control");
 		return false;
 	}
 
-	char pid_str[512];
-	snprintf(pid_str, sizeof(pid_str), "%d", (int)pid);
+	std::string pid_str = std::to_string(pid);
 	snprintf(fname, sizeof(fname), "%s/tasks", mem_cgroup_path);
-	LOG_D("Adding PID='%s' to '%s'", pid_str, fname);
-	if (!util::writeBufToFile(fname, pid_str, strlen(pid_str), O_WRONLY | O_CLOEXEC)) {
-		LOG_E("Could not update memory cgroup task list");
+	LOG_D("Adding PID='%s' to '%s'", pid_str.c_str(), fname);
+	if (!util::writeBufToFile(fname, pid_str.data(), pid_str.length(), O_WRONLY | O_CLOEXEC)) {
+		LOG_W("Could not update '%s' task list", fname);
 		return false;
 	}
 
@@ -91,27 +90,25 @@ static bool initNsFromParentPids(nsjconf_t* nsjconf, pid_t pid) {
 	    nsjconf->cgroup_pids_mount.c_str(), nsjconf->cgroup_pids_parent.c_str(), (int)pid);
 	LOG_D("Create '%s' for PID=%d", pids_cgroup_path, (int)pid);
 	if (mkdir(pids_cgroup_path, 0700) == -1 && errno != EEXIST) {
-		PLOG_E("mkdir('%s', 0700) failed", pids_cgroup_path);
+		PLOG_W("mkdir('%s', 0700) failed", pids_cgroup_path);
 		return false;
 	}
 
 	char fname[PATH_MAX];
-	char pids_max_str[512];
-	snprintf(pids_max_str, sizeof(pids_max_str), "%u", nsjconf->cgroup_pids_max);
+	std::string pids_max_str = std::to_string(nsjconf->cgroup_pids_max);
 	snprintf(fname, sizeof(fname), "%s/pids.max", pids_cgroup_path);
-	LOG_D("Setting '%s' to '%s'", fname, pids_max_str);
+	LOG_D("Setting '%s' to '%s'", fname, pids_max_str.c_str());
 	if (!util::writeBufToFile(
-		fname, pids_max_str, strlen(pids_max_str), O_WRONLY | O_CLOEXEC)) {
-		LOG_E("Could not update pids cgroup max limit");
+		fname, pids_max_str.data(), pids_max_str.length(), O_WRONLY | O_CLOEXEC)) {
+		LOG_W("Could not update pids cgroup max limit");
 		return false;
 	}
 
-	char pid_str[512];
-	snprintf(pid_str, sizeof(pid_str), "%d", (int)pid);
+	std::string pid_str = std::to_string(pid);
 	snprintf(fname, sizeof(fname), "%s/tasks", pids_cgroup_path);
-	LOG_D("Adding PID='%s' to '%s'", pid_str, fname);
-	if (!util::writeBufToFile(fname, pid_str, strlen(pid_str), O_WRONLY | O_CLOEXEC)) {
-		LOG_E("Could not update pids cgroup task list");
+	LOG_D("Adding PID='%s' to '%s'", pid_str.c_str(), fname);
+	if (!util::writeBufToFile(fname, pid_str.data(), pid_str.length(), O_WRONLY | O_CLOEXEC)) {
+		LOG_W("Could not update '%s' task list", fname);
 		return false;
 	}
 
@@ -129,7 +126,7 @@ static bool initNsFromParentNetCls(nsjconf_t* nsjconf, pid_t pid) {
 	    (int)pid);
 	LOG_D("Create '%s' for PID=%d", net_cls_cgroup_path, (int)pid);
 	if (mkdir(net_cls_cgroup_path, 0700) == -1 && errno != EEXIST) {
-		PLOG_E("mkdir('%s', 0700) failed", net_cls_cgroup_path);
+		PLOG_W("mkdir('%s', 0700) failed", net_cls_cgroup_path);
 		return false;
 	}
 
@@ -141,16 +138,15 @@ static bool initNsFromParentNetCls(nsjconf_t* nsjconf, pid_t pid) {
 	LOG_D("Setting '%s' to '%s'", fname, net_cls_classid_str);
 	if (!util::writeBufToFile(
 		fname, net_cls_classid_str, strlen(net_cls_classid_str), O_WRONLY | O_CLOEXEC)) {
-		LOG_E("Could not update net_cls cgroup classid");
+		LOG_W("Could not update net_cls cgroup classid");
 		return false;
 	}
 
-	char pid_str[512];
-	snprintf(pid_str, sizeof(pid_str), "%d", (int)pid);
+	std::string pid_str = std::to_string(pid);
 	snprintf(fname, sizeof(fname), "%s/tasks", net_cls_cgroup_path);
-	LOG_D("Adding PID='%s' to '%s'", pid_str, fname);
-	if (!util::writeBufToFile(fname, pid_str, strlen(pid_str), O_WRONLY | O_CLOEXEC)) {
-		LOG_E("Could not update net_cls cgroup task list");
+	LOG_D("Adding PID='%s' to '%s'", pid_str.c_str(), fname);
+	if (!util::writeBufToFile(fname, pid_str.data(), pid_str.length(), O_WRONLY | O_CLOEXEC)) {
+		LOG_W("Could not update '%s' task list", fname);
 		return false;
 	}
 
@@ -167,7 +163,7 @@ static bool initNsFromParentCpu(nsjconf_t* nsjconf, pid_t pid) {
 	    nsjconf->cgroup_cpu_mount.c_str(), nsjconf->cgroup_cpu_parent.c_str(), (int)pid);
 	LOG_D("Create '%s' for PID=%d", cpu_cgroup_path, (int)pid);
 	if (mkdir(cpu_cgroup_path, 0700) == -1 && errno != EEXIST) {
-		PLOG_E("mkdir('%s', 0700) failed", cpu_cgroup_path);
+		PLOG_W("mkdir('%s', 0700) failed", cpu_cgroup_path);
 		return false;
 	}
 
@@ -179,25 +175,24 @@ static bool initNsFromParentCpu(nsjconf_t* nsjconf, pid_t pid) {
 	LOG_D("Setting '%s' to '%s'", fname, cpu_ms_per_sec_str);
 	if (!util::writeBufToFile(
 		fname, cpu_ms_per_sec_str, strlen(cpu_ms_per_sec_str), O_WRONLY | O_CLOEXEC)) {
-		LOG_E("Could not update cpu quota");
+		LOG_W("Could not update cpu quota");
 		return false;
 	}
 
-	const char cpu_period_us[] = "1000000";
+	static const char cpu_period_us[] = "1000000";
 	snprintf(fname, sizeof(fname), "%s/cpu.cfs_period_us", cpu_cgroup_path);
 	LOG_D("Setting '%s' to '%s'", fname, cpu_period_us);
 	if (!util::writeBufToFile(
 		fname, cpu_period_us, strlen(cpu_period_us), O_WRONLY | O_CLOEXEC)) {
-		LOG_E("Could not update cpu period");
+		LOG_W("Could not update cpu period");
 		return false;
 	}
 
-	char pid_str[512];
-	snprintf(pid_str, sizeof(pid_str), "%d", (int)pid);
+	std::string pid_str = std::to_string(pid);
 	snprintf(fname, sizeof(fname), "%s/tasks", cpu_cgroup_path);
-	LOG_D("Adding PID='%s' to '%s'", pid_str, fname);
-	if (!util::writeBufToFile(fname, pid_str, strlen(pid_str), O_WRONLY | O_CLOEXEC)) {
-		LOG_E("Could not update cpu cgroup task list");
+	LOG_D("Adding PID='%s' to '%s'", pid_str.c_str(), fname);
+	if (!util::writeBufToFile(fname, pid_str.data(), pid_str.length(), O_WRONLY | O_CLOEXEC)) {
+		LOG_W("Could not update '%s' task list", fname);
 		return false;
 	}
 
