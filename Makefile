@@ -15,7 +15,6 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
-#
 
 CC ?= gcc
 CXX ?= g++
@@ -75,15 +74,18 @@ $(SRCS_PB_O): $(SRCS_PB_CXX) $(SRCS_PB_H)
 $(SRCS_PB_CXX) $(SRCS_PB_H): $(SRCS_PROTO)
 	protoc --cpp_out=. $(SRCS_PROTO)
 
+.PHONY: clean
 clean:
 	$(RM) core Makefile.bak $(OBJS) $(SRCS_PB_CXX) $(SRCS_PB_H) $(BIN)
 ifneq ("$(wildcard kafel/Makefile)","")
 	$(MAKE) -C kafel clean
 endif
 
+.PHONY: depend
 depend:
 	makedepend -Y -Ykafel/include -- -- $(SRCS_CXX) $(SRCS_PB_CXX)
 
+.PHONY: indent
 indent:
 	clang-format -style="{BasedOnStyle: google, IndentWidth: 8, UseTab: Always, IndentCaseLabels: false, ColumnLimit: 100, AlignAfterOpenBracket: false, AllowShortFunctionsOnASingleLine: false}" -i -sort-includes *.h $(SRCS_CXX)
 	clang-format -style="{BasedOnStyle: google, IndentWidth: 4, UseTab: Always, ColumnLimit: 100}" -i $(SRCS_PROTO)
