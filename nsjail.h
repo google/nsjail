@@ -44,6 +44,8 @@ static const int nssigs[] = {
     SIGALRM,
     SIGCHLD,
     SIGTERM,
+    SIGTTIN,
+    SIGTTOU,
 };
 
 struct pids_t {
