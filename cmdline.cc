@@ -308,7 +308,8 @@ static std::string argByColon(const char* str, size_t pos) {
 }
 
 std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
-	std::unique_ptr<nsjconf_t> nsjconf = std::make_unique<nsjconf_t>();
+	std::unique_ptr<nsjconf_t> nsjconf;
+	nsjconf.reset(new nsjconf_t);
 
 	nsjconf->use_execveat = false;
 	nsjconf->exec_fd = -1;

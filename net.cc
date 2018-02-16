@@ -302,7 +302,8 @@ static bool ifaceUp(const char* ifacename) {
 		return false;
 	}
 
-	struct ifreq ifr = {};
+	struct ifreq ifr;
+	memset(&ifr, '\0', sizeof(ifr));
 	snprintf(ifr.ifr_name, IF_NAMESIZE, "%s", ifacename);
 
 	if (ioctl(sock, SIOCGIFFLAGS, &ifr) == -1) {
@@ -324,7 +325,8 @@ static bool ifaceUp(const char* ifacename) {
 }
 
 static bool netConfigureVs(nsjconf_t* nsjconf) {
-	struct ifreq ifr = {};
+	struct ifreq ifr;
+	memset(&ifr, '\0', sizeof(ifr));
 	snprintf(ifr.ifr_name, IF_NAMESIZE, "%s", IFACE_NAME);
 	struct in_addr addr;
 
@@ -385,7 +387,8 @@ static bool netConfigureVs(nsjconf_t* nsjconf) {
 		return true;
 	}
 
-	struct rtentry rt = {};
+	struct rtentry rt;
+	memset(&rt, '\0', sizeof(rt));
 
 	struct sockaddr_in* sdest = (struct sockaddr_in*)(&rt.rt_dst);
 	struct sockaddr_in* smask = (struct sockaddr_in*)(&rt.rt_genmask);
