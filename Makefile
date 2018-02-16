@@ -65,6 +65,11 @@ endif
 all: $(BIN)
 
 $(BIN): $(LIBS) $(OBJS)
+ifneq ($(NL3_EXISTS), yes)
+	$(warning "==========================================================")
+	$(warning "No support for libnl3/libnl-route-3; /sbin/ip will be used")
+	$(warning "==========================================================")
+endif
 	$(CXX) -o $(BIN) $(OBJS) $(LIBS) $(LDFLAGS)
 
 kafel/libkafel.a:
