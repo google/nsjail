@@ -24,6 +24,7 @@
 #include <linux/filter.h>
 #include <linux/seccomp.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <sys/prctl.h>
 
 extern "C" {
