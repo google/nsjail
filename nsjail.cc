@@ -65,6 +65,10 @@ static bool nsjailSetSigHandler(int sig) {
 	sa.sa_mask = smask;
 	sa.sa_flags = 0;
 	sa.sa_restorer = NULL;
+
+	if (sig == SIGTTIN || sig == SIGTTOU) {
+		sa.sa_handler = SIG_IGN;
+	};
 	if (sigaction(sig, &sa, NULL) == -1) {
 		PLOG_E("sigaction(%d)", sig);
 		return false;
