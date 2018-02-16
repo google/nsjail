@@ -202,7 +202,6 @@ static bool initNsKeepCaps(cap_user_data_t cap_data) {
 }
 
 bool initNs(nsjconf_t* nsjconf) {
-	char dbgmsg[4096];
 	struct ints_t* p;
 
 	cap_user_data_t cap_data = getCaps();
@@ -226,17 +225,17 @@ bool initNs(nsjconf_t* nsjconf) {
 
 	/* Set all requested caps in the inheritable set if these are present in the permitted set
 	 */
-	dbgmsg[0] = '\0';
+	std::string dbgmsg;
 	for (const auto& cap : nsjconf->caps) {
 		if (!getPermitted(cap_data, cap)) {
 			LOG_W("Capability %s is not permitted in the namespace",
 			    capToStr(cap).c_str());
 			return false;
 		}
-		util::sSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capToStr(cap).c_str());
+		dbgmsg.append(" ").append(capToStr(cap));
 		setInheritable(cap_data, cap);
 	}
-	LOG_D("Adding the following capabilities to the inheritable set:%s", dbgmsg);
+	LOG_D("Adding the following capabilities to the inheritable set:%s", dbgmsg.c_str());
 
 	if (!setCaps(cap_data)) {
 		return false;
@@ -246,34 +245,35 @@ bool initNs(nsjconf_t* nsjconf) {
 	 * Make sure all other caps (those which were not explicitly requested) are removed from the
 	 * bounding set. We need to have CAP_SETPCAP to do that now
 	 */
+	dbgmsg.clear();
 	if (getEffective(cap_data, CAP_SETPCAP)) {
-		dbgmsg[0] = '\0';
 		for (size_t i = 0; i < ARR_SZ(capNames); i++) {
 			if (getInheritable(cap_data, capNames[i].val)) {
 				continue;
 			}
-			util::sSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capNames[i].name);
+			dbgmsg.append(" ").append(capNames[i].name);
 			if (prctl(PR_CAPBSET_DROP, (unsigned long)capNames[i].val, 0UL, 0UL, 0UL) ==
 			    -1) {
 				PLOG_W("prctl(PR_CAPBSET_DROP, %s)", capNames[i].name);
 				return false;
 			}
 		}
-		LOG_D("Dropped the following capabilities from the bounding set:%s", dbgmsg);
+		LOG_D(
+		    "Dropped the following capabilities from the bounding set:%s", dbgmsg.c_str());
 	}
 
 	/* Make sure inheritable set is preserved across execve via the modified ambient set */
-	dbgmsg[0] = '\0';
+	dbgmsg.clear();
 	for (const auto& cap : nsjconf->caps) {
 		if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)cap, 0UL, 0UL) ==
 		    -1) {
 			PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s)",
 			    capToStr(cap).c_str());
 		} else {
-			util::sSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capToStr(cap).c_str());
+			dbgmsg.append(" ").append(capToStr(cap));
 		}
 	}
-	LOG_D("Added the following capabilities to the ambient set:%s", dbgmsg);
+	LOG_D("Added the following capabilities to the ambient set:%s", dbgmsg.c_str());
 
 	return true;
 }
