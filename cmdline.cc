@@ -425,7 +425,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			break;
 		case 'L':
 			nsjconf->logfile =
-			    "/dev/fd/" + std::to_string(std::strtol(optarg, NULL, 10));
+			    "/dev/fd/" + std::to_string(strtol(optarg, NULL, 10));
 			break;
 		case 'd':
 			nsjconf->daemonize = true;
@@ -564,7 +564,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			std::string i_id = argByColon(optarg, 0);
 			std::string o_id = argByColon(optarg, 1);
 			std::string cnt = argByColon(optarg, 2);
-			size_t count = std::strtoul(cnt.c_str(), nullptr, 0);
+			size_t count = strtoul(cnt.c_str(), nullptr, 0);
 			if (!user::parseId(nsjconf.get(), i_id, o_id, count, /* is_gid= */ false,
 				/* is_newidmap= */ false)) {
 				return nullptr;
@@ -574,7 +574,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			std::string i_id = argByColon(optarg, 0);
 			std::string o_id = argByColon(optarg, 1);
 			std::string cnt = argByColon(optarg, 2);
-			size_t count = std::strtoul(cnt.c_str(), nullptr, 0);
+			size_t count = strtoul(cnt.c_str(), nullptr, 0);
 			if (!user::parseId(nsjconf.get(), i_id, o_id, count, /* is_gid= */ true,
 				/* is_newidmap= */ false)) {
 				return nullptr;
@@ -584,7 +584,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			std::string i_id = argByColon(optarg, 0);
 			std::string o_id = argByColon(optarg, 1);
 			std::string cnt = argByColon(optarg, 2);
-			size_t count = std::strtoul(cnt.c_str(), nullptr, 0);
+			size_t count = strtoul(cnt.c_str(), nullptr, 0);
 			if (!user::parseId(nsjconf.get(), i_id, o_id, count, /* is_gid= */ false,
 				/* is_newidmap= */ true)) {
 				return nullptr;
@@ -594,7 +594,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			std::string i_id = argByColon(optarg, 0);
 			std::string o_id = argByColon(optarg, 1);
 			std::string cnt = argByColon(optarg, 2);
-			size_t count = std::strtoul(cnt.c_str(), nullptr, 0);
+			size_t count = strtoul(cnt.c_str(), nullptr, 0);
 			if (!user::parseId(nsjconf.get(), i_id, o_id, count, /* is_gid= */ true,
 				/* is_newidmap= */ true)) {
 				return nullptr;
