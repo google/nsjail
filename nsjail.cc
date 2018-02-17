@@ -189,6 +189,7 @@ int main(int argc, char* argv[]) {
 	} else {
 		ret = nsjailStandaloneMode(nsjconf.get());
 	}
+
 	sandbox::closePolicy(nsjconf.get());
 	return ret;
 }

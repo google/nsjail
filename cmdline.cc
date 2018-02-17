@@ -307,6 +307,89 @@ static std::string argByColon(const char* str, size_t pos) {
 	return vec[pos];
 }
 
+static bool setupArgv(nsjconf_t* nsjconf, int argc, char** argv, int optind) {
+	/* Override --config arguments, if there's still any cmd-line arg left */
+	if (optind < argc) {
+		nsjconf->argv.clear();
+		nsjconf->exec_file.clear();
+	}
+	for (int i = optind; i < argc; i++) {
+		nsjconf->argv.push_back(argv[i]);
+	}
+	if (nsjconf->argv.empty()) {
+		cmdlineUsage(argv[0]);
+		LOG_E("No command provided");
+		return false;
+	}
+	if (nsjconf->exec_file.empty()) {
+		nsjconf->exec_file = nsjconf->argv[0];
+	}
+
+	if (nsjconf->use_execveat) {
+#if !defined(__NR_execveat)
+		LOG_E(
+		    "Your nsjail is compiled without support for the execveat() syscall, yet you "
+		    "specified the --execute_fd flag");
+		return false;
+#endif /* !defined(__NR_execveat) */
+		if ((nsjconf->exec_fd = TEMP_FAILURE_RETRY(
+			 open(nsjconf->exec_file.c_str(), O_RDONLY | O_PATH | O_CLOEXEC))) == -1) {
+			PLOG_W("Couldn't open '%s' file", nsjconf->exec_file.c_str());
+			return false;
+		}
+	}
+	return true;
+}
+
+static bool setupMounts(nsjconf_t* nsjconf) {
+	if (!(nsjconf->chroot.empty())) {
+		if (!mnt::addMountPtHead(nsjconf, nsjconf->chroot, "/", /* fs_type= */ "",
+			/* options= */ "",
+			nsjconf->is_root_rw ? (MS_BIND | MS_REC | MS_PRIVATE)
+					    : (MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY),
+			/* is_dir= */ mnt::NS_DIR_YES, /* is_mandatory= */ true, /* src_env= */ "",
+			/* dst_env= */ "", /* src_content= */ "", /* is_symlink= */ false)) {
+			return false;
+		}
+	} else {
+		if (!mnt::addMountPtHead(nsjconf, /* src= */ "", "/", "tmpfs",
+			/* options= */ "", nsjconf->is_root_rw ? 0 : MS_RDONLY,
+			/* is_dir= */ mnt::NS_DIR_YES,
+			/* is_mandatory= */ true, /* src_env= */ "", /* dst_env= */ "",
+			/* src_content= */ "", /* is_symlink= */ false)) {
+			return false;
+		}
+	}
+
+	if (!nsjconf->proc_path.empty()) {
+		if (!mnt::addMountPtTail(nsjconf, /* src= */ "", nsjconf->proc_path, "proc",
+			/* options= */ "", nsjconf->is_proc_rw ? 0 : MS_RDONLY,
+			/* is_dir= */ mnt::NS_DIR_YES, /* is_mandatory= */ true, /* src_env= */ "",
+			/* dst_env= */ "", /* src_content= */ "", /* is_symlink= */ false)) {
+			return false;
+		}
+	}
+
+	if (nsjconf->uids.empty()) {
+		idmap_t uid;
+		uid.inside_id = getuid();
+		uid.outside_id = getuid();
+		uid.count = 1U;
+		uid.is_newidmap = false;
+		nsjconf->uids.push_back(uid);
+	}
+	if (nsjconf->gids.empty()) {
+		idmap_t gid;
+		gid.inside_id = getgid();
+		gid.outside_id = getgid();
+		gid.count = 1U;
+		gid.is_newidmap = false;
+		nsjconf->gids.push_back(gid);
+	}
+
+	return true;
+}
+
 std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	std::unique_ptr<nsjconf_t> nsjconf(new nsjconf_t);
 
@@ -746,75 +829,11 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	if (!logs::initLog(nsjconf->logfile, nsjconf->loglevel)) {
 		return nullptr;
 	}
-
-	if (!nsjconf->proc_path.empty()) {
-		if (!mnt::addMountPtTail(nsjconf.get(), /* src= */ "", nsjconf->proc_path, "proc",
-			/* options= */ "", nsjconf->is_proc_rw ? 0 : MS_RDONLY,
-			/* is_dir= */ mnt::NS_DIR_YES, /* is_mandatory= */ true, /* src_env= */ "",
-			/* dst_env= */ "", /* src_content= */ "", /* is_symlink= */ false)) {
-			return nullptr;
-		}
-	}
-	if (!(nsjconf->chroot.empty())) {
-		if (!mnt::addMountPtHead(nsjconf.get(), nsjconf->chroot, "/", /* fs_type= */ "",
-			/* options= */ "",
-			nsjconf->is_root_rw ? (MS_BIND | MS_REC | MS_PRIVATE)
-					    : (MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY),
-			/* is_dir= */ mnt::NS_DIR_YES, /* is_mandatory= */ true, /* src_env= */ "",
-			/* dst_env= */ "", /* src_content= */ "", /* is_symlink= */ false)) {
-			return nullptr;
-		}
-	} else {
-		if (!mnt::addMountPtHead(nsjconf.get(), /* src= */ "", "/", "tmpfs",
-			/* options= */ "", nsjconf->is_root_rw ? 0 : MS_RDONLY,
-			/* is_dir= */ mnt::NS_DIR_YES,
-			/* is_mandatory= */ true, /* src_env= */ "", /* dst_env= */ "",
-			/* src_content= */ "", /* is_symlink= */ false)) {
-			return nullptr;
-		}
-	}
-
-	if (nsjconf->uids.empty()) {
-		idmap_t uid;
-		uid.inside_id = getuid();
-		uid.outside_id = getuid();
-		uid.count = 1U;
-		uid.is_newidmap = false;
-		nsjconf->uids.push_back(uid);
-	}
-	if (nsjconf->gids.empty()) {
-		idmap_t gid;
-		gid.inside_id = getgid();
-		gid.outside_id = getgid();
-		gid.count = 1U;
-		gid.is_newidmap = false;
-		nsjconf->gids.push_back(gid);
-	}
-
-	for (int i = optind; i < argc; i++) {
-		nsjconf->argv.push_back(argv[i]);
-	}
-	if (nsjconf->argv.empty()) {
-		cmdlineUsage(argv[0]);
-		LOG_E("No command provided");
+	if (!setupMounts(nsjconf.get())) {
 		return nullptr;
 	}
-	if (nsjconf->exec_file.empty()) {
-		nsjconf->exec_file = nsjconf->argv[0];
-	}
-
-	if (nsjconf->use_execveat) {
-#if !defined(__NR_execveat)
-		LOG_E(
-		    "Your nsjail is compiled without support for the execveat() syscall, yet you "
-		    "specified the --execute_fd flag");
+	if (!setupArgv(nsjconf.get(), argc, argv, optind)) {
 		return nullptr;
-#endif /* !defined(__NR_execveat) */
-		if ((nsjconf->exec_fd = TEMP_FAILURE_RETRY(
-			 open(nsjconf->exec_file.c_str(), O_RDONLY | O_PATH | O_CLOEXEC))) == -1) {
-			PLOG_W("Couldn't open '%s' file", nsjconf->exec_file.c_str());
-			return nullptr;
-		}
 	}
 
 	return nsjconf;
