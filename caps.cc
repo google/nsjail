@@ -138,27 +138,27 @@ static void clearInheritable(cap_user_data_t cap_data) {
 }
 
 static bool getPermitted(cap_user_data_t cap_data, unsigned int cap) {
-	size_t off_byte = cap / (sizeof(cap_data->permitted) * 8);
-	size_t off_bit = cap % (sizeof(cap_data->permitted) * 8);
-	return cap_data[off_byte].permitted & (1U << off_bit);
+	size_t off_byte = CAP_TO_INDEX(cap);
+	unsigned mask = CAP_TO_MASK(cap);
+	return cap_data[off_byte].permitted & mask;
 }
 
 static bool getEffective(cap_user_data_t cap_data, unsigned int cap) {
-	size_t off_byte = cap / (sizeof(cap_data->effective) * 8);
-	size_t off_bit = cap % (sizeof(cap_data->effective) * 8);
-	return cap_data[off_byte].effective & (1U << off_bit);
+	size_t off_byte = CAP_TO_INDEX(cap);
+	unsigned mask = CAP_TO_MASK(cap);
+	return cap_data[off_byte].effective & mask;
 }
 
 static bool getInheritable(cap_user_data_t cap_data, unsigned int cap) {
-	size_t off_byte = cap / (sizeof(cap_data->inheritable) * 8);
-	size_t off_bit = cap % (sizeof(cap_data->inheritable) * 8);
-	return cap_data[off_byte].inheritable & (1U << off_bit);
+	size_t off_byte = CAP_TO_INDEX(cap);
+	unsigned mask = CAP_TO_MASK(cap);
+	return cap_data[off_byte].inheritable & mask;
 }
 
 static void setInheritable(cap_user_data_t cap_data, unsigned int cap) {
-	size_t off_byte = cap / (sizeof(cap_data->inheritable) * 8);
-	size_t off_bit = cap % (sizeof(cap_data->inheritable) * 8);
-	cap_data[off_byte].inheritable |= (1U << off_bit);
+	size_t off_byte = CAP_TO_INDEX(cap);
+	unsigned mask = CAP_TO_MASK(cap);
+	cap_data[off_byte].inheritable |= mask;
 }
 
 #if !defined(PR_CAP_AMBIENT)
