@@ -92,7 +92,7 @@ ifneq ("$(wildcard kafel/Makefile)","")
 endif
 
 .PHONY: depend
-depend:
+depend: all
 	makedepend -Y -Ykafel/include -- -- $(SRCS_CXX) $(SRCS_PB_CXX)
 
 .PHONY: indent
