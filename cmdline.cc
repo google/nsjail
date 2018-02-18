@@ -225,20 +225,19 @@ void logParams(nsjconf_t* nsjconf) {
 	}
 
 	LOG_I(
-	    "Jail parameters: hostname:'%s', chroot:'%s', process:'%s', "
-	    "bind:[%s]:%d, "
-	    "max_conns_per_ip:%u, time_limit:%ld, personality:%#lx, daemonize:%s, "
-	    "clone_newnet:%s, clone_newuser:%s, clone_newns:%s, clone_newpid:%s, "
-	    "clone_newipc:%s, clonew_newuts:%s, clone_newcgroup:%s, keep_caps:%s, "
-	    "tmpfs_size:%zu, disable_no_new_privs:%s, max_cpus:%zu",
-	    nsjconf->hostname.c_str(), nsjconf->chroot.c_str(), nsjconf->argv[0].c_str(),
+	    "Jail parameters: hostname:'%s', chroot:'%s', process:'%s', bind:[%s]:%d, "
+	    "max_conns_per_ip:%u, time_limit:%ld, personality:%#lx, daemonize:%s, clone_newnet:%s, "
+	    "clone_newuser:%s, clone_newns:%s, clone_newpid:%s, clone_newipc:%s, clonew_newuts:%s, "
+	    "clone_newcgroup:%s, keep_caps:%s, disable_no_new_privs:%s, max_cpus:%zu",
+	    nsjconf->hostname.c_str(), nsjconf->chroot.c_str(),
+	    nsjconf->exec_file.empty() ? nsjconf->argv[0].c_str() : nsjconf->exec_file.c_str(),
 	    nsjconf->bindhost.c_str(), nsjconf->port, nsjconf->max_conns_per_ip, nsjconf->tlimit,
 	    nsjconf->personality, logYesNo(nsjconf->daemonize), logYesNo(nsjconf->clone_newnet),
 	    logYesNo(nsjconf->clone_newuser), logYesNo(nsjconf->clone_newns),
 	    logYesNo(nsjconf->clone_newpid), logYesNo(nsjconf->clone_newipc),
 	    logYesNo(nsjconf->clone_newuts), logYesNo(nsjconf->clone_newcgroup),
-	    logYesNo(nsjconf->keep_caps), nsjconf->tmpfs_size,
-	    logYesNo(nsjconf->disable_no_new_privs), nsjconf->max_cpus);
+	    logYesNo(nsjconf->keep_caps), logYesNo(nsjconf->disable_no_new_privs),
+	    nsjconf->max_cpus);
 
 	for (const auto& p : nsjconf->mountpts) {
 		LOG_I("%s: %s", p.is_symlink ? "Symlink" : "Mount point",
@@ -308,11 +307,6 @@ static std::string argByColon(const char* str, size_t pos) {
 }
 
 static bool setupArgv(nsjconf_t* nsjconf, int argc, char** argv, int optind) {
-	/* Override --config arguments, if there's still any cmd-line arg left */
-	if (optind < argc) {
-		nsjconf->argv.clear();
-		nsjconf->exec_file.clear();
-	}
 	for (int i = optind; i < argc; i++) {
 		nsjconf->argv.push_back(argv[i]);
 	}
@@ -425,7 +419,6 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->is_silent = false;
 	nsjconf->skip_setsid = false;
 	nsjconf->max_conns_per_ip = 0;
-	nsjconf->tmpfs_size = 4 * (1024 * 1024);
 	nsjconf->proc_path = "/proc";
 	nsjconf->is_proc_rw = false;
 	nsjconf->cgroup_mem_mount = "/sys/fs/cgroup/memory";
@@ -453,7 +446,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->openfds.push_back(STDOUT_FILENO);
 	nsjconf->openfds.push_back(STDERR_FILENO);
 
-	static char cmdlineTmpfsSz[PATH_MAX] = "size=4194304";
+	std::string tmpfs_size = "size=4194304";
 
 	// Generate options array for getopt_long.
 	size_t options_length = ARR_SZ(custom_opts) + ARR_SZ(deprecated_opts) + 1;
@@ -623,9 +616,8 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			nsjconf->is_root_rw = true;
 			break;
 		case 0x0602:
-			nsjconf->tmpfs_size = strtoull(optarg, NULL, 0);
-			snprintf(cmdlineTmpfsSz, sizeof(cmdlineTmpfsSz), "size=%zu",
-			    nsjconf->tmpfs_size);
+			tmpfs_size = "size=";
+			tmpfs_size.append(std::to_string(strtoull(optarg, NULL, 0)));
 			break;
 		case 0x0603:
 			nsjconf->proc_path.clear();
@@ -712,7 +704,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 		}; break;
 		case 'T': {
 			if (!mnt::addMountPtTail(nsjconf.get(), /* src= */ "", optarg, "tmpfs",
-				/* options= */ cmdlineTmpfsSz, /* flags= */ 0,
+				/* options= */ tmpfs_size, /* flags= */ 0,
 				/* is_dir= */ mnt::NS_DIR_YES, /* is_mandatory= */ true,
 				/* src_env= */ "", /* dst_env= */ "", /* src_content= */ "",
 				/* is_symlink= */ false)) {
