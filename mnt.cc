@@ -208,7 +208,7 @@ static bool mountPt(mount_t* mpt, const char* newroot, const char* tmpdir) {
 		} else {
 			PLOG_W("mount('%s') src:'%s' dst:'%s' failed",
 			    describeMountPt(*mpt).c_str(), srcpath, dst);
-			if (mpt->fs_type.compare("proc")) {
+			if (mpt->fs_type.compare("proc") == 0) {
 				PLOG_W(
 				    "procfs can only be mounted if the original /proc doesn't have "
 				    "any other file-systems mounted on top of it (e.g. /dev/null "
