@@ -522,25 +522,36 @@ bool addMountPtTail(nsjconf_t* nsjconf, const std::string& src, const std::strin
 }
 
 const std::string describeMountPt(const mount_t& mpt) {
-	char mount_pt_descr[256];
+	std::string descr;
 
-	snprintf(mount_pt_descr, sizeof(mount_pt_descr),
-	    "src:'%s' dst:'%s' type:'%s' flags:%s options:'%s' isDir:%s", mpt.src.c_str(),
-	    mpt.dst.c_str(), mpt.fs_type.c_str(), flagsToStr(mpt.flags).c_str(),
-	    mpt.options.c_str(), mpt.is_dir ? "true" : "false");
+	descr.append("src:'")
+	    .append(mpt.src)
+	    .append("' dst:'")
+	    .append(mpt.dst)
+	    .append("' flags:'")
+	    .append(flagsToStr(mpt.flags))
+	    .append("' type:'")
+	    .append(mpt.fs_type)
+	    .append("' options:'")
+	    .append(mpt.options)
+	    .append("'");
+	if (mpt.is_dir) {
+		descr.append(" is_dir:true");
+	} else {
+		descr.append(" is_dir:false");
+	}
 
 	if (!mpt.is_mandatory) {
-		util::sSnPrintf(mount_pt_descr, sizeof(mount_pt_descr), " mandatory:false");
+		descr.append(" mandatory:false");
 	}
 	if (!mpt.src_content.empty()) {
-		util::sSnPrintf(mount_pt_descr, sizeof(mount_pt_descr), " src_content_len:%zu",
-		    mpt.src_content.length());
+		descr.append(" src_content_len:").append(std::to_string(mpt.src_content.length()));
 	}
 	if (mpt.is_symlink) {
-		util::sSnPrintf(mount_pt_descr, sizeof(mount_pt_descr), " symlink:true");
+		descr.append(" symlink:true");
 	}
 
-	return mount_pt_descr;
+	return descr;
 }
 
 }  // namespace mnt
