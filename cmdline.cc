@@ -330,7 +330,8 @@ static bool setupArgv(nsjconf_t* nsjconf, int argc, char** argv, int optind) {
 	return true;
 }
 
-static bool setupMounts(nsjconf_t* nsjconf) {
+static bool setupMounts(nsjconf_t* nsjconf, const std::vector<std::string>& tmpfs_mounts,
+    const std::string& tmpfs_size) {
 	if (!(nsjconf->chroot.empty())) {
 		if (!mnt::addMountPtHead(nsjconf, nsjconf->chroot, "/", /* fs_type= */ "",
 			/* options= */ "",
@@ -359,6 +360,20 @@ static bool setupMounts(nsjconf_t* nsjconf) {
 		}
 	}
 
+	for (const auto& s : tmpfs_mounts) {
+		if (!mnt::addMountPtTail(nsjconf, /* src= */ "", /* dst= */ s, "tmpfs",
+			/* options= */ tmpfs_size, /* flags= */ 0,
+			/* is_dir= */ mnt::NS_DIR_YES, /* is_mandatory= */ true,
+			/* src_env= */ "", /* dst_env= */ "", /* src_content= */ "",
+			/* is_symlink= */ false)) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+void setupUsers(nsjconf_t* nsjconf) {
 	if (nsjconf->uids.empty()) {
 		idmap_t uid;
 		uid.inside_id = getuid();
@@ -375,8 +390,6 @@ static bool setupMounts(nsjconf_t* nsjconf) {
 		gid.is_newidmap = false;
 		nsjconf->gids.push_back(gid);
 	}
-
-	return true;
 }
 
 std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
@@ -442,6 +455,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->openfds.push_back(STDERR_FILENO);
 
 	std::string tmpfs_size = "size=4194304";
+	std::vector<std::string> tmpfs_mounts;
 
 	// Generate options array for getopt_long.
 	size_t options_length = ARR_SZ(custom_opts) + ARR_SZ(deprecated_opts) + 1;
@@ -703,15 +717,9 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 				return nullptr;
 			}
 		}; break;
-		case 'T': {
-			if (!mnt::addMountPtTail(nsjconf.get(), /* src= */ "", optarg, "tmpfs",
-				/* options= */ tmpfs_size, /* flags= */ 0,
-				/* is_dir= */ mnt::NS_DIR_YES, /* is_mandatory= */ true,
-				/* src_env= */ "", /* dst_env= */ "", /* src_content= */ "",
-				/* is_symlink= */ false)) {
-				return nullptr;
-			}
-		}; break;
+		case 'T':
+			tmpfs_mounts.push_back(optarg);
+			break;
 		case 'm': {
 			std::vector<std::string> subopts = util::strSplit(optarg, ':');
 			std::string src = argFromVec(subopts, 0);
@@ -823,12 +831,13 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	if (!logs::initLog(nsjconf->logfile, nsjconf->loglevel)) {
 		return nullptr;
 	}
-	if (!setupMounts(nsjconf.get())) {
+	if (!setupMounts(nsjconf.get(), tmpfs_mounts, tmpfs_size)) {
 		return nullptr;
 	}
 	if (!setupArgv(nsjconf.get(), argc, argv, optind)) {
 		return nullptr;
 	}
+	setupUsers(nsjconf.get());
 
 	return nsjconf;
 }
