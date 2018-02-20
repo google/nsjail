@@ -283,12 +283,13 @@ const std::string timeToStr(time_t t) {
 	return timestr;
 }
 
-void strSplit(const std::string str, std::vector<std::string>* vec, char delim) {
-	std::string word;
+std::vector<std::string> strSplit(const std::string str, char delim) {
+	std::vector<std::string> vec;
 	std::istringstream stream(str);
 	for (std::string word; std::getline(stream, word, delim);) {
-		vec->push_back(word);
+		vec.push_back(word);
 	}
+	return vec;
 }
 
 }  // namespace util

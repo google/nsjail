@@ -43,7 +43,7 @@ bool isANumber(const char* s);
 uint64_t rnd64(void);
 const std::string sigName(int signo);
 const std::string timeToStr(time_t t);
-void strSplit(const std::string str, std::vector<std::string>* vec, char delim);
+std::vector<std::string> strSplit(const std::string str, char delim);
 
 }  // namespace util
 
