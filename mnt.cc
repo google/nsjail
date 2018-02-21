@@ -121,10 +121,10 @@ static bool isDir(const char* path) {
 }
 
 static bool mountPt(mount_t* mpt, const char* newroot, const char* tmpdir) {
-	char dst[PATH_MAX];
-	snprintf(dst, sizeof(dst), "%s/%s", newroot, mpt->dst.c_str());
-
 	LOG_D("Mounting '%s'", describeMountPt(*mpt).c_str());
+
+	char dstpath[PATH_MAX];
+	snprintf(dstpath, sizeof(dstpath), "%s/%s", newroot, mpt->dst.c_str());
 
 	char srcpath[PATH_MAX];
 	if (!mpt->src.empty()) {
@@ -133,44 +133,36 @@ static bool mountPt(mount_t* mpt, const char* newroot, const char* tmpdir) {
 		snprintf(srcpath, sizeof(srcpath), "none");
 	}
 
-	if (mpt->is_symlink) {
-		if (!util::createDirRecursively(dst)) {
-			LOG_W("Couldn't create upper directories for '%s'", dst);
-			return false;
-		}
-	} else if (mpt->is_dir) {
-		if (!util::createDirRecursively(dst)) {
-			LOG_W("Couldn't create upper directories for '%s'", dst);
-			return false;
-		}
-		if (mkdir(dst, 0711) == -1 && errno != EEXIST) {
-			PLOG_W("mkdir('%s')", dst);
-		}
-	} else {
-		if (!util::createDirRecursively(dst)) {
-			LOG_W("Couldn't create upper directories for '%s'", dst);
-			return false;
-		}
-		int fd = TEMP_FAILURE_RETRY(open(dst, O_CREAT | O_RDONLY | O_CLOEXEC, 0644));
-		if (fd >= 0) {
-			close(fd);
-		} else {
-			PLOG_W("open('%s', O_CREAT|O_RDONLY|O_CLOEXEC, 0644)", dst);
-		}
+	if (!util::createDirRecursively(dstpath)) {
+		LOG_W("Couldn't create upper directories for '%s'", dstpath);
+		return false;
 	}
 
 	if (mpt->is_symlink) {
-		LOG_D("symlink('%s', '%s')", srcpath, dst);
-		if (symlink(srcpath, dst) == -1) {
+		LOG_D("symlink('%s', '%s')", srcpath, dstpath);
+		if (symlink(srcpath, dstpath) == -1) {
 			if (mpt->is_mandatory) {
-				PLOG_W("symlink('%s', '%s')", srcpath, dst);
+				PLOG_W("symlink('%s', '%s')", srcpath, dstpath);
 				return false;
 			} else {
 				PLOG_W("symlink('%s', '%s'), but it's not mandatory, continuing",
-				    srcpath, dst);
+				    srcpath, dstpath);
 			}
 		}
 		return true;
+	}
+
+	if (mpt->is_dir) {
+		if (mkdir(dstpath, 0711) == -1 && errno != EEXIST) {
+			PLOG_W("mkdir('%s')", dstpath);
+		}
+	} else {
+		int fd = TEMP_FAILURE_RETRY(open(dstpath, O_CREAT | O_RDONLY | O_CLOEXEC, 0644));
+		if (fd >= 0) {
+			close(fd);
+		} else {
+			PLOG_W("open('%s', O_CREAT|O_RDONLY|O_CLOEXEC, 0644)", dstpath);
+		}
 	}
 
 	if (!mpt->src_content.empty()) {
@@ -183,8 +175,7 @@ static bool mountPt(mount_t* mpt, const char* newroot, const char* tmpdir) {
 			PLOG_W("open(srcpath, O_CREAT|O_EXCL|O_CLOEXEC|O_WRONLY, 0644) failed");
 			return false;
 		}
-		if (util::writeToFd(fd, mpt->src_content.data(), mpt->src_content.length()) ==
-		    false) {
+		if (!util::writeToFd(fd, mpt->src_content.data(), mpt->src_content.length())) {
 			LOG_W("Writting %zu bytes to '%s' failed", mpt->src_content.length(),
 			    srcpath);
 			close(fd);
@@ -198,16 +189,16 @@ static bool mountPt(mount_t* mpt, const char* newroot, const char* tmpdir) {
 	 * Initially mount it as RW, it will be remounted later on if needed
 	 */
 	unsigned long flags = mpt->flags & ~(MS_RDONLY);
-	if (mount(srcpath, dst, mpt->fs_type.c_str(), flags, mpt->options.c_str()) == -1) {
+	if (mount(srcpath, dstpath, mpt->fs_type.c_str(), flags, mpt->options.c_str()) == -1) {
 		if (errno == EACCES) {
 			PLOG_W(
-			    "mount('%s') src:'%s' dst:'%s' failed. "
+			    "mount('%s') src:'%s' dstpath:'%s' failed. "
 			    "Try fixing this problem by applying 'chmod o+x' to the '%s' "
 			    "directory and its ancestors",
-			    describeMountPt(*mpt).c_str(), srcpath, dst, srcpath);
+			    describeMountPt(*mpt).c_str(), srcpath, dstpath, srcpath);
 		} else {
-			PLOG_W("mount('%s') src:'%s' dst:'%s' failed",
-			    describeMountPt(*mpt).c_str(), srcpath, dst);
+			PLOG_W("mount('%s') src:'%s' dstpath:'%s' failed",
+			    describeMountPt(*mpt).c_str(), srcpath, dstpath);
 			if (mpt->fs_type.compare("proc") == 0) {
 				PLOG_W(
 				    "procfs can only be mounted if the original /proc doesn't have "
@@ -535,12 +526,12 @@ const std::string describeMountPt(const mount_t& mpt) {
 	    .append("' options:'")
 	    .append(mpt.options)
 	    .append("'");
+
 	if (mpt.is_dir) {
 		descr.append(" is_dir:true");
 	} else {
 		descr.append(" is_dir:false");
 	}
-
 	if (!mpt.is_mandatory) {
 		descr.append(" mandatory:false");
 	}
