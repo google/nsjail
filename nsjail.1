@@ -97,6 +97,9 @@ Environment variable (can be used multiple times)
 \fB\-\-keep_caps\fR
 Don't drop capabilities in the local namespace
 .TP
+\fB\-\-cap\fR VALUE
+Retain this capability in local namespace (e.g. CAP_PTRACE). Can be specified multiple times
+.TP
 \fB\-\-silent\fR
 Redirect child's fd:0/1/2 to /dev/null
 .TP
@@ -108,9 +111,6 @@ Don't close this FD before executing child (can be specified multiple times), by
 .TP
 \fB\-\-disable_no_new_privs\fR
 Don't set the prctl(NO_NEW_PRIVS, 1) (DANGEROUS)
-.TP
-\fB\-\-cap\fR VALUE
-Retain this capability in local namespace (e.g. CAP_PTRACE). Can be specified multiple times
 .TP
 \fB\-\-rlimit_as\fR VALUE
 RLIMIT_AS in MB, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM_INFINITY (default: 512)
@@ -187,6 +187,9 @@ List of mountpoints to be mounted as RW/tmpfs inside the container. Can be speci
 \fB\-\-tmpfs_size\fR VALUE
 Number of bytes to allocate for tmpfsmounts (default: 4194304)
 .TP
+\fB\-\-mount\fR|\fB\-m\fR VALUE
+Arbitrary mount, format src:dst:fs_type:options
+.TP
 \fB\-\-disable_proc\fR
 Disable mounting \fI/proc\fP in the jail
 .TP
@@ -228,6 +231,15 @@ Location of net_cls cgroup FS (default: '/sys/fs/cgroup/net_cls')
 .TP
 \fB\-\-cgroup_net_cls_parent\fR VALUE
 Which pre\-existing net_cls cgroup to use as a parent (default: 'NSJAIL')
+.TP
+\fB\-\-cgroup_cpu_ms_per_sec\fR VALUE
+Number of us that the process group can use per second (default: '0' - disabled)
+.TP
+\fB\-\-cpu_mount\fR VALUE
+Location of cpu cgroup FS (default: '/sys/fs/cgroup/net_cls')
+.TP
+\fB\-\-cpu_parent\fR VALUE
+Which pre-existing cpu cgroup to use as a parent (default: 'NSJAIL')
 .TP
 \fB\-\-iface_no_lo\fR
 Don't bring up the 'lo' interface
