@@ -350,6 +350,8 @@ Options:
 	Configuration file in the config.proto ProtoBuf format
  --exec_file|-x VALUE
 	File to exec (default: argv[0])
+ --execute_fd
+	Use execveat() to execute a file-descriptor instead of executing the binary path. In such case argv[0]/exec_file denotes a file path before mount namespacing
  --chroot|-c VALUE
 	Directory containing / of the jail (default: none)
  --rw 
@@ -374,6 +376,8 @@ Options:
 	Log FD (default: 2)
  --time_limit|-t VALUE
 	Maximum time that a jail can exist, in seconds (default: 600)
+ --max_cpus VALUE
+	Maximum number of CPUs a single jailed process can use (default: 0 'no limit')
  --daemon|-d 
 	Daemonize after start
  --verbose|-v 
@@ -386,6 +390,8 @@ Options:
 	Environment variable (can be used multiple times)
  --keep_caps 
 	Don't drop capabilities (DANGEROUS)
+ --cap VALUE
+	Retain this capability in local namespace (e.g. CAP_PTRACE). Can be specified multiple times.
  --silent 
 	Redirect child's fd:0/1/2 to /dev/null
  --skip_setsid 
@@ -444,8 +450,14 @@ Options:
 	List of mountpoints to be mounted as RW/tmpfs inside the container. Can be specified multiple times. Supports 'dest' syntax
  --tmpfs_size VALUE
 	Number of bytes to allocate for tmpfsmounts (default: 4194304)
+ --mount|-m VALUE
+	Arbitrary mount, format src:dst:fs_type:options
  --disable_proc 
 	Disable mounting /proc in the jail
+ --proc_path VALUE
+	Path used to mount procfs (default: '/proc')
+ --proc_rw
+	Is procfs mount as R/W (default: R/O)
  --seccomp_policy|-P VALUE
 	Path to file containing seccomp-bpf policy (see kafel/)
  --seccomp_string VALUE
@@ -468,6 +480,12 @@ Options:
 	Location of net_cls cgroup FS (default: '/sys/fs/cgroup/net_cls')
  --cgroup_net_cls_parent VALUE
 	Which pre-existing net_cls cgroup to use as a parent (default: 'NSJAIL')
+ --cgroup_cpu_ms_per_sec VALUE
+	Number of us that the process group can use per second (default: '0' - disabled)
+ --cpu_mount VALUE
+	Location of cpu cgroup FS (default: '/sys/fs/cgroup/net_cls')
+ --cpu_parent VALUE
+	Which pre-existing cpu cgroup to use as a parent (default: 'NSJAIL')
  --iface_no_lo 
 	Don't bring up the 'lo' interface
  --macvlan_iface|-I VALUE
