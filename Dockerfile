@@ -14,8 +14,6 @@ RUN apt-get -y update && apt-get install -y \
     protobuf-compiler \
     && rm -rf /var/lib/apt/lists/*
 
-RUN git clone --depth=1 https://github.com/google/nsjail.git
+COPY . /nsjail
 
-WORKDIR /nsjail
-
-RUN make && mv /nsjail/nsjail /bin && rm -rf -- /nsjail
+RUN cd /nsjail && make && mv /nsjail/nsjail /bin && rm -rf -- /nsjail
