@@ -42,6 +42,7 @@
 #include "cgroup.h"
 #include "cpu.h"
 #include "logs.h"
+#include "macros.h"
 #include "mnt.h"
 #include "net.h"
 #include "pid.h"

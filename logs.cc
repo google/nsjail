@@ -35,6 +35,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "macros.h"
 #include "util.h"
 
 #include <string.h>
