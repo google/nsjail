@@ -40,6 +40,7 @@
 #include <syscall.h>
 #include <unistd.h>
 
+#include <memory>
 #include <string>
 
 #include "logs.h"
@@ -265,46 +266,51 @@ static bool remountRO(const mount_t& mpt) {
 	return true;
 }
 
-static bool mkdirAndTest(const char* dir) {
-	if (mkdir(dir, 0755) == -1 && errno != EEXIST) {
-		PLOG_D("Couldn't create '%s' directory", dir);
+static bool mkdirAndTest(const std::string& dir) {
+	if (mkdir(dir.c_str(), 0755) == -1 && errno != EEXIST) {
+		PLOG_D("Couldn't create '%s' directory", dir.c_str());
 		return false;
 	}
-	if (access(dir, R_OK) == -1) {
-		PLOG_W("access('%s', R_OK)", dir);
+	if (access(dir.c_str(), R_OK) == -1) {
+		PLOG_W("access('%s', R_OK)", dir.c_str());
 		return false;
 	}
-	LOG_D("Created accessible directory in '%s'", dir);
+	LOG_D("Created accessible directory in '%s'", dir.c_str());
 	return true;
 }
 
-static bool getDir(nsjconf_t* nsjconf, char* dir, const char* name) {
-	snprintf(dir, PATH_MAX, "/run/user/%u/nsjail.%s", nsjconf->orig_uid, name);
-	if (mkdirAndTest(dir)) {
-		return true;
+static std::unique_ptr<std::string> getDir(nsjconf_t* nsjconf, const char* name) {
+	std::unique_ptr<std::string> dir(new std::string);
+
+	dir->assign("/run/user/")
+	    .append(std::to_string(nsjconf->orig_uid))
+	    .append("/nsjail.")
+	    .append(name);
+	if (mkdirAndTest(*dir)) {
+		return dir;
 	}
-	snprintf(dir, PATH_MAX, "/tmp/nsjail.%s", name);
-	if (mkdirAndTest(dir)) {
-		return true;
+	dir->assign("/tmp/nsjail.").append(name);
+	if (mkdirAndTest(*dir)) {
+		return dir;
 	}
 	const char* tmp = getenv("TMPDIR");
 	if (tmp) {
-		snprintf(dir, PATH_MAX, "%s/nsjail.%s", tmp, name);
-		if (mkdirAndTest(dir)) {
-			return true;
+		dir->assign(tmp).append("/").append("nsjail.").append(name);
+		if (mkdirAndTest(*dir)) {
+			return dir;
 		}
 	}
-	snprintf(dir, PATH_MAX, "/dev/shm/nsjail.%s", name);
-	if (mkdirAndTest(dir)) {
-		return true;
+	dir->assign("/dev/shm/nsjail.").append(name);
+	if (mkdirAndTest(*dir)) {
+		return dir;
 	}
-	snprintf(dir, PATH_MAX, "/tmp/nsjail.%s.%" PRIx64, name, util::rnd64());
-	if (mkdirAndTest(dir)) {
-		return true;
+	dir->assign("/tmp/nsjail.").append(name).append(".").append(std::to_string(util::rnd64()));
+	if (mkdirAndTest(*dir)) {
+		return dir;
 	}
 
 	LOG_E("Couldn't create tmp directory of type '%s'", name);
-	return false;
+	return nullptr;
 }
 
 static bool initNsInternal(nsjconf_t* nsjconf) {
@@ -335,8 +341,8 @@ static bool initNsInternal(nsjconf_t* nsjconf) {
 		return false;
 	}
 
-	char destdir[PATH_MAX];
-	if (!getDir(nsjconf, destdir, "root")) {
+	std::unique_ptr<std::string> destdir = getDir(nsjconf, "root");
+	if (!destdir) {
 		LOG_E("Couldn't obtain root mount directories");
 		return false;
 	}
@@ -346,29 +352,29 @@ static bool initNsInternal(nsjconf_t* nsjconf) {
 		PLOG_E("mount('/', '/', NULL, MS_REC|MS_PRIVATE, NULL)");
 		return false;
 	}
-	if (mount(NULL, destdir, "tmpfs", 0, "size=16777216") == -1) {
-		PLOG_E("mount('%s', 'tmpfs')", destdir);
+	if (mount(NULL, destdir->c_str(), "tmpfs", 0, "size=16777216") == -1) {
+		PLOG_E("mount('%s', 'tmpfs')", destdir->c_str());
 		return false;
 	}
 
-	char tmpdir[PATH_MAX];
-	if (!getDir(nsjconf, tmpdir, "tmp")) {
+	std::unique_ptr<std::string> tmpdir = getDir(nsjconf, "tmp");
+	if (!tmpdir) {
 		LOG_E("Couldn't obtain temporary mount directories");
 		return false;
 	}
-	if (mount(NULL, tmpdir, "tmpfs", 0, "size=16777216") == -1) {
-		PLOG_E("mount('%s', 'tmpfs')", tmpdir);
+	if (mount(NULL, tmpdir->c_str(), "tmpfs", 0, "size=16777216") == -1) {
+		PLOG_E("mount('%s', 'tmpfs')", tmpdir->c_str());
 		return false;
 	}
 
 	for (auto& p : nsjconf->mountpts) {
-		if (!mountPt(&p, destdir, tmpdir) && p.is_mandatory) {
+		if (!mountPt(&p, destdir->c_str(), tmpdir->c_str()) && p.is_mandatory) {
 			return false;
 		}
 	}
 
-	if (umount2(tmpdir, MNT_DETACH) == -1) {
-		PLOG_E("umount2('%s', MNT_DETACH)", tmpdir);
+	if (umount2(tmpdir->c_str(), MNT_DETACH) == -1) {
+		PLOG_E("umount2('%s', MNT_DETACH)", tmpdir->c_str());
 		return false;
 	}
 	/*
@@ -378,8 +384,8 @@ static bool initNsInternal(nsjconf_t* nsjconf) {
 	 * providing any special directory for old_root, which is sometimes not easy, given that
 	 * e.g. /tmp might not always be present inside new_root
 	 */
-	if (syscall(__NR_pivot_root, destdir, destdir) == -1) {
-		PLOG_E("pivot_root('%s', '%s')", destdir, destdir);
+	if (syscall(__NR_pivot_root, destdir->c_str(), destdir->c_str()) == -1) {
+		PLOG_E("pivot_root('%s', '%s')", destdir->c_str(), destdir->c_str());
 		return false;
 	}
 
