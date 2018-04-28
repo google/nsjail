@@ -94,8 +94,7 @@ static const std::string cloneFlagsToStr(uintptr_t flags) {
 	uintptr_t knownFlagMask = CSIGNAL;
 	for (const auto& f : cloneFlags) {
 		if (flags & f.flag) {
-			res.append(f.name);
-			res.append("|");
+			res.append(f.name).append("|");
 		}
 		knownFlagMask |= f.flag;
 	}
