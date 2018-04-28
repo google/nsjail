@@ -83,9 +83,9 @@ static struct {
 };
 
 int nameToVal(const char* name) {
-	for (size_t i = 0; i < ARR_SZ(capNames); i++) {
-		if (strcmp(name, capNames[i].name) == 0) {
-			return capNames[i].val;
+	for (const auto& cap : capNames) {
+		if (strcmp(name, cap.name) == 0) {
+			return cap.val;
 		}
 	}
 	LOG_W("Uknown capability: '%s'", name);
@@ -93,13 +93,13 @@ int nameToVal(const char* name) {
 }
 
 static const std::string capToStr(int val) {
-	std::string res;
-	for (size_t i = 0; i < ARR_SZ(capNames); i++) {
-		if (val == capNames[i].val) {
-			return capNames[i].name;
+	for (const auto& cap : capNames) {
+		if (val == cap.val) {
+			return cap.name;
 		}
 	}
 
+	std::string res;
 	res.append("CAP_UNKNOWN(");
 	res.append(std::to_string(val));
 	res.append(")");

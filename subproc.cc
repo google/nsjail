@@ -92,12 +92,12 @@ static const std::string cloneFlagsToStr(uintptr_t flags) {
 	};
 
 	uintptr_t knownFlagMask = CSIGNAL;
-	for (size_t i = 0; i < ARR_SZ(cloneFlags); i++) {
-		if (flags & cloneFlags[i].flag) {
-			res.append(cloneFlags[i].name);
+	for (const auto& f : cloneFlags) {
+		if (flags & f.flag) {
+			res.append(f.name);
 			res.append("|");
 		}
-		knownFlagMask |= cloneFlags[i].flag;
+		knownFlagMask |= f.flag;
 	}
 
 	if (flags & ~(knownFlagMask)) {
@@ -112,9 +112,9 @@ static const std::string cloneFlagsToStr(uintptr_t flags) {
 /* Reset the execution environment for the new process */
 static bool resetEnv(void) {
 	/* Set all previously changed signals to their default behavior */
-	for (size_t i = 0; i < ARR_SZ(nssigs); i++) {
-		if (signal(nssigs[i], SIG_DFL) == SIG_ERR) {
-			PLOG_W("signal(%s, SIG_DFL)", util::sigName(nssigs[i]).c_str());
+	for (const auto& sig : nssigs) {
+		if (signal(sig, SIG_DFL) == SIG_ERR) {
+			PLOG_W("signal(%s, SIG_DFL)", util::sigName(sig).c_str());
 			return false;
 		}
 	}
@@ -221,6 +221,7 @@ static void removeProc(nsjconf_t* nsjconf, pid_t pid) {
 			    p->remote_txt.c_str(), util::timeToStr(p->start).c_str());
 			close(p->pid_syscall_fd);
 			nsjconf->pids.erase(p);
+
 			return;
 		}
 	}
