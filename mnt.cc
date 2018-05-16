@@ -287,28 +287,45 @@ static std::unique_ptr<std::string> getDir(nsjconf_t* nsjconf, const char* name)
 	std::unique_ptr<std::string> dir(new std::string);
 
 	dir->assign("/run/user/")
-	    .append(std::to_string(nsjconf->orig_uid))
 	    .append("/nsjail.")
+	    .append(std::to_string(nsjconf->orig_uid))
+	    .append(".")
 	    .append(name);
 	if (mkdirAndTest(*dir)) {
 		return dir;
 	}
-	dir->assign("/tmp/nsjail.").append(name);
+	dir->assign("/tmp/nsjail.")
+	    .append(std::to_string(nsjconf->orig_uid))
+	    .append(".")
+	    .append(name);
 	if (mkdirAndTest(*dir)) {
 		return dir;
 	}
 	const char* tmp = getenv("TMPDIR");
 	if (tmp) {
-		dir->assign(tmp).append("/").append("nsjail.").append(name);
+		dir->assign(tmp)
+		    .append("/")
+		    .append("nsjail.")
+		    .append(std::to_string(nsjconf->orig_uid))
+		    .append(".")
+		    .append(name);
 		if (mkdirAndTest(*dir)) {
 			return dir;
 		}
 	}
-	dir->assign("/dev/shm/nsjail.").append(name);
+	dir->assign("/dev/shm/nsjail.")
+	    .append(std::to_string(nsjconf->orig_uid))
+	    .append(".")
+	    .append(name);
 	if (mkdirAndTest(*dir)) {
 		return dir;
 	}
-	dir->assign("/tmp/nsjail.").append(name).append(".").append(std::to_string(util::rnd64()));
+	dir->assign("/tmp/nsjail.")
+	    .append(std::to_string(nsjconf->orig_uid))
+	    .append(".")
+	    .append(name)
+	    .append(".")
+	    .append(std::to_string(util::rnd64()));
 	if (mkdirAndTest(*dir)) {
 		return dir;
 	}
