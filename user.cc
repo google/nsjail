@@ -238,7 +238,7 @@ bool initNsFromChild(nsjconf_t* nsjconf) {
 	 * Best effort because of /proc/self/setgroups
 	 */
 	LOG_D("setgroups(0, NULL)");
-	gid_t* group_list = NULL;
+	const gid_t* group_list = NULL;
 	if (setgroups(0, group_list) == -1) {
 		PLOG_D("setgroups(NULL) failed");
 	}
