@@ -57,10 +57,10 @@ namespace mnt {
 static const std::string flagsToStr(uintptr_t flags) {
 	std::string res;
 
-	static struct {
+	struct {
 		const uintptr_t flag;
 		const char* const name;
-	} const mountFlags[] = {
+	} static const mountFlags[] = {
 	    NS_VALSTR_STRUCT(MS_RDONLY),
 	    NS_VALSTR_STRUCT(MS_NOSUID),
 	    NS_VALSTR_STRUCT(MS_NODEV),
@@ -88,12 +88,12 @@ static const std::string flagsToStr(uintptr_t flags) {
 	};
 
 	uintptr_t knownFlagMask = 0U;
-	for (size_t i = 0; i < ARR_SZ(mountFlags); i++) {
-		if (flags & mountFlags[i].flag) {
-			res.append(mountFlags[i].name);
+	for (const auto& i : mountFlags) {
+		if (flags & i.flag) {
+			res.append(i.name);
 			res.append("|");
 		}
-		knownFlagMask |= mountFlags[i].flag;
+		knownFlagMask |= i.flag;
 	}
 
 	if (((flags & ~(knownFlagMask)) == 0) && !res.empty()) {
@@ -239,10 +239,10 @@ static bool remountRO(const mount_t& mpt) {
 		return false;
 	}
 
-	static struct {
+	struct {
 		const unsigned long mount_flag;
 		const unsigned long vfs_flag;
-	} const mountPairs[] = {
+	} static const mountPairs[] = {
 	    {MS_RDONLY, ST_RDONLY},
 	    {MS_NOSUID, ST_NOSUID},
 	    {MS_NODEV, ST_NODEV},
@@ -255,9 +255,9 @@ static bool remountRO(const mount_t& mpt) {
 	};
 
 	unsigned long new_flags = MS_REMOUNT | MS_RDONLY | MS_BIND;
-	for (size_t i = 0; i < ARR_SZ(mountPairs); i++) {
-		if (vfs.f_flag & mountPairs[i].vfs_flag) {
-			new_flags |= mountPairs[i].mount_flag;
+	for (const auto& i : mountPairs) {
+		if (vfs.f_flag & i.vfs_flag) {
+			new_flags |= i.mount_flag;
 		}
 	}
 

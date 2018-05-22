@@ -36,10 +36,10 @@
 
 namespace caps {
 
-static struct {
+struct {
 	const int val;
 	const char* const name;
-} const capNames[] = {
+} static const capNames[] = {
     NS_VALSTR_STRUCT(CAP_CHOWN),
     NS_VALSTR_STRUCT(CAP_DAC_OVERRIDE),
     NS_VALSTR_STRUCT(CAP_DAC_READ_SEARCH),
@@ -171,10 +171,10 @@ static bool initNsKeepCaps(cap_user_data_t cap_data) {
 
 	/* Copy all permitted caps to the inheritable set */
 	dbgmsg[0] = '\0';
-	for (size_t i = 0; i < ARR_SZ(capNames); i++) {
-		if (getPermitted(cap_data, capNames[i].val)) {
-			util::sSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capNames[i].name);
-			setInheritable(cap_data, capNames[i].val);
+	for (const auto& i : capNames) {
+		if (getPermitted(cap_data, i.val)) {
+			util::sSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", i.name);
+			setInheritable(cap_data, i.val);
 		}
 	}
 	LOG_D("Adding the following capabilities to the inheritable set:%s", dbgmsg);
@@ -185,15 +185,15 @@ static bool initNsKeepCaps(cap_user_data_t cap_data) {
 
 	/* Make sure the inheritable set is preserved across execve via the ambient set */
 	dbgmsg[0] = '\0';
-	for (size_t i = 0; i < ARR_SZ(capNames); i++) {
-		if (!getPermitted(cap_data, capNames[i].val)) {
+	for (const auto& i : capNames) {
+		if (!getPermitted(cap_data, i.val)) {
 			continue;
 		}
-		if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)capNames[i].val, 0UL,
-			0UL) == -1) {
-			PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s)", capNames[i].name);
+		if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)i.val, 0UL, 0UL) ==
+		    -1) {
+			PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s)", i.name);
 		} else {
-			util::sSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", capNames[i].name);
+			util::sSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", i.name);
 		}
 	}
 	LOG_D("Added the following capabilities to the ambient set:%s", dbgmsg);
@@ -247,14 +247,13 @@ bool initNs(nsjconf_t* nsjconf) {
 	 */
 	dbgmsg.clear();
 	if (getEffective(cap_data, CAP_SETPCAP)) {
-		for (size_t i = 0; i < ARR_SZ(capNames); i++) {
-			if (getInheritable(cap_data, capNames[i].val)) {
+		for (const auto& i : capNames) {
+			if (getInheritable(cap_data, i.val)) {
 				continue;
 			}
-			dbgmsg.append(" ").append(capNames[i].name);
-			if (prctl(PR_CAPBSET_DROP, (unsigned long)capNames[i].val, 0UL, 0UL, 0UL) ==
-			    -1) {
-				PLOG_W("prctl(PR_CAPBSET_DROP, %s)", capNames[i].name);
+			dbgmsg.append(" ").append(i.name);
+			if (prctl(PR_CAPBSET_DROP, (unsigned long)i.val, 0UL, 0UL, 0UL) == -1) {
+				PLOG_W("prctl(PR_CAPBSET_DROP, %s)", i.name);
 				return false;
 			}
 		}

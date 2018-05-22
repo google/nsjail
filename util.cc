@@ -195,7 +195,9 @@ static void rndInitThread(void) {
 #endif /* defined(__NR_getrandom) */
 	int fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
 	if (fd == -1) {
-		PLOG_D("Couldn't open /dev/urandom for reading. Using gettimeofday fall-back");
+		PLOG_D(
+		    "Couldn't open /dev/urandom for reading. Using gettimeofday "
+		    "fall-back");
 		struct timeval tv;
 		gettimeofday(&tv, NULL);
 		rndX = tv.tv_usec + ((uint64_t)tv.tv_sec << 32);
@@ -217,10 +219,10 @@ uint64_t rnd64(void) {
 const std::string sigName(int signo) {
 	std::string res;
 
-	static struct {
+	struct {
 		const int signo;
 		const char* const name;
-	} const sigNames[] = {
+	} static const sigNames[] = {
 	    NS_VALSTR_STRUCT(SIGINT),
 	    NS_VALSTR_STRUCT(SIGILL),
 	    NS_VALSTR_STRUCT(SIGABRT),
@@ -252,9 +254,9 @@ const std::string sigName(int signo) {
 	    NS_VALSTR_STRUCT(SIGWINCH),
 	};
 
-	for (size_t i = 0; i < ARR_SZ(sigNames); i++) {
-		if (signo == sigNames[i].signo) {
-			res.append(sigNames[i].name);
+	for (const auto& i : sigNames) {
+		if (signo == i.signo) {
+			res.append(i.name);
 			return res;
 		}
 	}

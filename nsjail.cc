@@ -77,8 +77,8 @@ static bool nsjailSetSigHandler(int sig) {
 }
 
 static bool nsjailSetSigHandlers(void) {
-	for (size_t i = 0; i < ARR_SZ(nssigs); i++) {
-		if (!nsjailSetSigHandler(nssigs[i])) {
+	for (const auto& i : nssigs) {
+		if (!nsjailSetSigHandler(i)) {
 			return false;
 		}
 	}

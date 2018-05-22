@@ -62,10 +62,10 @@ namespace subproc {
 static const std::string cloneFlagsToStr(uintptr_t flags) {
 	std::string res;
 
-	static struct {
+	struct {
 		const uintptr_t flag;
 		const char* const name;
-	} const cloneFlags[] = {
+	} static const cloneFlags[] = {
 	    NS_VALSTR_STRUCT(CLONE_VM),
 	    NS_VALSTR_STRUCT(CLONE_FS),
 	    NS_VALSTR_STRUCT(CLONE_FILES),
@@ -92,11 +92,11 @@ static const std::string cloneFlagsToStr(uintptr_t flags) {
 	};
 
 	uintptr_t knownFlagMask = CSIGNAL;
-	for (const auto& f : cloneFlags) {
-		if (flags & f.flag) {
-			res.append(f.name).append("|");
+	for (const auto& i : cloneFlags) {
+		if (flags & i.flag) {
+			res.append(i.name).append("|");
 		}
-		knownFlagMask |= f.flag;
+		knownFlagMask |= i.flag;
 	}
 
 	if (flags & ~(knownFlagMask)) {
