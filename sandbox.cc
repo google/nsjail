@@ -26,6 +26,8 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <sys/prctl.h>
+#include <sys/syscall.h>
+#include <unistd.h>
 
 extern "C" {
 #include "kafel.h"
@@ -38,6 +40,14 @@ namespace sandbox {
 #define PR_SET_NO_NEW_PRIVS 38
 #endif /* PR_SET_NO_NEW_PRIVS */
 
+#ifndef SECCOMP_FILTER_FLAG_TSYNC
+#define SECCOMP_FILTER_FLAG_TSYNC (1UL << 0)
+#endif /* SECCOMP_FILTER_FLAG_TSYNC */
+
+#ifndef SECCOMP_FILTER_FLAG_LOG
+#define SECCOMP_FILTER_FLAG_LOG (1UL << 1)
+#endif /* SECCOMP_FILTER_FLAG_LOG */
+
 static bool prepareAndCommit(nsjconf_t* nsjconf) {
 	if (nsjconf->kafel_file_path.empty() && nsjconf->kafel_string.empty()) {
 		return true;
@@ -47,7 +57,26 @@ static bool prepareAndCommit(nsjconf_t* nsjconf) {
 		PLOG_W("prctl(PR_SET_NO_NEW_PRIVS, 1) failed");
 		return false;
 	}
-	if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &nsjconf->seccomp_fprog, 0, 0)) {
+	if (nsjconf->seccomp_log) {
+#ifndef __NR_seccomp
+		LOG_E(
+		    "The __NR_seccomp is not defined with this kernel header files (kernel headers "
+		    "too old?)");
+		return false;
+#else
+		if (syscall(__NR_seccomp, SECCOMP_SET_MODE_FILTER,
+			SECCOMP_FILTER_FLAG_TSYNC | SECCOMP_FILTER_FLAG_LOG,
+			&nsjconf->seccomp_fprog) == -1) {
+			PLOG_E(
+			    "seccomp(SECCOMP_SET_MODE_FILTER, SECCOMP_FILTER_FLAG_TSYNC | "
+			    "SECCOMP_FILTER_FLAG_LOG) failed");
+			return false;
+		}
+		return true;
+#endif /* __NR_seccomp */
+	}
+
+	if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &nsjconf->seccomp_fprog, 0UL, 0UL)) {
 		PLOG_W("prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER) failed");
 		return false;
 	}
