@@ -60,12 +60,13 @@ static bool prepareAndCommit(nsjconf_t* nsjconf) {
 	if (nsjconf->seccomp_log) {
 #ifndef __NR_seccomp
 		LOG_E(
-		    "The __NR_seccomp is not defined with this kernel header files (kernel headers "
+		    "The __NR_seccomp is not defined with this kernel's header files (kernel "
+		    "headers "
 		    "too old?)");
 		return false;
 #else
-		if (syscall(__NR_seccomp, SECCOMP_SET_MODE_FILTER,
-			SECCOMP_FILTER_FLAG_TSYNC | SECCOMP_FILTER_FLAG_LOG,
+		if (syscall(__NR_seccomp, (uintptr_t)SECCOMP_SET_MODE_FILTER,
+			(uintptr_t)(SECCOMP_FILTER_FLAG_TSYNC | SECCOMP_FILTER_FLAG_LOG),
 			&nsjconf->seccomp_fprog) == -1) {
 			PLOG_E(
 			    "seccomp(SECCOMP_SET_MODE_FILTER, SECCOMP_FILTER_FLAG_TSYNC | "
