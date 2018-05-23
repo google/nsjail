@@ -450,7 +450,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->num_cpus = sysconf(_SC_NPROCESSORS_ONLN);
 	nsjconf->seccomp_fprog.filter = NULL;
 	nsjconf->seccomp_fprog.len = 0;
-        nsjconf->seccomp_log = false;
+	nsjconf->seccomp_log = false;
 
 	nsjconf->openfds.push_back(STDIN_FILENO);
 	nsjconf->openfds.push_back(STDOUT_FILENO);

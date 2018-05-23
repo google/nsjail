@@ -184,6 +184,7 @@ message NsJailConfig {
        Homepage of the project: https://github.com/google/kafel */
     optional string seccomp_policy_file = 57;
     repeated string seccomp_string = 58;
+    optional bool seccomp_log = 77 [default = false];
 
     /* If > 0, maximum cumulative size of RAM used inside any jail */
     optional uint64 cgroup_mem_max = 59 [default = 0]; /* In MiB */
