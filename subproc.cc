@@ -100,9 +100,7 @@ static const std::string cloneFlagsToStr(uintptr_t flags) {
 	}
 
 	if (flags & ~(knownFlagMask)) {
-		char flagstr[32];
-		snprintf(flagstr, sizeof(flagstr), "%#tx|", flags & ~(knownFlagMask));
-		res.append(flagstr);
+		util::StrAppend(&res, "%#tx|", flags & ~(knownFlagMask));
 	}
 	res.append(util::sigName(flags & CSIGNAL).c_str());
 	return res;

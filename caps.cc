@@ -167,24 +167,23 @@ static void setInheritable(cap_user_data_t cap_data, unsigned int cap) {
 #define PR_CAP_AMBIENT_CLEAR_ALL 4
 #endif /* !defined(PR_CAP_AMBIENT) */
 static bool initNsKeepCaps(cap_user_data_t cap_data) {
-	char dbgmsg[4096];
 
 	/* Copy all permitted caps to the inheritable set */
-	dbgmsg[0] = '\0';
+	std::string dbgmsg1;
 	for (const auto& i : capNames) {
 		if (getPermitted(cap_data, i.val)) {
-			util::sSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", i.name);
+			util::StrAppend(&dbgmsg1, " %s", i.name);
 			setInheritable(cap_data, i.val);
 		}
 	}
-	LOG_D("Adding the following capabilities to the inheritable set:%s", dbgmsg);
+	LOG_D("Adding the following capabilities to the inheritable set:%s", dbgmsg1.c_str());
 
 	if (!setCaps(cap_data)) {
 		return false;
 	}
 
 	/* Make sure the inheritable set is preserved across execve via the ambient set */
-	dbgmsg[0] = '\0';
+	std::string dbgmsg2;
 	for (const auto& i : capNames) {
 		if (!getPermitted(cap_data, i.val)) {
 			continue;
@@ -193,10 +192,10 @@ static bool initNsKeepCaps(cap_user_data_t cap_data) {
 		    -1) {
 			PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s)", i.name);
 		} else {
-			util::sSnPrintf(dbgmsg, sizeof(dbgmsg), " %s", i.name);
+			util::StrAppend(&dbgmsg2, " %s", i.name);
 		}
 	}
-	LOG_D("Added the following capabilities to the ambient set:%s", dbgmsg);
+	LOG_D("Added the following capabilities to the ambient set:%s", dbgmsg2.c_str());
 
 	return true;
 }

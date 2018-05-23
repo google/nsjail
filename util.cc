@@ -171,6 +171,25 @@ int sSnPrintf(char* str, size_t size, const char* format, ...) {
 	return snprintf(str, size, "%s%s", buf1, buf2);
 }
 
+std::string* StrAppend(std::string* str, const char* format, ...) {
+	char* strp;
+
+	va_list args;
+	va_start(args, format);
+	int ret = vasprintf(&strp, format, args);
+	va_end(args);
+
+	if (ret == -1) {
+		PLOG_E("Memory allocation failed during asprintf()");
+		str->append(" [ERROR: mem_allocation_failed] ");
+		return str;
+	}
+
+	str->append(strp, ret);
+	free(strp);
+	return str;
+}
+
 bool isANumber(const char* s) {
 	for (size_t i = 0; s[i]; s++) {
 		if (!isdigit(s[i]) && s[i] != 'x') {

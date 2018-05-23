@@ -99,9 +99,7 @@ static const std::string flagsToStr(uintptr_t flags) {
 	if (((flags & ~(knownFlagMask)) == 0) && !res.empty()) {
 		res.pop_back();
 	} else {
-		char flagstr[32];
-		snprintf(flagstr, sizeof(flagstr), "%#tx", flags & ~(knownFlagMask));
-		res.append(flagstr);
+		util::StrAppend(&res, "%#tx", flags & ~(knownFlagMask));
 	}
 
 	return res;
