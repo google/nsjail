@@ -157,20 +157,6 @@ bool createDirRecursively(const char* dir) {
 	}
 }
 
-int sSnPrintf(char* str, size_t size, const char* format, ...) {
-	char buf1[size];
-	char buf2[size];
-
-	snprintf(buf1, sizeof(buf1), "%s", str);
-
-	va_list args;
-	va_start(args, format);
-	vsnprintf(buf2, size, format, args);
-	va_end(args);
-
-	return snprintf(str, size, "%s%s", buf1, buf2);
-}
-
 std::string* StrAppend(std::string* str, const char* format, ...) {
 	char* strp;
 

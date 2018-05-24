@@ -167,7 +167,6 @@ static void setInheritable(cap_user_data_t cap_data, unsigned int cap) {
 #define PR_CAP_AMBIENT_CLEAR_ALL 4
 #endif /* !defined(PR_CAP_AMBIENT) */
 static bool initNsKeepCaps(cap_user_data_t cap_data) {
-
 	/* Copy all permitted caps to the inheritable set */
 	std::string dbgmsg1;
 	for (const auto& i : capNames) {

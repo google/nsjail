@@ -38,8 +38,6 @@ ssize_t readFromFile(const char* fname, void* buf, size_t len);
 ssize_t writeToFd(int fd, const void* buf, size_t len);
 bool writeBufToFile(const char* filename, const void* buf, size_t len, int open_flags);
 bool createDirRecursively(const char* dir);
-int sSnPrintf(char* str, size_t size, const char* format, ...)
-    __attribute__((format(printf, 3, 4)));
 std::string* StrAppend(std::string* str, const char* format, ...)
     __attribute__((format(printf, 2, 3)));
 bool isANumber(const char* s);
