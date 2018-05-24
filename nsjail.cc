@@ -183,8 +183,6 @@ void nsjailSetTC(int fd, std::unique_ptr<struct termios>& trm) {
 }
 
 int main(int argc, char* argv[]) {
-	std::unique_ptr<struct termios> trm = nsjailGetTC(STDIN_FILENO);
-
 	std::unique_ptr<nsjconf_t> nsjconf = cmdline::parseArgs(argc, argv);
 	if (!nsjconf) {
 		LOG_F("Couldn't parse cmdline options");
@@ -205,6 +203,8 @@ int main(int argc, char* argv[]) {
 	if (!sandbox::preparePolicy(nsjconf.get())) {
 		LOG_F("Couldn't prepare sandboxing policy");
 	}
+
+	std::unique_ptr<struct termios> trm = nsjailGetTC(STDIN_FILENO);
 
 	int ret = 0;
 	if (nsjconf->mode == MODE_LISTEN_TCP) {
