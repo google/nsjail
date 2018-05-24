@@ -26,7 +26,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <sys/time.h>
+#include <termios.h>
 #include <unistd.h>
 
 #include "cmdline.h"
@@ -161,7 +163,28 @@ static int nsjailStandaloneMode(nsjconf_t* nsjconf) {
 	// not reached
 }
 
+std::unique_ptr<struct termios> nsjailGetTC(int fd) {
+	std::unique_ptr<struct termios> trm(new struct termios);
+
+	if (ioctl(fd, TCGETS, trm.get()) == -1) {
+		PLOG_D("ioctl(fd=%d, TCGETS) failed", fd);
+		return nullptr;
+	}
+	return trm;
+}
+
+void nsjailSetTC(int fd, std::unique_ptr<struct termios>& trm) {
+	if (!trm) {
+		return;
+	}
+	if (ioctl(fd, TCSETS, trm.get()) == -1) {
+		PLOG_W("ioctl(fd=%d, TCSETS) failed", fd);
+	}
+}
+
 int main(int argc, char* argv[]) {
+	std::unique_ptr<struct termios> trm = nsjailGetTC(STDIN_FILENO);
+
 	std::unique_ptr<nsjconf_t> nsjconf = cmdline::parseArgs(argc, argv);
 	if (!nsjconf) {
 		LOG_F("Couldn't parse cmdline options");
@@ -191,5 +214,8 @@ int main(int argc, char* argv[]) {
 	}
 
 	sandbox::closePolicy(nsjconf.get());
+	/* Try to restore the underlying console's params in case some program changed it */
+	nsjailSetTC(STDIN_FILENO, trm);
+
 	return ret;
 }
