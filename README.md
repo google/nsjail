@@ -463,7 +463,7 @@ Options:
  --seccomp_string VALUE
 	String with kafel seccomp-bpf policy (see kafel/)
  --seccomp_log
-	Use SECCOMP_FILTER_FLAG_LOG. Log all actions except SECCOMP_RET_ALLOW
+	Use SECCOMP_FILTER_FLAG_LOG. Log all actions except SECCOMP_RET_ALLOW. Supported since kernel version 4.14
  --cgroup_mem_max VALUE
 	Maximum number of bytes to use in the group (default: '0' - disabled)
  --cgroup_mem_mount VALUE
