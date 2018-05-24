@@ -201,8 +201,6 @@ static bool initNsKeepCaps(cap_user_data_t cap_data) {
 }
 
 bool initNs(nsjconf_t* nsjconf) {
-	struct ints_t* p;
-
 	cap_user_data_t cap_data = getCaps();
 	if (cap_data == NULL) {
 		return false;
