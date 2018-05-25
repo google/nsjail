@@ -288,6 +288,7 @@ uint64_t parseRLimit(int res, const char* optarg, unsigned long mul) {
 		    "provided)",
 		    res, optarg);
 	}
+	errno = 0;
 	uint64_t val = strtoull(optarg, NULL, 0) * mul;
 	if (val == ULLONG_MAX && errno != 0) {
 		PLOG_F("strtoul('%s', 0)", optarg);
