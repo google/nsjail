@@ -289,11 +289,11 @@ uint64_t parseRLimit(int res, const char* optarg, unsigned long mul) {
 		    res, optarg);
 	}
 	errno = 0;
-	uint64_t val = strtoull(optarg, NULL, 0) * mul;
+	uint64_t val = strtoull(optarg, NULL, 0);
 	if (val == ULLONG_MAX && errno != 0) {
 		PLOG_F("strtoul('%s', 0)", optarg);
 	}
-	return val;
+	return val * mul;
 }
 
 static std::string argFromVec(const std::vector<std::string>& vec, size_t pos) {
