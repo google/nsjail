@@ -113,17 +113,17 @@ static bool setTimer(nsjconf_t* nsjconf) {
 	return true;
 }
 
-static void listenMode(nsjconf_t* nsjconf) {
+static int listenMode(nsjconf_t* nsjconf) {
 	int listenfd = net::getRecvSocket(nsjconf->bindhost.c_str(), nsjconf->port);
 	if (listenfd == -1) {
-		return;
+		return 0;
 	}
 	for (;;) {
 		if (sigFatal > 0) {
 			subproc::killAll(nsjconf);
 			logs::logStop(sigFatal);
 			close(listenfd);
-			return;
+			return 0;
 		}
 		if (showProc) {
 			showProc = false;
@@ -215,7 +215,7 @@ int main(int argc, char* argv[]) {
 
 	int ret = 0;
 	if (nsjconf->mode == MODE_LISTEN_TCP) {
-		nsjail::listenMode(nsjconf.get());
+		ret = nsjail::listenMode(nsjconf.get());
 	} else {
 		ret = nsjail::standaloneMode(nsjconf.get());
 	}
