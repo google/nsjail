@@ -173,17 +173,19 @@ std::unique_ptr<struct termios> nsjailGetTC(int fd) {
 	return trm;
 }
 
-void nsjailSetTC(int fd, std::unique_ptr<struct termios>& trm) {
+void nsjailSetTC(int fd, const struct termios* trm) {
 	if (!trm) {
 		return;
 	}
-	if (ioctl(fd, TCSETS, trm.get()) == -1) {
+	if (ioctl(fd, TCSETS, trm) == -1) {
 		PLOG_W("ioctl(fd=%d, TCSETS) failed", fd);
 	}
 }
 
 int main(int argc, char* argv[]) {
 	std::unique_ptr<nsjconf_t> nsjconf = cmdline::parseArgs(argc, argv);
+	std::unique_ptr<struct termios> trm = nsjailGetTC(STDIN_FILENO);
+
 	if (!nsjconf) {
 		LOG_F("Couldn't parse cmdline options");
 	}
@@ -204,8 +206,6 @@ int main(int argc, char* argv[]) {
 		LOG_F("Couldn't prepare sandboxing policy");
 	}
 
-	std::unique_ptr<struct termios> trm = nsjailGetTC(STDIN_FILENO);
-
 	int ret = 0;
 	if (nsjconf->mode == MODE_LISTEN_TCP) {
 		nsjailListenMode(nsjconf.get());
@@ -214,8 +214,8 @@ int main(int argc, char* argv[]) {
 	}
 
 	sandbox::closePolicy(nsjconf.get());
-	/* Try to restore the underlying console's params in case some program changed it */
-	nsjailSetTC(STDIN_FILENO, trm);
+	/* Try to restore the underlying console's params in case some program has changed it */
+	nsjailSetTC(STDIN_FILENO, trm.get());
 
 	return ret;
 }
