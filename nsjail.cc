@@ -39,10 +39,12 @@
 #include "subproc.h"
 #include "util.h"
 
-static __thread int nsjailSigFatal = 0;
-static __thread bool nsjailShowProc = false;
+namespace nsjail {
 
-static void nsjailSig(int sig) {
+static __thread int sigFatal = 0;
+static __thread bool showProc = false;
+
+static void sigHandler(int sig) {
 	if (sig == SIGALRM) {
 		return;
 	}
@@ -50,20 +52,20 @@ static void nsjailSig(int sig) {
 		return;
 	}
 	if (sig == SIGUSR1 || sig == SIGQUIT) {
-		nsjailShowProc = true;
+		showProc = true;
 		return;
 	}
-	nsjailSigFatal = sig;
+	sigFatal = sig;
 }
 
-static bool nsjailSetSigHandler(int sig) {
+static bool setSigHandler(int sig) {
 	LOG_D("Setting sighandler for signal %s (%d)", util::sigName(sig).c_str(), sig);
 
 	sigset_t smask;
 	sigemptyset(&smask);
 
 	struct sigaction sa;
-	sa.sa_handler = nsjailSig;
+	sa.sa_handler = sigHandler;
 	sa.sa_mask = smask;
 	sa.sa_flags = 0;
 	sa.sa_restorer = NULL;
@@ -78,16 +80,16 @@ static bool nsjailSetSigHandler(int sig) {
 	return true;
 }
 
-static bool nsjailSetSigHandlers(void) {
+static bool setSigHandlers(void) {
 	for (const auto& i : nssigs) {
-		if (!nsjailSetSigHandler(i)) {
+		if (!setSigHandler(i)) {
 			return false;
 		}
 	}
 	return true;
 }
 
-static bool nsjailSetTimer(nsjconf_t* nsjconf) {
+static bool setTimer(nsjconf_t* nsjconf) {
 	if (nsjconf->mode == MODE_STANDALONE_EXECVE) {
 		return true;
 	}
@@ -111,20 +113,20 @@ static bool nsjailSetTimer(nsjconf_t* nsjconf) {
 	return true;
 }
 
-static void nsjailListenMode(nsjconf_t* nsjconf) {
+static void listenMode(nsjconf_t* nsjconf) {
 	int listenfd = net::getRecvSocket(nsjconf->bindhost.c_str(), nsjconf->port);
 	if (listenfd == -1) {
 		return;
 	}
 	for (;;) {
-		if (nsjailSigFatal > 0) {
+		if (sigFatal > 0) {
 			subproc::killAll(nsjconf);
-			logs::logStop(nsjailSigFatal);
+			logs::logStop(sigFatal);
 			close(listenfd);
 			return;
 		}
-		if (nsjailShowProc) {
-			nsjailShowProc = false;
+		if (showProc) {
+			showProc = false;
 			subproc::displayProc(nsjconf);
 		}
 		int connfd = net::acceptConn(listenfd);
@@ -136,7 +138,7 @@ static void nsjailListenMode(nsjconf_t* nsjconf) {
 	}
 }
 
-static int nsjailStandaloneMode(nsjconf_t* nsjconf) {
+static int standaloneMode(nsjconf_t* nsjconf) {
 	subproc::runChild(nsjconf, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
 	for (;;) {
 		int child_status = subproc::reapProc(nsjconf);
@@ -148,13 +150,13 @@ static int nsjailStandaloneMode(nsjconf_t* nsjconf) {
 			subproc::runChild(nsjconf, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
 			continue;
 		}
-		if (nsjailShowProc) {
-			nsjailShowProc = false;
+		if (showProc) {
+			showProc = false;
 			subproc::displayProc(nsjconf);
 		}
-		if (nsjailSigFatal > 0) {
+		if (sigFatal > 0) {
 			subproc::killAll(nsjconf);
-			logs::logStop(nsjailSigFatal);
+			logs::logStop(sigFatal);
 			return -1;
 		}
 
@@ -163,28 +165,33 @@ static int nsjailStandaloneMode(nsjconf_t* nsjconf) {
 	// not reached
 }
 
-std::unique_ptr<struct termios> nsjailGetTC(int fd) {
+std::unique_ptr<struct termios> getTC(int fd) {
 	std::unique_ptr<struct termios> trm(new struct termios);
 
 	if (ioctl(fd, TCGETS, trm.get()) == -1) {
 		PLOG_D("ioctl(fd=%d, TCGETS) failed", fd);
 		return nullptr;
 	}
+	LOG_D("Saved the current state of the TTY");
 	return trm;
 }
 
-void nsjailSetTC(int fd, const struct termios* trm) {
+void setTC(int fd, const struct termios* trm) {
 	if (!trm) {
 		return;
 	}
 	if (ioctl(fd, TCSETS, trm) == -1) {
 		PLOG_W("ioctl(fd=%d, TCSETS) failed", fd);
+		return;
 	}
+	LOG_D("Restored the previous state of the TTY");
 }
+
+}  // namespace nsjail
 
 int main(int argc, char* argv[]) {
 	std::unique_ptr<nsjconf_t> nsjconf = cmdline::parseArgs(argc, argv);
-	std::unique_ptr<struct termios> trm = nsjailGetTC(STDIN_FILENO);
+	std::unique_ptr<struct termios> trm = nsjail::getTC(STDIN_FILENO);
 
 	if (!nsjconf) {
 		LOG_F("Couldn't parse cmdline options");
@@ -196,11 +203,11 @@ int main(int argc, char* argv[]) {
 		PLOG_F("daemon");
 	}
 	cmdline::logParams(nsjconf.get());
-	if (!nsjailSetSigHandlers()) {
-		LOG_F("nsjailSetSigHandlers() failed");
+	if (!nsjail::setSigHandlers()) {
+		LOG_F("nsjail::setSigHandlers() failed");
 	}
-	if (!nsjailSetTimer(nsjconf.get())) {
-		LOG_F("nsjailSetTimer() failed");
+	if (!nsjail::setTimer(nsjconf.get())) {
+		LOG_F("nsjail::setTimer() failed");
 	}
 	if (!sandbox::preparePolicy(nsjconf.get())) {
 		LOG_F("Couldn't prepare sandboxing policy");
@@ -208,14 +215,14 @@ int main(int argc, char* argv[]) {
 
 	int ret = 0;
 	if (nsjconf->mode == MODE_LISTEN_TCP) {
-		nsjailListenMode(nsjconf.get());
+		nsjail::listenMode(nsjconf.get());
 	} else {
-		ret = nsjailStandaloneMode(nsjconf.get());
+		ret = nsjail::standaloneMode(nsjconf.get());
 	}
 
 	sandbox::closePolicy(nsjconf.get());
 	/* Try to restore the underlying console's params in case some program has changed it */
-	nsjailSetTC(STDIN_FILENO, trm.get());
+	nsjail::setTC(STDIN_FILENO, trm.get());
 
 	return ret;
 }
