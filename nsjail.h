@@ -96,7 +96,7 @@ struct nsjconf_t {
 	std::string logfile;
 	logs::llevel_t loglevel;
 	bool daemonize;
-	time_t tlimit;
+	uint64_t tlimit;
 	size_t max_cpus;
 	bool keep_env;
 	bool keep_caps;

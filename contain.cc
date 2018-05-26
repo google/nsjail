@@ -220,28 +220,28 @@ static bool containMakeFdsCOEProc(nsjconf_t* nsjconf) {
 			continue;
 		}
 		errno = 0;
-		long fd = strtol(entry->d_name, NULL, 10);
-		if (fd == LONG_MAX && errno != 0) {
+		int fd = strtoimax(entry->d_name, NULL, 10);
+		if (errno != 0) {
 			PLOG_W("Cannot convert /proc/self/fd/%s to a number", entry->d_name);
 			continue;
 		}
 		int flags = TEMP_FAILURE_RETRY(fcntl(fd, F_GETFD, 0));
 		if (flags == -1) {
-			PLOG_D("fcntl(fd=%ld, F_GETFD, 0)", fd);
+			PLOG_D("fcntl(fd=%xld, F_GETFD, 0)", fd);
 			closedir(dir);
 			return false;
 		}
 		if (containPassFd(nsjconf, fd)) {
-			LOG_D("FD=%ld will be passed to the child process", fd);
+			LOG_D("FD=%d will be passed to the child process", fd);
 			if (TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags & ~(FD_CLOEXEC))) == -1) {
-				PLOG_E("Could not clear FD_CLOEXEC for FD=%ld", fd);
+				PLOG_E("Could not clear FD_CLOEXEC for FD=%d", fd);
 				closedir(dir);
 				return false;
 			}
 		} else {
-			LOG_D("FD=%ld will be closed before execve()", fd);
+			LOG_D("FD=%d will be closed before execve()", fd);
 			if (TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags | FD_CLOEXEC)) == -1) {
-				PLOG_E("Could not set FD_CLOEXEC for FD=%ld", fd);
+				PLOG_E("Could not set FD_CLOEXEC for FD=%d", fd);
 				closedir(dir);
 				return false;
 			}

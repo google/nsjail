@@ -274,7 +274,7 @@ static uid_t parseUid(const std::string& id) {
 		return pw->pw_uid;
 	}
 	if (util::isANumber(id.c_str())) {
-		return (uid_t)strtoull(id.c_str(), NULL, 0);
+		return (uid_t)strtoimax(id.c_str(), NULL, 0);
 	}
 	return (uid_t)-1;
 }
@@ -288,7 +288,7 @@ static gid_t parseGid(const std::string& id) {
 		return gr->gr_gid;
 	}
 	if (util::isANumber(id.c_str())) {
-		return (gid_t)strtoull(id.c_str(), NULL, 0);
+		return (gid_t)strtoimax(id.c_str(), NULL, 0);
 	}
 	return (gid_t)-1;
 }

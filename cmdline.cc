@@ -227,7 +227,7 @@ void logParams(nsjconf_t* nsjconf) {
 
 	LOG_I(
 	    "Jail parameters: hostname:'%s', chroot:'%s', process:'%s', bind:[%s]:%d, "
-	    "max_conns_per_ip:%u, time_limit:%ld, personality:%#lx, daemonize:%s, clone_newnet:%s, "
+	    "max_conns_per_ip:%u, time_limit:%" PRId64 " , personality:%#lx, daemonize:%s, clone_newnet:%s, "
 	    "clone_newuser:%s, clone_newns:%s, clone_newpid:%s, clone_newipc:%s, clonew_newuts:%s, "
 	    "clone_newcgroup:%s, keep_caps:%s, disable_no_new_privs:%s, max_cpus:%zu",
 	    nsjconf->hostname.c_str(), nsjconf->chroot.c_str(),
@@ -291,7 +291,7 @@ uint64_t parseRLimit(int res, const char* optarg, unsigned long mul) {
 	errno = 0;
 	uint64_t val = strtoull(optarg, NULL, 0);
 	if (val == ULLONG_MAX && errno != 0) {
-		PLOG_F("strtoul('%s', 0)", optarg);
+		PLOG_F("strtoull('%s', 0)", optarg);
 	}
 	return val * mul;
 }
@@ -499,7 +499,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			nsjconf->chroot = optarg;
 			break;
 		case 'p':
-			nsjconf->port = strtoul(optarg, NULL, 0);
+			nsjconf->port = strtoumax(optarg, NULL, 0);
 			nsjconf->mode = MODE_LISTEN_TCP;
 			break;
 		case 0x604:
@@ -512,7 +512,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			nsjconf->logfile = optarg;
 			break;
 		case 'L':
-			nsjconf->logfile = "/dev/fd/" + std::to_string(strtol(optarg, NULL, 10));
+			nsjconf->logfile = "/dev/fd/" + std::to_string(strtoimax(optarg, NULL, 10));
 			break;
 		case 'd':
 			nsjconf->daemonize = true;
@@ -533,7 +533,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			nsjconf->keep_env = true;
 			break;
 		case 't':
-			nsjconf->tlimit = strtol(optarg, NULL, 0);
+			nsjconf->tlimit = (uint64_t)strtoull(optarg, NULL, 0);
 			break;
 		case 'h': /* help */
 			cmdlineUsage(argv[0]);
