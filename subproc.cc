@@ -235,8 +235,8 @@ void displayProc(nsjconf_t* nsjconf) {
 	for (const auto& pid : nsjconf->pids) {
 		time_t diff = now - pid.start;
 		uint64_t left = nsjconf->tlimit ? nsjconf->tlimit - (uint64_t)diff : 0;
-		LOG_I("PID: %d, Remote host: %s, Run time: %ld sec. (time left: %" PRId64 " sec.)", pid.pid,
-		    pid.remote_txt.c_str(), (long)diff, left);
+		LOG_I("PID: %d, Remote host: %s, Run time: %ld sec. (time left: %" PRId64 " sec.)",
+		    pid.pid, pid.remote_txt.c_str(), (long)diff, left);
 	}
 }
 
@@ -344,8 +344,9 @@ int reapProc(nsjconf_t* nsjconf) {
 		pid_t pid = p.pid;
 		time_t diff = now - p.start;
 		if ((uint64_t)diff >= nsjconf->tlimit) {
-			LOG_I("PID: %d run time >= time limit (%ld >= %" PRId64 ") (%s). Killing it", pid,
-			    (long)diff, (long)nsjconf->tlimit, p.remote_txt.c_str());
+			LOG_I("PID: %d run time >= time limit (%ld >= %" PRId64
+			      ") (%s). Killing it",
+			    pid, (long)diff, (long)nsjconf->tlimit, p.remote_txt.c_str());
 			/*
 			 * Probably a kernel bug - some processes cannot be killed with KILL if
 			 * they're namespaced, and in a stopped state

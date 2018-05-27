@@ -116,14 +116,14 @@ static bool setTimer(nsjconf_t* nsjconf) {
 static int listenMode(nsjconf_t* nsjconf) {
 	int listenfd = net::getRecvSocket(nsjconf->bindhost.c_str(), nsjconf->port);
 	if (listenfd == -1) {
-		return 0;
+		return EXIT_FAILURE;
 	}
 	for (;;) {
 		if (sigFatal > 0) {
 			subproc::killAll(nsjconf);
 			logs::logStop(sigFatal);
 			close(listenfd);
-			return 0;
+			return EXIT_SUCCESS;
 		}
 		if (showProc) {
 			showProc = false;
@@ -157,7 +157,7 @@ static int standaloneMode(nsjconf_t* nsjconf) {
 		if (sigFatal > 0) {
 			subproc::killAll(nsjconf);
 			logs::logStop(sigFatal);
-			return -1;
+			return (128 + sigFatal);
 		}
 
 		pause();

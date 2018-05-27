@@ -227,7 +227,8 @@ void logParams(nsjconf_t* nsjconf) {
 
 	LOG_I(
 	    "Jail parameters: hostname:'%s', chroot:'%s', process:'%s', bind:[%s]:%d, "
-	    "max_conns_per_ip:%u, time_limit:%" PRId64 " , personality:%#lx, daemonize:%s, clone_newnet:%s, "
+	    "max_conns_per_ip:%u, time_limit:%" PRId64
+	    " , personality:%#lx, daemonize:%s, clone_newnet:%s, "
 	    "clone_newuser:%s, clone_newns:%s, clone_newpid:%s, clone_newipc:%s, clonew_newuts:%s, "
 	    "clone_newcgroup:%s, keep_caps:%s, disable_no_new_privs:%s, max_cpus:%zu",
 	    nsjconf->hostname.c_str(), nsjconf->chroot.c_str(),
