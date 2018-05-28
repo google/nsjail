@@ -31,6 +31,8 @@
 #include <termios.h>
 #include <unistd.h>
 
+#include <memory>
+
 #include "cmdline.h"
 #include "logs.h"
 #include "macros.h"
@@ -224,5 +226,6 @@ int main(int argc, char* argv[]) {
 	/* Try to restore the underlying console's params in case some program has changed it */
 	nsjail::setTC(STDIN_FILENO, trm.get());
 
+	LOG_D("Returning with %d", ret);
 	return ret;
 }
