@@ -336,7 +336,7 @@ static bool setupArgv(nsjconf_t* nsjconf, int argc, char** argv, int optind) {
 static bool setupMounts(nsjconf_t* nsjconf, const std::vector<std::string>& tmpfs_mounts,
     const std::string& tmpfs_size) {
 	if (!(nsjconf->chroot.empty())) {
-		if (!mnt::addMountPtHead(nsjconf, nsjconf->chroot, "/", /* fs_type= */ "",
+		if (!mnt::addMountPtHead(nsjconf, nsjconf->chroot, "/", /* fstype= */ "",
 			/* options= */ "",
 			nsjconf->is_root_rw ? (MS_BIND | MS_REC | MS_PRIVATE)
 					    : (MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY),
@@ -698,7 +698,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			if (dst.empty()) {
 				dst = src;
 			}
-			if (!mnt::addMountPtTail(nsjconf.get(), src, dst, /* fs_type= */ "",
+			if (!mnt::addMountPtTail(nsjconf.get(), src, dst, /* fstype= */ "",
 				/* options= */ "", MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY,
 				/* is_dir= */ mnt::NS_DIR_MAYBE, /* is_mandatory= */ true,
 				/* src_env= */ "", /* dst_env= */ "", /* src_content= */ "",
@@ -713,7 +713,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			if (dst.empty()) {
 				dst = src;
 			}
-			if (!mnt::addMountPtTail(nsjconf.get(), src, dst, /* fs_type= */ "",
+			if (!mnt::addMountPtTail(nsjconf.get(), src, dst, /* fstype= */ "",
 				/* options= */ "", MS_BIND | MS_REC | MS_PRIVATE,
 				/* is_dir= */ mnt::NS_DIR_MAYBE, /* is_mandatory= */ true,
 				/* src_env= */ "", /* dst_env= */ "", /* src_content= */ "",
@@ -733,7 +733,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			}
 			std::string fs_type = argFromVec(subopts, 2);
 			std::string options = argFromVec(subopts, 3);
-			if (!mnt::addMountPtTail(nsjconf.get(), src, dst, /* fs_type= */ fs_type,
+			if (!mnt::addMountPtTail(nsjconf.get(), src, dst, /* fstype= */ fs_type,
 				/* options= */ options, /* flags= */ 0,
 				/* is_dir= */ mnt::NS_DIR_MAYBE, /* is_mandatory= */ true,
 				/* src_env= */ "", /* dst_env= */ "", /* src_content= */ "",
