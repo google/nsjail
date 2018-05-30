@@ -53,6 +53,7 @@ namespace net {
 #if defined(NSJAIL_NL3_WITH_MACVLAN)
 #include <netlink/route/link.h>
 #include <netlink/route/link/macvlan.h>
+
 bool initNsFromParent(nsjconf_t* nsjconf, int pid) {
 	if (!nsjconf->clone_newnet) {
 		return true;
@@ -121,9 +122,25 @@ bool initNsFromParent(nsjconf_t* nsjconf, int pid) {
 }
 #else   // defined(NSJAIL_NL3_WITH_MACVLAN)
 
+bool moveToNs(const std::string& iface, pid_t pid) {
+	const std::vector<std::string> argv{
+	    "/sbin/ip", "link", "set", iface, "netns", std::to_string(pid)};
+	if (subproc::systemExe(argv, environ) != 0) {
+		LOG_E("Couldn't create put interface '%s' into NET ns of the PID=%d", iface.c_str(),
+		    (int)pid);
+		return false;
+	}
+	return true;
+}
+
 bool initNsFromParent(nsjconf_t* nsjconf, int pid) {
 	if (!nsjconf->clone_newnet) {
 		return true;
+	}
+	for (const auto& iface : nsjconf->ifaces) {
+		if (!moveToNs(iface, pid)) {
+			return false;
+		}
 	}
 	if (nsjconf->iface_vs.empty()) {
 		return true;
@@ -132,11 +149,8 @@ bool initNsFromParent(nsjconf_t* nsjconf, int pid) {
 	LOG_D("Putting iface:'%s' into namespace of PID:%d (with /sbin/ip)",
 	    nsjconf->iface_vs.c_str(), pid);
 
-	char pid_str[256];
-	snprintf(pid_str, sizeof(pid_str), "%d", pid);
-
 	const std::vector<std::string> argv{"/sbin/ip", "link", "add", "link", nsjconf->iface_vs,
-	    "name", IFACE_NAME, "netns", pid_str, "type", "macvlan", "mode", "bridge"};
+	    "name", IFACE_NAME, "netns", std::to_string(pid), "type", "macvlan", "mode", "bridge"};
 	if (subproc::systemExe(argv, environ) != 0) {
 		LOG_E("Couldn't create MACVTAP interface for '%s'", nsjconf->iface_vs.c_str());
 		return false;

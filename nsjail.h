@@ -153,6 +153,7 @@ struct nsjconf_t {
 	std::vector<std::string> envs;
 	std::vector<int> openfds;
 	std::vector<int> caps;
+	std::vector<std::string> ifaces;
 };
 
 #endif /* _NSJAIL_H */
