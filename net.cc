@@ -54,19 +54,75 @@ namespace net {
 #include <netlink/route/link.h>
 #include <netlink/route/link/macvlan.h>
 
+static bool cloneIface(
+    nsjconf_t* nsjconf, struct nl_sock* sk, struct nl_cache* link_cache, int pid) {
+	struct rtnl_link* rmv = rtnl_link_macvlan_alloc();
+	if (rmv == NULL) {
+		LOG_E("rtnl_link_macvlan_alloc()");
+		return false;
+	}
+
+	int err;
+	int master_index = rtnl_link_name2i(link_cache, nsjconf->iface_vs.c_str());
+	if (!master_index) {
+		LOG_E("rtnl_link_name2i(): Did not find '%s' interface", nsjconf->iface_vs.c_str());
+		rtnl_link_put(rmv);
+		return false;
+	}
+
+	rtnl_link_set_name(rmv, IFACE_NAME);
+	rtnl_link_set_link(rmv, master_index);
+	rtnl_link_set_ns_pid(rmv, pid);
+
+	if ((err = rtnl_link_add(sk, rmv, NLM_F_CREATE)) < 0) {
+		LOG_E("rtnl_link_add(name:'%s' link:'%s'): %s", IFACE_NAME,
+		    nsjconf->iface_vs.c_str(), nl_geterror(err));
+		rtnl_link_put(rmv);
+		return false;
+	}
+
+	rtnl_link_put(rmv);
+	return true;
+}
+
+static bool moveToNs(
+    const std::string& iface, struct nl_sock* sk, struct nl_cache* link_cache, pid_t pid) {
+	LOG_D("Moving interface '%s' into netns=%d", iface.c_str(), (int)pid);
+
+	struct rtnl_link* orig_link = rtnl_link_get_by_name(link_cache, iface.c_str());
+	if (!orig_link) {
+		LOG_E("Couldn't find interface '%s'", iface.c_str());
+		return false;
+	}
+	struct rtnl_link* new_link = rtnl_link_alloc();
+	if (!new_link) {
+		LOG_E("Couldn't allocate new link");
+		rtnl_link_put(orig_link);
+		return false;
+	}
+
+	rtnl_link_set_ns_pid(new_link, pid);
+
+	int err = rtnl_link_change(sk, orig_link, new_link, RTM_SETLINK);
+	if (err < 0) {
+		LOG_E("rtnl_link_change(): set NS of interface '%s' to PID=%d: %s", iface.c_str(),
+		    (int)pid, nl_geterror(err));
+		rtnl_link_put(new_link);
+		rtnl_link_put(orig_link);
+		return false;
+	}
+
+	rtnl_link_put(new_link);
+	rtnl_link_put(orig_link);
+	return true;
+}
+
 bool initNsFromParent(nsjconf_t* nsjconf, int pid) {
 	if (!nsjconf->clone_newnet) {
 		return true;
 	}
-	if (nsjconf->iface_vs.empty()) {
-		return true;
-	}
-
-	LOG_D("Putting iface:'%s' into namespace of PID:%d (with libnl3)",
-	    nsjconf->iface_vs.c_str(), pid);
-
 	struct nl_sock* sk = nl_socket_alloc();
-	if (sk == NULL) {
+	if (!sk) {
 		LOG_E("Could not allocate socket with nl_socket_alloc()");
 		return false;
 	}
@@ -78,51 +134,33 @@ bool initNsFromParent(nsjconf_t* nsjconf, int pid) {
 		return false;
 	}
 
-	struct rtnl_link* rmv = rtnl_link_macvlan_alloc();
-	if (rmv == NULL) {
-		LOG_E("rtnl_link_macvlan_alloc(): %s", nl_geterror(err));
-		nl_socket_free(sk);
-		return false;
-	}
-
 	struct nl_cache* link_cache;
 	if ((err = rtnl_link_alloc_cache(sk, AF_UNSPEC, &link_cache)) < 0) {
 		LOG_E("rtnl_link_alloc_cache(): %s", nl_geterror(err));
-		rtnl_link_put(rmv);
 		nl_socket_free(sk);
 		return false;
 	}
 
-	int master_index = rtnl_link_name2i(link_cache, nsjconf->iface_vs.c_str());
-	if (master_index == 0) {
-		LOG_E("rtnl_link_name2i(): Did not find '%s' interface", nsjconf->iface_vs.c_str());
-		nl_cache_free(link_cache);
-		rtnl_link_put(rmv);
-		nl_socket_free(sk);
-		return false;
+	for (const auto& iface : nsjconf->ifaces) {
+		if (!moveToNs(iface, sk, link_cache, pid)) {
+			nl_cache_free(link_cache);
+			nl_socket_free(sk);
+			return false;
+		}
 	}
-
-	rtnl_link_set_name(rmv, IFACE_NAME);
-	rtnl_link_set_link(rmv, master_index);
-	rtnl_link_set_ns_pid(rmv, pid);
-
-	if ((err = rtnl_link_add(sk, rmv, NLM_F_CREATE)) < 0) {
-		LOG_E("rtnl_link_add(name:'%s' link:'%s'): %s", IFACE_NAME,
-		    nsjconf->iface_vs.c_str(), nl_geterror(err));
+	if (!nsjconf->iface_vs.empty() && !cloneIface(nsjconf, sk, link_cache, pid)) {
 		nl_cache_free(link_cache);
-		rtnl_link_put(rmv);
 		nl_socket_free(sk);
 		return false;
 	}
 
 	nl_cache_free(link_cache);
-	rtnl_link_put(rmv);
 	nl_socket_free(sk);
 	return true;
 }
 #else   // defined(NSJAIL_NL3_WITH_MACVLAN)
 
-bool moveToNs(const std::string& iface, pid_t pid) {
+static bool moveToNs(const std::string& iface, pid_t pid) {
 	const std::vector<std::string> argv{
 	    "/sbin/ip", "link", "set", iface, "netns", std::to_string(pid)};
 	if (subproc::systemExe(argv, environ) != 0) {
