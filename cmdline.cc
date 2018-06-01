@@ -151,16 +151,6 @@ struct custom_option custom_opts[] = {
     { { "macvlan_vs_nm", required_argument, NULL, 0x702 }, "Netmask of the 'vs' interface (e.g. \"255.255.255.0\")" },
     { { "macvlan_vs_gw", required_argument, NULL, 0x703 }, "Default GW for the 'vs' interface (e.g. \"192.168.0.1\")" },
 };
-
-struct custom_option deprecated_opts[] = {
-    // Compatibilty flags for MACVLAN.
-    // TODO(rswiecki): Remove this at some point.
-    { { "iface", required_argument, NULL, 'I' }, "Interface which will be cloned (MACVLAN) and put inside the subprocess' namespace as 'vs'" },
-    { { "iface_vs_ip", required_argument, NULL, 0x701 }, "IP of the 'vs' interface (e.g. \"192.168.0.1\")" },
-    { { "iface_vs_nm", required_argument, NULL, 0x702 }, "Netmask of the 'vs' interface (e.g. \"255.255.255.0\")" },
-    { { "iface_vs_gw", required_argument, NULL, 0x703 }, "Default GW for the 'vs' interface (e.g. \"192.168.0.1\")" },
-    { { "enable_clone_newcgroup", no_argument, NULL, 0x0408 }, "Use CLONE_NEWCGROUP (it's enabled by default now)" },
-};
 // clang-format on
 
 static const char* logYesNo(bool yes) {
@@ -183,18 +173,6 @@ static void cmdlineUsage(const char* pname) {
 	LOG_HELP_BOLD("Options:");
 	for (size_t i = 0; i < ARR_SZ(custom_opts); i++) {
 		cmdlineOptUsage(&custom_opts[i]);
-	}
-	LOG_HELP_BOLD("\nDeprecated options:");
-	for (size_t i = 0; i < ARR_SZ(deprecated_opts); i++) {
-		cmdlineOptUsage(&deprecated_opts[i]);
-		// Find replacement flag.
-		for (size_t j = 0; j < ARR_SZ(custom_opts); j++) {
-			if (custom_opts[j].opt.val == deprecated_opts[i].opt.val) {
-				LOG_HELP_BOLD(
-				    "\tDEPRECATED: Use %s instead.", custom_opts[j].opt.name);
-				break;
-			}
-		}
 	}
 	LOG_HELP_BOLD("\n Examples: ");
 	LOG_HELP(" Wait on a port 31337 for connections, and run /bin/sh");
@@ -229,7 +207,7 @@ void logParams(nsjconf_t* nsjconf) {
 	LOG_I(
 	    "Jail parameters: hostname:'%s', chroot:'%s', process:'%s', bind:[%s]:%d, "
 	    "max_conns_per_ip:%u, time_limit:%" PRId64
-	    " , personality:%#lx, daemonize:%s, clone_newnet:%s, "
+	    ", personality:%#lx, daemonize:%s, clone_newnet:%s, "
 	    "clone_newuser:%s, clone_newns:%s, clone_newpid:%s, clone_newipc:%s, clonew_newuts:%s, "
 	    "clone_newcgroup:%s, keep_caps:%s, disable_no_new_privs:%s, max_cpus:%zu",
 	    nsjconf->hostname.c_str(), nsjconf->chroot.c_str(),
@@ -463,13 +441,10 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	std::vector<std::string> tmpfs_mounts;
 
 	// Generate options array for getopt_long.
-	size_t options_length = ARR_SZ(custom_opts) + ARR_SZ(deprecated_opts) + 1;
+	size_t options_length = ARR_SZ(custom_opts) + 1;
 	struct option opts[options_length];
 	for (unsigned i = 0; i < ARR_SZ(custom_opts); i++) {
 		opts[i] = custom_opts[i].opt;
-	}
-	for (unsigned i = 0; i < ARR_SZ(deprecated_opts); i++) {
-		opts[ARR_SZ(custom_opts) + i] = deprecated_opts[i].opt;
 	}
 	// Last, NULL option as a terminator.
 	struct option terminator = {NULL, 0, NULL, 0};

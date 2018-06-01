@@ -353,8 +353,7 @@ static bool ifaceUp(const char* ifacename) {
 		return false;
 	}
 
-	struct ifreq ifr;
-	memset(&ifr, '\0', sizeof(ifr));
+	struct ifreq ifr = {};
 	snprintf(ifr.ifr_name, IF_NAMESIZE, "%s", ifacename);
 
 	if (ioctl(sock, SIOCGIFFLAGS, &ifr) == -1) {
@@ -377,17 +376,13 @@ static bool ifaceUp(const char* ifacename) {
 
 static bool ifaceConfig(const std::string& iface, const std::string& ip, const std::string& mask,
     const std::string& gw) {
-	struct ifreq ifr;
-	memset(&ifr, '\0', sizeof(ifr));
-	snprintf(ifr.ifr_name, IF_NAMESIZE, "%s", iface.c_str());
-	struct in_addr addr;
-
 	int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
 	if (sock == -1) {
 		PLOG_E("socket(AF_INET, SOCK_STREAM, IPPROTO_IP)");
 		return false;
 	}
 
+	struct in_addr addr;
 	if (inet_pton(AF_INET, ip.c_str(), &addr) != 1) {
 		PLOG_E("Cannot convert '%s' into an IPv4 address", ip.c_str());
 		close(sock);
@@ -399,6 +394,8 @@ static bool ifaceConfig(const std::string& iface, const std::string& ip, const s
 		return true;
 	}
 
+	struct ifreq ifr = {};
+	snprintf(ifr.ifr_name, IF_NAMESIZE, "%s", iface.c_str());
 	struct sockaddr_in* sa = (struct sockaddr_in*)(&ifr.ifr_addr);
 	sa->sin_family = AF_INET;
 	sa->sin_addr = addr;
@@ -437,9 +434,7 @@ static bool ifaceConfig(const std::string& iface, const std::string& ip, const s
 		return true;
 	}
 
-	struct rtentry rt;
-	memset(&rt, '\0', sizeof(rt));
-
+	struct rtentry rt = {};
 	struct sockaddr_in* sdest = (struct sockaddr_in*)(&rt.rt_dst);
 	struct sockaddr_in* smask = (struct sockaddr_in*)(&rt.rt_genmask);
 	struct sockaddr_in* sgate = (struct sockaddr_in*)(&rt.rt_gateway);
