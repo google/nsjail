@@ -375,10 +375,11 @@ static bool ifaceUp(const char* ifacename) {
 	return true;
 }
 
-static bool netConfigureVs(nsjconf_t* nsjconf) {
+static bool ifaceConfig(const std::string& iface, const std::string& ip, const std::string& mask,
+    const std::string& gw) {
 	struct ifreq ifr;
 	memset(&ifr, '\0', sizeof(ifr));
-	snprintf(ifr.ifr_name, IF_NAMESIZE, "%s", IFACE_NAME);
+	snprintf(ifr.ifr_name, IF_NAMESIZE, "%s", iface.c_str());
 	struct in_addr addr;
 
 	int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
@@ -387,13 +388,13 @@ static bool netConfigureVs(nsjconf_t* nsjconf) {
 		return false;
 	}
 
-	if (inet_pton(AF_INET, nsjconf->iface_vs_ip.c_str(), &addr) != 1) {
-		PLOG_E("Cannot convert '%s' into an IPv4 address", nsjconf->iface_vs_ip.c_str());
+	if (inet_pton(AF_INET, ip.c_str(), &addr) != 1) {
+		PLOG_E("Cannot convert '%s' into an IPv4 address", ip.c_str());
 		close(sock);
 		return false;
 	}
 	if (addr.s_addr == INADDR_ANY) {
-		LOG_D("IPv4 address for interface '%s' not set", IFACE_NAME);
+		LOG_D("IPv4 address for interface '%s' not set", iface.c_str());
 		close(sock);
 		return true;
 	}
@@ -402,38 +403,36 @@ static bool netConfigureVs(nsjconf_t* nsjconf) {
 	sa->sin_family = AF_INET;
 	sa->sin_addr = addr;
 	if (ioctl(sock, SIOCSIFADDR, &ifr) == -1) {
-		PLOG_E("ioctl(iface='%s', SIOCSIFADDR, '%s')", IFACE_NAME,
-		    nsjconf->iface_vs_ip.c_str());
+		PLOG_E("ioctl(iface='%s', SIOCSIFADDR, '%s')", iface.c_str(), ip.c_str());
 		close(sock);
 		return false;
 	}
 
-	if (inet_pton(AF_INET, nsjconf->iface_vs_nm.c_str(), &addr) != 1) {
-		PLOG_E("Cannot convert '%s' into a IPv4 netmask", nsjconf->iface_vs_nm.c_str());
+	if (inet_pton(AF_INET, mask.c_str(), &addr) != 1) {
+		PLOG_E("Cannot convert '%s' into a IPv4 netmask", mask.c_str());
 		close(sock);
 		return false;
 	}
 	sa->sin_family = AF_INET;
 	sa->sin_addr = addr;
 	if (ioctl(sock, SIOCSIFNETMASK, &ifr) == -1) {
-		PLOG_E("ioctl(iface='%s', SIOCSIFNETMASK, '%s')", IFACE_NAME,
-		    nsjconf->iface_vs_nm.c_str());
+		PLOG_E("ioctl(iface='%s', SIOCSIFNETMASK, '%s')", iface.c_str(), mask.c_str());
 		close(sock);
 		return false;
 	}
 
-	if (!ifaceUp(IFACE_NAME)) {
+	if (!ifaceUp(iface.c_str())) {
 		close(sock);
 		return false;
 	}
 
-	if (inet_pton(AF_INET, nsjconf->iface_vs_gw.c_str(), &addr) != 1) {
-		PLOG_E("Cannot convert '%s' into a IPv4 GW address", nsjconf->iface_vs_gw.c_str());
+	if (inet_pton(AF_INET, gw.c_str(), &addr) != 1) {
+		PLOG_E("Cannot convert '%s' into a IPv4 GW address", gw.c_str());
 		close(sock);
 		return false;
 	}
 	if (addr.s_addr == INADDR_ANY) {
-		LOG_D("Gateway address for '%s' is not set", IFACE_NAME);
+		LOG_D("Gateway address for '%s' is not set", iface.c_str());
 		close(sock);
 		return true;
 	}
@@ -452,11 +451,12 @@ static bool netConfigureVs(nsjconf_t* nsjconf) {
 	sgate->sin_addr = addr;
 
 	rt.rt_flags = RTF_UP | RTF_GATEWAY;
-	char rt_dev[] = IFACE_NAME;
+	char rt_dev[IF_NAMESIZE];
+	snprintf(rt_dev, sizeof(rt_dev), "%s", iface.c_str());
 	rt.rt_dev = rt_dev;
 
 	if (ioctl(sock, SIOCADDRT, &rt) == -1) {
-		PLOG_E("ioctl(SIOCADDRT, '%s')", nsjconf->iface_vs_gw.c_str());
+		PLOG_E("ioctl(SIOCADDRT, '%s')", gw.c_str());
 		close(sock);
 		return false;
 	}
@@ -469,15 +469,12 @@ bool initNsFromChild(nsjconf_t* nsjconf) {
 	if (!nsjconf->clone_newnet) {
 		return true;
 	}
-	if (nsjconf->iface_lo) {
-		if (!ifaceUp("lo")) {
-			return false;
-		}
+	if (nsjconf->iface_lo && !ifaceUp("lo")) {
+		return false;
 	}
-	if (!nsjconf->iface_vs.empty()) {
-		if (!netConfigureVs(nsjconf)) {
-			return false;
-		}
+	if (!nsjconf->iface_vs.empty() && !ifaceConfig(IFACE_NAME, nsjconf->iface_vs_ip,
+					      nsjconf->iface_vs_nm, nsjconf->iface_vs_gw)) {
+		return false;
 	}
 	return true;
 }
