@@ -164,7 +164,7 @@ static bool moveToNs(const std::string& iface, pid_t pid) {
 	const std::vector<std::string> argv{
 	    "/sbin/ip", "link", "set", iface, "netns", std::to_string(pid)};
 	if (subproc::systemExe(argv, environ) != 0) {
-		LOG_E("Couldn't create put interface '%s' into NET ns of the PID=%d", iface.c_str(),
+		LOG_E("Couldn't put interface '%s' into NET ns of the PID=%d", iface.c_str(),
 		    (int)pid);
 		return false;
 	}
