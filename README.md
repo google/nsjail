@@ -490,6 +490,8 @@ Options:
 	Which pre-existing cpu cgroup to use as a parent (default: 'NSJAIL')
  --iface_no_lo 
 	Don't bring up the 'lo' interface
+ --iface_own VALUE
+	Move this existing network interface into the new NET namespace. Can be specified multiple times
  --macvlan_iface|-I VALUE
 	Interface which will be cloned (MACVLAN) and put inside the subprocess' namespace as 'vs'
  --macvlan_vs_ip VALUE
@@ -498,20 +500,6 @@ Options:
 	Netmask of the 'vs' interface (e.g. "255.255.255.0")
  --macvlan_vs_gw VALUE
 	Default GW for the 'vs' interface (e.g. "192.168.0.1")
-
-Deprecated options:
- --iface|-I VALUE
-	Interface which will be cloned (MACVLAN) and put inside the subprocess' namespace as 'vs'
-	DEPRECATED: Use macvlan_iface instead.
- --iface_vs_ip VALUE
-	IP of the 'vs' interface (e.g. "192.168.0.1")
-	DEPRECATED: Use macvlan_vs_ip instead.
- --iface_vs_nm VALUE
-	Netmask of the 'vs' interface (e.g. "255.255.255.0")
-	DEPRECATED: Use macvlan_vs_nm instead.
- --iface_vs_gw VALUE
-	Default GW for the 'vs' interface (e.g. "192.168.0.1")
-	DEPRECATED: Use macvlan_vs_gw instead.
 
  Examples: 
  Wait on a port 31337 for connections, and run /bin/sh
