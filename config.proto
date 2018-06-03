@@ -217,6 +217,9 @@ message NsJailConfig {
     /* Should the 'lo' interface be brought up (active) inside this jail? */
     optional bool iface_no_lo = 71 [default = false];
 
+    /* Put this interface inside the jail */
+    repeated string iface_own = 78;
+
     /* Parameters for the cloned MACVLAN interface inside jail */
     optional string macvlan_iface = 72; /* Interface to be cloned, eg 'eth0' */
     optional string macvlan_vs_ip = 73 [default = "192.168.0.2"];

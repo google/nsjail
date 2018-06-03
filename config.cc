@@ -247,6 +247,9 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 	nsjconf->cgroup_net_cls_parent = njc.cgroup_net_cls_parent();
 
 	nsjconf->iface_lo = !(njc.iface_no_lo());
+	for (ssize_t i = 0; i < njc.iface_own().size(); i++) {
+		nsjconf->ifaces.push_back(njc.iface_own(i));
+	}
 	if (njc.has_macvlan_iface()) {
 		nsjconf->iface_vs = njc.macvlan_iface();
 	}
