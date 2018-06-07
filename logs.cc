@@ -78,10 +78,10 @@ void logFile(const std::string& logfile) {
 					   O_CREAT | O_RDWR | O_APPEND | O_CLOEXEC, 0640)) == -1) {
 			_log_fd = STDERR_FILENO;
 			_log_fd_isatty = (isatty(_log_fd) == 1 ? true : false);
-			PLOG_E("Couldn't open logfile open('%s')", logfile.c_str());
+			PLOG_W("Couldn't open logfile open('%s')", logfile.c_str());
 		}
 	}
-	_log_fd_isatty = (isatty(_log_fd) == 1 ? true : false);
+	_log_fd_isatty = (isatty(_log_fd) == 1);
 }
 
 void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt, ...) {
