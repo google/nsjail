@@ -49,6 +49,10 @@ static bool _log_set = false;
 
 __attribute__((constructor)) static void log_init(void) {
 	_log_fd_isatty = isatty(_log_fd);
+	_log_fd = fcntl(_log_fd, F_DUPFD_CLOEXEC, 0);
+	if (_log_fd == -1) {
+		_log_fd = STDERR_FILENO;
+	}
 }
 
 bool logSet() {
@@ -71,17 +75,10 @@ void logFile(const std::string& logfile) {
 		close(_log_fd);
 		_log_fd = STDERR_FILENO;
 	}
-	if (logfile.empty()) {
-		_log_fd = fcntl(_log_fd, F_DUPFD_CLOEXEC, 0);
-		if (_log_fd == -1) {
-			_log_fd = STDERR_FILENO;
-		}
-	} else {
-		if (TEMP_FAILURE_RETRY(_log_fd = open(logfile.c_str(),
-					   O_CREAT | O_RDWR | O_APPEND | O_CLOEXEC, 0640)) == -1) {
-			_log_fd = STDERR_FILENO;
-			PLOG_W("Couldn't open logfile open('%s')", logfile.c_str());
-		}
+	if (TEMP_FAILURE_RETRY(_log_fd = open(logfile.c_str(),
+				   O_CREAT | O_RDWR | O_APPEND | O_CLOEXEC, 0640)) == -1) {
+		_log_fd = STDERR_FILENO;
+		PLOG_W("Couldn't open logfile open('%s')", logfile.c_str());
 	}
 	_log_fd_isatty = (isatty(_log_fd) == 1);
 }
