@@ -365,15 +365,15 @@ void killAll(nsjconf_t* nsjconf) {
 
 static bool initParent(nsjconf_t* nsjconf, pid_t pid, int pipefd) {
 	if (!net::initNsFromParent(nsjconf, pid)) {
-		LOG_E("Couldn't create and put MACVTAP interface into NS of PID '%d'", pid);
+		LOG_E("Couldn't initialize net namespace for pid '%d'", pid);
 		return false;
 	}
 	if (!cgroup::initNsFromParent(nsjconf, pid)) {
-		LOG_E("Couldn't initialize cgroup user namespace");
+		LOG_E("Couldn't initialize cgroup user namespace for pid '%d'", pid);
 		exit(0xff);
 	}
 	if (!user::initNsFromParent(nsjconf, pid)) {
-		LOG_E("Couldn't initialize user namespaces for pid %d", pid);
+		LOG_E("Couldn't initialize user namespace for pid %d", pid);
 		return false;
 	}
 	if (util::writeToFd(pipefd, &kSubprocDoneChar, sizeof(kSubprocDoneChar)) !=
