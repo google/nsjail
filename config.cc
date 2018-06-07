@@ -95,27 +95,27 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 	nsjconf->daemonize = njc.daemon();
 
 	if (njc.has_log_fd()) {
-                logs::logFile(std::string("/dev/fd/") + std::to_string(njc.log_fd()));
+		logs::logFile(std::string("/dev/fd/") + std::to_string(njc.log_fd()));
 	}
 	if (njc.has_log_file()) {
-                logs::logFile(njc.log_file());
+		logs::logFile(njc.log_file());
 	}
 	if (njc.has_log_level()) {
 		switch (njc.log_level()) {
 		case nsjail::LogLevel::DEBUG:
-                        logs::logLevel(logs::DEBUG);
+			logs::logLevel(logs::DEBUG);
 			break;
 		case nsjail::LogLevel::INFO:
-                        logs::logLevel(logs::INFO);
+			logs::logLevel(logs::INFO);
 			break;
 		case nsjail::LogLevel::WARNING:
-                        logs::logLevel(logs::WARNING);
+			logs::logLevel(logs::WARNING);
 			break;
 		case nsjail::LogLevel::ERROR:
-                        logs::logLevel(logs::ERROR);
+			logs::logLevel(logs::ERROR);
 			break;
 		case nsjail::LogLevel::FATAL:
-                        logs::logLevel(logs::FATAL);
+			logs::logLevel(logs::FATAL);
 			break;
 		default:
 			LOG_E("Unknown log_level: %d", njc.log_level());

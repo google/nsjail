@@ -52,7 +52,7 @@ __attribute__((constructor)) static void log_init(void) {
 }
 
 bool logSet() {
-  return _log_set;
+	return _log_set;
 }
 
 /*
@@ -65,7 +65,7 @@ void logLevel(enum llevel_t ll) {
 }
 
 void logFile(const std::string& logfile) {
-        _log_set = true;
+	_log_set = true;
 	/* Close previous log_fd */
 	if (_log_fd > STDERR_FILENO) {
 		close(_log_fd);
@@ -73,11 +73,13 @@ void logFile(const std::string& logfile) {
 	}
 	if (logfile.empty()) {
 		_log_fd = fcntl(_log_fd, F_DUPFD_CLOEXEC, 0);
+		if (_log_fd == -1) {
+			_log_fd = STDERR_FILENO;
+		}
 	} else {
 		if (TEMP_FAILURE_RETRY(_log_fd = open(logfile.c_str(),
 					   O_CREAT | O_RDWR | O_APPEND | O_CLOEXEC, 0640)) == -1) {
 			_log_fd = STDERR_FILENO;
-			_log_fd_isatty = (isatty(_log_fd) == 1 ? true : false);
 			PLOG_W("Couldn't open logfile open('%s')", logfile.c_str());
 		}
 	}
