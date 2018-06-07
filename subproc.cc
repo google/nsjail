@@ -319,10 +319,7 @@ int reapProc(nsjconf_t* nsjconf) {
 				    si.si_pid, remote_txt.c_str(), WEXITSTATUS(status),
 				    countProc(nsjconf) - 1);
 				removeProc(nsjconf, si.si_pid);
-				rv = WEXITSTATUS(status) % 100;
-				if (rv == 0 && WEXITSTATUS(status) != 0) {
-					rv = 1;
-				}
+				rv = WEXITSTATUS(status);
 			}
 			if (WIFSIGNALED(status)) {
 				LOG_I(
@@ -331,7 +328,7 @@ int reapProc(nsjconf_t* nsjconf) {
 				    util::sigName(WTERMSIG(status)).c_str(), WTERMSIG(status),
 				    countProc(nsjconf) - 1);
 				removeProc(nsjconf, si.si_pid);
-				rv = 100 + WTERMSIG(status);
+				rv = 128 + WTERMSIG(status);
 			}
 		}
 	}
