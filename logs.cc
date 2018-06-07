@@ -48,11 +48,11 @@ static enum llevel_t _log_level = INFO;
 static bool _log_set = false;
 
 __attribute__((constructor)) static void log_init(void) {
-	_log_fd_isatty = isatty(_log_fd);
 	_log_fd = fcntl(_log_fd, F_DUPFD_CLOEXEC, 0);
 	if (_log_fd == -1) {
 		_log_fd = STDERR_FILENO;
 	}
+	_log_fd_isatty = isatty(_log_fd);
 }
 
 bool logSet() {
