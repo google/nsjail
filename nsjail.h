@@ -35,8 +35,6 @@
 #include <string>
 #include <vector>
 
-#include "logs.h"
-
 static const int nssigs[] = {
     SIGINT,
     SIGQUIT,
@@ -93,8 +91,6 @@ struct nsjconf_t {
 	std::string chroot;
 	int port;
 	std::string bindhost;
-	std::string logfile;
-	logs::llevel_t loglevel;
 	bool daemonize;
 	uint64_t tlimit;
 	size_t max_cpus;

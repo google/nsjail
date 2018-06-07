@@ -383,7 +383,6 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->cwd = "/";
 	nsjconf->port = 0;
 	nsjconf->bindhost = "::";
-	nsjconf->loglevel = logs::INFO;
 	nsjconf->daemonize = false;
 	nsjconf->tlimit = 0;
 	nsjconf->max_cpus = 0;
@@ -486,25 +485,22 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			nsjconf->max_conns_per_ip = strtoul(optarg, NULL, 0);
 			break;
 		case 'l':
-			nsjconf->logfile = optarg;
+                        logs::logFile(optarg);
 			break;
 		case 'L':
-			nsjconf->logfile = "/dev/fd/" + std::to_string(strtoimax(optarg, NULL, 10));
+                        logs::logFile(std::string("/dev/fd/") + optarg);
 			break;
 		case 'd':
 			nsjconf->daemonize = true;
 			break;
 		case 'v':
-			nsjconf->loglevel = logs::DEBUG;
-			logs::logLevel(nsjconf->loglevel);
+			logs::logLevel(logs::DEBUG);
 			break;
 		case 'q':
-			nsjconf->loglevel = logs::WARNING;
-			logs::logLevel(nsjconf->loglevel);
+			logs::logLevel(logs::WARNING);
 			break;
 		case 'Q':
-			nsjconf->loglevel = logs::FATAL;
-			logs::logLevel(nsjconf->loglevel);
+			logs::logLevel(logs::FATAL);
 			break;
 		case 'e':
 			nsjconf->keep_env = true;
@@ -811,11 +807,8 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 		}
 	}
 
-	if (nsjconf->daemonize && nsjconf->logfile.empty()) {
-		nsjconf->logfile = _LOG_DEFAULT_FILE;
-	}
-	if (!logs::initLog(nsjconf->logfile, nsjconf->loglevel)) {
-		return nullptr;
+	if (nsjconf->daemonize && !logs::logSet()) {
+                logs::logFile(_LOG_DEFAULT_FILE);
 	}
 	if (!setupMounts(nsjconf.get(), tmpfs_mounts, tmpfs_size)) {
 		return nullptr;

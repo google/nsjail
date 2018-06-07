@@ -95,33 +95,32 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 	nsjconf->daemonize = njc.daemon();
 
 	if (njc.has_log_fd()) {
-		nsjconf->logfile = "/dev/fd/" + std::to_string(njc.log_fd());
+                logs::logFile(std::string("/dev/fd/") + std::to_string(njc.log_fd()));
 	}
 	if (njc.has_log_file()) {
-		nsjconf->logfile = njc.log_file();
+                logs::logFile(njc.log_file());
 	}
 	if (njc.has_log_level()) {
 		switch (njc.log_level()) {
 		case nsjail::LogLevel::DEBUG:
-			nsjconf->loglevel = logs::DEBUG;
+                        logs::logLevel(logs::DEBUG);
 			break;
 		case nsjail::LogLevel::INFO:
-			nsjconf->loglevel = logs::INFO;
+                        logs::logLevel(logs::INFO);
 			break;
 		case nsjail::LogLevel::WARNING:
-			nsjconf->loglevel = logs::WARNING;
+                        logs::logLevel(logs::WARNING);
 			break;
 		case nsjail::LogLevel::ERROR:
-			nsjconf->loglevel = logs::ERROR;
+                        logs::logLevel(logs::ERROR);
 			break;
 		case nsjail::LogLevel::FATAL:
-			nsjconf->loglevel = logs::FATAL;
+                        logs::logLevel(logs::FATAL);
 			break;
 		default:
 			LOG_E("Unknown log_level: %d", njc.log_level());
 			return false;
 		}
-		logs::logLevel(nsjconf->loglevel);
 	}
 
 	nsjconf->keep_env = njc.keep_env();
@@ -278,7 +277,7 @@ static void LogHandler(
 }
 
 bool parseFile(nsjconf_t* nsjconf, const char* file) {
-	LOG_I("Parsing configuration from '%s'", file);
+	LOG_D("Parsing configuration from '%s'", file);
 
 	int fd = open(file, O_RDONLY | O_CLOEXEC);
 	if (fd == -1) {
@@ -302,8 +301,8 @@ bool parseFile(nsjconf_t* nsjconf, const char* file) {
 		LOG_W("Couldn't parse the ProtoBuf");
 		return false;
 	}
-	LOG_D("Parsed config:\n'%s'", nsc.DebugString().c_str());
 
+	LOG_D("Parsed config:\n'%s'", nsc.DebugString().c_str());
 	return true;
 }
 

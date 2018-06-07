@@ -45,22 +45,32 @@ namespace logs {
 static int _log_fd = STDERR_FILENO;
 static bool _log_fd_isatty = true;
 static enum llevel_t _log_level = INFO;
+static bool _log_set = false;
 
 __attribute__((constructor)) static void log_init(void) {
 	_log_fd_isatty = isatty(_log_fd);
+}
+
+bool logSet() {
+  return _log_set;
 }
 
 /*
  * Log to stderr by default. Use a dup()d fd, because in the future we'll associate the
  * connection socket with fd (0, 1, 2).
  */
-bool initLog(const std::string& logfile, llevel_t level) {
+
+void logLevel(enum llevel_t ll) {
+	_log_level = ll;
+}
+
+void logFile(const std::string& logfile) {
+        _log_set = true;
 	/* Close previous log_fd */
 	if (_log_fd > STDERR_FILENO) {
 		close(_log_fd);
 		_log_fd = STDERR_FILENO;
 	}
-	_log_level = level;
 	if (logfile.empty()) {
 		_log_fd = fcntl(_log_fd, F_DUPFD_CLOEXEC, 0);
 	} else {
@@ -69,11 +79,9 @@ bool initLog(const std::string& logfile, llevel_t level) {
 			_log_fd = STDERR_FILENO;
 			_log_fd_isatty = (isatty(_log_fd) == 1 ? true : false);
 			PLOG_E("Couldn't open logfile open('%s')", logfile.c_str());
-			return false;
 		}
 	}
 	_log_fd_isatty = (isatty(_log_fd) == 1 ? true : false);
-	return true;
 }
 
 void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt, ...) {
@@ -133,10 +141,6 @@ void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt
 
 void logStop(int sig) {
 	LOG_I("Server stops due to fatal signal (%d) caught. Exiting", sig);
-}
-
-void logLevel(enum llevel_t ll) {
-	_log_level = ll;
 }
 
 }  // namespace logs
