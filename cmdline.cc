@@ -123,9 +123,9 @@ struct custom_option custom_opts[] = {
     { { "gid_mapping", required_argument, NULL, 'G' }, "Add a custom gid mapping of the form inside_gid:outside_gid:count. Setting this requires newgidmap (set-uid) to be present" },
     { { "bindmount_ro", required_argument, NULL, 'R' }, "List of mountpoints to be mounted --bind (ro) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'" },
     { { "bindmount", required_argument, NULL, 'B' }, "List of mountpoints to be mounted --bind (rw) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'" },
-    { { "tmpfsmount", required_argument, NULL, 'T' }, "List of mountpoints to be mounted as tmpfs (R/W) inside the container. Can be specified multiple times. Supports 'dest' syntax" },
-    { { "tmpfs_size", required_argument, NULL, 0x0602 }, "Number of bytes to allocate for tmpfsmounts (default: 4194304)" },
+    { { "tmpfsmount", required_argument, NULL, 'T' }, "List of mountpoints to be mounted as tmpfs (R/W) inside the container. Can be specified multiple times. Supports 'dest' syntax. Alternatively, use '-m none:dest:tmpfs:size=8388608'" },
     { { "mount", required_argument, NULL, 'm' }, "Arbitrary mount, format src:dst:fs_type:options" },
+    { { "symlink", required_argument, NULL, 's' }, "Symlink, format src:dst" },
     { { "disable_proc", no_argument, NULL, 0x0603 }, "Disable mounting procfs in the jail" },
     { { "proc_path", required_argument, NULL, 0x0605 }, "Path used to mount procfs (default: '/proc')" },
     { { "proc_rw", no_argument, NULL, 0x0606 }, "Is procfs mounted as R/W (default: R/O)" },
@@ -312,8 +312,7 @@ static bool setupArgv(nsjconf_t* nsjconf, int argc, char** argv, int optind) {
 	return true;
 }
 
-static bool setupMounts(nsjconf_t* nsjconf, const std::vector<std::string>& tmpfs_mounts,
-    const std::string& tmpfs_size) {
+static bool setupMounts(nsjconf_t* nsjconf) {
 	if (!(nsjconf->chroot.empty())) {
 		if (!mnt::addMountPtHead(nsjconf, nsjconf->chroot, "/", /* fstype= */ "",
 			/* options= */ "",
@@ -332,22 +331,11 @@ static bool setupMounts(nsjconf_t* nsjconf, const std::vector<std::string>& tmpf
 			return false;
 		}
 	}
-
 	if (!nsjconf->proc_path.empty()) {
 		if (!mnt::addMountPtTail(nsjconf, /* src= */ "", nsjconf->proc_path, "proc",
 			/* options= */ "", nsjconf->is_proc_rw ? 0 : MS_RDONLY,
 			/* is_dir= */ mnt::NS_DIR_YES, /* is_mandatory= */ true, /* src_env= */ "",
 			/* dst_env= */ "", /* src_content= */ "", /* is_symlink= */ false)) {
-			return false;
-		}
-	}
-
-	for (const auto& s : tmpfs_mounts) {
-		if (!mnt::addMountPtTail(nsjconf, /* src= */ "", /* dst= */ s, "tmpfs",
-			/* options= */ tmpfs_size, /* flags= */ 0,
-			/* is_dir= */ mnt::NS_DIR_YES, /* is_mandatory= */ true,
-			/* src_env= */ "", /* dst_env= */ "", /* src_content= */ "",
-			/* is_symlink= */ false)) {
 			return false;
 		}
 	}
@@ -436,9 +424,6 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->openfds.push_back(STDOUT_FILENO);
 	nsjconf->openfds.push_back(STDERR_FILENO);
 
-	std::string tmpfs_size = "size=4194304";
-	std::vector<std::string> tmpfs_mounts;
-
 	// Generate options array for getopt_long.
 	size_t options_length = ARR_SZ(custom_opts) + 1;
 	struct option opts[options_length];
@@ -452,7 +437,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	int opt_index = 0;
 	for (;;) {
 		int c = getopt_long(argc, argv,
-		    "x:H:D:C:c:p:i:u:g:l:L:t:M:NdvqQeh?E:R:B:T:m:P:I:U:G:", opts, &opt_index);
+		    "x:H:D:C:c:p:i:u:g:l:L:t:M:NdvqQeh?E:R:B:T:m:s:P:I:U:G:", opts, &opt_index);
 		if (c == -1) {
 			break;
 		}
@@ -600,10 +585,6 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 		case 0x0601:
 			nsjconf->is_root_rw = true;
 			break;
-		case 0x0602:
-			tmpfs_size = "size=";
-			tmpfs_size.append(std::to_string(strtoull(optarg, NULL, 0)));
-			break;
 		case 0x0603:
 			nsjconf->proc_path.clear();
 			break;
@@ -693,9 +674,15 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 				return nullptr;
 			}
 		}; break;
-		case 'T':
-			tmpfs_mounts.push_back(optarg);
-			break;
+		case 'T': {
+			if (!mnt::addMountPtTail(nsjconf.get(), "", optarg, /* fstype= */ "tmpfs",
+				/* options= */ "size=4194304", 0,
+				/* is_dir= */ mnt::NS_DIR_YES, /* is_mandatory= */ true,
+				/* src_env= */ "", /* dst_env= */ "", /* src_content= */ "",
+				/* is_symlink= */ false)) {
+				return nullptr;
+			}
+		}; break;
 		case 'm': {
 			std::vector<std::string> subopts = util::strSplit(optarg, ':');
 			std::string src = argFromVec(subopts, 0);
@@ -710,6 +697,18 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 				/* is_dir= */ mnt::NS_DIR_MAYBE, /* is_mandatory= */ true,
 				/* src_env= */ "", /* dst_env= */ "", /* src_content= */ "",
 				/* is_symlink= */ false)) {
+				return nullptr;
+			}
+		}; break;
+		case 's': {
+			std::vector<std::string> subopts = util::strSplit(optarg, ':');
+			std::string src = argFromVec(subopts, 0);
+			std::string dst = argFromVec(subopts, 1);
+			if (!mnt::addMountPtTail(nsjconf.get(), src, dst, /* fstype= */ "",
+				/* options= */ "", /* flags= */ 0,
+				/* is_dir= */ mnt::NS_DIR_NO, /* is_mandatory= */ true,
+				/* src_env= */ "", /* dst_env= */ "", /* src_content= */ "",
+				/* is_symlink= */ true)) {
 				return nullptr;
 			}
 		}; break;
@@ -810,7 +809,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	if (nsjconf->daemonize && !logs::logSet()) {
 		logs::logFile(_LOG_DEFAULT_FILE);
 	}
-	if (!setupMounts(nsjconf.get(), tmpfs_mounts, tmpfs_size)) {
+	if (!setupMounts(nsjconf.get())) {
 		return nullptr;
 	}
 	if (!setupArgv(nsjconf.get(), argc, argv, optind)) {
