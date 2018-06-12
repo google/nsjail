@@ -374,6 +374,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->daemonize = false;
 	nsjconf->tlimit = 0;
 	nsjconf->max_cpus = 0;
+	nsjconf->keep_env = false;
 	nsjconf->keep_caps = false;
 	nsjconf->disable_no_new_privs = false;
 	nsjconf->rl_as = 512 * (1024 * 1024);
