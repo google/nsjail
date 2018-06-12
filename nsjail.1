@@ -19,17 +19,17 @@ Execution mode (default: o [MODE_STANDALONE_ONCE]):
 \fBl\fR: Wait for connections on a TCP port (specified with \fB\-\-port\fR) [MODE_LISTEN_TCP]
 .PP
 .IP
-\fBo\fR: Immediately launch a single process on the console using clone/execve [MODE_STANDALONE_ONCE]
+\fBo\fR: Launch a single process on the console using clone/execve [MODE_STANDALONE_ONCE]
 .PP
 .IP
-\fBe\fR: Immediately launch a single process on the console using execve [MODE_STANDALONE_EXECVE]
+\fBe\fR: Launch a single process on the console using execve [MODE_STANDALONE_EXECVE]
 .PP
 .IP
-\fBr\fR: Immediately launch a single process on the console, keep doing it forever [MODE_STANDALONE_RERUN]
+\fBr\fR: Launch a single process on the console with clone/execve, keep doing it forever [MODE_STANDALONE_RERUN]
 .PP
 .TP
 \fB\-\-config\fR|\fB\-C\fR VALUE
-Configuration file in the config.proto ProtoBuf format
+Configuration file in the config.proto ProtoBuf format (see configs/ directory for examples)
 .TP
 \fB\-\-exec_file\fR|\fB\-x\fR VALUE
 File to exec (default: argv[0])
@@ -89,25 +89,25 @@ Log warning and more important messages only
 Log fatal messages only
 .TP
 \fB\-\-keep_env\fR|\fB\-e\fR
-Should all environment variables be passed to the child?
+Pass all environment variables be passed process (default: all envvars are cleared)
 .TP
 \fB\-\-env\fR|\fB\-E\fR VALUE
-Environment variable (can be used multiple times)
+Additional environment variable (can be used multiple times)
 .TP
 \fB\-\-keep_caps\fR
-Don't drop capabilities in the local namespace
+Don't drop any capabilities
 .TP
 \fB\-\-cap\fR VALUE
-Retain this capability in local namespace (e.g. CAP_PTRACE). Can be specified multiple times
+Retain this capability, e.g. CAP_PTRACE (can be specified multiple times)
 .TP
 \fB\-\-silent\fR
-Redirect child's fd:0/1/2 to /dev/null
+Redirect child process' fd:0/1/2 to /dev/null
 .TP
 \fB\-\-skip_setsid\fR
-Don't call setsid(), allows for terminal signal handling in the sandboxed process
+Don't call setsid(), allows for terminal signal handling in the sandboxed process. Dangerous
 .TP
 \fB\-\-pass_fd\fR VALUE
-Don't close this FD before executing child (can be specified multiple times), by default: 0/1/2 are kept open
+Don't close this FD before executing the child process (can be specified multiple times), by default: 0/1/2 are kept open
 .TP
 \fB\-\-disable_no_new_privs\fR
 Don't set the prctl(NO_NEW_PRIVS, 1) (DANGEROUS)
@@ -149,7 +149,7 @@ personality(ADDR_LIMIT_3GB)
 personality(ADDR_NO_RANDOMIZE)
 .TP
 \fB\-\-disable_clone_newnet\fR|\-N
-Don't use CLONE_NEWNET. Enable networking inside the jail
+Don't use CLONE_NEWNET. Enable global networking inside the jail
 .TP
 \fB\-\-disable_clone_newuser\fR
 Don't use CLONE_NEWUSER. Requires euid==0
@@ -170,10 +170,10 @@ Don't use CLONE_NEWUTS
 Don't use CLONE_NEWCGROUP. Might be required for kernel versions < 4.6
 .TP
 \fB\-\-uid_mapping\fR|\fB\-U\fR VALUE
-Add a custom uid mapping of the form inside_uid:outside_uid:count. Setting this requires newuidmap to be present
+Add a custom uid mapping of the form inside_uid:outside_uid:count. Setting this requires newuidmap (set-uid) to be present
 .TP
 \fB\-\-gid_mapping\fR|\fB\-G\fR VALUE
-Add a custom gid mapping of the form inside_gid:outside_gid:count. Setting this requires newgidmap to be present
+Add a custom gid mapping of the form inside_gid:outside_gid:count. Setting this requires newgidmap (set-uid) to be present
 .TP
 \fB\-\-bindmount_ro\fR|\fB\-R\fR VALUE
 List of mountpoints to be mounted \fB\-\-bind\fR (ro) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'
@@ -182,22 +182,22 @@ List of mountpoints to be mounted \fB\-\-bind\fR (ro) inside the container. Can 
 List of mountpoints to be mounted \fB\-\-bind\fR (rw) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'
 .TP
 \fB\-\-tmpfsmount\fR|\fB\-T\fR VALUE
-List of mountpoints to be mounted as RW/tmpfs inside the container. Can be specified multiple times. Supports 'dest' syntax
-.TP
-\fB\-\-tmpfs_size\fR VALUE
-Number of bytes to allocate for tmpfsmounts (default: 4194304)
+List of mountpoints to be mounted as tmpfs (R/W) inside the container. Can be specified multiple times. Supports 'dest' syntax. Alternatively, use '-m none:dest:tmpfs:size=8388608'
 .TP
 \fB\-\-mount\fR|\fB\-m\fR VALUE
 Arbitrary mount, format src:dst:fs_type:options
 .TP
+\fB\-\-symlink\fR|\f\B\-s\fR VALUE
+Symlink, format src:dst
+.TP
 \fB\-\-disable_proc\fR
-Disable mounting \fI/proc\fP in the jail
+Disable mounting procfs in the jail
 .TP
 \fB\-\-proc_path\fR VALUE
 Path used to mount procfs (default: '/proc')
 .TP
 \fB\-\-proc_rw\fR
-Is procfs mount as R/W (default: R/O)
+Is procfs mounted as R/W (default: R/O)
 .TP
 \fB\-\-seccomp_policy\fR|\fB\-P\fR VALUE
 Path to file containing seccomp\-bpf policy (see kafel/)
@@ -238,14 +238,14 @@ Which pre\-existing net_cls cgroup to use as a parent (default: 'NSJAIL')
 \fB\-\-cgroup_cpu_ms_per_sec\fR VALUE
 Number of us that the process group can use per second (default: '0' - disabled)
 .TP
-\fB\-\-cpu_mount\fR VALUE
+\fB\-\-cgroup_cpu_mount\fR VALUE
 Location of cpu cgroup FS (default: '/sys/fs/cgroup/net_cls')
 .TP
-\fB\-\-cpu_parent\fR VALUE
+\fB\-\-cgroup_cpu_parent\fR VALUE
 Which pre-existing cpu cgroup to use as a parent (default: 'NSJAIL')
 .TP
 \fB\-\-iface_no_lo\fR
-Don't bring up the 'lo' interface
+Don't bring the 'lo' interface up
 .TP
 \fB\-\-iface_own\fR VALUE
 Move this existing network interface into the new NET namespace. Can be specified multiple times
