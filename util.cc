@@ -176,6 +176,24 @@ std::string* StrAppend(std::string* str, const char* format, ...) {
 	return str;
 }
 
+std::string StrPrintf(const char* format, ...) {
+	char* strp;
+
+	va_list args;
+	va_start(args, format);
+	int ret = vasprintf(&strp, format, args);
+	va_end(args);
+
+	if (ret == -1) {
+		PLOG_E("Memory allocation failed during asprintf()");
+		return "[ERROR: mem_allocation_failed]";
+	}
+
+	std::string str(strp, ret);
+	free(strp);
+	return str;
+}
+
 bool isANumber(const char* s) {
 	for (size_t i = 0; s[i]; s++) {
 		if (!isdigit(s[i]) && s[i] != 'x') {

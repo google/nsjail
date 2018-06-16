@@ -40,6 +40,7 @@ bool writeBufToFile(const char* filename, const void* buf, size_t len, int open_
 bool createDirRecursively(const char* dir);
 std::string* StrAppend(std::string* str, const char* format, ...)
     __attribute__((format(printf, 2, 3)));
+std::string StrPrintf(const char* format, ...) __attribute__((format(printf, 1, 2)));
 bool isANumber(const char* s);
 uint64_t rnd64(void);
 const std::string sigName(int signo);
