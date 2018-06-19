@@ -26,8 +26,8 @@ CXX ?= g++
 
 COMMON_FLAGS += -O2 -c \
 	-D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 \
-	-Wformat -Wformat=2 -Wformat-security -fPIE \
-	-Wno-format-nonliteral \
+	-fPIE \
+	-Wformat -Wformat-security -Wno-format-nonliteral \
 	-Wall -Wextra -Werror \
 	-Ikafel/include
 
