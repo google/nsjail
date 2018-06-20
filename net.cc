@@ -353,7 +353,8 @@ static bool ifaceUp(const char* ifacename) {
 		return false;
 	}
 
-	struct ifreq ifr = {};
+	struct ifreq ifr;
+	memset(&ifr, '\0', sizeof(ifr));
 	snprintf(ifr.ifr_name, IF_NAMESIZE, "%s", ifacename);
 
 	if (ioctl(sock, SIOCGIFFLAGS, &ifr) == -1) {
@@ -394,7 +395,8 @@ static bool ifaceConfig(const std::string& iface, const std::string& ip, const s
 		return true;
 	}
 
-	struct ifreq ifr = {};
+	struct ifreq ifr;
+	memset(&ifr, '\0', sizeof(ifr));
 	snprintf(ifr.ifr_name, IF_NAMESIZE, "%s", iface.c_str());
 	struct sockaddr_in* sa = (struct sockaddr_in*)(&ifr.ifr_addr);
 	sa->sin_family = AF_INET;
@@ -434,7 +436,8 @@ static bool ifaceConfig(const std::string& iface, const std::string& ip, const s
 		return true;
 	}
 
-	struct rtentry rt = {};
+	struct rtentry rt;
+	memset(&rt, '\0', sizeof(rt));
 	struct sockaddr_in* sdest = (struct sockaddr_in*)(&rt.rt_dst);
 	struct sockaddr_in* smask = (struct sockaddr_in*)(&rt.rt_genmask);
 	struct sockaddr_in* sgate = (struct sockaddr_in*)(&rt.rt_gateway);
