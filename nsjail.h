@@ -115,8 +115,8 @@ struct nsjconf_t {
 	enum ns_mode_t mode;
 	bool is_root_rw;
 	bool is_silent;
-	bool skip_setsid;
 	bool stderr_to_null;
+	bool skip_setsid;
 	unsigned int max_conns_per_ip;
 	std::string proc_path;
 	bool is_proc_rw;

@@ -97,9 +97,9 @@ struct custom_option custom_opts[] = {
     { { "keep_caps", no_argument, NULL, 0x0501 }, "Don't drop any capabilities" },
     { { "cap", required_argument, NULL, 0x0509 }, "Retain this capability, e.g. CAP_PTRACE (can be specified multiple times)" },
     { { "silent", no_argument, NULL, 0x0502 }, "Redirect child process' fd:0/1/2 to /dev/null" },
+    { { "stderr_to_null", no_argument, NULL, 0x0503 }, "Redirect child process' fd:2 (STDERR_FILENO) to /dev/null" },
     { { "skip_setsid", no_argument, NULL, 0x0504 }, "Don't call setsid(), allows for terminal signal handling in the sandboxed process. Dangerous" },
     { { "pass_fd", required_argument, NULL, 0x0505 }, "Don't close this FD before executing the child process (can be specified multiple times), by default: 0/1/2 are kept open" },
-    { { "stderr_to_null", no_argument, NULL, 0x0506 }, "Redirect FD=2 (STDERR_FILENO) to /dev/null" },
     { { "disable_no_new_privs", no_argument, NULL, 0x0507 }, "Don't set the prctl(NO_NEW_PRIVS, 1) (DANGEROUS)" },
     { { "rlimit_as", required_argument, NULL, 0x0201 }, "RLIMIT_AS in MB, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 512)" },
     { { "rlimit_core", required_argument, NULL, 0x0202 }, "RLIMIT_CORE in MB, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 0)" },
@@ -396,8 +396,8 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->mode = MODE_STANDALONE_ONCE;
 	nsjconf->is_root_rw = false;
 	nsjconf->is_silent = false;
-	nsjconf->skip_setsid = false;
 	nsjconf->stderr_to_null = false;
+	nsjconf->skip_setsid = false;
 	nsjconf->max_conns_per_ip = 0;
 	nsjconf->proc_path = "/proc";
 	nsjconf->is_proc_rw = false;
@@ -566,14 +566,14 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 		case 0x0502:
 			nsjconf->is_silent = true;
 			break;
+		case 0x0503:
+			nsjconf->stderr_to_null = true;
+			break;
 		case 0x0504:
 			nsjconf->skip_setsid = true;
 			break;
 		case 0x0505:
 			nsjconf->openfds.push_back((int)strtol(optarg, NULL, 0));
-			break;
-		case 0x0506:
-			nsjconf->stderr_to_null = true;
 			break;
 		case 0x0507:
 			nsjconf->disable_no_new_privs = true;
