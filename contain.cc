@@ -263,25 +263,30 @@ static bool containMakeFdsCOE(nsjconf_t* nsjconf) {
 }
 
 bool setupFD(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
-	if (nsjconf->mode != MODE_LISTEN_TCP) {
-		if (!nsjconf->is_silent) {
-			return true;
+	if (nsjconf->stderr_to_null) {
+		LOG_D("Redirecting FD=2 (STDERR_FILENO) to /dev/null");
+		if ((fd_err = TEMP_FAILURE_RETRY(open("/dev/null", O_RDWR))) == -1) {
+			PLOG_E("open('/dev/null', O_RDWR");
+			return false;
 		}
+	}
+	if (nsjconf->is_silent) {
+		LOG_D("Redirecting FD=0/1/2 (STDIN/OUT/ERR_FILENO) to /dev/null");
 		if (TEMP_FAILURE_RETRY(fd_in = fd_out = fd_err = open("/dev/null", O_RDWR)) == -1) {
 			PLOG_E("open('/dev/null', O_RDWR)");
 			return false;
 		}
 	}
 	/* Set stdin/stdout/stderr to the net */
-	if (TEMP_FAILURE_RETRY(dup2(fd_in, STDIN_FILENO)) == -1) {
+	if (fd_in != STDIN_FILENO && TEMP_FAILURE_RETRY(dup2(fd_in, STDIN_FILENO)) == -1) {
 		PLOG_E("dup2(%d, STDIN_FILENO)", fd_in);
 		return false;
 	}
-	if (TEMP_FAILURE_RETRY(dup2(fd_out, STDOUT_FILENO)) == -1) {
+	if (fd_out != STDOUT_FILENO && TEMP_FAILURE_RETRY(dup2(fd_out, STDOUT_FILENO)) == -1) {
 		PLOG_E("dup2(%d, STDOUT_FILENO)", fd_out);
 		return false;
 	}
-	if (TEMP_FAILURE_RETRY(dup2(fd_err, STDERR_FILENO)) == -1) {
+	if (fd_err != STDERR_FILENO && TEMP_FAILURE_RETRY(dup2(fd_err, STDERR_FILENO)) == -1) {
 		PLOG_E("dup2(%d, STDERR_FILENO)", fd_err);
 		return false;
 	}

@@ -144,6 +144,7 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 		nsjconf->openfds.push_back(i);
 	}
 
+	nsjconf->stderr_to_null = njc.stderr_to_null();
 	nsjconf->disable_no_new_privs = njc.disable_no_new_privs();
 
 	nsjconf->rl_as =

@@ -124,6 +124,8 @@ message NsJailConfig {
        job control / signals. Dangerous, can be used to put
        characters into the controlling terminal back */
     optional bool skip_setsid = 24 [default = false];
+    /* Redirect sdterr of the process to /dev/null instead of the socket or original TTY */
+    optional bool stderr_to_null = 79 [default = false];
     /* Which FDs should be passed to the newly executed process
        By default only FD=0,1,2 are passed */
     repeated int32 pass_fd = 25;
