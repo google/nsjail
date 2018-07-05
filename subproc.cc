@@ -341,9 +341,9 @@ int reapProc(nsjconf_t* nsjconf) {
 		pid_t pid = p.pid;
 		time_t diff = now - p.start;
 		if ((uint64_t)diff >= nsjconf->tlimit) {
-			LOG_I("PID: %d run time >= time limit (%ld >= %" PRId64
+			LOG_I("PID: %d run time >= time limit (%ld >= %" PRIu64
 			      ") (%s). Killing it",
-			    pid, (long)diff, (long)nsjconf->tlimit, p.remote_txt.c_str());
+			    pid, (long)diff, nsjconf->tlimit, p.remote_txt.c_str());
 			/*
 			 * Probably a kernel bug - some processes cannot be killed with KILL if
 			 * they're namespaced, and in a stopped state
