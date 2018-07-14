@@ -103,6 +103,9 @@ Retain this capability, e.g. CAP_PTRACE (can be specified multiple times)
 \fB\-\-silent\fR
 Redirect child process' fd:0/1/2 to /dev/null
 .TP
+\fB\-\-stderr_to_null\fR
+Redirect FD=2 (STDERR_FILENO) to /dev/null
+.TP
 \fB\-\-skip_setsid\fR
 Don't call setsid(), allows for terminal signal handling in the sandboxed process. Dangerous
 .TP
