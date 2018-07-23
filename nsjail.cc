@@ -141,35 +141,30 @@ static int listenMode(nsjconf_t* nsjconf) {
 }
 
 static int standaloneMode(nsjconf_t* nsjconf) {
-	if (!subproc::runChild(nsjconf, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO)) {
-		LOG_E("Couldn't launch the child process");
-		return 0xff;
-	}
 	for (;;) {
-		int child_status = subproc::reapProc(nsjconf);
-
-		if (subproc::countProc(nsjconf) == 0) {
-			if (nsjconf->mode == MODE_STANDALONE_ONCE) {
-				return child_status;
+		if (!subproc::runChild(nsjconf, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO)) {
+			LOG_E("Couldn't launch the child process");
+			return 0xff;
+		}
+		for (;;) {
+			int child_status = subproc::reapProc(nsjconf);
+			if (subproc::countProc(nsjconf) == 0) {
+				if (nsjconf->mode == MODE_STANDALONE_ONCE) {
+					return child_status;
+				}
+				break;
 			}
-			if (!subproc::runChild(
-				nsjconf, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO)) {
-				LOG_E("Couldn't launch the child process");
-				return 0xff;
+			if (showProc) {
+				showProc = false;
+				subproc::displayProc(nsjconf);
 			}
-			continue;
+			if (sigFatal > 0) {
+				subproc::killAll(nsjconf);
+				logs::logStop(sigFatal);
+				return (128 + sigFatal);
+			}
+			pause();
 		}
-		if (showProc) {
-			showProc = false;
-			subproc::displayProc(nsjconf);
-		}
-		if (sigFatal > 0) {
-			subproc::killAll(nsjconf);
-			logs::logStop(sigFatal);
-			return (128 + sigFatal);
-		}
-
-		pause();
 	}
 	// not reached
 }
