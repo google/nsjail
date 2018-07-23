@@ -141,7 +141,10 @@ static int listenMode(nsjconf_t* nsjconf) {
 }
 
 static int standaloneMode(nsjconf_t* nsjconf) {
-	subproc::runChild(nsjconf, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
+	if (!subproc::runChild(nsjconf, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO)) {
+		LOG_E("Couldn't launch the child process");
+		return 0xff;
+	}
 	for (;;) {
 		int child_status = subproc::reapProc(nsjconf);
 
@@ -149,7 +152,11 @@ static int standaloneMode(nsjconf_t* nsjconf) {
 			if (nsjconf->mode == MODE_STANDALONE_ONCE) {
 				return child_status;
 			}
-			subproc::runChild(nsjconf, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO);
+			if (!subproc::runChild(
+				nsjconf, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO)) {
+				LOG_E("Couldn't launch the child process");
+				return 0xff;
+			}
 			continue;
 		}
 		if (showProc) {

@@ -126,35 +126,36 @@ static bool resetEnv(void) {
 }
 
 static const char kSubprocDoneChar = 'D';
+static const char kSubprocErrorChar = 'E';
 
-static int subprocNewProc(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err, int pipefd) {
+static void subprocNewProc(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err, int pipefd) {
 	if (!contain::setupFD(nsjconf, fd_in, fd_out, fd_err)) {
-		_exit(0xff);
+		return;
 	}
 	if (!resetEnv()) {
-		_exit(0xff);
+		return;
 	}
 
 	if (pipefd == -1) {
 		if (!user::initNsFromParent(nsjconf, getpid())) {
 			LOG_E("Couldn't initialize net user namespace");
-			_exit(0xff);
+			return;
 		}
 		if (!cgroup::initNsFromParent(nsjconf, getpid())) {
 			LOG_E("Couldn't initialize net user namespace");
-			_exit(0xff);
+			return;
 		}
 	} else {
 		char doneChar;
 		if (util::readFromFd(pipefd, &doneChar, sizeof(doneChar)) != sizeof(doneChar)) {
-			_exit(0xff);
+			return;
 		}
 		if (doneChar != kSubprocDoneChar) {
-			_exit(0xff);
+			return;
 		}
 	}
 	if (!contain::containProc(nsjconf)) {
-		_exit(0xff);
+		return;
 	}
 	if (!nsjconf->keep_env) {
 		clearenv();
@@ -175,7 +176,7 @@ static int subprocNewProc(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err,
 
 	/* Should be the last one in the sequence */
 	if (!sandbox::applyPolicy(nsjconf)) {
-		exit(0xff);
+		return;
 	}
 
 	if (nsjconf->use_execveat) {
@@ -183,15 +184,14 @@ static int subprocNewProc(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err,
 		syscall(__NR_execveat, (uintptr_t)nsjconf->exec_fd, "", (char* const*)argv.data(),
 		    environ, (uintptr_t)AT_EMPTY_PATH);
 #else  /* defined(__NR_execveat) */
-		LOG_F("Your system doesn't support execveat() syscall");
+		LOG_E("Your system doesn't support execveat() syscall");
+		return;
 #endif /* defined(__NR_execveat) */
 	} else {
 		execv(nsjconf->exec_file.c_str(), (char* const*)argv.data());
 	}
 
 	PLOG_E("execve('%s') failed", nsjconf->exec_file.c_str());
-
-	_exit(0xff);
 }
 
 static void addProc(nsjconf_t* nsjconf, pid_t pid, int sock) {
@@ -384,9 +384,9 @@ static bool initParent(nsjconf_t* nsjconf, pid_t pid, int pipefd) {
 	return true;
 }
 
-void runChild(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
+bool runChild(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
 	if (!net::limitConns(nsjconf, fd_in)) {
-		return;
+		return true;
 	}
 	unsigned long flags = 0UL;
 	flags |= (nsjconf->clone_newnet ? CLONE_NEWNET : 0);
@@ -398,12 +398,11 @@ void runChild(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
 	flags |= (nsjconf->clone_newcgroup ? CLONE_NEWCGROUP : 0);
 
 	if (nsjconf->mode == MODE_STANDALONE_EXECVE) {
-		LOG_D("Entering namespace with flags:%s", cloneFlagsToStr(flags).c_str());
 		if (unshare(flags) == -1) {
-			PLOG_E("unshare(%s)", cloneFlagsToStr(flags).c_str());
-			_exit(0xff);
+			PLOG_F("unshare(%s)", cloneFlagsToStr(flags).c_str());
 		}
 		subprocNewProc(nsjconf, fd_in, fd_out, fd_err, -1);
+		LOG_F("Launching new process failed");
 	}
 
 	flags |= SIGCHLD;
@@ -412,7 +411,7 @@ void runChild(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
 	int sv[2];
 	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, sv) == -1) {
 		PLOG_E("socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC) failed");
-		return;
+		return false;
 	}
 	int child_fd = sv[0];
 	int parent_fd = sv[1];
@@ -421,6 +420,8 @@ void runChild(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
 	if (pid == 0) {
 		close(parent_fd);
 		subprocNewProc(nsjconf, fd_in, fd_out, fd_err, child_fd);
+		util::writeToFd(child_fd, &kSubprocErrorChar, sizeof(kSubprocErrorChar));
+		LOG_F("Launching child process failed");
 	}
 	close(child_fd);
 	if (pid == -1) {
@@ -436,16 +437,27 @@ void runChild(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
 		    "kernel.unprivileged_userns_clone sysctl",
 		    cloneFlagsToStr(flags).c_str());
 		close(parent_fd);
-		return;
+		return false;
 	}
 	addProc(nsjconf, pid, fd_in);
 
 	if (!initParent(nsjconf, pid, parent_fd)) {
 		close(parent_fd);
-		return;
+		return false;
+	}
+
+	char rcvChar;
+	if (util::readFromFd(parent_fd, &rcvChar, sizeof(rcvChar)) == sizeof(rcvChar) &&
+	    rcvChar == kSubprocErrorChar) {
+		LOG_E(
+		    "Received error message from the child process. Apparently, it hasn't been "
+		    "executed");
+		close(parent_fd);
+		return false;
 	}
 
 	close(parent_fd);
+	return true;
 }
 
 /*
