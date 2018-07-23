@@ -433,7 +433,7 @@ bool runChild(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
 		PLOG_E(
 		    "clone(flags=%s) failed. You probably need root privileges if your system "
 		    "doesn't support CLONE_NEWUSER. Alternatively, you might want to recompile "
-		    "your kernel with support for namespaces or check the setting of the "
+		    "your kernel with support for namespaces or check the current value of the "
 		    "kernel.unprivileged_userns_clone sysctl",
 		    cloneFlagsToStr(flags).c_str());
 		close(parent_fd);
@@ -449,9 +449,7 @@ bool runChild(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
 	char rcvChar;
 	if (util::readFromFd(parent_fd, &rcvChar, sizeof(rcvChar)) == sizeof(rcvChar) &&
 	    rcvChar == kSubprocErrorChar) {
-		LOG_E(
-		    "Received error message from the child process. Apparently, it hasn't been "
-		    "executed");
+		LOG_W("Received error message from the child process before it has been executed");
 		close(parent_fd);
 		return false;
 	}
