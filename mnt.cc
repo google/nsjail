@@ -220,14 +220,11 @@ static bool mountPt(mount_t* mpt, const char* newroot, const char* tmpdir) {
 	return true;
 }
 
-static bool remountRO(const mount_t& mpt) {
+static bool remount(const mount_t& mpt) {
 	if (!mpt.mounted) {
 		return true;
 	}
 	if (mpt.is_symlink) {
-		return true;
-	}
-	if ((mpt.flags & MS_RDONLY) == 0) {
 		return true;
 	}
 
@@ -241,7 +238,6 @@ static bool remountRO(const mount_t& mpt) {
 		const unsigned long mount_flag;
 		const unsigned long vfs_flag;
 	} static const mountPairs[] = {
-	    {MS_RDONLY, ST_RDONLY},
 	    {MS_NOSUID, ST_NOSUID},
 	    {MS_NODEV, ST_NODEV},
 	    {MS_NOEXEC, ST_NOEXEC},
@@ -252,14 +248,14 @@ static bool remountRO(const mount_t& mpt) {
 	    {MS_RELATIME, ST_RELATIME},
 	};
 
-	unsigned long new_flags = MS_REMOUNT | MS_RDONLY | MS_BIND;
+	unsigned long new_flags = MS_REMOUNT | MS_BIND | (mpt.flags & MS_RDONLY);
 	for (const auto& i : mountPairs) {
 		if (vfs.f_flag & i.vfs_flag) {
 			new_flags |= i.mount_flag;
 		}
 	}
 
-	LOG_D("Re-mounting R/O '%s' (flags:%s)", mpt.dst.c_str(), flagsToStr(new_flags).c_str());
+	LOG_D("Re-mounting '%s' (flags:%s)", mpt.dst.c_str(), flagsToStr(new_flags).c_str());
 	if (mount(mpt.dst.c_str(), mpt.dst.c_str(), NULL, new_flags, 0) == -1) {
 		PLOG_W("mount('%s', flags:%s)", mpt.dst.c_str(), flagsToStr(new_flags).c_str());
 		return false;
@@ -418,7 +414,7 @@ static bool initNsInternal(nsjconf_t* nsjconf) {
 	}
 
 	for (const auto& p : nsjconf->mountpts) {
-		if (!remountRO(p) && p.is_mandatory) {
+		if (!remount(p) && p.is_mandatory) {
 			return false;
 		}
 	}
