@@ -31,6 +31,13 @@
 
 #include "nsjail.h"
 
+#define RETURN_ON_FAILURE(expr)       \
+	do {                          \
+		if (!(expr)) {        \
+			return false; \
+		}                     \
+	} while (0)
+
 namespace util {
 
 ssize_t readFromFd(int fd, void* buf, size_t len);

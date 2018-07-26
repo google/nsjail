@@ -30,54 +30,62 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <sstream>
+
 #include "logs.h"
 #include "util.h"
 
 namespace cgroup {
+
+static bool createCgroup(const std::string& cgroup_path, pid_t pid) {
+	LOG_D("Create '%s' for PID=%d", cgroup_path.c_str(), (int)pid);
+	if (mkdir(cgroup_path.c_str(), 0700) == -1 && errno != EEXIST) {
+		PLOG_W("mkdir('%s', 0700) failed", cgroup_path.c_str());
+		return false;
+	}
+
+	return true;
+}
+
+static bool writeToCgroup(
+    const std::string& cgroup_path, const std::string& value, const std::string& what) {
+	LOG_D("Setting '%s' to '%s'", cgroup_path.c_str(), value.c_str());
+	if (!util::writeBufToFile(
+		cgroup_path.c_str(), value.c_str(), value.length(), O_WRONLY | O_CLOEXEC)) {
+		LOG_W("Could not update %s", what.c_str());
+		return false;
+	}
+
+	return true;
+}
+
+static bool addPidToTaskList(const std::string& cgroup_path, pid_t pid) {
+	std::string pid_str = std::to_string(pid);
+	std::string tasks_path = cgroup_path + "/tasks";
+	LOG_D("Adding PID='%s' to '%s'", pid_str.c_str(), tasks_path.c_str());
+	return writeToCgroup(tasks_path, pid_str, "'" + tasks_path + "' task list");
+}
 
 static bool initNsFromParentMem(nsjconf_t* nsjconf, pid_t pid) {
 	if (nsjconf->cgroup_mem_max == (size_t)0) {
 		return true;
 	}
 
-	char mem_cgroup_path[PATH_MAX];
-	snprintf(mem_cgroup_path, sizeof(mem_cgroup_path), "%s/%s/NSJAIL.%d",
-	    nsjconf->cgroup_mem_mount.c_str(), nsjconf->cgroup_mem_parent.c_str(), (int)pid);
-	LOG_D("Create '%s' for PID=%d", mem_cgroup_path, (int)pid);
-	if (mkdir(mem_cgroup_path, 0700) == -1 && errno != EEXIST) {
-		PLOG_W("mkdir('%s', 0700) failed", mem_cgroup_path);
-		return false;
-	}
+	std::string mem_cgroup_path = nsjconf->cgroup_mem_mount + '/' + nsjconf->cgroup_mem_parent +
+				      "/NSJAIL." + std::to_string(pid);
+	RETURN_ON_FAILURE(createCgroup(mem_cgroup_path, pid));
 
-	char fname[PATH_MAX];
 	std::string mem_max_str = std::to_string(nsjconf->cgroup_mem_max);
-	snprintf(fname, sizeof(fname), "%s/memory.limit_in_bytes", mem_cgroup_path);
-	LOG_D("Setting '%s' to '%s'", fname, mem_max_str.c_str());
-	if (!util::writeBufToFile(
-		fname, mem_max_str.data(), mem_max_str.length(), O_WRONLY | O_CLOEXEC)) {
-		LOG_W("Could not update memory cgroup max limit");
-		return false;
-	}
+	RETURN_ON_FAILURE(writeToCgroup(
+	    mem_cgroup_path + "/memory.limit_in_bytes", mem_max_str, "memory cgroup max limit"));
 
 	/*
 	 * Use OOM-killer instead of making processes hang/sleep
 	 */
-	snprintf(fname, sizeof(fname), "%s/memory.oom_control", mem_cgroup_path);
-	LOG_D("Writting '0' '%s'", fname);
-	if (!util::writeBufToFile(fname, "0", strlen("0"), O_WRONLY | O_CLOEXEC)) {
-		LOG_W("Could not update memory cgroup oom control");
-		return false;
-	}
+	RETURN_ON_FAILURE(writeToCgroup(
+	    mem_cgroup_path + "/memory.oom_control", "0", "memory cgroup oom control"));
 
-	std::string pid_str = std::to_string(pid);
-	snprintf(fname, sizeof(fname), "%s/tasks", mem_cgroup_path);
-	LOG_D("Adding PID='%s' to '%s'", pid_str.c_str(), fname);
-	if (!util::writeBufToFile(fname, pid_str.data(), pid_str.length(), O_WRONLY | O_CLOEXEC)) {
-		LOG_W("Could not update '%s' task list", fname);
-		return false;
-	}
-
-	return true;
+	return addPidToTaskList(mem_cgroup_path, pid);
 }
 
 static bool initNsFromParentPids(nsjconf_t* nsjconf, pid_t pid) {
@@ -85,34 +93,16 @@ static bool initNsFromParentPids(nsjconf_t* nsjconf, pid_t pid) {
 		return true;
 	}
 
-	char pids_cgroup_path[PATH_MAX];
-	snprintf(pids_cgroup_path, sizeof(pids_cgroup_path), "%s/%s/NSJAIL.%d",
-	    nsjconf->cgroup_pids_mount.c_str(), nsjconf->cgroup_pids_parent.c_str(), (int)pid);
-	LOG_D("Create '%s' for PID=%d", pids_cgroup_path, (int)pid);
-	if (mkdir(pids_cgroup_path, 0700) == -1 && errno != EEXIST) {
-		PLOG_W("mkdir('%s', 0700) failed", pids_cgroup_path);
-		return false;
-	}
+	std::string pids_cgroup_path = nsjconf->cgroup_pids_mount + '/' +
+				       nsjconf->cgroup_pids_parent + "/NSJAIL." +
+				       std::to_string(pid);
+	RETURN_ON_FAILURE(createCgroup(pids_cgroup_path, pid));
 
-	char fname[PATH_MAX];
 	std::string pids_max_str = std::to_string(nsjconf->cgroup_pids_max);
-	snprintf(fname, sizeof(fname), "%s/pids.max", pids_cgroup_path);
-	LOG_D("Setting '%s' to '%s'", fname, pids_max_str.c_str());
-	if (!util::writeBufToFile(
-		fname, pids_max_str.data(), pids_max_str.length(), O_WRONLY | O_CLOEXEC)) {
-		LOG_W("Could not update pids cgroup max limit");
-		return false;
-	}
+	RETURN_ON_FAILURE(
+	    writeToCgroup(pids_cgroup_path + "/pids.max", pids_max_str, "pids cgroup max limit"));
 
-	std::string pid_str = std::to_string(pid);
-	snprintf(fname, sizeof(fname), "%s/tasks", pids_cgroup_path);
-	LOG_D("Adding PID='%s' to '%s'", pid_str.c_str(), fname);
-	if (!util::writeBufToFile(fname, pid_str.data(), pid_str.length(), O_WRONLY | O_CLOEXEC)) {
-		LOG_W("Could not update '%s' task list", fname);
-		return false;
-	}
-
-	return true;
+	return addPidToTaskList(pids_cgroup_path, pid);
 }
 
 static bool initNsFromParentNetCls(nsjconf_t* nsjconf, pid_t pid) {
@@ -120,37 +110,21 @@ static bool initNsFromParentNetCls(nsjconf_t* nsjconf, pid_t pid) {
 		return true;
 	}
 
-	char net_cls_cgroup_path[PATH_MAX];
-	snprintf(net_cls_cgroup_path, sizeof(net_cls_cgroup_path), "%s/%s/NSJAIL.%d",
-	    nsjconf->cgroup_net_cls_mount.c_str(), nsjconf->cgroup_net_cls_parent.c_str(),
-	    (int)pid);
-	LOG_D("Create '%s' for PID=%d", net_cls_cgroup_path, (int)pid);
-	if (mkdir(net_cls_cgroup_path, 0700) == -1 && errno != EEXIST) {
-		PLOG_W("mkdir('%s', 0700) failed", net_cls_cgroup_path);
-		return false;
-	}
+	std::string net_cls_cgroup_path = nsjconf->cgroup_net_cls_mount + '/' +
+					  nsjconf->cgroup_net_cls_parent + "/NSJAIL." +
+					  std::to_string(pid);
+	RETURN_ON_FAILURE(createCgroup(net_cls_cgroup_path, pid));
 
-	char fname[PATH_MAX];
-	char net_cls_classid_str[512];
-	snprintf(net_cls_classid_str, sizeof(net_cls_classid_str), "0x%x",
-	    nsjconf->cgroup_net_cls_classid);
-	snprintf(fname, sizeof(fname), "%s/net_cls.classid", net_cls_cgroup_path);
-	LOG_D("Setting '%s' to '%s'", fname, net_cls_classid_str);
-	if (!util::writeBufToFile(
-		fname, net_cls_classid_str, strlen(net_cls_classid_str), O_WRONLY | O_CLOEXEC)) {
-		LOG_W("Could not update net_cls cgroup classid");
-		return false;
+	std::string net_cls_classid_str;
+	{
+		std::stringstream ss;
+		ss << "0x" << std::hex << nsjconf->cgroup_net_cls_classid;
+		net_cls_classid_str = ss.str();
 	}
+	RETURN_ON_FAILURE(writeToCgroup(net_cls_cgroup_path + "/net_cls.classid",
+	    net_cls_classid_str, "net_cls cgroup classid"));
 
-	std::string pid_str = std::to_string(pid);
-	snprintf(fname, sizeof(fname), "%s/tasks", net_cls_cgroup_path);
-	LOG_D("Adding PID='%s' to '%s'", pid_str.c_str(), fname);
-	if (!util::writeBufToFile(fname, pid_str.data(), pid_str.length(), O_WRONLY | O_CLOEXEC)) {
-		LOG_W("Could not update '%s' task list", fname);
-		return false;
-	}
-
-	return true;
+	return addPidToTaskList(net_cls_cgroup_path, pid);
 }
 
 static bool initNsFromParentCpu(nsjconf_t* nsjconf, pid_t pid) {
@@ -158,125 +132,59 @@ static bool initNsFromParentCpu(nsjconf_t* nsjconf, pid_t pid) {
 		return true;
 	}
 
-	char cpu_cgroup_path[PATH_MAX];
-	snprintf(cpu_cgroup_path, sizeof(cpu_cgroup_path), "%s/%s/NSJAIL.%d",
-	    nsjconf->cgroup_cpu_mount.c_str(), nsjconf->cgroup_cpu_parent.c_str(), (int)pid);
-	LOG_D("Create '%s' for PID=%d", cpu_cgroup_path, (int)pid);
-	if (mkdir(cpu_cgroup_path, 0700) == -1 && errno != EEXIST) {
-		PLOG_W("mkdir('%s', 0700) failed", cpu_cgroup_path);
-		return false;
-	}
+	std::string cpu_cgroup_path = nsjconf->cgroup_cpu_mount + '/' + nsjconf->cgroup_cpu_parent +
+				      "/NSJAIL." + std::to_string(pid);
+	RETURN_ON_FAILURE(createCgroup(cpu_cgroup_path, pid));
 
-	char fname[PATH_MAX];
-	char cpu_ms_per_sec_str[512];
-	snprintf(cpu_ms_per_sec_str, sizeof(cpu_ms_per_sec_str), "%u",
-	    nsjconf->cgroup_cpu_ms_per_sec * 1000U);
-	snprintf(fname, sizeof(fname), "%s/cpu.cfs_quota_us", cpu_cgroup_path);
-	LOG_D("Setting '%s' to '%s'", fname, cpu_ms_per_sec_str);
-	if (!util::writeBufToFile(
-		fname, cpu_ms_per_sec_str, strlen(cpu_ms_per_sec_str), O_WRONLY | O_CLOEXEC)) {
-		LOG_W("Could not update cpu quota");
-		return false;
-	}
+	std::string cpu_ms_per_sec_str = std::to_string(nsjconf->cgroup_cpu_ms_per_sec * 1000U);
+	RETURN_ON_FAILURE(
+	    writeToCgroup(cpu_cgroup_path + "/cpu.cfs_quota_us", cpu_ms_per_sec_str, "cpu quota"));
 
-	static const char cpu_period_us[] = "1000000";
-	snprintf(fname, sizeof(fname), "%s/cpu.cfs_period_us", cpu_cgroup_path);
-	LOG_D("Setting '%s' to '%s'", fname, cpu_period_us);
-	if (!util::writeBufToFile(
-		fname, cpu_period_us, strlen(cpu_period_us), O_WRONLY | O_CLOEXEC)) {
-		LOG_W("Could not update cpu period");
-		return false;
-	}
+	RETURN_ON_FAILURE(
+	    writeToCgroup(cpu_cgroup_path + "/cpu.cfs_period_us", "1000000", "cpu period"));
 
-	std::string pid_str = std::to_string(pid);
-	snprintf(fname, sizeof(fname), "%s/tasks", cpu_cgroup_path);
-	LOG_D("Adding PID='%s' to '%s'", pid_str.c_str(), fname);
-	if (!util::writeBufToFile(fname, pid_str.data(), pid_str.length(), O_WRONLY | O_CLOEXEC)) {
-		LOG_W("Could not update '%s' task list", fname);
-		return false;
-	}
-
-	return true;
+	return addPidToTaskList(cpu_cgroup_path, pid);
 }
 
 bool initNsFromParent(nsjconf_t* nsjconf, pid_t pid) {
-	if (!initNsFromParentMem(nsjconf, pid)) {
-		return false;
-	}
-	if (!initNsFromParentPids(nsjconf, pid)) {
-		return false;
-	}
-	if (!initNsFromParentNetCls(nsjconf, pid)) {
-		return false;
-	}
-	if (!initNsFromParentCpu(nsjconf, pid)) {
-		return false;
-	}
-	return true;
+	RETURN_ON_FAILURE(initNsFromParentMem(nsjconf, pid));
+	RETURN_ON_FAILURE(initNsFromParentPids(nsjconf, pid));
+	RETURN_ON_FAILURE(initNsFromParentNetCls(nsjconf, pid));
+	return initNsFromParentCpu(nsjconf, pid);
 }
 
-void finishFromParentMem(nsjconf_t* nsjconf, pid_t pid) {
-	if (nsjconf->cgroup_mem_max == (size_t)0) {
-		return;
+static void removeCgroup(const std::string& cgroup_path) {
+	LOG_D("Remove '%s'", cgroup_path.c_str());
+	if (rmdir(cgroup_path.c_str()) == -1) {
+		PLOG_W("rmdir('%s') failed", cgroup_path.c_str());
 	}
-	char mem_cgroup_path[PATH_MAX];
-	snprintf(mem_cgroup_path, sizeof(mem_cgroup_path), "%s/%s/NSJAIL.%d",
-	    nsjconf->cgroup_mem_mount.c_str(), nsjconf->cgroup_mem_parent.c_str(), (int)pid);
-	LOG_D("Remove '%s'", mem_cgroup_path);
-	if (rmdir(mem_cgroup_path) == -1) {
-		PLOG_W("rmdir('%s') failed", mem_cgroup_path);
-	}
-	return;
-}
-
-void finishFromParentPids(nsjconf_t* nsjconf, pid_t pid) {
-	if (nsjconf->cgroup_pids_max == 0U) {
-		return;
-	}
-	char pids_cgroup_path[PATH_MAX];
-	snprintf(pids_cgroup_path, sizeof(pids_cgroup_path), "%s/%s/NSJAIL.%d",
-	    nsjconf->cgroup_pids_mount.c_str(), nsjconf->cgroup_pids_parent.c_str(), (int)pid);
-	LOG_D("Remove '%s'", pids_cgroup_path);
-	if (rmdir(pids_cgroup_path) == -1) {
-		PLOG_W("rmdir('%s') failed", pids_cgroup_path);
-	}
-	return;
-}
-
-void finishFromParentCpu(nsjconf_t* nsjconf, pid_t pid) {
-	if (nsjconf->cgroup_cpu_ms_per_sec == 0U) {
-		return;
-	}
-	char cpu_cgroup_path[PATH_MAX];
-	snprintf(cpu_cgroup_path, sizeof(cpu_cgroup_path), "%s/%s/NSJAIL.%d",
-	    nsjconf->cgroup_cpu_mount.c_str(), nsjconf->cgroup_cpu_parent.c_str(), (int)pid);
-	LOG_D("Remove '%s'", cpu_cgroup_path);
-	if (rmdir(cpu_cgroup_path) == -1) {
-		PLOG_W("rmdir('%s') failed", cpu_cgroup_path);
-	}
-	return;
-}
-
-void finishFromParentNetCls(nsjconf_t* nsjconf, pid_t pid) {
-	if (nsjconf->cgroup_net_cls_classid == 0U) {
-		return;
-	}
-	char net_cls_cgroup_path[PATH_MAX];
-	snprintf(net_cls_cgroup_path, sizeof(net_cls_cgroup_path), "%s/%s/NSJAIL.%d",
-	    nsjconf->cgroup_net_cls_mount.c_str(), nsjconf->cgroup_net_cls_parent.c_str(),
-	    (int)pid);
-	LOG_D("Remove '%s'", net_cls_cgroup_path);
-	if (rmdir(net_cls_cgroup_path) == -1) {
-		PLOG_W("rmdir('%s') failed", net_cls_cgroup_path);
-	}
-	return;
 }
 
 void finishFromParent(nsjconf_t* nsjconf, pid_t pid) {
-	finishFromParentMem(nsjconf, pid);
-	finishFromParentPids(nsjconf, pid);
-	finishFromParentNetCls(nsjconf, pid);
-	finishFromParentCpu(nsjconf, pid);
+	if (nsjconf->cgroup_mem_max != (size_t)0) {
+		std::string mem_cgroup_path = nsjconf->cgroup_mem_mount + '/' +
+					      nsjconf->cgroup_mem_parent + "/NSJAIL." +
+					      std::to_string(pid);
+		removeCgroup(mem_cgroup_path);
+	}
+	if (nsjconf->cgroup_pids_max != 0U) {
+		std::string pids_cgroup_path = nsjconf->cgroup_pids_mount + '/' +
+					       nsjconf->cgroup_pids_parent + "/NSJAIL." +
+					       std::to_string(pid);
+		removeCgroup(pids_cgroup_path);
+	}
+	if (nsjconf->cgroup_net_cls_classid != 0U) {
+		std::string net_cls_cgroup_path = nsjconf->cgroup_net_cls_mount + '/' +
+						  nsjconf->cgroup_net_cls_parent + "/NSJAIL." +
+						  std::to_string(pid);
+		removeCgroup(net_cls_cgroup_path);
+	}
+	if (nsjconf->cgroup_cpu_ms_per_sec != 0U) {
+		std::string cpu_cgroup_path = nsjconf->cgroup_cpu_mount + '/' +
+					      nsjconf->cgroup_cpu_parent + "/NSJAIL." +
+					      std::to_string(pid);
+		removeCgroup(cpu_cgroup_path);
+	}
 }
 
 bool initNs(void) {
