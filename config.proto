@@ -51,6 +51,12 @@ message MountPt {
     optional bool mandatory = 11 [default = true];
     /* Is it a symlink (instead of real mount point)? */
     optional bool is_symlink = 12 [default = false];
+    /* Is it a nosuid mount */
+    optional bool nosuid = 13 [default = false];
+    /* Is it a nodev mount */
+    optional bool nodev = 14 [default = false];
+    /* Is it a noexec mount */
+    optional bool noexec = 15 [default = false];
 }
 enum RLimit {
     VALUE = 0; /* Use the provided value */

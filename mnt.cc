@@ -248,7 +248,10 @@ static bool remount(const mount_t& mpt) {
 	    {MS_RELATIME, ST_RELATIME},
 	};
 
-	unsigned long new_flags = MS_REMOUNT | MS_BIND | (mpt.flags & MS_RDONLY);
+	const unsigned long per_mountpoint_flags =
+	    MS_LAZYTIME | MS_MANDLOCK | MS_NOATIME | MS_NODEV | MS_NODIRATIME | MS_NOEXEC |
+	    MS_NOSUID | MS_RELATIME | MS_RDONLY | MS_SYNCHRONOUS;
+	unsigned long new_flags = MS_REMOUNT | MS_BIND | (mpt.flags & per_mountpoint_flags);
 	for (const auto& i : mountPairs) {
 		if (vfs.f_flag & i.vfs_flag) {
 			new_flags |= i.mount_flag;
