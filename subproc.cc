@@ -301,18 +301,15 @@ static int reapProc(nsjconf_t* nsjconf, pid_t pid, bool should_wait = false) {
 		}
 
 		if (WIFEXITED(status)) {
-			LOG_I("PID: %d (%s) exited with status: %d, (PIDs left: %d)",
-			    pid, remote_txt.c_str(), WEXITSTATUS(status),
-			    countProc(nsjconf) - 1);
+			LOG_I("PID: %d (%s) exited with status: %d, (PIDs left: %d)", pid,
+			    remote_txt.c_str(), WEXITSTATUS(status), countProc(nsjconf) - 1);
 			removeProc(nsjconf, pid);
 			return WEXITSTATUS(status);
 		}
 		if (WIFSIGNALED(status)) {
-			LOG_I(
-			    "PID: %d (%s) terminated with signal: %s (%d), (PIDs left: %d)",
-			    pid, remote_txt.c_str(),
-			    util::sigName(WTERMSIG(status)).c_str(), WTERMSIG(status),
-			    countProc(nsjconf) - 1);
+			LOG_I("PID: %d (%s) terminated with signal: %s (%d), (PIDs left: %d)", pid,
+			    remote_txt.c_str(), util::sigName(WTERMSIG(status)).c_str(),
+			    WTERMSIG(status), countProc(nsjconf) - 1);
 			removeProc(nsjconf, pid);
 			return 128 + WTERMSIG(status);
 		}
