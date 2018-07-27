@@ -122,7 +122,7 @@ static int listenMode(nsjconf_t* nsjconf) {
 	}
 	for (;;) {
 		if (sigFatal > 0) {
-			subproc::killAll(nsjconf);
+			subproc::killAndReapAll(nsjconf);
 			logs::logStop(sigFatal);
 			close(listenfd);
 			return EXIT_SUCCESS;
@@ -159,7 +159,7 @@ static int standaloneMode(nsjconf_t* nsjconf) {
 				subproc::displayProc(nsjconf);
 			}
 			if (sigFatal > 0) {
-				subproc::killAll(nsjconf);
+				subproc::killAndReapAll(nsjconf);
 				logs::logStop(sigFatal);
 				return (128 + sigFatal);
 			}

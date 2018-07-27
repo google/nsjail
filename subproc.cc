@@ -288,8 +288,39 @@ static void seccompViolation(nsjconf_t* nsjconf, siginfo_t* si) {
 	}
 }
 
-int reapProc(nsjconf_t* nsjconf) {
+static int reapProc(nsjconf_t* nsjconf, pid_t pid, bool should_wait = false) {
 	int status;
+
+	if (wait4(pid, &status, should_wait ? 0 : WNOHANG, NULL) == pid) {
+		cgroup::finishFromParent(nsjconf, pid);
+
+		std::string remote_txt = "[UNKNOWN]";
+		const pids_t* elem = getPidElem(nsjconf, pid);
+		if (elem) {
+			remote_txt = elem->remote_txt;
+		}
+
+		if (WIFEXITED(status)) {
+			LOG_I("PID: %d (%s) exited with status: %d, (PIDs left: %d)",
+			    pid, remote_txt.c_str(), WEXITSTATUS(status),
+			    countProc(nsjconf) - 1);
+			removeProc(nsjconf, pid);
+			return WEXITSTATUS(status);
+		}
+		if (WIFSIGNALED(status)) {
+			LOG_I(
+			    "PID: %d (%s) terminated with signal: %s (%d), (PIDs left: %d)",
+			    pid, remote_txt.c_str(),
+			    util::sigName(WTERMSIG(status)).c_str(), WTERMSIG(status),
+			    countProc(nsjconf) - 1);
+			removeProc(nsjconf, pid);
+			return 128 + WTERMSIG(status);
+		}
+	}
+	return 0;
+}
+
+int reapProc(nsjconf_t* nsjconf) {
 	int rv = 0;
 	siginfo_t si;
 
@@ -304,33 +335,7 @@ int reapProc(nsjconf_t* nsjconf) {
 		if (si.si_code == CLD_KILLED && si.si_status == SIGSYS) {
 			seccompViolation(nsjconf, &si);
 		}
-
-		if (wait4(si.si_pid, &status, WNOHANG, NULL) == si.si_pid) {
-			cgroup::finishFromParent(nsjconf, si.si_pid);
-
-			std::string remote_txt = "[UNKNOWN]";
-			const pids_t* elem = getPidElem(nsjconf, si.si_pid);
-			if (elem) {
-				remote_txt = elem->remote_txt;
-			}
-
-			if (WIFEXITED(status)) {
-				LOG_I("PID: %d (%s) exited with status: %d, (PIDs left: %d)",
-				    si.si_pid, remote_txt.c_str(), WEXITSTATUS(status),
-				    countProc(nsjconf) - 1);
-				removeProc(nsjconf, si.si_pid);
-				rv = WEXITSTATUS(status);
-			}
-			if (WIFSIGNALED(status)) {
-				LOG_I(
-				    "PID: %d (%s) terminated with signal: %s (%d), (PIDs left: %d)",
-				    si.si_pid, remote_txt.c_str(),
-				    util::sigName(WTERMSIG(status)).c_str(), WTERMSIG(status),
-				    countProc(nsjconf) - 1);
-				removeProc(nsjconf, si.si_pid);
-				rv = 128 + WTERMSIG(status);
-			}
-		}
+		rv = reapProc(nsjconf, si.si_pid);
 	}
 
 	time_t now = time(NULL);
@@ -357,9 +362,14 @@ int reapProc(nsjconf_t* nsjconf) {
 	return rv;
 }
 
-void killAll(nsjconf_t* nsjconf) {
-	for (const auto& p : nsjconf->pids) {
-		kill(p.pid, SIGKILL);
+void killAndReapAll(nsjconf_t* nsjconf) {
+	while (!nsjconf->pids.empty()) {
+		pid_t pid = nsjconf->pids.front().pid;
+		if (kill(pid, SIGKILL) == 0) {
+			reapProc(nsjconf, pid, true);
+		} else {
+			removeProc(nsjconf, pid);
+		}
 	}
 }
 
