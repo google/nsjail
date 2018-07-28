@@ -220,7 +220,7 @@ static bool mountPt(mount_t* mpt, const char* newroot, const char* tmpdir) {
 	return true;
 }
 
-static bool remount(const mount_t& mpt) {
+static bool remountPt(const mount_t& mpt) {
 	if (!mpt.mounted) {
 		return true;
 	}
@@ -417,7 +417,7 @@ static bool initNsInternal(nsjconf_t* nsjconf) {
 	}
 
 	for (const auto& p : nsjconf->mountpts) {
-		if (!remount(p) && p.is_mandatory) {
+		if (!remountPt(p) && p.is_mandatory) {
 			return false;
 		}
 	}
