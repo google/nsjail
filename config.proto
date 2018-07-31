@@ -192,6 +192,7 @@ message NsJailConfig {
        Homepage of the project: https://github.com/google/kafel */
     optional string seccomp_policy_file = 57;
     repeated string seccomp_string = 58;
+    /* Setting it to true will make audit write seccomp logs to dmesg */ 
     optional bool seccomp_log = 77 [default = false];
 
     /* If > 0, maximum cumulative size of RAM used inside any jail */
