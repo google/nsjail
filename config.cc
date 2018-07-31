@@ -141,7 +141,7 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 	nsjconf->skip_setsid = njc.skip_setsid();
 
 	for (ssize_t i = 0; i < njc.pass_fd_size(); i++) {
-		nsjconf->openfds.push_back(i);
+		nsjconf->openfds.push_back(njc.pass_fd(i));
 	}
 
 	nsjconf->stderr_to_null = njc.stderr_to_null();
