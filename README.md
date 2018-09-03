@@ -521,14 +521,14 @@ Options:
 
 To launch nsjail in a docker container clone the repository and build the docker image:
 <pre>
-docker build -t nsjail .
+docker build -t nsjailcontainer .
 </pre>
 
 This will build up an image containing njsail and kafel.
 
-From now you can either use it in another Dockerfile (`FROM nsjail`) or directly:
+From now you can either use it in another Dockerfile (`FROM nsjailcontainer`) or directly:
 <pre>
-docker run --privileged --rm -it nsjail nsjail --user 99999 --group 99999 --disable_proc --chroot / --time_limit 30 /bin/bash
+docker run --privileged --rm -it nsjailcontainer nsjail --user 99999 --group 99999 --disable_proc --chroot / --time_limit 30 /bin/bash
 </pre>
 
 ***
