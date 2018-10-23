@@ -151,7 +151,7 @@ struct custom_option custom_opts[] = {
     { { "macvlan_vs_ip", required_argument, NULL, 0x701 }, "IP of the 'vs' interface (e.g. \"192.168.0.1\")" },
     { { "macvlan_vs_nm", required_argument, NULL, 0x702 }, "Netmask of the 'vs' interface (e.g. \"255.255.255.0\")" },
     { { "macvlan_vs_gw", required_argument, NULL, 0x703 }, "Default GW for the 'vs' interface (e.g. \"192.168.0.1\")" },
-    { { "macvlan_vs_ma", required_argument, NULL, 0x705 }, "Mac-address of the 'vs' interface (e.g. \"ba:ad:ba:be:45:00\")" },
+    { { "macvlan_vs_ma", required_argument, NULL, 0x705 }, "MAC-address of the 'vs' interface (e.g. \"ba:ad:ba:be:45:00\")" },
 };
 // clang-format on
 
