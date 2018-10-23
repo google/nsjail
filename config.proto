@@ -234,6 +234,7 @@ message NsJailConfig {
     optional string macvlan_vs_ip = 73 [default = "192.168.0.2"];
     optional string macvlan_vs_nm = 74 [default = "255.255.255.0"];
     optional string macvlan_vs_gw = 75 [default = "192.168.0.1"];
+    optional string macvlan_vs_ma = 80 [default = "ba:ad:ba:be:45:00"];
 
     /* Binary path (with arguments) to be executed. If not specified here, it
        can be specified with cmd-line as "-- /path/to/command arg1 arg2" */

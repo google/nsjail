@@ -187,13 +187,21 @@ bool initNsFromParent(nsjconf_t* nsjconf, int pid) {
 	LOG_D("Putting iface:'%s' into namespace of PID:%d (with /sbin/ip)",
 	    nsjconf->iface_vs.c_str(), pid);
 
-	const std::vector<std::string> argv{"/sbin/ip", "link", "add", "link", nsjconf->iface_vs,
-	    "name", IFACE_NAME, "netns", std::to_string(pid), "type", "macvlan", "mode", "bridge"};
-	if (subproc::systemExe(argv, environ) != 0) {
-		LOG_E("Couldn't create MACVTAP interface for '%s'", nsjconf->iface_vs.c_str());
-		return false;
+	if ( nsjconf->iface_vs_ma != "" ) {
+	  const std::vector<std::string> argv{"/sbin/ip", "link", "add", "link", nsjconf->iface_vs,
+	      "name", IFACE_NAME, "netns", std::to_string(pid), "address", nsjconf->iface_vs_ma, "type", "macvlan", "mode", "bridge"};
+	  if (subproc::systemExe(argv, environ) != 0) {
+	    LOG_E("Couldn't create MACVTAP interface for '%s'", nsjconf->iface_vs.c_str());
+	    return false;
+	  }
+	} else {
+	  const std::vector<std::string> argv{"/sbin/ip", "link", "add", "link", nsjconf->iface_vs,
+	      "name", IFACE_NAME, "netns", std::to_string(pid), "type", "macvlan", "mode", "bridge"};
+	  if (subproc::systemExe(argv, environ) != 0) {
+	    LOG_E("Couldn't create MACVTAP interface for '%s'", nsjconf->iface_vs.c_str());
+	    return false;
+	  }
 	}
-
 	return true;
 }
 #endif  // defined(NSJAIL_NL3_WITH_MACVLAN)
