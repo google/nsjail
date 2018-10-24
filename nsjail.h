@@ -125,7 +125,7 @@ struct nsjconf_t {
 	std::string iface_vs_ip;
 	std::string iface_vs_nm;
 	std::string iface_vs_gw;
-	std::string iface_vs_ma;  
+	std::string iface_vs_ma;
 	std::string cgroup_mem_mount;
 	std::string cgroup_mem_parent;
 	size_t cgroup_mem_max;

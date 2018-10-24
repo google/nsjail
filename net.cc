@@ -188,17 +188,18 @@ bool initNsFromParent(nsjconf_t* nsjconf, int pid) {
 	    nsjconf->iface_vs.c_str(), pid);
 
 	std::vector<std::string> argv;
-	
-	if ( nsjconf->iface_vs_ma != "" ) {
-	  argv = {"/sbin/ip", "link", "add", "link", nsjconf->iface_vs,
-	      "name", IFACE_NAME, "netns", std::to_string(pid), "address", nsjconf->iface_vs_ma, "type", "macvlan", "mode", "bridge"};
+
+	if (nsjconf->iface_vs_ma != "") {
+		argv = {"/sbin/ip", "link", "add", "link", nsjconf->iface_vs, "name", IFACE_NAME,
+		    "netns", std::to_string(pid), "address", nsjconf->iface_vs_ma, "type",
+		    "macvlan", "mode", "bridge"};
 	} else {
-	  argv = {"/sbin/ip", "link", "add", "link", nsjconf->iface_vs,
-	      "name", IFACE_NAME, "netns", std::to_string(pid), "type", "macvlan", "mode", "bridge"};
+		argv = {"/sbin/ip", "link", "add", "link", nsjconf->iface_vs, "name", IFACE_NAME,
+		    "netns", std::to_string(pid), "type", "macvlan", "mode", "bridge"};
 	}
 	if (subproc::systemExe(argv, environ) != 0) {
-	  LOG_E("Couldn't create MACVTAP interface for '%s'", nsjconf->iface_vs.c_str());
-	  return false;
+		LOG_E("Couldn't create MACVTAP interface for '%s'", nsjconf->iface_vs.c_str());
+		return false;
 	}
 	return true;
 }
