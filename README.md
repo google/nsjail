@@ -504,6 +504,8 @@ Options:
 	Netmask of the 'vs' interface (e.g. "255.255.255.0")
  --macvlan_vs_gw VALUE
 	Default GW for the 'vs' interface (e.g. "192.168.0.1")
+ --macvlan_vs_ma VALUE
+	MAC-address of the 'vs' interface (e.g. "ba:ad:ba:be:45:00")
 
  Examples: 
  Wait on a port 31337 for connections, and run /bin/sh
