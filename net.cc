@@ -74,6 +74,17 @@ static bool cloneIface(
 	rtnl_link_set_link(rmv, master_index);
 	rtnl_link_set_ns_pid(rmv, pid);
 
+	if (nsjconf->iface_vs_ma != "") {
+		struct nl_addr* nladdr = nullptr;
+		if ((err = nl_addr_parse(nsjconf->iface_vs_ma.c_str(), AF_LLC, &nladdr)) < 0) {
+			LOG_E("nl_addr_parse('%s', AF_LLC) failed: %s",
+			    nsjconf->iface_vs_ma.c_str(), nl_geterror(err));
+			return false;
+		}
+		rtnl_link_set_addr(rmv, nladdr);
+		nl_addr_put(nladdr);
+	}
+
 	if ((err = rtnl_link_add(sk, rmv, NLM_F_CREATE)) < 0) {
 		LOG_E("rtnl_link_add(name:'%s' link:'%s'): %s", IFACE_NAME,
 		    nsjconf->iface_vs.c_str(), nl_geterror(err));
