@@ -539,9 +539,9 @@ bool addMountPtTail(nsjconf_t* nsjconf, const std::string& src, const std::strin
 const std::string describeMountPt(const mount_t& mpt) {
 	std::string descr;
 
-	descr.append("src:'")
+	descr.append("'")
 	    .append(mpt.src)
-	    .append("' dst:'")
+	    .append("' -> '")
 	    .append(mpt.dst)
 	    .append("' flags:'")
 	    .append(flagsToStr(mpt.flags))
