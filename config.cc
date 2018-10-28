@@ -125,7 +125,7 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 
 	nsjconf->keep_env = njc.keep_env();
 	for (ssize_t i = 0; i < njc.envar_size(); i++) {
-		nsjconf->envs.push_back(njc.envar(i));
+		cmdline::addEnv(nsjconf, njc.envar(i));
 	}
 
 	nsjconf->keep_caps = njc.keep_caps();

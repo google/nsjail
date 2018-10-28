@@ -92,7 +92,7 @@ Log fatal messages only
 Pass all environment variables be passed process (default: all envvars are cleared)
 .TP
 \fB\-\-env\fR|\fB\-E\fR VALUE
-Additional environment variable (can be used multiple times)
+Additional environment variable (can be used multiple times). If the envvar doesn't contain '=' (e.g. just the 'DISPLAY' string), the current envvar value will be used
 .TP
 \fB\-\-keep_caps\fR
 Don't drop any capabilities

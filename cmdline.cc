@@ -93,7 +93,7 @@ struct custom_option custom_opts[] = {
     { { "quiet", no_argument, NULL, 'q' }, "Log warning and more important messages only" },
     { { "really_quiet", no_argument, NULL, 'Q' }, "Log fatal messages only" },
     { { "keep_env", no_argument, NULL, 'e' }, "Pass all environment variables to the child process (default: all envvars are cleared)" },
-    { { "env", required_argument, NULL, 'E' }, "Additional environment variable (can be used multiple times)" },
+    { { "env", required_argument, NULL, 'E' }, "Additional environment variable (can be used multiple times). If the envvar doesn't contain '=' (e.g. just the 'DISPLAY' string), the current envvar value will be used" },
     { { "keep_caps", no_argument, NULL, 0x0501 }, "Don't drop any capabilities" },
     { { "cap", required_argument, NULL, 0x0509 }, "Retain this capability, e.g. CAP_PTRACE (can be specified multiple times)" },
     { { "silent", no_argument, NULL, 0x0502 }, "Redirect child process' fd:0/1/2 to /dev/null" },
@@ -185,6 +185,19 @@ static void cmdlineUsage(const char* pname) {
 	LOG_HELP_BOLD("  nsjail -Mo --chroot / -- /bin/echo \"ABC\"");
 	LOG_HELP(" Execute echo command directly, without a supervising process");
 	LOG_HELP_BOLD("  nsjail -Me --chroot / --disable_proc -- /bin/echo \"ABC\"");
+}
+
+void addEnv(nsjconf_t* nsjconf, const std::string& env) {
+	if (env.find('=') != std::string::npos) {
+		nsjconf->envs.push_back(env);
+		return;
+	}
+	char* e = getenv(env.c_str());
+	if (!e) {
+		nsjconf->envs.push_back(env);
+		return;
+	}
+	nsjconf->envs.push_back(std::string(env).append("=").append(e));
 }
 
 void logParams(nsjconf_t* nsjconf) {
@@ -606,7 +619,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			nsjconf->use_execveat = true;
 			break;
 		case 'E':
-			nsjconf->envs.push_back(optarg);
+			addEnv(nsjconf.get(), optarg);
 			break;
 		case 'u': {
 			std::vector<std::string> subopts = util::strSplit(optarg, ':');

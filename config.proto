@@ -115,7 +115,8 @@ message NsJailConfig {
     /* Should the current environment variables be kept
        when executing the binary */
     optional bool keep_env = 19 [default = false];
-    /* EnvVars to be set before executing binaries */
+    /* EnvVars to be set before executing binaries. If the envvar doesn't contain '='
+       (e.g. just the 'DISPLAY' string), the current envvar value will be used */
     repeated string envar = 20;
 
     /* Should capabilities be preserved or dropped */
