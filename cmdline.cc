@@ -194,7 +194,8 @@ void addEnv(nsjconf_t* nsjconf, const std::string& env) {
 	}
 	char* e = getenv(env.c_str());
 	if (!e) {
-		nsjconf->envs.push_back(env);
+		LOG_W("Requested to use the '%s' envvar, but it's not set. It'll be ignored",
+		    env.c_str());
 		return;
 	}
 	nsjconf->envs.push_back(std::string(env).append("=").append(e));
