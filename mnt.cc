@@ -540,8 +540,8 @@ const std::string describeMountPt(const mount_t& mpt) {
 	std::string descr;
 
 	descr.append("'")
-	    .append(mpt.src)
-	    .append("' -> '")
+	    .append(mpt.src.empty() ? "" : mpt.src)
+	    .append(mpt.src.empty() ? "" : "' -> '")
 	    .append(mpt.dst)
 	    .append("' flags:'")
 	    .append(flagsToStr(mpt.flags))
