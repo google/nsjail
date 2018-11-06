@@ -40,11 +40,11 @@ message MountPt {
     optional string fstype = 6 [default = ""];
     /* E.g. size=5000000 for 'tmpfs' */
     optional string options = 7 [default = ""];
-    /* Is it 'mount --bind src dst' type of mount */
+    /* Is it a 'mount --bind src dst' type of mount? */
     optional bool is_bind = 8 [default = false];
-    /* It it R/W mount */
+    /* Is it a R/W mount? */
     optional bool rw = 9 [default = false];
-    /* Is it directory? If not specified an internal
+    /* Is it a directory? If not specified an internal
        heuristics will be used to determine that */
     optional bool is_dir = 10;
     /* Should the sandboxing fail if we cannot mount this resource? */
