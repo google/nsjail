@@ -75,7 +75,7 @@ ssize_t readFromFile(const char* fname, void* buf, size_t len) {
 	return ret;
 }
 
-ssize_t writeToFd(int fd, const void* buf, size_t len) {
+bool writeToFd(int fd, const void* buf, size_t len) {
 	const uint8_t* charbuf = (const uint8_t*)buf;
 
 	size_t writtenSz = 0;

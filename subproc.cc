@@ -383,8 +383,7 @@ static bool initParent(nsjconf_t* nsjconf, pid_t pid, int pipefd) {
 		LOG_E("Couldn't initialize user namespace for pid %d", pid);
 		return false;
 	}
-	if (util::writeToFd(pipefd, &kSubprocDoneChar, sizeof(kSubprocDoneChar)) !=
-	    sizeof(kSubprocDoneChar)) {
+	if (!util::writeToFd(pipefd, &kSubprocDoneChar, sizeof(kSubprocDoneChar))) {
 		LOG_E("Couldn't signal the new process via a socketpair");
 		return false;
 	}
