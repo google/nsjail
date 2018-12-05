@@ -217,7 +217,7 @@ message NsJailConfig {
     /* Writeable directory (for the nsjail user) under cgroup_net_mount */
     optional string cgroup_net_cls_parent = 69 [default = "NSJAIL"];
 
-    /* If > 0 number of milliseconds of CPU that jail processes can use per each second */
+    /* If > 0, number of milliseconds of CPU time per second that jailed processes can use */
     optional uint32 cgroup_cpu_ms_per_sec = 70 [default = 0];
     /* Mount point for cgroups-cpu in your system */
     optional string cgroup_cpu_mount = 71 [default = "/sys/fs/cgroup/cpu"];
