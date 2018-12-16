@@ -122,18 +122,18 @@ void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt
 		    .append("] ")
 		    .append(fn)
 		    .append("():")
-		    .append(std::to_string(ln))
-		    .append(" ");
+		    .append(std::to_string(ln));
 	}
 
+	char* strp;
 	va_list args;
 	va_start(args, fmt);
-	char* strp;
+	int ret = vasprintf(&strp, fmt, args);
 	va_end(args);
-	if (vasprintf(&strp, fmt, args) == -1) {
-		msg.append("[logs internal]: MEMORY ALLOCATION ERROR");
+	if (ret == -1) {
+		msg.append(" [logs internal]: MEMORY ALLOCATION ERROR");
 	} else {
-		msg.append(strp);
+		msg.append(" ").append(strp);
 		free(strp);
 	}
 	if (perr) {
