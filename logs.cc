@@ -92,13 +92,12 @@ void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt
 	if (perr) {
 		snprintf(strerr, sizeof(strerr), "%s", strerror(errno));
 	}
-	struct ll_t {
+	struct {
 		const char* const descr;
 		const char* const prefix;
 		const bool print_funcline;
 		const bool print_time;
-	};
-	static struct ll_t const logLevels[] = {
+	} static const logLevels[] = {
 	    {"D", "\033[0;4m", true, true},
 	    {"I", "\033[1m", false, true},
 	    {"W", "\033[0;33m", true, true},
