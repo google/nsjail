@@ -108,29 +108,46 @@ void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt
 	};
 
 	/* Start printing logs */
+	std::string msg;
 	if (_log_fd_isatty) {
-		dprintf(_log_fd, "%s", logLevels[ll].prefix);
+		msg.append(logLevels[ll].prefix);
 	}
+	msg.append("[").append(logLevels[ll].descr).append("]");
 	if (logLevels[ll].print_time) {
-		const auto timestr = util::timeToStr(time(NULL));
-		dprintf(_log_fd, "[%s] ", timestr.c_str());
+		msg.append("[").append(util::timeToStr(time(NULL))).append("]");
 	}
 	if (logLevels[ll].print_funcline) {
-		dprintf(_log_fd, "[%s][%d] %s():%d ", logLevels[ll].descr, (int)getpid(), fn, ln);
+		msg.append("[")
+		    .append(std::to_string(getpid()))
+		    .append("] ")
+		    .append(fn)
+		    .append("():")
+		    .append(std::to_string(ln))
+		    .append(" ");
 	}
 
 	va_list args;
 	va_start(args, fmt);
-	vdprintf(_log_fd, fmt, args);
+	char* strp;
 	va_end(args);
+	if (vasprintf(&strp, fmt, args) == -1) {
+		msg.append("[logs internal]: MEMORY ALLOCATION ERROR");
+	} else {
+		msg.append(strp);
+		free(strp);
+	}
 	if (perr) {
-		dprintf(_log_fd, ": %s", strerr);
+		msg.append(": ").append(strerr);
 	}
 	if (_log_fd_isatty) {
-		dprintf(_log_fd, "\033[0m");
+		msg.append("\033[0m");
 	}
-	dprintf(_log_fd, "\n");
+	msg.append("\n");
 	/* End printing logs */
+
+	if (write(_log_fd, msg.c_str(), msg.size()) == -1) {
+		dprintf(_log_fd, "%s", msg.c_str());
+	}
 
 	if (ll == FATAL) {
 		exit(0xff);
