@@ -246,9 +246,8 @@ void logParams(nsjconf_t* nsjconf) {
 		    uid.is_newidmap ? "true" : "false");
 		if (uid.outside_id == 0 && nsjconf->clone_newuser) {
 			LOG_W(
-			    "Process will be UID/EUID=0 in the global user namespace, "
-			    "and will have user "
-			    "root-level access to files");
+			    "Process will be UID/EUID=0 in the global user namespace, and will "
+			    "have user root-level access to files");
 		}
 	}
 	for (const auto& gid : nsjconf->gids) {
@@ -257,9 +256,8 @@ void logParams(nsjconf_t* nsjconf) {
 		    gid.is_newidmap ? "true" : "false");
 		if (gid.outside_id == 0 && nsjconf->clone_newuser) {
 			LOG_W(
-			    "Process will be GID/EGID=0 in the global user namespace, "
-			    "and will have group "
-			    "root-level access to files");
+			    "Process will be GID/EGID=0 in the global user namespace, and will "
+			    "have group root-level access to files");
 		}
 	}
 }
