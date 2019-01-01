@@ -48,6 +48,7 @@
 #include "net.h"
 #include "pid.h"
 #include "user.h"
+#include "util.h"
 #include "uts.h"
 
 namespace contain {
@@ -294,41 +295,21 @@ bool setupFD(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
 }
 
 bool containProc(nsjconf_t* nsjconf) {
-	if (!containUserNs(nsjconf)) {
-		return false;
-	}
-	if (!containInitPidNs(nsjconf)) {
-		return false;
-	}
-	if (!containInitMountNs(nsjconf)) {
-		return false;
-	}
-	if (!containInitNetNs(nsjconf)) {
-		return false;
-	}
-	if (!containInitUtsNs(nsjconf)) {
-		return false;
-	}
-	if (!containInitCgroupNs()) {
-		return false;
-	}
-	if (!containDropPrivs(nsjconf)) {
-		return false;
-	}
+	RETURN_ON_FAILURE(containUserNs(nsjconf));
+	RETURN_ON_FAILURE(containInitPidNs(nsjconf));
+	RETURN_ON_FAILURE(containInitMountNs(nsjconf));
+	RETURN_ON_FAILURE(containInitNetNs(nsjconf));
+	RETURN_ON_FAILURE(containInitUtsNs(nsjconf));
+	RETURN_ON_FAILURE(containInitCgroupNs());
+	RETURN_ON_FAILURE(containDropPrivs(nsjconf));
+	;
 	/* */
 	/* As non-root */
-	if (!containCPU(nsjconf)) {
-		return false;
-	}
-	if (!containSetLimits(nsjconf)) {
-		return false;
-	}
-	if (!containPrepareEnv(nsjconf)) {
-		return false;
-	}
-	if (!containMakeFdsCOE(nsjconf)) {
-		return false;
-	}
+	RETURN_ON_FAILURE(containCPU(nsjconf));
+	RETURN_ON_FAILURE(containSetLimits(nsjconf));
+	RETURN_ON_FAILURE(containPrepareEnv(nsjconf));
+	RETURN_ON_FAILURE(containMakeFdsCOE(nsjconf));
+
 	return true;
 }
 

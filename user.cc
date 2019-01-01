@@ -205,18 +205,11 @@ static bool uidMapExternal(nsjconf_t* nsjconf, pid_t pid UNUSED) {
 }
 
 static bool uidGidMap(nsjconf_t* nsjconf, pid_t pid) {
-	if (!gidMapSelf(nsjconf, pid)) {
-		return false;
-	}
-	if (!gidMapExternal(nsjconf, pid)) {
-		return false;
-	}
-	if (!uidMapSelf(nsjconf, pid)) {
-		return false;
-	}
-	if (!uidMapExternal(nsjconf, pid)) {
-		return false;
-	}
+	RETURN_ON_FAILURE(gidMapSelf(nsjconf, pid));
+	RETURN_ON_FAILURE(gidMapExternal(nsjconf, pid));
+	RETURN_ON_FAILURE(uidMapSelf(nsjconf, pid));
+	RETURN_ON_FAILURE(uidMapExternal(nsjconf, pid));
+
 	return true;
 }
 
