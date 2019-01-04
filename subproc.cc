@@ -354,9 +354,9 @@ int reapProc(nsjconf_t* nsjconf) {
 			 * they're namespaced, and in a stopped state
 			 */
 			kill(pid, SIGCONT);
-			PLOG_D("Sent SIGCONT to PID: %d", pid);
+			LOG_D("Sent SIGCONT to PID: %d", pid);
 			kill(pid, SIGKILL);
-			PLOG_D("Sent SIGKILL to PID: %d", pid);
+			LOG_D("Sent SIGKILL to PID: %d", pid);
 		}
 	}
 	return rv;
