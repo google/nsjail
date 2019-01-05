@@ -118,7 +118,7 @@ bool createDirRecursively(const char* dir) {
 		return false;
 	}
 
-	int prev_dir_fd = open("/", O_RDONLY | O_CLOEXEC);
+	int prev_dir_fd = TEMP_FAILURE_RETRY(open("/", O_RDONLY | O_CLOEXEC | O_DIRECTORY));
 	if (prev_dir_fd == -1) {
 		PLOG_W("open('/', O_RDONLY | O_CLOEXEC)");
 		return false;
