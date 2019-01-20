@@ -112,7 +112,9 @@ void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt
 	if (_log_fd_isatty) {
 		msg.append(logLevels[ll].prefix);
 	}
-	msg.append("[").append(logLevels[ll].descr).append("]");
+	if (ll != HELP && ll != HELP_BOLD) {
+		msg.append("[").append(logLevels[ll].descr).append("]");
+	}
 	if (logLevels[ll].print_time) {
 		msg.append("[").append(util::timeToStr(time(NULL))).append("]");
 	}
