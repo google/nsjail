@@ -48,13 +48,10 @@ ifdef DEBUG
 	CXXFLAGS += -g -ggdb -gdwarf-4
 endif
 
-USE_NL3 ?= yes
-ifeq ($(USE_NL3), yes)
 NL3_EXISTS := $(shell pkg-config --exists libnl-route-3.0 && echo yes)
 ifeq ($(NL3_EXISTS), yes)
-	CXXFLAGS += -DNSJAIL_NL3_WITH_MACVLAN $(shell pkg-config --cflags libnl-route-3.0)
+	CXXFLAGS += $(shell pkg-config --cflags libnl-route-3.0)
 	LDFLAGS += $(shell pkg-config --libs libnl-route-3.0)
-endif
 endif
 
 .PHONY: all clean depend indent
@@ -66,9 +63,9 @@ all: $(BIN)
 
 $(BIN): $(LIBS) $(OBJS)
 ifneq ($(NL3_EXISTS), yes)
-	$(warning "==========================================================")
-	$(warning "No support for libnl3/libnl-route-3; /sbin/ip will be used")
-	$(warning "==========================================================")
+	$(warning "============================================================")
+	$(warning "You probably miss libnl3(-dev)/libnl-route-3(-dev) libraries")
+	$(warning "============================================================")
 endif
 	$(CXX) -o $(BIN) $(OBJS) $(LIBS) $(LDFLAGS)
 

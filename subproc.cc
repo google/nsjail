@@ -207,14 +207,14 @@ static void addProc(nsjconf_t* nsjconf, pid_t pid, int sock) {
 
 	nsjconf->pids.push_back(p);
 
-	LOG_D("Added pid '%d' with start time '%u' to the queue for IP: '%s'", p.pid,
+	LOG_D("Added pid=%d with start time '%u' to the queue for IP: '%s'", p.pid,
 	    (unsigned int)p.start, p.remote_txt.c_str());
 }
 
 static void removeProc(nsjconf_t* nsjconf, pid_t pid) {
 	for (auto p = nsjconf->pids.begin(); p != nsjconf->pids.end(); ++p) {
 		if (p->pid == pid) {
-			LOG_D("Removing pid '%d' from the queue (IP:'%s', start time:'%s')", p->pid,
+			LOG_D("Removing pid=%d from the queue (IP:'%s', start time:'%s')", p->pid,
 			    p->remote_txt.c_str(), util::timeToStr(p->start).c_str());
 			close(p->pid_syscall_fd);
 			nsjconf->pids.erase(p);
@@ -222,7 +222,7 @@ static void removeProc(nsjconf_t* nsjconf, pid_t pid) {
 			return;
 		}
 	}
-	LOG_W("PID: %d not found (?)", pid);
+	LOG_W("pid=%d not found (?)", pid);
 }
 
 int countProc(nsjconf_t* nsjconf) {
@@ -235,7 +235,7 @@ void displayProc(nsjconf_t* nsjconf) {
 	for (const auto& pid : nsjconf->pids) {
 		time_t diff = now - pid.start;
 		uint64_t left = nsjconf->tlimit ? nsjconf->tlimit - (uint64_t)diff : 0;
-		LOG_I("PID: %d, Remote host: %s, Run time: %ld sec. (time left: %" PRId64 " sec.)",
+		LOG_I("pid=%d, Remote host: %s, Run time: %ld sec. (time left: %" PRId64 " sec.)",
 		    pid.pid, pid.remote_txt.c_str(), (long)diff, left);
 	}
 }
@@ -250,20 +250,20 @@ static const pids_t* getPidElem(nsjconf_t* nsjconf, pid_t pid) {
 }
 
 static void seccompViolation(nsjconf_t* nsjconf, siginfo_t* si) {
-	LOG_W("PID: %d commited a syscall/seccomp violation and exited with SIGSYS", si->si_pid);
+	LOG_W("pid=%d commited a syscall/seccomp violation and exited with SIGSYS", si->si_pid);
 
 	const pids_t* p = getPidElem(nsjconf, si->si_pid);
 	if (p == NULL) {
-		LOG_W("PID:%d SiSyscall: %d, SiCode: %d, SiErrno: %d, SiSigno: %d", (int)si->si_pid,
+		LOG_W("pid=%d SiSyscall: %d, SiCode: %d, SiErrno: %d, SiSigno: %d", (int)si->si_pid,
 		    si->si_syscall, si->si_code, si->si_errno, si->si_signo);
-		LOG_E("Couldn't find pid element in the subproc list for PID: %d", (int)si->si_pid);
+		LOG_E("Couldn't find pid element in the subproc list for pid=%d", (int)si->si_pid);
 		return;
 	}
 
 	char buf[4096];
 	ssize_t rdsize = util::readFromFd(p->pid_syscall_fd, buf, sizeof(buf) - 1);
 	if (rdsize < 1) {
-		LOG_W("PID: %d, SiSyscall: %d, SiCode: %d, SiErrno: %d, SiSigno: %d",
+		LOG_W("pid=%d, SiSyscall: %d, SiCode: %d, SiErrno: %d, SiSigno: %d",
 		    (int)si->si_pid, si->si_syscall, si->si_code, si->si_errno, si->si_signo);
 		return;
 	}
@@ -275,18 +275,18 @@ static void seccompViolation(nsjconf_t* nsjconf, siginfo_t* si) {
 	    &arg4, &arg5, &arg6, &sp, &pc);
 	if (ret == 9) {
 		LOG_W(
-		    "PID: %d, Syscall number: %td, Arguments: %#tx, %#tx, %#tx, %#tx, %#tx, %#tx, "
+		    "pid=%d, Syscall number: %td, Arguments: %#tx, %#tx, %#tx, %#tx, %#tx, %#tx, "
 		    "SP: %#tx, PC: %#tx, si_syscall: %d, si_errno: %#x",
 		    (int)si->si_pid, sc, arg1, arg2, arg3, arg4, arg5, arg6, sp, pc, si->si_syscall,
 		    si->si_errno);
 	} else if (ret == 3) {
 		LOG_W(
-		    "PID: %d, SiSyscall: %d, SiCode: %d, SiErrno: %d, SiSigno: %d, SP: %#tx, PC: "
+		    "pid=%d, SiSyscall: %d, SiCode: %d, SiErrno: %d, SiSigno: %d, SP: %#tx, PC: "
 		    "%#tx",
 		    (int)si->si_pid, si->si_syscall, si->si_code, si->si_errno, si->si_signo, arg1,
 		    arg2);
 	} else {
-		LOG_W("PID: %d, SiSyscall: %d, SiCode: %d, SiErrno: %d, Syscall string '%s'",
+		LOG_W("pid=%d, SiSyscall: %d, SiCode: %d, SiErrno: %d, Syscall string '%s'",
 		    (int)si->si_pid, si->si_syscall, si->si_code, si->si_errno, buf);
 	}
 }
@@ -304,13 +304,13 @@ static int reapProc(nsjconf_t* nsjconf, pid_t pid, bool should_wait = false) {
 		}
 
 		if (WIFEXITED(status)) {
-			LOG_I("PID: %d (%s) exited with status: %d, (PIDs left: %d)", pid,
+			LOG_I("pid=%d (%s) exited with status: %d, (PIDs left: %d)", pid,
 			    remote_txt.c_str(), WEXITSTATUS(status), countProc(nsjconf) - 1);
 			removeProc(nsjconf, pid);
 			return WEXITSTATUS(status);
 		}
 		if (WIFSIGNALED(status)) {
-			LOG_I("PID: %d (%s) terminated with signal: %s (%d), (PIDs left: %d)", pid,
+			LOG_I("pid=%d (%s) terminated with signal: %s (%d), (PIDs left: %d)", pid,
 			    remote_txt.c_str(), util::sigName(WTERMSIG(status)).c_str(),
 			    WTERMSIG(status), countProc(nsjconf) - 1);
 			removeProc(nsjconf, pid);
@@ -346,17 +346,16 @@ int reapProc(nsjconf_t* nsjconf) {
 		pid_t pid = p.pid;
 		time_t diff = now - p.start;
 		if ((uint64_t)diff >= nsjconf->tlimit) {
-			LOG_I("PID: %d run time >= time limit (%ld >= %" PRIu64
-			      ") (%s). Killing it",
+			LOG_I("pid=%d run time >= time limit (%ld >= %" PRIu64 ") (%s). Killing it",
 			    pid, (long)diff, nsjconf->tlimit, p.remote_txt.c_str());
 			/*
 			 * Probably a kernel bug - some processes cannot be killed with KILL if
 			 * they're namespaced, and in a stopped state
 			 */
 			kill(pid, SIGCONT);
-			LOG_D("Sent SIGCONT to PID: %d", pid);
+			LOG_D("Sent SIGCONT to pid=%d", pid);
 			kill(pid, SIGKILL);
-			LOG_D("Sent SIGKILL to PID: %d", pid);
+			LOG_D("Sent SIGKILL to pid=%d", pid);
 		}
 	}
 	return rv;
@@ -375,15 +374,15 @@ void killAndReapAll(nsjconf_t* nsjconf) {
 
 static bool initParent(nsjconf_t* nsjconf, pid_t pid, int pipefd) {
 	if (!net::initNsFromParent(nsjconf, pid)) {
-		LOG_E("Couldn't initialize net namespace for pid '%d'", pid);
+		LOG_E("Couldn't initialize net namespace for pid=%d", pid);
 		return false;
 	}
 	if (!cgroup::initNsFromParent(nsjconf, pid)) {
-		LOG_E("Couldn't initialize cgroup user namespace for pid '%d'", pid);
+		LOG_E("Couldn't initialize cgroup user namespace for pid=%d", pid);
 		exit(0xff);
 	}
 	if (!user::initNsFromParent(nsjconf, pid)) {
-		LOG_E("Couldn't initialize user namespace for pid %d", pid);
+		LOG_E("Couldn't initialize user namespace for pid=%d", pid);
 		return false;
 	}
 	if (!util::writeToFd(pipefd, &kSubprocDoneChar, sizeof(kSubprocDoneChar))) {
@@ -557,7 +556,7 @@ int systemExe(const std::vector<std::string>& args, char** env) {
 		}
 		if (WIFEXITED(status)) {
 			int exit_code = WEXITSTATUS(status);
-			LOG_D("PID %d exited with exit code: %d", pid, exit_code);
+			LOG_D("pid=%d exited with exit code: %d", pid, exit_code);
 			if (exec_failed) {
 				return -1;
 			} else if (exit_code == 0) {
@@ -568,7 +567,7 @@ int systemExe(const std::vector<std::string>& args, char** env) {
 		}
 		if (WIFSIGNALED(status)) {
 			int exit_signal = WTERMSIG(status);
-			LOG_W("PID %d killed by signal: %d (%s)", pid, exit_signal,
+			LOG_W("pid=%d killed by signal: %d (%s)", pid, exit_signal,
 			    util::sigName(exit_signal).c_str());
 			return 2;
 		}

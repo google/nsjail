@@ -38,7 +38,7 @@
 namespace cgroup {
 
 static bool createCgroup(const std::string& cgroup_path, pid_t pid) {
-	LOG_D("Create '%s' for PID=%d", cgroup_path.c_str(), (int)pid);
+	LOG_D("Create '%s' for pid=%d", cgroup_path.c_str(), (int)pid);
 	if (mkdir(cgroup_path.c_str(), 0700) == -1 && errno != EEXIST) {
 		PLOG_W("mkdir('%s', 0700) failed", cgroup_path.c_str());
 		return false;
@@ -62,7 +62,7 @@ static bool writeToCgroup(
 static bool addPidToTaskList(const std::string& cgroup_path, pid_t pid) {
 	std::string pid_str = std::to_string(pid);
 	std::string tasks_path = cgroup_path + "/tasks";
-	LOG_D("Adding PID='%s' to '%s'", pid_str.c_str(), tasks_path.c_str());
+	LOG_D("Adding pid='%s' to '%s'", pid_str.c_str(), tasks_path.c_str());
 	return writeToCgroup(tasks_path, pid_str, "'" + tasks_path + "' task list");
 }
 

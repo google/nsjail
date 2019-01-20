@@ -50,7 +50,6 @@ namespace net {
 
 #define IFACE_NAME "vs"
 
-#if defined(NSJAIL_NL3_WITH_MACVLAN)
 #include <netlink/route/link.h>
 #include <netlink/route/link/macvlan.h>
 
@@ -116,7 +115,7 @@ static bool moveToNs(
 
 	int err = rtnl_link_change(sk, orig_link, new_link, RTM_SETLINK);
 	if (err < 0) {
-		LOG_E("rtnl_link_change(): set NS of interface '%s' to PID=%d: %s", iface.c_str(),
+		LOG_E("rtnl_link_change(): set NS of interface '%s' to pid=%d: %s", iface.c_str(),
 		    (int)pid, nl_geterror(err));
 		rtnl_link_put(new_link);
 		rtnl_link_put(orig_link);
@@ -169,52 +168,6 @@ bool initNsFromParent(nsjconf_t* nsjconf, int pid) {
 	nl_socket_free(sk);
 	return true;
 }
-#else   // defined(NSJAIL_NL3_WITH_MACVLAN)
-
-static bool moveToNs(const std::string& iface, pid_t pid) {
-	const std::vector<std::string> argv{
-	    "/sbin/ip", "link", "set", iface, "netns", std::to_string(pid)};
-	if (subproc::systemExe(argv, environ) != 0) {
-		LOG_E("Couldn't put interface '%s' into NET ns of the PID=%d", iface.c_str(),
-		    (int)pid);
-		return false;
-	}
-	return true;
-}
-
-bool initNsFromParent(nsjconf_t* nsjconf, int pid) {
-	if (!nsjconf->clone_newnet) {
-		return true;
-	}
-	for (const auto& iface : nsjconf->ifaces) {
-		if (!moveToNs(iface, pid)) {
-			return false;
-		}
-	}
-	if (nsjconf->iface_vs.empty()) {
-		return true;
-	}
-
-	LOG_D("Putting iface:'%s' into namespace of PID:%d (with /sbin/ip)",
-	    nsjconf->iface_vs.c_str(), pid);
-
-	std::vector<std::string> argv;
-
-	if (nsjconf->iface_vs_ma != "") {
-		argv = {"/sbin/ip", "link", "add", "link", nsjconf->iface_vs, "name", IFACE_NAME,
-		    "netns", std::to_string(pid), "address", nsjconf->iface_vs_ma, "type",
-		    "macvlan", "mode", "bridge"};
-	} else {
-		argv = {"/sbin/ip", "link", "add", "link", nsjconf->iface_vs, "name", IFACE_NAME,
-		    "netns", std::to_string(pid), "type", "macvlan", "mode", "bridge"};
-	}
-	if (subproc::systemExe(argv, environ) != 0) {
-		LOG_E("Couldn't create MACVTAP interface for '%s'", nsjconf->iface_vs.c_str());
-		return false;
-	}
-	return true;
-}
-#endif  // defined(NSJAIL_NL3_WITH_MACVLAN)
 
 static bool isSocket(int fd) {
 	int optval;
