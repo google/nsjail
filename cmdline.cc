@@ -237,8 +237,8 @@ void logParams(nsjconf_t* nsjconf) {
 	    nsjconf->max_cpus);
 
 	for (const auto& p : nsjconf->mountpts) {
-		LOG_I("%s: %s", p.is_symlink ? "Symlink" : "Mount point",
-		    mnt::describeMountPt(p).c_str());
+		LOG_I(
+		    "%s: %s", p.is_symlink ? "Symlink" : "Mount", mnt::describeMountPt(p).c_str());
 	}
 	for (const auto& uid : nsjconf->uids) {
 		LOG_I("Uid map: inside_uid:%lu outside_uid:%lu count:%zu newuidmap:%s",
