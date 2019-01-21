@@ -212,7 +212,7 @@ static const uint64_t c = 1442695040888963407ULL;
 
 static void rndInitThread(void) {
 #if defined(__NR_getrandom)
-	if (syscall(__NR_getrandom, &rndX, sizeof(rndX), 0) == sizeof(rndX)) {
+	if (util::syscall(__NR_getrandom, (uintptr_t)&rndX, sizeof(rndX), 0) == sizeof(rndX)) {
 		return;
 	}
 #endif /* defined(__NR_getrandom) */
@@ -315,6 +315,11 @@ std::vector<std::string> strSplit(const std::string str, char delim) {
 		vec.push_back(word);
 	}
 	return vec;
+}
+
+long syscall(long sysno, uintptr_t a0, uintptr_t a1, uintptr_t a2, uintptr_t a3, uintptr_t a4,
+    uintptr_t a5) {
+	return syscall(sysno, a0, a1, a2, a3, a4, a5);
 }
 
 }  // namespace util
