@@ -37,7 +37,6 @@
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <syscall.h>
 #include <unistd.h>
 
 #include <memory>
@@ -402,7 +401,8 @@ static bool initNsInternal(nsjconf_t* nsjconf) {
 	 * providing any special directory for old_root, which is sometimes not easy, given that
 	 * e.g. /tmp might not always be present inside new_root
 	 */
-	if (syscall(__NR_pivot_root, destdir->c_str(), destdir->c_str()) == -1) {
+	if (util::syscall(
+		__NR_pivot_root, (uintptr_t)destdir->c_str(), (uintptr_t)destdir->c_str()) == -1) {
 		PLOG_E("pivot_root('%s', '%s')", destdir->c_str(), destdir->c_str());
 		return false;
 	}

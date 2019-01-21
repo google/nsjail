@@ -33,6 +33,7 @@ extern "C" {
 #include "kafel.h"
 }
 #include "logs.h"
+#include "util.h"
 
 namespace sandbox {
 
@@ -65,9 +66,9 @@ static bool prepareAndCommit(nsjconf_t* nsjconf) {
 		    "too old?)");
 		return false;
 #else
-		if (syscall(__NR_seccomp, (uintptr_t)SECCOMP_SET_MODE_FILTER,
+		if (util::syscall(__NR_seccomp, (uintptr_t)SECCOMP_SET_MODE_FILTER,
 			(uintptr_t)(SECCOMP_FILTER_FLAG_TSYNC | SECCOMP_FILTER_FLAG_LOG),
-			&nsjconf->seccomp_fprog) == -1) {
+			(uintptr_t)&nsjconf->seccomp_fprog) == -1) {
 			PLOG_E(
 			    "seccomp(SECCOMP_SET_MODE_FILTER, SECCOMP_FILTER_FLAG_TSYNC | "
 			    "SECCOMP_FILTER_FLAG_LOG) failed");

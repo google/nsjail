@@ -113,7 +113,7 @@ mnt.o: mnt.h nsjail.h logs.h macros.h subproc.h util.h
 net.o: net.h nsjail.h logs.h subproc.h
 nsjail.o: nsjail.h cmdline.h logs.h macros.h net.h sandbox.h subproc.h util.h
 pid.o: pid.h nsjail.h logs.h subproc.h
-sandbox.o: sandbox.h nsjail.h kafel/include/kafel.h logs.h
+sandbox.o: sandbox.h nsjail.h kafel/include/kafel.h logs.h util.h
 subproc.o: subproc.h nsjail.h cgroup.h contain.h logs.h macros.h net.h
 subproc.o: sandbox.h user.h util.h
 uts.o: uts.h nsjail.h logs.h

@@ -48,12 +48,12 @@ namespace user {
 static bool setResGid(gid_t gid) {
 	LOG_D("setresgid(%d)", gid);
 #if defined(__NR_setresgid32)
-	if (syscall(__NR_setresgid32, (uintptr_t)gid, (uintptr_t)gid, (uintptr_t)gid) == -1) {
+	if (util::syscall(__NR_setresgid32, (uintptr_t)gid, (uintptr_t)gid, (uintptr_t)gid) == -1) {
 		PLOG_W("setresgid32(%d)", (int)gid);
 		return false;
 	}
 #else  /* defined(__NR_setresgid32) */
-	if (syscall(__NR_setresgid, (uintptr_t)gid, (uintptr_t)gid, (uintptr_t)gid) == -1) {
+	if (util::syscall(__NR_setresgid, (uintptr_t)gid, (uintptr_t)gid, (uintptr_t)gid) == -1) {
 		PLOG_W("setresgid(%d)", gid);
 		return false;
 	}
@@ -64,12 +64,12 @@ static bool setResGid(gid_t gid) {
 static bool setResUid(uid_t uid) {
 	LOG_D("setresuid(%d)", uid);
 #if defined(__NR_setresuid32)
-	if (syscall(__NR_setresuid32, (uintptr_t)uid, (uintptr_t)uid, (uintptr_t)uid) == -1) {
+	if (util::syscall(__NR_setresuid32, (uintptr_t)uid, (uintptr_t)uid, (uintptr_t)uid) == -1) {
 		PLOG_W("setresuid32(%d)", (int)uid);
 		return false;
 	}
 #else  /* defined(__NR_setresuid32) */
-	if (syscall(__NR_setresuid, (uintptr_t)uid, (uintptr_t)uid, (uintptr_t)uid) == -1) {
+	if (util::syscall(__NR_setresuid, (uintptr_t)uid, (uintptr_t)uid, (uintptr_t)uid) == -1) {
 		PLOG_W("setresuid(%d)", uid);
 		return false;
 	}
