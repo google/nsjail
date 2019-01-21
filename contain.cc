@@ -175,14 +175,14 @@ static bool containMakeFdsCOENaive(nsjconf_t* nsjconf) {
 			continue;
 		}
 		if (containPassFd(nsjconf, fd)) {
-			LOG_D("FD=%d will be passed to the child process", fd);
+			LOG_D("fd=%d will be passed to the child process", fd);
 			if (TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags & ~(FD_CLOEXEC))) == -1) {
-				PLOG_E("Could not set FD_CLOEXEC for FD=%d", fd);
+				PLOG_E("Could not set FD_CLOEXEC for fd=%d", fd);
 				return false;
 			}
 		} else {
 			if (TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags | FD_CLOEXEC)) == -1) {
-				PLOG_E("Could not set FD_CLOEXEC for FD=%d", fd);
+				PLOG_E("Could not set FD_CLOEXEC for fd=%d", fd);
 				return false;
 			}
 		}
@@ -228,21 +228,21 @@ static bool containMakeFdsCOEProc(nsjconf_t* nsjconf) {
 		}
 		int flags = TEMP_FAILURE_RETRY(fcntl(fd, F_GETFD, 0));
 		if (flags == -1) {
-			PLOG_D("fcntl(fd=%xld, F_GETFD, 0)", fd);
+			PLOG_D("fcntl(fd=%d, F_GETFD, 0)", fd);
 			closedir(dir);
 			return false;
 		}
 		if (containPassFd(nsjconf, fd)) {
-			LOG_D("FD=%d will be passed to the child process", fd);
+			LOG_D("fd=%d will be passed to the child process", fd);
 			if (TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags & ~(FD_CLOEXEC))) == -1) {
-				PLOG_E("Could not clear FD_CLOEXEC for FD=%d", fd);
+				PLOG_E("Could not clear FD_CLOEXEC for fd=%d", fd);
 				closedir(dir);
 				return false;
 			}
 		} else {
-			LOG_D("FD=%d will be closed before execve()", fd);
+			LOG_D("fd=%d will be closed before execve()", fd);
 			if (TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags | FD_CLOEXEC)) == -1) {
-				PLOG_E("Could not set FD_CLOEXEC for FD=%d", fd);
+				PLOG_E("Could not set FD_CLOEXEC for fd=%d", fd);
 				closedir(dir);
 				return false;
 			}
@@ -265,14 +265,14 @@ static bool containMakeFdsCOE(nsjconf_t* nsjconf) {
 
 bool setupFD(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
 	if (nsjconf->stderr_to_null) {
-		LOG_D("Redirecting FD=2 (STDERR_FILENO) to /dev/null");
+		LOG_D("Redirecting fd=2 (STDERR_FILENO) to /dev/null");
 		if ((fd_err = TEMP_FAILURE_RETRY(open("/dev/null", O_RDWR))) == -1) {
 			PLOG_E("open('/dev/null', O_RDWR");
 			return false;
 		}
 	}
 	if (nsjconf->is_silent) {
-		LOG_D("Redirecting FD=0/1/2 (STDIN/OUT/ERR_FILENO) to /dev/null");
+		LOG_D("Redirecting fd=0-2 (STDIN/OUT/ERR_FILENO) to /dev/null");
 		if (TEMP_FAILURE_RETRY(fd_in = fd_out = fd_err = open("/dev/null", O_RDWR)) == -1) {
 			PLOG_E("open('/dev/null', O_RDWR)");
 			return false;
