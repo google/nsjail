@@ -8,6 +8,7 @@ RUN apt-get -y update && apt-get install -y \
     g++ \
     git \
     libprotobuf-dev \
+    libnl-route-3-dev \
     libtool \
     make \
     pkg-config \
