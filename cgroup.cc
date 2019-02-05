@@ -23,6 +23,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -160,11 +161,24 @@ static void removeCgroup(const std::string& cgroup_path) {
 	}
 }
 
+void recordUsage(std::string readFrom, long long *store) {
+	char recvBuf[1024];
+	ssize_t len = util::readFromFile(readFrom.c_str(), recvBuf, 1023);
+	if (len != -1) {
+        recvBuf[len] = 0;
+        if (sscanf(recvBuf, "%lld", store) != 1) {
+            LOG_W("Read usage of %s unsuccessful, found %s", readFrom.c_str(), recvBuf);
+        }
+    }
+}
+
 void finishFromParent(nsjconf_t* nsjconf, pid_t pid) {
 	if (nsjconf->cgroup_mem_max != (size_t)0) {
 		std::string mem_cgroup_path = nsjconf->cgroup_mem_mount + '/' +
 					      nsjconf->cgroup_mem_parent + "/NSJAIL." +
 					      std::to_string(pid);
+		/* record memory consumption */
+		recordUsage(mem_cgroup_path + "/memory.max_usage_in_bytes", &(nsjconf->memory_consumption));
 		removeCgroup(mem_cgroup_path);
 	}
 	if (nsjconf->cgroup_pids_max != 0U) {
@@ -183,6 +197,9 @@ void finishFromParent(nsjconf_t* nsjconf, pid_t pid) {
 		std::string cpu_cgroup_path = nsjconf->cgroup_cpu_mount + '/' +
 					      nsjconf->cgroup_cpu_parent + "/NSJAIL." +
 					      std::to_string(pid);
+        /* record time consumption */
+        recordUsage(cpu_cgroup_path + "/cpuacct.usage_user", &(nsjconf->user_time_consumption));
+        recordUsage(cpu_cgroup_path + "/cpuacct.usage_sys", &(nsjconf->kernel_time_consumption));
 		removeCgroup(cpu_cgroup_path);
 	}
 }

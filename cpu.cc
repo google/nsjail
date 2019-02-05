@@ -63,8 +63,8 @@ bool initCpu(nsjconf_t* nsjconf) {
 		LOG_D("All CPUs requested (%zu of %ld)", nsjconf->max_cpus, nsjconf->num_cpus);
 		return true;
 	}
-	if (nsjconf->max_cpus == 0) {
-		LOG_D("No max_cpus limit set");
+	if (nsjconf->max_cpus == 0 && nsjconf->set_cpus.empty()) {
+		LOG_D("No cpu limit set");
 		return true;
 	}
 
@@ -77,8 +77,20 @@ bool initCpu(nsjconf_t* nsjconf) {
 	size_t mask_size = CPU_ALLOC_SIZE(nsjconf->num_cpus);
 	CPU_ZERO_S(mask_size, mask);
 
-	for (size_t i = 0; i < nsjconf->max_cpus; i++) {
-		setRandomCpu(mask, mask_size, nsjconf->num_cpus);
+	if (!nsjconf->set_cpus.empty()) {
+		for (size_t i = 0; i < nsjconf->set_cpus.size(); ++i) {
+			const int &cpu = nsjconf->set_cpus[i];
+			if (cpu >= nsjconf->num_cpus || cpu < 0) {
+				LOG_W("Illegal CPU number set: %d", cpu);
+				return false;
+			}
+			LOG_D("CPU number set: %d", cpu);
+			CPU_SET_S((uint64_t) cpu, mask_size, mask);
+		}
+	} else {
+		for (size_t i = 0; i < nsjconf->max_cpus; i++) {
+			setRandomCpu(mask, mask_size, nsjconf->num_cpus);
+		}
 	}
 
 	if (sched_setaffinity(0, mask_size, mask) == -1) {

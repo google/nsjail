@@ -305,15 +305,18 @@ static int reapProc(nsjconf_t* nsjconf, pid_t pid, bool should_wait = false) {
 		}
 
 		if (WIFEXITED(status)) {
+			nsjconf->process_exit_code = WEXITSTATUS(status);
 			LOG_I("pid=%d (%s) exited with status: %d, (PIDs left: %d)", pid,
-			    remote_txt.c_str(), WEXITSTATUS(status), countProc(nsjconf) - 1);
+			    remote_txt.c_str(), nsjconf->process_exit_code, countProc(nsjconf) - 1);
 			removeProc(nsjconf, pid);
 			return WEXITSTATUS(status);
 		}
 		if (WIFSIGNALED(status)) {
+			nsjconf->process_exit_code = 2147483647;
+			nsjconf->process_exit_signal = WTERMSIG(status);
 			LOG_I("pid=%d (%s) terminated with signal: %s (%d), (PIDs left: %d)", pid,
-			    remote_txt.c_str(), util::sigName(WTERMSIG(status)).c_str(),
-			    WTERMSIG(status), countProc(nsjconf) - 1);
+			    remote_txt.c_str(), util::sigName(nsjconf->process_exit_signal).c_str(),
+			    nsjconf->process_exit_signal, countProc(nsjconf) - 1);
 			removeProc(nsjconf, pid);
 			return 128 + WTERMSIG(status);
 		}

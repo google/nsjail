@@ -86,8 +86,10 @@ struct custom_option custom_opts[] = {
     { { "max_conns_per_ip", required_argument, NULL, 'i' }, "Maximum number of connections per one IP (only in [MODE_LISTEN_TCP]), (default: 0 (unlimited))" },
     { { "log", required_argument, NULL, 'l' }, "Log file (default: use log_fd)" },
     { { "log_fd", required_argument, NULL, 'L' }, "Log FD (default: 2)" },
+	{ { "usage", required_argument, NULL, 0x0608 }, "Export time, memory consumption and exit code / signal to this file" },
     { { "time_limit", required_argument, NULL, 't' }, "Maximum time that a jail can exist, in seconds (default: 600)" },
     { { "max_cpus", required_argument, NULL, 0x508 }, "Maximum number of CPUs a single jailed process can use (default: 0 'no limit')" },
+	{ { "set_cpus", required_argument, NULL, 0x050e }, "CPUs that is appointed (can be specified multiple times)" },
     { { "daemon", no_argument, NULL, 'd' }, "Daemonize after start" },
     { { "verbose", no_argument, NULL, 'v' }, "Verbose output" },
     { { "quiet", no_argument, NULL, 'q' }, "Log warning and more important messages only" },
@@ -98,6 +100,10 @@ struct custom_option custom_opts[] = {
     { { "cap", required_argument, NULL, 0x0509 }, "Retain this capability, e.g. CAP_PTRACE (can be specified multiple times)" },
     { { "silent", no_argument, NULL, 0x0502 }, "Redirect child process' fd:0/1/2 to /dev/null" },
     { { "stderr_to_null", no_argument, NULL, 0x0503 }, "Redirect child process' fd:2 (STDERR_FILENO) to /dev/null" },
+	{ { "stdin_from_null", no_argument, NULL, 0x050d }, "Redirect child process' fd:0 (STDIN_FILENO) to /dev/null" },
+	{ { "stdin_redirect_fd", required_argument, NULL, 0x050a }, "Redirect stdin to this file descriptor, works in standalone mode (default: 0, no redirect)" },
+	{ { "stdout_redirect_fd", required_argument, NULL, 0x050b }, "Redirect stdout to this file descriptor (default: 1, no redirect)" },
+	{ { "stderr_redirect_fd", required_argument, NULL, 0x050c }, "Redirect stderr to this file descriptor (default: 2, no redirect)" },
     { { "skip_setsid", no_argument, NULL, 0x0504 }, "Don't call setsid(), allows for terminal signal handling in the sandboxed process. Dangerous" },
     { { "pass_fd", required_argument, NULL, 0x0505 }, "Don't close this FD before executing the child process (can be specified multiple times), by default: 0/1/2 are kept open" },
     { { "disable_no_new_privs", no_argument, NULL, 0x0507 }, "Don't set the prctl(NO_NEW_PRIVS, 1) (DANGEROUS)" },
@@ -409,7 +415,11 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->mode = MODE_STANDALONE_ONCE;
 	nsjconf->is_root_rw = false;
 	nsjconf->is_silent = false;
+	nsjconf->stdin_from_null = false;
 	nsjconf->stderr_to_null = false;
+	nsjconf->stdin_redirect_fd = 0;
+	nsjconf->stdout_redirect_fd = 1;
+	nsjconf->stderr_redirect_fd = 2;
 	nsjconf->skip_setsid = false;
 	nsjconf->max_conns_per_ip = 0;
 	nsjconf->proc_path = "/proc";
@@ -440,6 +450,12 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->openfds.push_back(STDIN_FILENO);
 	nsjconf->openfds.push_back(STDOUT_FILENO);
 	nsjconf->openfds.push_back(STDERR_FILENO);
+
+	nsjconf->user_time_consumption = 0;
+	nsjconf->kernel_time_consumption = 0;
+	nsjconf->memory_consumption = 0;
+	nsjconf->process_exit_code = 0;
+	nsjconf->process_exit_signal = 0;
 
 	// Generate options array for getopt_long.
 	size_t options_length = ARR_SZ(custom_opts) + 1;
@@ -602,6 +618,21 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			}
 			nsjconf->caps.push_back(cap);
 		} break;
+		case 0x050a:
+			nsjconf->stdin_redirect_fd = (int) strtol(optarg, NULL, 0);
+			break;
+		case 0x050b:
+			nsjconf->stdout_redirect_fd = (int) strtol(optarg, NULL, 0);
+			break;
+		case 0x050c:
+			nsjconf->stderr_redirect_fd = (int) strtol(optarg, NULL, 0);
+			break;
+		case 0x050d:
+			nsjconf->stdin_from_null = true;
+			break;
+		case 0x050e:
+			nsjconf->set_cpus.push_back((int) strtol(optarg, NULL, 0));
+			break;
 		case 0x0601:
 			nsjconf->is_root_rw = true;
 			break;
@@ -616,6 +647,9 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			break;
 		case 0x0607:
 			nsjconf->use_execveat = true;
+			break;
+		case 0x0608:
+			nsjconf->usage_log_file_name = optarg;
 			break;
 		case 'E':
 			addEnv(nsjconf.get(), optarg);

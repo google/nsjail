@@ -1,3 +1,4 @@
+- [Modifications](#modifications)
 - [Overview](#overview)
 - [What forms of isolation does it provide](#what-forms-of-isolation-does-it-provide)
 - Which use-cases are supported
@@ -19,6 +20,14 @@
 This is NOT an official Google product.
 
 ***
+
+### Modifications
+
+Some features are added to the code for the sandbox to be compatible with the online judge.
+
+Look at `cmdline.cc` for details, which includes the whole argument list, including the ones that I've added.
+
+Some tests (for online judge of course) are added. The unittest requires catch2.
 
 ### Overview
 NsJail is a process isolation tool for Linux. It utilizes Linux namespace subsystem, resource limits, and the seccomp-bpf syscall filters of the Linux kernel.

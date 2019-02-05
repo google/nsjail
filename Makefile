@@ -29,7 +29,7 @@ COMMON_FLAGS += -O2 -c \
 	-fPIE \
 	-Wformat -Wformat-security -Wno-format-nonliteral \
 	-Wall -Wextra -Werror \
-	-Ikafel/include
+	-Ikafel/include -I/usr/include/libnl3
 
 CXXFLAGS += $(COMMON_FLAGS) $(shell pkg-config --cflags protobuf) \
 	-std=c++11 -fno-exceptions -Wno-unused -Wno-unused-parameter
@@ -96,6 +96,10 @@ depend: all
 indent:
 	clang-format -style="{BasedOnStyle: google, IndentWidth: 8, UseTab: Always, IndentCaseLabels: false, ColumnLimit: 100, AlignAfterOpenBracket: false, AllowShortFunctionsOnASingleLine: false}" -i -sort-includes *.h $(SRCS_CXX)
 	clang-format -style="{BasedOnStyle: google, IndentWidth: 4, UseTab: Always, ColumnLimit: 100}" -i $(SRCS_PROTO)
+
+.PHONY: test
+test:
+	$(CXX) -o test test.cc
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 

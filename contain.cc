@@ -264,19 +264,16 @@ static bool containMakeFdsCOE(nsjconf_t* nsjconf) {
 }
 
 bool setupFD(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
-	if (nsjconf->stderr_to_null) {
-		LOG_D("Redirecting fd=2 (STDERR_FILENO) to /dev/null");
-		if ((fd_err = TEMP_FAILURE_RETRY(open("/dev/null", O_RDWR))) == -1) {
+	if (nsjconf->stderr_to_null || nsjconf->stdin_from_null || nsjconf->is_silent) {
+		LOG_D("Redirecting fds to /dev/null");
+		int dev_null_fd = -1;
+		if ((dev_null_fd = TEMP_FAILURE_RETRY(open("/dev/null", O_RDWR))) == -1) {
 			PLOG_E("open('/dev/null', O_RDWR");
 			return false;
 		}
-	}
-	if (nsjconf->is_silent) {
-		LOG_D("Redirecting fd=0-2 (STDIN/OUT/ERR_FILENO) to /dev/null");
-		if (TEMP_FAILURE_RETRY(fd_in = fd_out = fd_err = open("/dev/null", O_RDWR)) == -1) {
-			PLOG_E("open('/dev/null', O_RDWR)");
-			return false;
-		}
+		if (nsjconf->is_silent) fd_in = fd_out = fd_err = dev_null_fd;
+		if (nsjconf->stdin_from_null) fd_in = dev_null_fd;
+		if (nsjconf->stderr_to_null) fd_err = dev_null_fd;
 	}
 	/* Set stdin/stdout/stderr to the net */
 	if (fd_in != STDIN_FILENO && TEMP_FAILURE_RETRY(dup2(fd_in, STDIN_FILENO)) == -1) {

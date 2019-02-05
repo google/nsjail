@@ -2,3 +2,7 @@
 config.pb.h
 config.pb.cc
 nsjail
+test
+venv/
+run/
+.idea/

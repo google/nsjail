@@ -142,7 +142,8 @@ static int listenMode(nsjconf_t* nsjconf) {
 
 static int standaloneMode(nsjconf_t* nsjconf) {
 	for (;;) {
-		if (!subproc::runChild(nsjconf, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO)) {
+		if (!subproc::runChild(nsjconf, nsjconf->stdin_redirect_fd,
+				nsjconf->stdout_redirect_fd, nsjconf->stderr_redirect_fd)) {
 			LOG_E("Couldn't launch the child process");
 			return 0xff;
 		}
@@ -222,6 +223,17 @@ int main(int argc, char* argv[]) {
 		ret = nsjail::listenMode(nsjconf.get());
 	} else {
 		ret = nsjail::standaloneMode(nsjconf.get());
+
+		/* write usage log */
+		if (!nsjconf->usage_log_file_name.empty()) {
+		    FILE* usage_log_file = fopen(nsjconf->usage_log_file_name.c_str(), "w");
+		    fprintf(usage_log_file, "user %lld\n", nsjconf->user_time_consumption);
+		    fprintf(usage_log_file, "kernel %lld\n", nsjconf->kernel_time_consumption);
+		    fprintf(usage_log_file, "memory %lld\n", nsjconf->memory_consumption);
+		    fprintf(usage_log_file, "exit %d\n", nsjconf->process_exit_code);
+		    fprintf(usage_log_file, "signal %d\n", nsjconf->process_exit_signal);
+		}
+
 	}
 
 	sandbox::closePolicy(nsjconf.get());
