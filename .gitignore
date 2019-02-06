@@ -6,3 +6,6 @@ test
 venv/
 run/
 .idea/
+writev.in
+*.class
+*.jar

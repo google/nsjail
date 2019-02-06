@@ -86,6 +86,13 @@ static bool initNsFromParentMem(nsjconf_t* nsjconf, pid_t pid) {
 	RETURN_ON_FAILURE(writeToCgroup(
 	    mem_cgroup_path + "/memory.oom_control", "0", "memory cgroup oom control"));
 
+	/*
+	 * Force swap to be disabled so that the process is also killed as long as it reaches limit
+	 * https://github.com/NeoHOJ/nsjail
+	 */
+	RETURN_ON_FAILURE(writeToCgroup(
+		mem_cgroup_path + "/memory.swappiness", "0", "memory cgroup swappiness"));
+
 	return addPidToTaskList(mem_cgroup_path, pid);
 }
 

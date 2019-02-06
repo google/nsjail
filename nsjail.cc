@@ -29,6 +29,7 @@
 #include <sys/ioctl.h>
 #include <sys/time.h>
 #include <termios.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <memory>
@@ -194,6 +195,15 @@ void setTC(int fd, const struct termios* trm) {
 
 }  // namespace nsjail
 
+long long get_wall_time() {
+    struct timeval time;
+    if (gettimeofday(&time, NULL)) {
+        PLOG_E("Get time failed");
+        return 0;
+    }
+    return time.tv_sec * 1000000LL + time.tv_usec;
+}
+
 int main(int argc, char* argv[]) {
 	std::unique_ptr<nsjconf_t> nsjconf = cmdline::parseArgs(argc, argv);
 	std::unique_ptr<struct termios> trm = nsjail::getTC(STDIN_FILENO);
@@ -219,6 +229,7 @@ int main(int argc, char* argv[]) {
 	}
 
 	int ret = 0;
+	long long start_time = get_wall_time();
 	if (nsjconf->mode == MODE_LISTEN_TCP) {
 		ret = nsjail::listenMode(nsjconf.get());
 	} else {
@@ -227,9 +238,10 @@ int main(int argc, char* argv[]) {
 		/* write usage log */
 		if (!nsjconf->usage_log_file_name.empty()) {
 		    FILE* usage_log_file = fopen(nsjconf->usage_log_file_name.c_str(), "w");
-		    fprintf(usage_log_file, "user %lld\n", nsjconf->user_time_consumption);
-		    fprintf(usage_log_file, "kernel %lld\n", nsjconf->kernel_time_consumption);
-		    fprintf(usage_log_file, "memory %lld\n", nsjconf->memory_consumption);
+		    fprintf(usage_log_file, "user %lld\n", nsjconf->user_time_consumption / 1000000); // ms
+		    fprintf(usage_log_file, "kernel %lld\n", nsjconf->kernel_time_consumption / 1000000); // ms
+		    fprintf(usage_log_file, "pass %lld\n", (get_wall_time() - start_time) / 1000); // ms
+		    fprintf(usage_log_file, "memory %lld\n", nsjconf->memory_consumption / 1024); // kb
 		    fprintf(usage_log_file, "exit %d\n", nsjconf->process_exit_code);
 		    fprintf(usage_log_file, "signal %d\n", nsjconf->process_exit_signal);
 		}

@@ -99,7 +99,7 @@ indent:
 
 .PHONY: test
 test:
-	$(CXX) -o test test.cc
+	$(CXX) -std=c++17 -fopenmp -o test test.cpp test.hpp -lstdc++fs
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 
