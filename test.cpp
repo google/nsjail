@@ -2,7 +2,7 @@
 
 #define CATCH_CONFIG_MAIN  // This tells Catch to provide a main() - only do this in one cpp file
 #include <catch2/catch.hpp>
-#include <omp.h>
+#include <stdio.h>
 
 string getOutput(string nameBase, string type = "out") {
     return readFile(getFileName(nameBase, "output") + "/" + type);
@@ -31,9 +31,11 @@ void execute(string directory,
         string outputDir = getFileName(nameBase, "output");
         recreateDirectory(outputDir);
 
+        memoryLimit += 32;
+
         vector<string> nsjail_args = {"./nsjail", "-Mo",
                                       "--chroot", rootDir,
-                                      "--user", "99999", "--group", "99999",
+                                      "--user", "65534", "--group", "65534",
                                       "--log", outputDir + "/log",
                                       "--usage", outputDir + "/usage",
 //                                      "--proc_rw",
@@ -42,9 +44,9 @@ void execute(string directory,
                                       "-R", "/lib64",
                                       "-R", "/usr",
                                       "-R", "/sbin",
-                                      "-T", "/dev",
-                                      "-R", "/dev/urandom",
-                                      "-R", "/etc/alternatives",
+                                      "-R", "/dev",
+//                                      "-T", "/dev", "-R", "/dev/urandom",
+                                      "-R", "/etc",
                                       "-B", directory + ":/app",
                                       "-D", "/app",
                                       "-E", "env=123", "-E", "test=456",
@@ -52,11 +54,12 @@ void execute(string directory,
                                       "--cgroup_pids_max", "64",
                                       "--cgroup_cpu_ms_per_sec", "1000",
                                       "--set_cpus", "1",
-                                      "--cgroup_mem_max", to_string((memoryLimit + 32) * 1024 * 1024),
+                                      "--cgroup_mem_max", to_string(memoryLimit * 1024 * 1024),
                                       "--time_limit", to_string((timeLimit * 2 + 1000) / 1000),
+                                      "--rlimit_as", "inf",
                                       "--rlimit_cpu", to_string((timeLimit + 1000) / 1000),
-                                      "--rlimit_stack", to_string(constants::largeStack ? memoryLimit + 32 : 8),
-                                      "--rlimit_fsize", to_string(memoryLimit + constants::outputSizeBase),
+                                      "--rlimit_stack", to_string(constants::largeStack ? memoryLimit : 8),
+                                      "--rlimit_fsize", to_string(constants::outputSizeBase),
                                       };
 
         /* redirect input and output */
@@ -67,16 +70,20 @@ void execute(string directory,
             nsjail_args.push_back("--stdin_from_null");
         }
 
-        stdout = open((outputDir + "/out").c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
         if (stdout == -1) {
-            perror("Open stdout failed");
-            REQUIRE (stdout != -1);
+            stdout = open((outputDir + "/out").c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+            if (stdout == -1) {
+                perror("Open stdout failed");
+                REQUIRE(stdout != -1);
+            }
         }
         nsjail_args.push_back("--stdout_redirect_fd");
         nsjail_args.push_back(to_string(stdout));
 
-        stderr = open((outputDir + "/err").c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
-        REQUIRE (stderr != -1);
+        if (stderr == -1) {
+            stderr = open((outputDir + "/err").c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+            REQUIRE(stderr != -1);
+        }
         nsjail_args.push_back("--stderr_redirect_fd");
         nsjail_args.push_back(to_string(stderr));
 
@@ -98,6 +105,8 @@ void execute(string directory,
             REQUIRE (0);
         }
     } else {
+        // it's okay not to close the rest of fds here, as we are not using that part
+
         int status;
         REQUIRE (waitpid(pid, &status, 0) == pid);
 //        REQUIRE (status == 0);
@@ -124,8 +133,6 @@ void execute(string directory,
     }
 }
 
-#include <unistd.h>
-
 string prepareWorkingDirAndFile(string nameBase, string fileName) {
     string workingDir = current_path() + "/run/" + nameBase;
     fs::remove_all(workingDir);
@@ -139,31 +146,48 @@ void compile(string name, string ext, string expectedVerdict = "SUCCEEDED",
         long long memoryLimit = 32, long long timeLimit = 500) {
     string fileName = name + "." + ext;
     string wd = prepareWorkingDirAndFile(name + ".compile.work", fileName);
-    string targetName = name + ".o";
+    string targetName = name + ".o", storeName = targetName;
     if (ext == "c") {
         execute(wd, "/usr/bin/gcc", {"-o", targetName, fileName}, memoryLimit, timeLimit, name + ".compile", expectedVerdict);
     } else if (ext == "cpp") {
         execute(wd, "/usr/bin/g++", {"-o", targetName, fileName}, memoryLimit, timeLimit, name + ".compile", expectedVerdict);
+    } else if (ext == "java") {
+        storeName = name + ".jar";
+        execute(wd, "/usr/bin/javac", {"-d", "./build", fileName}, memoryLimit, timeLimit, name + ".compile", expectedVerdict);
+        vector<string> jar_args = {"cvf", storeName};
+        for (auto &p: fs::directory_iterator(wd + "/build")) {
+            jar_args.push_back(p.path().filename());
+        }
+        execute(wd + "/build", "/usr/bin/jar", jar_args, memoryLimit, timeLimit, name + ".compile", expectedVerdict);
+        targetName = "build/" + storeName;
     }
     if (expectedVerdict == "SUCCEEDED") {
-        fs::copy_file(wd + "/" + name + ".o", current_path() + "/tests/" + name + ".o", fs::copy_options::overwrite_existing);
+        fs::copy_file(wd + "/" + targetName, current_path() + "/tests/" + storeName, fs::copy_options::overwrite_existing);
     }
 }
 
 void executeTemplate(string name, string ext, vector<string> args, string expectedVerdict = "SUCCEEDED",
         long long memoryLimit = 32, long long timeLimit = 500) {
+    string fileName = name + "." + ext;
+    string inputPath = current_path() + "/tests/" + name + ".in";
+    if (name.find_first_of(".") != string::npos) {
+        inputPath = current_path() + "/tests/" + name.substr(0, name.find_first_of(".")) + ".in";
+    }
+    int stdin = -1;
+    if (fs::exists(inputPath) && fs::is_regular_file(inputPath)) {
+        stdin = open(inputPath.c_str(), O_RDONLY);
+    }
+    string wd = prepareWorkingDirAndFile(name + ".execute.work", fileName);
     if (ext == "o") {
-        string fileName = name + "." + ext;
-        string inputPath = current_path() + "/tests/" + name + ".in";
-        if (name.find_first_of(".") != string::npos) {
-            inputPath = current_path() + "/tests/" + name.substr(0, name.find_first_of(".")) + ".in";
-        }
-        int stdin = -1;
-        if (fs::exists(inputPath) && fs::is_regular_file(inputPath)) {
-            stdin = open(inputPath.c_str(), O_RDONLY);
-        }
-        string wd = prepareWorkingDirAndFile(name + ".execute.work", fileName);
-        execute(wd, "./" + fileName, args, memoryLimit, timeLimit, name + ".execute", expectedVerdict, stdin);
+        execute(wd, fileName, args, memoryLimit, timeLimit, name + ".execute", expectedVerdict, stdin);
+    } else if (ext == "jar") {
+        args.insert(args.begin(), fileName);
+        args.insert(args.begin(), "-cp");
+        args.push_back(name);
+        execute(wd, "/usr/bin/java", args, memoryLimit, timeLimit, name + ".execute", expectedVerdict, stdin);
+    } else if (ext == "py") {
+        args.insert(args.begin(), fileName);
+        execute(wd, "/usr/bin/python3", args, memoryLimit, timeLimit, name + ".execute", expectedVerdict, stdin);
     }
 }
 
@@ -224,7 +248,7 @@ TEST_CASE("Normal", "[integration]") {
     SECTION("user") {
         compile("uid_gid", "c");
         executeTemplate("uid_gid", "o", {});
-        REQUIRE(getOutput("uid_gid.execute") == "uid=99999 gid=99999 groups=99999,65534\nuid 99999\ngid 99999\n");
+        REQUIRE(getOutput("uid_gid.execute").find("uid 65534\ngid 65534") != string::npos);
     }
     SECTION("writev") {
         compile("writev", "cpp", "SUCCEEDED", 128, 500);
@@ -320,14 +344,16 @@ TEST_CASE("Output", "[integration]") {
     }
     SECTION("size_control") {
         compile("output_size", "c");
-        constants::outputSizeBase = 0;
-        vector<string> paths = {"fsize_test", "/dev/fsize_test", "stdout"};
+        constants::outputSizeBase = 1;
+        vector<string> paths = {"fsize_test", "stdout"};
         for (const auto& path: paths) {
             executeTemplate("output_size", "o", {path}, "FAIL", 1, 1000);
             auto usage_info = getUsageInfo("output_size.execute");
             REQUIRE(usage_info.exit_code == 2);
             if (path == "stdout") {
                 REQUIRE(getOutput("output_size.execute").length() == 1048576);
+            } else {
+                REQUIRE(readFile(getFileName("output_size.execute", "work") + "/" + path).length() == 1048576);
             }
         }
         constants::outputSizeBase = 256;
@@ -354,22 +380,60 @@ TEST_CASE("Concurrency", "[integration]") {
         compile("normal", "c");
         for (int i = 0; i < 16; ++i)
             fs::copy_file("./tests/normal.o", "./tests/normal." + to_string(i) + ".o", fs::copy_options::overwrite_existing);
-#pragma omp parallel for num_threads(16)
+        vector<int> pids;
         for (int i = 0; i < 16; ++i) {
-            executeTemplate("normal." + to_string(i), "o", {}, "FAILED");
+            int pid;
+            if ((pid = fork()) == 0) {
+                executeTemplate("normal." + to_string(i), "o", {}, "FAILED");
+                exit(0);
+            } else {
+                pids.push_back(pid);
+            }
+        }
+        for (int i = 0; i < 16; ++i) {
+            int status;
+            REQUIRE (waitpid(pids[i], &status, 0) == pids[i]);
+            REQUIRE (status == 0);
             REQUIRE(trim(getOutput("normal." + to_string(i) + ".execute")) == "text\nHello world");
         }
     }
 }
 
 TEST_CASE("Java", "[integration]") {
-
+    compile("NormalJava", "java", "SUCCEEDED", 128, 2000);
+    executeTemplate("NormalJava", "jar", {}, "SUCCEEDED", 128, 1000);
+    REQUIRE(trim(getOutput("NormalJava.execute")) == "text\nHello world");
 }
 
 TEST_CASE("Python", "[integration]") {
-
+    executeTemplate("normal", "py", {}, "SUCCEEDED", 64, 500);
+    REQUIRE(trim(getOutput("normal.execute")) == "text\nHello world");
 }
 
 TEST_CASE("Interaction", "[integration]") {
-
+    compile("echo1", "cpp", "SUCCEEDED", 128, 1000);
+    int fd[4];
+    pipe(fd); pipe(fd + 2);
+    int pid;
+    if ((pid = fork()) == 0) {
+        close(fd[0]); close(fd[3]);
+        string wd = prepareWorkingDirAndFile("echo1.execute.work", "echo1.o");
+        execute(wd, "echo1.o", {}, 32, 500, "echo1.execute", "SUCCEEDED", fd[2], fd[1]);
+        exit(0);
+    } else {
+        close(fd[1]); close(fd[2]);
+        int counter = 0; char buffer[64];
+        for (int i = 0; i < 5; ++i) {
+            counter++;
+            dprintf(fd[3], "%d\n", counter);
+            syncfs(fd[3]);
+            read(fd[0], buffer, 64);
+            counter = atoi(buffer);
+        }
+        close(fd[0]); close(fd[3]);
+        int status;
+        REQUIRE (waitpid(pid, &status, 0) == pid);
+        REQUIRE (status == 0);
+        REQUIRE (counter == 10);
+    }
 }

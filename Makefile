@@ -99,7 +99,9 @@ indent:
 
 .PHONY: test
 test:
-	$(CXX) -std=c++17 -fopenmp -o test test.cpp test.hpp -lstdc++fs
+	mkdir -p run
+	$(RM) -r run/*
+	$(CXX) -Wall -Wextra -Werror -std=c++17 -fopenmp -o test test.cpp test.hpp -lstdc++fs
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 
