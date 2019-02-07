@@ -142,7 +142,7 @@ message NsJailConfig {
 
     /* Various rlimits, the rlimit_as/rlimit_core/... are used only if
        rlimit_as_type/rlimit_core_type/... are set to RLimit::VALUE */
-    optional uint64 rlimit_as = 28 [default = 512]; /* In MiB */
+    optional uint64 rlimit_as = 28 [default = 4096]; /* In MiB */
     optional RLimit rlimit_as_type = 29 [default = VALUE];
     optional uint64 rlimit_core = 30 [default = 0]; /* In MiB */
     optional RLimit rlimit_core_type = 31 [default = VALUE];

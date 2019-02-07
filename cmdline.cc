@@ -397,11 +397,11 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->keep_env = false;
 	nsjconf->keep_caps = false;
 	nsjconf->disable_no_new_privs = false;
-	nsjconf->rl_as = 512 * (1024 * 1024);
-	nsjconf->rl_core = 0;
-	nsjconf->rl_cpu = 600;
-	nsjconf->rl_fsize = 1 * (1024 * 1024);
-	nsjconf->rl_nofile = 32;
+	nsjconf->rl_as = 4096ULL * (1024ULL * 1024ULL);
+	nsjconf->rl_core = 0ULL;
+	nsjconf->rl_cpu = 600ULL;
+	nsjconf->rl_fsize = 1ULL * (1024ULL * 1024ULL);
+	nsjconf->rl_nofile = 32ULL;
 	nsjconf->rl_nproc = parseRLimit(RLIMIT_NPROC, "soft", 1);
 	nsjconf->rl_stack = parseRLimit(RLIMIT_STACK, "soft", 1);
 	nsjconf->personality = 0;
