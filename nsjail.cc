@@ -188,7 +188,10 @@ void setTC(int fd, const struct termios* trm) {
 		PLOG_W("ioctl(fd=%d, TCSETS) failed", fd);
 		return;
 	}
-	LOG_D("Restored the previous state of the TTY");
+	if (tcflush(fd, TCIFLUSH) == -1) {
+		PLOG_W("tcflush(fd=%d, TCIFLUSH) failed", fd);
+		return;
+	}
 }
 
 }  // namespace nsjail
