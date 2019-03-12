@@ -435,9 +435,11 @@ bool runChild(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
 	close(child_fd);
 	if (pid == -1) {
 		if (flags & CLONE_NEWCGROUP) {
+			auto saved_errno = errno;
 			PLOG_E(
 			    "nsjail tried to use the CLONE_NEWCGROUP clone flag, which is "
 			    "supported under kernel versions >= 4.6 only. Try disabling this flag");
+			errno = saved_errno;
 		}
 		PLOG_E(
 		    "clone(flags=%s) failed. You probably need root privileges if your system "
