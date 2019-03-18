@@ -4,14 +4,14 @@ package nsjail;
 
 enum Mode {
     LISTEN = 0; /* Listening on a TCP port */
-    ONCE = 1;	/* Running the command once only */
-    RERUN = 2;	/* Re-executing the command (forever) */
+    ONCE = 1;   /* Running the command once only */
+    RERUN = 2;  /* Re-executing the command (forever) */
     EXECVE = 3; /* Executing command w/o the supervisor */
 }
 /* Should be self explanatory */
 enum LogLevel {
-    DEBUG = 0;	 /* Equivalent to the '-v' cmd-line option */
-    INFO = 1;	 /* Default level */
+    DEBUG = 0;   /* Equivalent to the '-v' cmd-line option */
+    INFO = 1;    /* Default level */
     WARNING = 2; /* Equivalent to the '-q' cmd-line option */
     ERROR = 3;
     FATAL = 4;

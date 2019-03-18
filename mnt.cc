@@ -283,6 +283,15 @@ static std::unique_ptr<std::string> getDir(nsjconf_t* nsjconf, const char* name)
 	std::unique_ptr<std::string> dir(new std::string);
 
 	dir->assign("/run/user/")
+	    .append(std::to_string(nsjconf->orig_uid))
+	    .append("/nsjail.")
+	    .append(std::to_string(nsjconf->orig_uid))
+	    .append(".")
+	    .append(name);
+	if (mkdirAndTest(*dir)) {
+		return dir;
+	}
+	dir->assign("/run/user/")
 	    .append("/nsjail.")
 	    .append(std::to_string(nsjconf->orig_uid))
 	    .append(".")
