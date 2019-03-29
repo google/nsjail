@@ -344,10 +344,7 @@ static bool initNsInternal(nsjconf_t* nsjconf) {
 	 */
 	if (!nsjconf->clone_newns) {
 		if (nsjconf->chroot.empty()) {
-			PLOG_E(
-			    "--chroot was not specified, and it's required when not using "
-			    "CLONE_NEWNS");
-			return false;
+			return true;
 		}
 		if (chroot(nsjconf->chroot.c_str()) == -1) {
 			PLOG_E("chroot('%s')", nsjconf->chroot.c_str());

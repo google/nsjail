@@ -77,12 +77,12 @@ static bool setResUid(uid_t uid) {
 	return true;
 }
 
-static bool setGroups(pid_t pid) {
+static bool setGroups(nsjconf_t* nsjconf, pid_t pid) {
 	/*
 	 * No need to write 'deny' to /proc/pid/setgroups if our euid==0, as writing to
 	 * uid_map/gid_map will succeed anyway
 	 */
-	if (geteuid() == 0) {
+	if (!nsjconf->clone_newuser || nsjconf->orig_euid == 0) {
 		return true;
 	}
 
@@ -214,7 +214,7 @@ static bool uidGidMap(nsjconf_t* nsjconf, pid_t pid) {
 }
 
 bool initNsFromParent(nsjconf_t* nsjconf, pid_t pid) {
-	if (!setGroups(pid)) {
+	if (!setGroups(nsjconf, pid)) {
 		return false;
 	}
 	if (!nsjconf->clone_newuser) {
@@ -227,13 +227,8 @@ bool initNsFromParent(nsjconf_t* nsjconf, pid_t pid) {
 }
 
 bool initNsFromChild(nsjconf_t* nsjconf) {
-	/*
-	 * Best effort because of /proc/self/setgroups
-	 */
-	LOG_D("setgroups(0, NULL)");
-	const gid_t* group_list = NULL;
-	if (setgroups(0, group_list) == -1) {
-		PLOG_D("setgroups(NULL) failed");
+	if (!nsjconf->clone_newuser && nsjconf->orig_euid != 0) {
+		return true;
 	}
 
 	/*
@@ -244,6 +239,15 @@ bool initNsFromChild(nsjconf_t* nsjconf) {
 	    -1) {
 		PLOG_E("prctl(PR_SET_SECUREBITS, SECBIT_KEEP_CAPS | SECBIT_NO_SETUID_FIXUP)");
 		return false;
+	}
+
+	/*
+	 * Best effort because of /proc/self/setgroups
+	 */
+	LOG_D("setgroups(0, NULL)");
+	const gid_t* group_list = NULL;
+	if (setgroups(0, group_list) == -1) {
+		PLOG_D("setgroups(NULL) failed");
 	}
 
 	if (!setResGid(nsjconf->gids[0].inside_id)) {
