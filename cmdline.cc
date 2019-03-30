@@ -298,16 +298,24 @@ static std::string argFromVec(const std::vector<std::string>& vec, size_t pos) {
 }
 
 static bool setupArgv(nsjconf_t* nsjconf, int argc, char** argv, int optind) {
-	for (int i = optind; i < argc; i++) {
-		nsjconf->argv.push_back(argv[i]);
-	}
-	if (nsjconf->argv.empty()) {
-		cmdlineUsage(argv[0]);
-		LOG_E("No command provided");
-		return false;
+	/*
+	 * If user provided cmdline via nsjail [opts] -- [cmdline], then override the one from the
+	 * config file
+	 */
+	if (optind < argc) {
+		nsjconf->argv.clear();
+		nsjconf->exec_file.clear();
+		for (int i = optind; i < argc; i++) {
+			nsjconf->argv.push_back(argv[i]);
+		}
 	}
 	if (nsjconf->exec_file.empty()) {
 		nsjconf->exec_file = nsjconf->argv[0];
+	}
+	if (nsjconf->exec_file.empty()) {
+		cmdlineUsage(argv[0]);
+		LOG_E("No command-line provided");
+		return false;
 	}
 
 	if (nsjconf->use_execveat) {

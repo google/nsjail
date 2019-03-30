@@ -265,8 +265,10 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 	nsjconf->iface_vs_ma = njc.macvlan_vs_ma();
 
 	if (njc.has_exec_bin()) {
-		nsjconf->exec_file = njc.exec_bin().path();
-		nsjconf->argv.push_back(njc.exec_bin().path());
+		if (njc.exec_bin().has_path()) {
+			nsjconf->exec_file = njc.exec_bin().path();
+			nsjconf->argv.push_back(njc.exec_bin().path());
+		}
 		for (ssize_t i = 0; i < njc.exec_bin().arg().size(); i++) {
 			nsjconf->argv.push_back(njc.exec_bin().arg(i));
 		}
