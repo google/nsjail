@@ -77,7 +77,7 @@ static bool setResUid(uid_t uid) {
 	return true;
 }
 
-static bool setGroups(nsjconf_t* nsjconf, pid_t pid) {
+static bool setGroupsDeny(nsjconf_t* nsjconf, pid_t pid) {
 	/*
 	 * No need to write 'deny' to /proc/pid/setgroups if our euid==0, as writing to
 	 * uid_map/gid_map will succeed anyway
@@ -214,7 +214,7 @@ static bool uidGidMap(nsjconf_t* nsjconf, pid_t pid) {
 }
 
 bool initNsFromParent(nsjconf_t* nsjconf, pid_t pid) {
-	if (!setGroups(nsjconf, pid)) {
+	if (!setGroupsDeny(nsjconf, pid)) {
 		return false;
 	}
 	if (!nsjconf->clone_newuser) {
