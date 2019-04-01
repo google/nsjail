@@ -309,7 +309,7 @@ static bool setupArgv(nsjconf_t* nsjconf, int argc, char** argv, int optind) {
 			nsjconf->argv.push_back(argv[i]);
 		}
 	}
-	if (nsjconf->exec_file.empty()) {
+	if (nsjconf->exec_file.empty() && nsjconf->argv.size() > 0) {
 		nsjconf->exec_file = nsjconf->argv[0];
 	}
 	if (nsjconf->exec_file.empty()) {
