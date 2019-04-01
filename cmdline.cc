@@ -304,7 +304,6 @@ static bool setupArgv(nsjconf_t* nsjconf, int argc, char** argv, int optind) {
 	 */
 	if (optind < argc) {
 		nsjconf->argv.clear();
-		nsjconf->exec_file.clear();
 		for (int i = optind; i < argc; i++) {
 			nsjconf->argv.push_back(argv[i]);
 		}
