@@ -289,7 +289,7 @@ static void LogHandler(
 bool parseFile(nsjconf_t* nsjconf, const char* file) {
 	LOG_D("Parsing configuration from '%s'", file);
 
-	int fd = open(file, O_RDONLY | O_CLOEXEC);
+	int fd = TEMP_FAILURE_RETRY(open(file, O_RDONLY | O_CLOEXEC));
 	if (fd == -1) {
 		PLOG_W("Couldn't open config file '%s'", file);
 		return false;

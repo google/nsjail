@@ -64,8 +64,7 @@ ssize_t readFromFd(int fd, void* buf, size_t len) {
 }
 
 ssize_t readFromFile(const char* fname, void* buf, size_t len) {
-	int fd;
-	TEMP_FAILURE_RETRY(fd = open(fname, O_RDONLY | O_CLOEXEC));
+	int fd = TEMP_FAILURE_RETRY(open(fname, O_RDONLY | O_CLOEXEC));
 	if (fd == -1) {
 		LOG_E("open('%s', O_RDONLY|O_CLOEXEC)", fname);
 		return -1;
@@ -216,7 +215,7 @@ static void rndInitThread(void) {
 		return;
 	}
 #endif /* defined(__NR_getrandom) */
-	int fd = open("/dev/urandom", O_RDONLY | O_CLOEXEC);
+	int fd = TEMP_FAILURE_RETRY(open("/dev/urandom", O_RDONLY | O_CLOEXEC));
 	if (fd == -1) {
 		PLOG_D(
 		    "Couldn't open /dev/urandom for reading. Using gettimeofday "
