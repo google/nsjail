@@ -242,18 +242,32 @@ bool initNsFromChild(nsjconf_t* nsjconf) {
 	}
 
 	/*
-	 * Best effort because of /proc/self/setgroups
+	 * Best effort because of /proc/self/setgroups. We deny
+	 * setgroups(2) calls only if user namespaces are in use.
 	 */
-	LOG_D("setgroups(0, NULL)");
-	const gid_t* group_list = NULL;
-	if (setgroups(0, group_list) == -1) {
-		PLOG_D("setgroups(NULL) failed");
+	std::vector<gid_t> groups;
+	std::string groupsString = "[";
+	if (!nsjconf->clone_newuser && nsjconf->gids.size() > 1) {
+		for (auto it = nsjconf->gids.begin() + 1; it != nsjconf->gids.end(); it++) {
+			groups.push_back(it->inside_id);
+			groupsString += std::to_string(it->inside_id);
+			if (it < nsjconf->gids.end() - 1)
+				groupsString += ", ";
+		}
 	}
+	groupsString += "]";
 
 	if (!setResGid(nsjconf->gids[0].inside_id)) {
 		PLOG_E("setresgid(%u)", nsjconf->gids[0].inside_id);
 		return false;
 	}
+
+	LOG_D("setgroups(%lu, %s)", groups.size(), groupsString.c_str());
+	if (setgroups(groups.size(), groups.data()) == -1) {
+		PLOG_D("setgroups(%lu, %s) failed", groups.size(), groupsString.c_str());
+		return false;
+	}
+
 	if (!setResUid(nsjconf->uids[0].inside_id)) {
 		PLOG_E("setresuid(%u)", nsjconf->uids[0].inside_id);
 		return false;
