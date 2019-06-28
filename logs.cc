@@ -38,8 +38,6 @@
 #include "macros.h"
 #include "util.h"
 
-#include <string.h>
-
 namespace logs {
 
 static int _log_fd = STDERR_FILENO;

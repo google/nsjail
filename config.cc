@@ -19,7 +19,11 @@
 
 */
 
+#include "config.h"
+
 #include <fcntl.h>
+#include <google/protobuf/io/zero_copy_stream_impl.h>
+#include <google/protobuf/text_format.h>
 #include <stdio.h>
 #include <sys/mount.h>
 #include <sys/personality.h>
@@ -27,15 +31,12 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include <google/protobuf/io/zero_copy_stream_impl.h>
-#include <google/protobuf/text_format.h>
 #include <fstream>
 #include <string>
 #include <vector>
 
 #include "caps.h"
 #include "cmdline.h"
-#include "config.h"
 #include "config.pb.h"
 #include "logs.h"
 #include "macros.h"

@@ -251,8 +251,7 @@ bool initNsFromChild(nsjconf_t* nsjconf) {
 		for (auto it = nsjconf->gids.begin() + 1; it != nsjconf->gids.end(); it++) {
 			groups.push_back(it->inside_id);
 			groupsString += std::to_string(it->inside_id);
-			if (it < nsjconf->gids.end() - 1)
-				groupsString += ", ";
+			if (it < nsjconf->gids.end() - 1) groupsString += ", ";
 		}
 	}
 	groupsString += "]";
@@ -264,8 +263,12 @@ bool initNsFromChild(nsjconf_t* nsjconf) {
 
 	LOG_D("setgroups(%lu, %s)", groups.size(), groupsString.c_str());
 	if (setgroups(groups.size(), groups.data()) == -1) {
+		/* Indicate errror if specific groups were requested */
+		if (groups.size() > 0) {
+			PLOG_E("setgroups(%lu, %s) failed", groups.size(), groupsString.c_str());
+			return false;
+		}
 		PLOG_D("setgroups(%lu, %s) failed", groups.size(), groupsString.c_str());
-		return false;
 	}
 
 	if (!setResUid(nsjconf->uids[0].inside_id)) {

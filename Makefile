@@ -103,7 +103,7 @@ caps.o: caps.h nsjail.h logs.h macros.h util.h
 cgroup.o: cgroup.h nsjail.h logs.h util.h
 cmdline.o: cmdline.h nsjail.h caps.h config.h logs.h macros.h mnt.h user.h
 cmdline.o: util.h
-config.o: caps.h nsjail.h cmdline.h config.h config.pb.h logs.h macros.h
+config.o: config.h nsjail.h caps.h cmdline.h config.pb.h logs.h macros.h
 config.o: mnt.h user.h util.h
 contain.o: contain.h nsjail.h caps.h cgroup.h cpu.h logs.h macros.h mnt.h
 contain.o: net.h pid.h user.h util.h uts.h
