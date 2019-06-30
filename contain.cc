@@ -101,8 +101,8 @@ static bool containPrepareEnv(nsjconf_t* nsjconf) {
 		return false;
 	}
 	errno = 0;
-	if (setpriority(PRIO_PROCESS, 0, 19) == -1 && errno != 0) {
-		PLOG_W("setpriority(19)");
+	if (setpriority(PRIO_PROCESS, 0, nsjconf->nice_level) == -1 && errno != 0) {
+		PLOG_W("setpriority(%" PRId32 ")", nsjconf->nice_level);
 	}
 	if (!nsjconf->skip_setsid) {
 		setsid();
