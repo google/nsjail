@@ -834,10 +834,6 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			break;
 		case 0x903:
 			nsjconf->nice_level = (int)strtol(optarg, NULL, 0);
-			if ((nsjconf->nice_level < -20) || (nsjconf->nice_level > -20)) {
-				LOG_W("Incorrect niceness setting!");
-				nsjconf->nice_level = 19;
-			}
 			break;
 		default:
 			cmdlineUsage(argv[0]);
