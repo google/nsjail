@@ -276,6 +276,16 @@ bool initNsFromChild(nsjconf_t* nsjconf) {
 		return false;
 	}
 
+	/*
+	 * Disable securebits again to avoid spawned programs
+	 * unexpectedly retaining capabilities after a UID/GID
+	 * change.
+	 */
+	if (prctl(PR_SET_SECUREBITS, 0UL, 0UL, 0UL, 0UL) == -1) {
+		PLOG_E("prctl(PR_SET_SECUREBITS, 0)");
+		return false;
+	}
+
 	return true;
 }
 
