@@ -100,9 +100,10 @@ static bool containPrepareEnv(nsjconf_t* nsjconf) {
 		PLOG_E("personality(%lx)", nsjconf->personality);
 		return false;
 	}
+	LOG_D("setpriority(%d)", nsjconf->nice_level);
 	errno = 0;
-	if (setpriority(PRIO_PROCESS, 0, 19) == -1 && errno != 0) {
-		PLOG_W("setpriority(19)");
+	if (setpriority(PRIO_PROCESS, 0, nsjconf->nice_level) == -1 && errno != 0) {
+		PLOG_W("setpriority(%d)", nsjconf->nice_level);
 	}
 	if (!nsjconf->skip_setsid) {
 		setsid();

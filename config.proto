@@ -237,7 +237,10 @@ message NsJailConfig {
     optional string macvlan_vs_gw = 78 [default = "192.168.0.1"];
     optional string macvlan_vs_ma = 79 [default = ""];
 
+    /* Niceness level of the jailed process */
+    optional int32 nice_level = 80 [default = 19];
+
     /* Binary path (with arguments) to be executed. If not specified here, it
        can be specified with cmd-line as "-- /path/to/command arg1 arg2" */
-    optional Exe exec_bin = 80;
+    optional Exe exec_bin = 81;
 }

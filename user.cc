@@ -88,7 +88,7 @@ static bool setGroupsDeny(nsjconf_t* nsjconf, pid_t pid) {
 
 	char fname[PATH_MAX];
 	snprintf(fname, sizeof(fname), "/proc/%d/setgroups", pid);
-	const char* denystr = "deny";
+	const char* const denystr = "deny";
 	if (!util::writeBufToFile(fname, denystr, strlen(denystr), O_WRONLY | O_CLOEXEC)) {
 		LOG_E("util::writeBufToFile('%s', '%s') failed", fname, denystr);
 		return false;
@@ -263,7 +263,7 @@ bool initNsFromChild(nsjconf_t* nsjconf) {
 
 	LOG_D("setgroups(%lu, %s)", groups.size(), groupsString.c_str());
 	if (setgroups(groups.size(), groups.data()) == -1) {
-		/* Indicate errror if specific groups were requested */
+		/* Indicate error if specific groups were requested */
 		if (groups.size() > 0) {
 			PLOG_E("setgroups(%lu, %s) failed", groups.size(), groupsString.c_str());
 			return false;

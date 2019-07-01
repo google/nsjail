@@ -142,6 +142,7 @@ struct nsjconf_t {
 	std::string kafel_string;
 	struct sock_fprog seccomp_fprog;
 	bool seccomp_log;
+	int nice_level;
 	long num_cpus;
 	uid_t orig_uid;
 	uid_t orig_euid;
