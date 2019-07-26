@@ -4,14 +4,14 @@ package nsjail;
 
 enum Mode {
     LISTEN = 0; /* Listening on a TCP port */
-    ONCE = 1;	/* Running the command once only */
-    RERUN = 2;	/* Re-executing the command (forever) */
+    ONCE = 1;   /* Running the command once only */
+    RERUN = 2;  /* Re-executing the command (forever) */
     EXECVE = 3; /* Executing command w/o the supervisor */
 }
 /* Should be self explanatory */
 enum LogLevel {
-    DEBUG = 0;	 /* Equivalent to the '-v' cmd-line option */
-    INFO = 1;	 /* Default level */
+    DEBUG = 0;   /* Equivalent to the '-v' cmd-line option */
+    INFO = 1;    /* Default level */
     WARNING = 2; /* Equivalent to the '-q' cmd-line option */
     ERROR = 3;
     FATAL = 4;
@@ -243,4 +243,10 @@ message NsJailConfig {
     /* Binary path (with arguments) to be executed. If not specified here, it
        can be specified with cmd-line as "-- /path/to/command arg1 arg2" */
     optional Exe exec_bin = 81;
+
+    /* Mount point for cgroup v2 in your system */
+    optional string cgroupv2_mount = 82 [default = "/sys/fs/cgroup"];
+
+    /* Use cgroup v2 */
+    optional bool use_cgroupv2 = 83 [default = false];
 }

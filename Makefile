@@ -37,7 +37,7 @@ LDFLAGS += -pie -Wl,-z,noexecstack -lpthread $(shell pkg-config --libs protobuf)
 
 BIN = nsjail
 LIBS = kafel/libkafel.a
-SRCS_CXX = caps.cc cgroup.cc cmdline.cc config.cc contain.cc cpu.cc logs.cc mnt.cc net.cc nsjail.cc pid.cc sandbox.cc subproc.cc uts.cc user.cc util.cc
+SRCS_CXX = caps.cc cgroup.cc cgroup2.cc cmdline.cc config.cc contain.cc cpu.cc logs.cc mnt.cc net.cc nsjail.cc pid.cc sandbox.cc subproc.cc uts.cc user.cc util.cc
 SRCS_PROTO = config.proto
 SRCS_PB_CXX = $(SRCS_PROTO:.proto=.pb.cc)
 SRCS_PB_H = $(SRCS_PROTO:.proto=.pb.h)
@@ -101,11 +101,12 @@ indent:
 
 caps.o: caps.h nsjail.h logs.h macros.h util.h
 cgroup.o: cgroup.h nsjail.h logs.h util.h
+cgroup2.o: cgroup2.h nsjail.h logs.h util.h
 cmdline.o: cmdline.h nsjail.h caps.h config.h logs.h macros.h mnt.h user.h
 cmdline.o: util.h
 config.o: config.h nsjail.h caps.h cmdline.h config.pb.h logs.h macros.h
 config.o: mnt.h user.h util.h
-contain.o: contain.h nsjail.h caps.h cgroup.h cpu.h logs.h macros.h mnt.h
+contain.o: contain.h nsjail.h caps.h cgroup.h cgroup2.h cpu.h logs.h macros.h mnt.h
 contain.o: net.h pid.h user.h util.h uts.h
 cpu.o: cpu.h nsjail.h logs.h util.h
 logs.o: logs.h macros.h util.h nsjail.h
@@ -114,7 +115,7 @@ net.o: net.h nsjail.h logs.h subproc.h
 nsjail.o: nsjail.h cmdline.h logs.h macros.h net.h sandbox.h subproc.h util.h
 pid.o: pid.h nsjail.h logs.h subproc.h
 sandbox.o: sandbox.h nsjail.h kafel/include/kafel.h logs.h util.h
-subproc.o: subproc.h nsjail.h cgroup.h contain.h logs.h macros.h net.h
+subproc.o: subproc.h nsjail.h cgroup.h cgroup2.h contain.h logs.h macros.h net.h
 subproc.o: sandbox.h user.h util.h
 uts.o: uts.h nsjail.h logs.h
 user.o: user.h nsjail.h logs.h macros.h subproc.h util.h
