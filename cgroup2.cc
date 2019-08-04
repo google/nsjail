@@ -49,7 +49,6 @@ static bool createCgroup(const std::string &cgroup_path, pid_t pid) {
 		PLOG_W("mkdir('%s', 0700) failed", cgroup_path.c_str());
 		return false;
 	}
-
 	return true;
 }
 
@@ -74,7 +73,6 @@ static bool addPidToProcList(const std::string &cgroup_path, pid_t pid) {
 		LOG_W("Could not update cgroup.procs");
 		return false;
 	}
-
 	return true;
 }
 
