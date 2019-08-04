@@ -146,6 +146,8 @@ struct custom_option custom_opts[] = {
     { { "cgroup_cpu_ms_per_sec", required_argument, NULL, 0x0831 }, "Number of milliseconds of CPU time per second that the process group can use (default: '0' - no limit)" },
     { { "cgroup_cpu_mount", required_argument, NULL, 0x0832 }, "Location of cpu cgroup FS (default: '/sys/fs/cgroup/net_cls')" },
     { { "cgroup_cpu_parent", required_argument, NULL, 0x0833 }, "Which pre-existing cpu cgroup to use as a parent (default: 'NSJAIL')" },
+    { { "cgroupv2_mount", required_argument, NULL, 0x0834}, "Location of cgroupv2 directory (default: '/sys/fs/cgroup')"},
+    { { "use_cgroupv2", no_argument, NULL, 0x0835}, "Use cgroup v2"},
     { { "iface_no_lo", no_argument, NULL, 0x700 }, "Don't bring the 'lo' interface up" },
     { { "iface_own", required_argument, NULL, 0x704 }, "Move this existing network interface into the new NET namespace. Can be specified multiple times" },
     { { "macvlan_iface", required_argument, NULL, 'I' }, "Interface which will be cloned (MACVLAN) and put inside the subprocess' namespace as 'vs'" },
@@ -434,6 +436,8 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->cgroup_cpu_mount = "/sys/fs/cgroup/cpu";
 	nsjconf->cgroup_cpu_parent = "NSJAIL";
 	nsjconf->cgroup_cpu_ms_per_sec = 0U;
+	nsjconf->cgroupv2_mount = "/sys/fs/cgroup";
+	nsjconf->use_cgroupv2 = false;
 	nsjconf->iface_lo = true;
 	nsjconf->iface_vs_ip = "0.0.0.0";
 	nsjconf->iface_vs_nm = "255.255.255.0";
@@ -822,6 +826,12 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			break;
 		case 0x833:
 			nsjconf->cgroup_cpu_parent = optarg;
+			break;
+		case 0x834:
+			nsjconf->cgroupv2_mount = optarg;
+			break;
+		case 0x835:
+			nsjconf->use_cgroupv2 = true;
 			break;
 		case 'P':
 			nsjconf->kafel_file_path = optarg;
