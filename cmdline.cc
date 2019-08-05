@@ -108,6 +108,7 @@ struct custom_option custom_opts[] = {
     { { "rlimit_nofile", required_argument, NULL, 0x0205 }, "RLIMIT_NOFILE, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 32)" },
     { { "rlimit_nproc", required_argument, NULL, 0x0206 }, "RLIMIT_NPROC, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 'soft')" },
     { { "rlimit_stack", required_argument, NULL, 0x0207 }, "RLIMIT_STACK in MB, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 'soft')" },
+    { { "disable_rlimits", no_argument, NULL, 0x0208 }, "Disable all rlimits, default to limits set by parent" },
     { { "persona_addr_compat_layout", no_argument, NULL, 0x0301 }, "personality(ADDR_COMPAT_LAYOUT)" },
     { { "persona_mmap_page_zero", no_argument, NULL, 0x0302 }, "personality(MMAP_PAGE_ZERO)" },
     { { "persona_read_implies_exec", no_argument, NULL, 0x0303 }, "personality(READ_IMPLIES_EXEC)" },
@@ -408,6 +409,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->rl_nofile = 32ULL;
 	nsjconf->rl_nproc = parseRLimit(RLIMIT_NPROC, "soft", 1);
 	nsjconf->rl_stack = parseRLimit(RLIMIT_STACK, "soft", 1);
+	nsjconf->disable_rl = false;
 	nsjconf->personality = 0;
 	nsjconf->clone_newnet = true;
 	nsjconf->clone_newuser = true;
@@ -548,6 +550,9 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			break;
 		case 0x0207:
 			nsjconf->rl_stack = parseRLimit(RLIMIT_STACK, optarg, (1024 * 1024));
+			break;
+		case 0x0208:
+			nsjconf->disable_rl = true;
 			break;
 		case 0x0301:
 			nsjconf->personality |= ADDR_COMPAT_LAYOUT;

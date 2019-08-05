@@ -104,6 +104,7 @@ struct nsjconf_t {
 	uint64_t rl_nofile;
 	uint64_t rl_nproc;
 	uint64_t rl_stack;
+	bool disable_rl;
 	unsigned long personality;
 	bool clone_newnet;
 	bool clone_newuser;

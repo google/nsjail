@@ -120,6 +120,10 @@ static bool containCPU(nsjconf_t* nsjconf) {
 }
 
 static bool containSetLimits(nsjconf_t* nsjconf) {
+	if (nsjconf->disable_rl) {
+		return true;
+	}
+
 	struct rlimit64 rl;
 	rl.rlim_cur = rl.rlim_max = nsjconf->rl_as;
 	if (setrlimit64(RLIMIT_AS, &rl) == -1) {
