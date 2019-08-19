@@ -136,6 +136,9 @@ RLIMIT_NPROC, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for th
 \fB\-\-rlimit_stack\fR VALUE
 RLIMIT_STACK in MB, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM_INFINITY (default: 'soft')
 .TP
+\fB\-\-disable_rlimits\fR
+Disable all rlimits, default to limits set by parent
+.TP
 \fB\-\-persona_addr_compat_layout\fR
 personality(ADDR_COMPAT_LAYOUT)
 .TP

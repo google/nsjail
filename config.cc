@@ -160,6 +160,7 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 	nsjconf->rl_nproc = configRLimit(RLIMIT_NPROC, njc.rlimit_nproc_type(), njc.rlimit_nproc());
 	nsjconf->rl_stack = configRLimit(
 	    RLIMIT_STACK, njc.rlimit_stack_type(), njc.rlimit_stack(), 1024UL * 1024UL);
+	nsjconf->disable_rl = njc.disable_rl();
 
 	if (njc.persona_addr_compat_layout()) {
 		nsjconf->personality |= ADDR_COMPAT_LAYOUT;

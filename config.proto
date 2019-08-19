@@ -249,4 +249,7 @@ message NsJailConfig {
 
     /* Use cgroup v2 */
     optional bool use_cgroupv2 = 83 [default = false];
+
+    /* Disable all rlimits, default to limits set by parent */
+    optional bool disable_rl = 84 [default = false];
 }
