@@ -160,6 +160,9 @@ message NsJailConfig {
     optional uint64 rlimit_stack = 40 [default = 1048576];
     optional RLimit rlimit_stack_type = 41 [default = SOFT];
 
+    /* Disable all rlimits, default to limits set by parent */
+    optional bool disable_rl = 84 [default = false];
+
     /* See 'man personality' for more */
     optional bool persona_addr_compat_layout = 42 [default = false];
     optional bool persona_mmap_page_zero = 43 [default = false];
@@ -249,7 +252,4 @@ message NsJailConfig {
 
     /* Use cgroup v2 */
     optional bool use_cgroupv2 = 83 [default = false];
-
-    /* Disable all rlimits, default to limits set by parent */
-    optional bool disable_rl = 84 [default = false];
 }
