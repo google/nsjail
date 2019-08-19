@@ -205,7 +205,7 @@ bool limitConns(nsjconf_t* nsjconf, int connsock) {
 }
 
 int getRecvSocket(const char* bindhost, int port) {
-	if (port < 1 || port > 65535) {
+	if (port < 0 || port > 65535) {
 		LOG_F(
 		    "TCP port %d out of bounds (0 <= port <= 65535), specify one with --port "
 		    "<port>",

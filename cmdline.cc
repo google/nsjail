@@ -487,6 +487,10 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			nsjconf->chroot = optarg;
 			break;
 		case 'p':
+			if (!util::isANumber(optarg)) {
+				LOG_E("Couldn't parse TCP port '%s'", optarg);
+				return nullptr;
+			}
 			nsjconf->port = strtoumax(optarg, NULL, 0);
 			nsjconf->mode = MODE_LISTEN_TCP;
 			break;
