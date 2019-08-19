@@ -243,4 +243,10 @@ message NsJailConfig {
     /* Binary path (with arguments) to be executed. If not specified here, it
        can be specified with cmd-line as "-- /path/to/command arg1 arg2" */
     optional Exe exec_bin = 81;
+
+    /* Mount point for cgroup v2 in your system */
+    optional string cgroupv2_mount = 82 [default = "/sys/fs/cgroup"];
+
+    /* Use cgroup v2 */
+    optional bool use_cgroupv2 = 83 [default = false];
 }

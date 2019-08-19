@@ -45,6 +45,7 @@
 #include <vector>
 
 #include "cgroup.h"
+#include "cgroup2.h"
 #include "contain.h"
 #include "logs.h"
 #include "macros.h"
@@ -141,7 +142,12 @@ static void subprocNewProc(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err
 			LOG_E("Couldn't initialize net user namespace");
 			return;
 		}
-		if (!cgroup::initNsFromParent(nsjconf, getpid())) {
+		if (nsjconf->use_cgroupv2) {
+			if (!cgroup2::initNsFromParent(nsjconf, getpid())) {
+				LOG_E("Couldn't initialize net user namespace");
+				return;
+			}
+		} else if (!cgroup::initNsFromParent(nsjconf, getpid())) {
 			LOG_E("Couldn't initialize net user namespace");
 			return;
 		}
@@ -296,7 +302,11 @@ static int reapProc(nsjconf_t* nsjconf, pid_t pid, bool should_wait = false) {
 	int status;
 
 	if (wait4(pid, &status, should_wait ? 0 : WNOHANG, NULL) == pid) {
-		cgroup::finishFromParent(nsjconf, pid);
+		if (nsjconf->use_cgroupv2) {
+			cgroup2::finishFromParent(nsjconf, pid);
+		} else {
+			cgroup::finishFromParent(nsjconf, pid);
+		}
 
 		std::string remote_txt = "[UNKNOWN]";
 		const pids_t* elem = getPidElem(nsjconf, pid);
@@ -378,10 +388,17 @@ static bool initParent(nsjconf_t* nsjconf, pid_t pid, int pipefd) {
 		LOG_E("Couldn't initialize net namespace for pid=%d", pid);
 		return false;
 	}
-	if (!cgroup::initNsFromParent(nsjconf, pid)) {
+
+	if (nsjconf->use_cgroupv2) {
+		if (!cgroup2::initNsFromParent(nsjconf, pid)) {
+			LOG_E("Couldn't initialize cgroup 2 user namespace for pid=%d", pid);
+			exit(0xff);
+		}
+	} else if (!cgroup::initNsFromParent(nsjconf, pid)) {
 		LOG_E("Couldn't initialize cgroup user namespace for pid=%d", pid);
 		exit(0xff);
 	}
+
 	if (!user::initNsFromParent(nsjconf, pid)) {
 		LOG_E("Couldn't initialize user namespace for pid=%d", pid);
 		return false;
