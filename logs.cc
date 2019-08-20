@@ -45,22 +45,26 @@ static bool _log_fd_isatty = true;
 static enum llevel_t _log_level = INFO;
 static bool _log_set = false;
 
-__attribute__((constructor)) static void log_init(void) {
-	_log_fd = fcntl(_log_fd, F_DUPFD_CLOEXEC, 0);
-	if (_log_fd == -1) {
-		_log_fd = STDERR_FILENO;
+int getDupLogFd(int fd) {
+	fd = fcntl(fd, F_DUPFD_CLOEXEC, 0);
+	if (fd >= 0) {
+		return fd;
 	}
-	_log_fd_isatty = isatty(_log_fd);
-}
-
-bool logSet() {
-	return _log_set;
+	return STDERR_FILENO;
 }
 
 /*
  * Log to stderr by default. Use a dup()d fd, because in the future we'll associate the
  * connection socket with fd (0, 1, 2).
  */
+__attribute__((constructor)) static void log_init(void) {
+	_log_fd = getDupLogFd(STDERR_FILENO);
+	_log_fd_isatty = isatty(_log_fd);
+}
+
+bool logSet() {
+	return _log_set;
+}
 
 void logLevel(enum llevel_t ll) {
 	_log_level = ll;
@@ -71,12 +75,13 @@ void logFile(const std::string& logfile) {
 	/* Close previous log_fd */
 	if (_log_fd > STDERR_FILENO) {
 		close(_log_fd);
-		_log_fd = STDERR_FILENO;
 	}
 	if (TEMP_FAILURE_RETRY(_log_fd = open(logfile.c_str(),
 				   O_CREAT | O_RDWR | O_APPEND | O_CLOEXEC, 0640)) == -1) {
-		_log_fd = STDERR_FILENO;
-		PLOG_W("Couldn't open logfile open('%s')", logfile.c_str());
+		int saved_errno = errno;
+		_log_fd = getDupLogFd(STDERR_FILENO);
+		LOG_W(
+		    "Couldn't open logfile open('%s'): %s", logfile.c_str(), strerror(saved_errno));
 	}
 	_log_fd_isatty = (isatty(_log_fd) == 1);
 }
