@@ -354,6 +354,10 @@ static bool initNsInternal(nsjconf_t* nsjconf) {
 			PLOG_E("chdir('/')");
 			return false;
 		}
+		if (chdir(nsjconf->cwd.c_str()) == -1) {
+			PLOG_E("chdir('%s')", nsjconf->cwd.c_str());
+			return false;
+		}
 		return true;
 	}
 
