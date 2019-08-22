@@ -45,12 +45,17 @@ static bool _log_fd_isatty = true;
 static enum llevel_t _log_level = INFO;
 static bool _log_set = false;
 
-int getDupLogFd(int fd) {
-	fd = fcntl(fd, F_DUPFD_CLOEXEC, 0);
-	if (fd >= 0) {
-		return fd;
+static void setDupLogFdOr(int fd, int orfd) {
+	int saved_errno = errno;
+	_log_fd = fcntl(fd, F_DUPFD_CLOEXEC, 0);
+	if (_log_fd == -1) {
+		_log_fd = fcntl(orfd, F_DUPFD_CLOEXEC, 0);
 	}
-	return STDERR_FILENO;
+	if (_log_fd == -1) {
+		_log_fd = orfd;
+	}
+	_log_fd_isatty = (isatty(_log_fd) == 1);
+	errno = saved_errno;
 }
 
 /*
@@ -58,8 +63,7 @@ int getDupLogFd(int fd) {
  * connection socket with fd (0, 1, 2).
  */
 __attribute__((constructor)) static void log_init(void) {
-	_log_fd = getDupLogFd(STDERR_FILENO);
-	_log_fd_isatty = isatty(_log_fd);
+	setDupLogFdOr(STDERR_FILENO, STDERR_FILENO);
 }
 
 bool logSet() {
@@ -76,14 +80,14 @@ void logFile(const std::string& logfile) {
 	if (_log_fd > STDERR_FILENO) {
 		close(_log_fd);
 	}
-	if (TEMP_FAILURE_RETRY(_log_fd = open(logfile.c_str(),
-				   O_CREAT | O_RDWR | O_APPEND | O_CLOEXEC, 0640)) == -1) {
-		int saved_errno = errno;
-		_log_fd = getDupLogFd(STDERR_FILENO);
-		LOG_W(
-		    "Couldn't open logfile open('%s'): %s", logfile.c_str(), strerror(saved_errno));
+	int newlogfd = TEMP_FAILURE_RETRY(
+	    open(logfile.c_str(), O_CREAT | O_RDWR | O_APPEND | O_CLOEXEC, 0640));
+	setDupLogFdOr(newlogfd, STDERR_FILENO);
+	if (newlogfd == -1) {
+		PLOG_W("Couldn't open logfile open('%s')", logfile.c_str());
+	} else {
+		close(newlogfd);
 	}
-	_log_fd_isatty = (isatty(_log_fd) == 1);
 }
 
 void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt, ...) {
