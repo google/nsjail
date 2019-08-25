@@ -337,26 +337,26 @@ static std::unique_ptr<std::string> getDir(nsjconf_t* nsjconf, const char* name)
 	return nullptr;
 }
 
-static bool initNsInternal(nsjconf_t* nsjconf) {
+static bool initNoCloneNs(nsjconf_t* nsjconf) {
 	/*
 	 * If CLONE_NEWNS is not used, we would be changing the global mount namespace, so simply
 	 * use --chroot in this case
 	 */
-	if (!nsjconf->clone_newns) {
-		if (nsjconf->chroot.empty()) {
-			return true;
-		}
-		if (chroot(nsjconf->chroot.c_str()) == -1) {
-			PLOG_E("chroot('%s')", nsjconf->chroot.c_str());
-			return false;
-		}
-		if (chdir("/") == -1) {
-			PLOG_E("chdir('/')");
-			return false;
-		}
+	if (nsjconf->chroot.empty()) {
 		return true;
 	}
+	if (chroot(nsjconf->chroot.c_str()) == -1) {
+		PLOG_E("chroot('%s')", nsjconf->chroot.c_str());
+		return false;
+	}
+	if (chdir("/") == -1) {
+		PLOG_E("chdir('/')");
+		return false;
+	}
+	return true;
+}
 
+static bool initCloneNs(nsjconf_t* nsjconf) {
 	if (chdir("/") == -1) {
 		PLOG_E("chdir('/')");
 		return false;
@@ -399,11 +399,12 @@ static bool initNsInternal(nsjconf_t* nsjconf) {
 		return false;
 	}
 	/*
-	 * This requires some explanation: It's actually possible to pivot_root('/', '/'). After
-	 * this operation has been completed, the old root is mounted over the new root, and it's OK
-	 * to simply umount('/') now, and to have new_root as '/'. This allows us not care about
-	 * providing any special directory for old_root, which is sometimes not easy, given that
-	 * e.g. /tmp might not always be present inside new_root
+	 * This requires some explanation: It's actually possible to pivot_root('/', '/').
+	 * After this operation has been completed, the old root is mounted over the new
+	 * root, and it's OK to simply umount('/') now, and to have new_root as '/'. This
+	 * allows us not care about providing any special directory for old_root, which is
+	 * sometimes not easy, given that e.g. /tmp might not always be present inside
+	 * new_root
 	 */
 	if (util::syscall(
 		__NR_pivot_root, (uintptr_t)destdir->c_str(), (uintptr_t)destdir->c_str()) == -1) {
@@ -415,10 +416,6 @@ static bool initNsInternal(nsjconf_t* nsjconf) {
 		PLOG_E("umount2('/', MNT_DETACH)");
 		return false;
 	}
-	if (chdir(nsjconf->cwd.c_str()) == -1) {
-		PLOG_E("chdir('%s')", nsjconf->cwd.c_str());
-		return false;
-	}
 
 	for (const auto& p : nsjconf->mountpts) {
 		if (!remountPt(p) && p.is_mandatory) {
@@ -426,6 +423,24 @@ static bool initNsInternal(nsjconf_t* nsjconf) {
 		}
 	}
 
+	return true;
+}
+
+static bool initNsInternal(nsjconf_t* nsjconf) {
+	if (nsjconf->clone_newns) {
+		if (!initCloneNs(nsjconf)) {
+			return false;
+		}
+	} else {
+		if (!initNoCloneNs(nsjconf)) {
+			return false;
+		}
+	}
+
+	if (chdir(nsjconf->cwd.c_str()) == -1) {
+		PLOG_E("chdir('%s')", nsjconf->cwd.c_str());
+		return false;
+	}
 	return true;
 }
 
