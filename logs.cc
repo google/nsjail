@@ -76,18 +76,18 @@ void logLevel(enum llevel_t ll) {
 
 void logFile(const std::string& logfile) {
 	_log_set = true;
+	int newlogfd = TEMP_FAILURE_RETRY(
+	    open(logfile.c_str(), O_CREAT | O_RDWR | O_APPEND | O_CLOEXEC, 0640));
+	if (newlogfd == -1) {
+		PLOG_W("Couldn't open logfile open('%s')", logfile.c_str());
+		return;
+	}
 	/* Close previous log_fd */
 	if (_log_fd > STDERR_FILENO) {
 		close(_log_fd);
 	}
-	int newlogfd = TEMP_FAILURE_RETRY(
-	    open(logfile.c_str(), O_CREAT | O_RDWR | O_APPEND | O_CLOEXEC, 0640));
 	setDupLogFdOr(newlogfd, STDERR_FILENO);
-	if (newlogfd == -1) {
-		PLOG_W("Couldn't open logfile open('%s')", logfile.c_str());
-	} else {
-		close(newlogfd);
-	}
+	close(newlogfd);
 }
 
 void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt, ...) {
