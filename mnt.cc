@@ -572,9 +572,9 @@ const std::string describeMountPt(const mount_t& mpt) {
 	    .append("'");
 
 	if (mpt.is_dir) {
-		descr.append(" is_dir:true");
+		descr.append(" dir:true");
 	} else {
-		descr.append(" is_dir:false");
+		descr.append(" dir:false");
 	}
 	if (!mpt.is_mandatory) {
 		descr.append(" mandatory:false");
