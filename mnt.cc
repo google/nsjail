@@ -478,7 +478,7 @@ static bool addMountPt(mount_t* mnt, const std::string& src, const std::string& 
 	if (!src_env.empty()) {
 		const char* e = getenv(src_env.c_str());
 		if (e == NULL) {
-			LOG_W("No such envvar:'%s'", src_env.c_str());
+			LOG_W("No such envar:'%s'", src_env.c_str());
 			return false;
 		}
 		mnt->src = e;
@@ -488,7 +488,7 @@ static bool addMountPt(mount_t* mnt, const std::string& src, const std::string& 
 	if (!dst_env.empty()) {
 		const char* e = getenv(dst_env.c_str());
 		if (e == NULL) {
-			LOG_W("No such envvar:'%s'", dst_env.c_str());
+			LOG_W("No such envar:'%s'", dst_env.c_str());
 			return false;
 		}
 		mnt->dst = e;
@@ -572,9 +572,9 @@ const std::string describeMountPt(const mount_t& mpt) {
 	    .append("'");
 
 	if (mpt.is_dir) {
-		descr.append(" is_dir:true");
+		descr.append(" dir:true");
 	} else {
-		descr.append(" is_dir:false");
+		descr.append(" dir:false");
 	}
 	if (!mpt.is_mandatory) {
 		descr.append(" mandatory:false");

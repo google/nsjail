@@ -92,8 +92,8 @@ struct custom_option custom_opts[] = {
     { { "verbose", no_argument, NULL, 'v' }, "Verbose output" },
     { { "quiet", no_argument, NULL, 'q' }, "Log warning and more important messages only" },
     { { "really_quiet", no_argument, NULL, 'Q' }, "Log fatal messages only" },
-    { { "keep_env", no_argument, NULL, 'e' }, "Pass all environment variables to the child process (default: all envvars are cleared)" },
-    { { "env", required_argument, NULL, 'E' }, "Additional environment variable (can be used multiple times). If the envvar doesn't contain '=' (e.g. just the 'DISPLAY' string), the current envvar value will be used" },
+    { { "keep_env", no_argument, NULL, 'e' }, "Pass all environment variables to the child process (default: all envars are cleared)" },
+    { { "env", required_argument, NULL, 'E' }, "Additional environment variable (can be used multiple times). If the envar doesn't contain '=' (e.g. just the 'DISPLAY' string), the current envar value will be used" },
     { { "keep_caps", no_argument, NULL, 0x0501 }, "Don't drop any capabilities" },
     { { "cap", required_argument, NULL, 0x0509 }, "Retain this capability, e.g. CAP_PTRACE (can be specified multiple times)" },
     { { "silent", no_argument, NULL, 0x0502 }, "Redirect child process' fd:0/1/2 to /dev/null" },
@@ -198,7 +198,7 @@ void addEnv(nsjconf_t* nsjconf, const std::string& env) {
 	}
 	char* e = getenv(env.c_str());
 	if (!e) {
-		LOG_W("Requested to use the '%s' envvar, but it's not set. It'll be ignored",
+		LOG_W("Requested to use the '%s' envar, but it's not set. It'll be ignored",
 		    env.c_str());
 		return;
 	}
