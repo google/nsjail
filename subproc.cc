@@ -190,7 +190,7 @@ static void subprocNewProc(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err
 		util::syscall(__NR_execveat, nsjconf->exec_fd, (uintptr_t) "",
 		    (uintptr_t)argv.data(), (uintptr_t)environ, AT_EMPTY_PATH);
 #else  /* defined(__NR_execveat) */
-		LOG_E("Your system doesn't support execveat() util::syscall");
+		LOG_E("Your system doesn't support execveat() syscall");
 		return;
 #endif /* defined(__NR_execveat) */
 	} else {
@@ -208,7 +208,7 @@ static void addProc(nsjconf_t* nsjconf, pid_t pid, int sock) {
 	p.remote_txt = net::connToText(sock, /* remote= */ true, &p.remote_addr);
 
 	char fname[PATH_MAX];
-	snprintf(fname, sizeof(fname), "/proc/%d/util::syscall", (int)pid);
+	snprintf(fname, sizeof(fname), "/proc/%d/syscall", (int)pid);
 	p.pid_syscall_fd = TEMP_FAILURE_RETRY(open(fname, O_RDONLY | O_CLOEXEC));
 
 	nsjconf->pids.push_back(p);
@@ -256,8 +256,7 @@ static const pids_t* getPidElem(nsjconf_t* nsjconf, pid_t pid) {
 }
 
 static void seccompViolation(nsjconf_t* nsjconf, siginfo_t* si) {
-	LOG_W(
-	    "pid=%d commited a util::syscall/seccomp violation and exited with SIGSYS", si->si_pid);
+	LOG_W("pid=%d commited a syscall/seccomp violation and exited with SIGSYS", si->si_pid);
 
 	const pids_t* p = getPidElem(nsjconf, si->si_pid);
 	if (p == NULL) {
