@@ -106,7 +106,7 @@ message NsJailConfig {
 
     /* FD to log to. */
     optional int32 log_fd = 16;
-    /* File to save lofs to */
+    /* File to save logs to */
     optional string log_file = 17;
     /* Minimum log level displayed.
        See 'msg LogLevel' description for more */
