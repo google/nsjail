@@ -257,22 +257,22 @@ bool initNsFromChild(nsjconf_t* nsjconf) {
 	groupsString += "]";
 
 	if (!setResGid(nsjconf->gids[0].inside_id)) {
-		PLOG_E("setresgid(%u)", nsjconf->gids[0].inside_id);
+		PLOG_E("setresgid(%lu)", (unsigned long)nsjconf->gids[0].inside_id);
 		return false;
 	}
 
-	LOG_D("setgroups(%lu, %s)", groups.size(), groupsString.c_str());
+	LOG_D("setgroups(%zu, %s)", groups.size(), groupsString.c_str());
 	if (setgroups(groups.size(), groups.data()) == -1) {
 		/* Indicate error if specific groups were requested */
 		if (groups.size() > 0) {
-			PLOG_E("setgroups(%lu, %s) failed", groups.size(), groupsString.c_str());
+			PLOG_E("setgroups(%zu, %s) failed", groups.size(), groupsString.c_str());
 			return false;
 		}
-		PLOG_D("setgroups(%lu, %s) failed", groups.size(), groupsString.c_str());
+		PLOG_D("setgroups(%zu, %s) failed", groups.size(), groupsString.c_str());
 	}
 
 	if (!setResUid(nsjconf->uids[0].inside_id)) {
-		PLOG_E("setresuid(%u)", nsjconf->uids[0].inside_id);
+		PLOG_E("setresuid(%lu)", (unsigned long)nsjconf->uids[0].inside_id);
 		return false;
 	}
 
