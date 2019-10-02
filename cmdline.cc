@@ -507,10 +507,10 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			nsjconf->max_conns_per_ip = strtoul(optarg, NULL, 0);
 			break;
 		case 'l':
-			logs::logFile(optarg);
+			logs::logFile(optarg, STDERR_FILENO);
 			break;
 		case 'L':
-			logs::logFile(std::string("/dev/fd/") + optarg);
+			logs::logFile("", std::strtol(optarg, NULL, 0));
 			break;
 		case 'd':
 			nsjconf->daemonize = true;
@@ -862,7 +862,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	}
 
 	if (nsjconf->daemonize && !logs::logSet()) {
-		logs::logFile(_LOG_DEFAULT_FILE);
+		logs::logFile(_LOG_DEFAULT_FILE, STDERR_FILENO);
 	}
 	if (!setupMounts(nsjconf.get())) {
 		return nullptr;

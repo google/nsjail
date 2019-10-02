@@ -74,19 +74,21 @@ void logLevel(enum llevel_t ll) {
 	_log_level = ll;
 }
 
-void logFile(const std::string& logfile) {
+void logFile(const std::string& log_file, int log_fd) {
 	_log_set = true;
-	int newlogfd = TEMP_FAILURE_RETRY(
-	    open(logfile.c_str(), O_CREAT | O_RDWR | O_APPEND | O_CLOEXEC, 0640));
-	if (newlogfd == -1) {
-		PLOG_W("Couldn't open logfile open('%s')", logfile.c_str());
-		return;
+	int newlogfd = -1;
+	if (!log_file.empty()) {
+		newlogfd = TEMP_FAILURE_RETRY(
+		    open(log_file.c_str(), O_CREAT | O_RDWR | O_APPEND | O_CLOEXEC, 0640));
+		if (newlogfd == -1) {
+			PLOG_W("Couldn't open('%s')", log_file.c_str());
+		}
 	}
 	/* Close previous log_fd */
 	if (_log_fd > STDERR_FILENO) {
 		close(_log_fd);
 	}
-	setDupLogFdOr(newlogfd, STDERR_FILENO);
+	setDupLogFdOr(newlogfd, log_fd);
 	close(newlogfd);
 }
 

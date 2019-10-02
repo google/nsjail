@@ -96,11 +96,12 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 	nsjconf->daemonize = njc.daemon();
 
 	if (njc.has_log_fd()) {
-		logs::logFile(std::string("/dev/fd/") + std::to_string(njc.log_fd()));
+		logs::logFile("", njc.log_fd());
 	}
 	if (njc.has_log_file()) {
-		logs::logFile(njc.log_file());
+		logs::logFile(njc.log_file(), STDERR_FILENO);
 	}
+
 	if (njc.has_log_level()) {
 		switch (njc.log_level()) {
 		case nsjail::LogLevel::DEBUG:
