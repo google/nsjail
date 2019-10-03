@@ -226,7 +226,9 @@ int main(int argc, char* argv[]) {
 
 	sandbox::closePolicy(nsjconf.get());
 	/* Try to restore the underlying console's params in case some program has changed it */
-	nsjail::setTC(STDIN_FILENO, trm.get());
+	if (!nsjconf->daemonize) {
+		nsjail::setTC(STDIN_FILENO, trm.get());
+	}
 
 	LOG_D("Returning with %d", ret);
 	return ret;
