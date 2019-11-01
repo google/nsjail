@@ -77,12 +77,21 @@ static bool setResUid(uid_t uid) {
 	return true;
 }
 
+static bool hasGidMapSelf(nsjconf_t* nsjconf) {
+	for (const auto& gid : nsjconf->gids) {
+		if (!gid.is_newidmap) {
+			return true;
+		}
+	}
+	return false;
+}
+
 static bool setGroupsDeny(nsjconf_t* nsjconf, pid_t pid) {
 	/*
 	 * No need to write 'deny' to /proc/pid/setgroups if our euid==0, as writing to
 	 * uid_map/gid_map will succeed anyway
 	 */
-	if (!nsjconf->clone_newuser || nsjconf->orig_euid == 0) {
+	if (!nsjconf->clone_newuser || nsjconf->orig_euid == 0 || !hasGidMapSelf(nsjconf)) {
 		return true;
 	}
 
@@ -153,7 +162,7 @@ static bool gidMapSelf(nsjconf_t* nsjconf, pid_t pid) {
 }
 
 /* Use /usr/bin/newgidmap for writing the gid map */
-static bool gidMapExternal(nsjconf_t* nsjconf, pid_t pid UNUSED) {
+static bool gidMapExternal(nsjconf_t* nsjconf, pid_t pid) {
 	bool use = false;
 
 	std::vector<std::string> argv = {"/usr/bin/newgidmap", std::to_string(pid)};
@@ -179,7 +188,7 @@ static bool gidMapExternal(nsjconf_t* nsjconf, pid_t pid UNUSED) {
 }
 
 /* Use /usr/bin/newuidmap for writing the uid map */
-static bool uidMapExternal(nsjconf_t* nsjconf, pid_t pid UNUSED) {
+static bool uidMapExternal(nsjconf_t* nsjconf, pid_t pid) {
 	bool use = false;
 
 	std::vector<std::string> argv = {"/usr/bin/newuidmap", std::to_string(pid)};
