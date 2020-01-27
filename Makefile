@@ -69,10 +69,14 @@ ifneq ($(NL3_EXISTS), yes)
 endif
 	$(CXX) -o $(BIN) $(OBJS) $(LIBS) $(LDFLAGS)
 
-kafel/libkafel.a:
+.PHONY: kafel_init
+kafel_init:
 ifeq ("$(wildcard kafel/Makefile)","")
 	git submodule update --init
 endif
+
+kafel/include/kafel.h: kafel_init
+kafel/libkafel.a: kafel_init
 	$(MAKE) -C kafel
 
 # Sequence of proto deps, which doesn't fit automatic make rules
