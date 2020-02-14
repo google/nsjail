@@ -23,6 +23,7 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <net/if.h>
 #include <net/route.h>
 #include <netinet/in.h>
@@ -232,6 +233,10 @@ int getRecvSocket(const char* bindhost, int port) {
 		PLOG_E("socket(AF_INET6)");
 		return -1;
 	}
+	if (fcntl(sockfd, F_SETFL, O_NONBLOCK)) {
+		PLOG_E("fcntl(%d, F_SETFL, O_NONBLOCK)", sockfd);
+		return -1;
+	}
 	int so = 1;
 	if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &so, sizeof(so)) == -1) {
 		PLOG_E("setsockopt(%d, SO_REUSEADDR)", sockfd);
@@ -264,7 +269,7 @@ int getRecvSocket(const char* bindhost, int port) {
 int acceptConn(int listenfd) {
 	struct sockaddr_in6 cli_addr;
 	socklen_t socklen = sizeof(cli_addr);
-	int connfd = accept(listenfd, (struct sockaddr*)&cli_addr, &socklen);
+	int connfd = accept4(listenfd, (struct sockaddr*)&cli_addr, &socklen, SOCK_NONBLOCK);
 	if (connfd == -1) {
 		if (errno != EINTR) {
 			PLOG_E("accept(%d)", listenfd);

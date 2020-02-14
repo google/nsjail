@@ -21,6 +21,8 @@
 
 #include "nsjail.h"
 
+#include <fcntl.h>
+#include <poll.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -31,7 +33,10 @@
 #include <termios.h>
 #include <unistd.h>
 
+#include <algorithm>
+#include <cerrno>
 #include <memory>
+#include <vector>
 
 #include "cmdline.h"
 #include "logs.h"
@@ -47,10 +52,7 @@ static __thread int sigFatal = 0;
 static __thread bool showProc = false;
 
 static void sigHandler(int sig) {
-	if (sig == SIGALRM) {
-		return;
-	}
-	if (sig == SIGCHLD) {
+	if (sig == SIGALRM || sig == SIGCHLD || sig == SIGPIPE) {
 		return;
 	}
 	if (sig == SIGUSR1 || sig == SIGQUIT) {
@@ -74,7 +76,7 @@ static bool setSigHandler(int sig) {
 
 	if (sig == SIGTTIN || sig == SIGTTOU) {
 		sa.sa_handler = SIG_IGN;
-	};
+	}
 	if (sigaction(sig, &sa, NULL) == -1) {
 		PLOG_E("sigaction(%d)", sig);
 		return false;
@@ -115,6 +117,72 @@ static bool setTimer(nsjconf_t* nsjconf) {
 	return true;
 }
 
+static bool pipeTraffic(nsjconf_t* nsjconf, int listenfd) {
+	std::vector<struct pollfd> fds;
+	fds.reserve(nsjconf->pipes.size() * 2 + 1);
+	for (const auto& p : nsjconf->pipes) {
+		fds.push_back({
+		    .fd = p.first,
+		    .events = POLLIN,
+		    .revents = 0,
+		});
+		fds.push_back({
+		    .fd = p.second,
+		    .events = POLLOUT,
+		    .revents = 0,
+		});
+	}
+	fds.push_back({
+	    .fd = listenfd,
+	    .events = POLLIN,
+	    .revents = 0,
+	});
+	LOG_D("Waiting for fd activity");
+	while (poll(fds.data(), fds.size(), -1) > 0) {
+		if (fds.back().revents != 0) {
+			LOG_D("New connection ready");
+			return true;
+		}
+		bool cleanup = false;
+		for (size_t i = 0; i < fds.size() - 1; i += 2) {
+			bool read_ready = fds[i].events == 0 || (fds[i].revents & POLLIN) == POLLIN;
+			bool write_ready =
+			    fds[i + 1].events == 0 || (fds[i + 1].revents & POLLOUT) == POLLOUT;
+			if (read_ready && write_ready) {
+				if (splice(fds[i].fd, nullptr, fds[i + 1].fd, nullptr, 4096,
+					SPLICE_F_NONBLOCK) == -1 &&
+				    errno != EAGAIN) {
+					PLOG_E("splice fd pair #%ld {%d, %d}\n", i / 2, fds[i].fd,
+					    fds[i + 1].fd);
+				}
+				fds[i].events = POLLIN;
+				fds[i + 1].events = POLLOUT;
+			} else if (read_ready) {
+				LOG_D("Read ready on %ld", i / 2);
+				fds[i].events = 0;
+			} else if (write_ready) {
+				LOG_D("Write ready on %ld", i / 2);
+				fds[i + 1].events = 0;
+			}
+			if ((fds[i].revents & (POLLHUP | POLLERR)) != 0 ||
+			    (fds[i + 1].revents & (POLLHUP | POLLERR)) != 0) {
+				LOG_D("Hangup on %ld", i / 2);
+				cleanup = true;
+				close(fds[i].fd);
+				close(fds[i + 1].fd);
+				nsjconf->pipes[i / 2] = {0, 0};
+			}
+		}
+		if (cleanup) {
+			break;
+		}
+	}
+	nsjconf->pipes.erase(
+	    std::remove(nsjconf->pipes.begin(), nsjconf->pipes.end(), std::pair<int, int>(0, 0)),
+	    nsjconf->pipes.end());
+	return false;
+}
+
 static int listenMode(nsjconf_t* nsjconf) {
 	int listenfd = net::getRecvSocket(nsjconf->bindhost.c_str(), nsjconf->port);
 	if (listenfd == -1) {
@@ -131,10 +199,21 @@ static int listenMode(nsjconf_t* nsjconf) {
 			showProc = false;
 			subproc::displayProc(nsjconf);
 		}
-		int connfd = net::acceptConn(listenfd);
-		if (connfd >= 0) {
-			subproc::runChild(nsjconf, connfd, connfd, connfd);
-			close(connfd);
+		if (pipeTraffic(nsjconf, listenfd)) {
+			int connfd = net::acceptConn(listenfd);
+			if (connfd >= 0) {
+				int in[2];
+				int out[2];
+				if (pipe(in) != 0 || pipe(out) != 0) {
+					PLOG_E("pipe");
+					continue;
+				}
+				nsjconf->pipes.emplace_back(connfd, in[1]);
+				nsjconf->pipes.emplace_back(out[0], connfd);
+				subproc::runChild(nsjconf, in[0], out[1], out[1]);
+				close(in[0]);
+				close(out[1]);
+			}
 		}
 		subproc::reapProc(nsjconf);
 	}
