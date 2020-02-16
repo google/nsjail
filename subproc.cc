@@ -67,33 +67,33 @@ static const std::string cloneFlagsToStr(uintptr_t flags) {
 		const uintptr_t flag;
 		const char* const name;
 	} static const cloneFlags[] = {
-	    NS_VALSTR_STRUCT(CLONE_VM),
-	    NS_VALSTR_STRUCT(CLONE_FS),
-	    NS_VALSTR_STRUCT(CLONE_FILES),
-	    NS_VALSTR_STRUCT(CLONE_SIGHAND),
+		NS_VALSTR_STRUCT(CLONE_VM),
+		NS_VALSTR_STRUCT(CLONE_FS),
+		NS_VALSTR_STRUCT(CLONE_FILES),
+		NS_VALSTR_STRUCT(CLONE_SIGHAND),
 #if !defined(CLONE_PIDFD)
 #define CLONE_PIDFD 0x00001000
 #endif
-	    NS_VALSTR_STRUCT(CLONE_PIDFD),
-	    NS_VALSTR_STRUCT(CLONE_PTRACE),
-	    NS_VALSTR_STRUCT(CLONE_VFORK),
-	    NS_VALSTR_STRUCT(CLONE_PARENT),
-	    NS_VALSTR_STRUCT(CLONE_THREAD),
-	    NS_VALSTR_STRUCT(CLONE_NEWNS),
-	    NS_VALSTR_STRUCT(CLONE_SYSVSEM),
-	    NS_VALSTR_STRUCT(CLONE_SETTLS),
-	    NS_VALSTR_STRUCT(CLONE_PARENT_SETTID),
-	    NS_VALSTR_STRUCT(CLONE_CHILD_CLEARTID),
-	    NS_VALSTR_STRUCT(CLONE_DETACHED),
-	    NS_VALSTR_STRUCT(CLONE_UNTRACED),
-	    NS_VALSTR_STRUCT(CLONE_CHILD_SETTID),
-	    NS_VALSTR_STRUCT(CLONE_NEWCGROUP),
-	    NS_VALSTR_STRUCT(CLONE_NEWUTS),
-	    NS_VALSTR_STRUCT(CLONE_NEWIPC),
-	    NS_VALSTR_STRUCT(CLONE_NEWUSER),
-	    NS_VALSTR_STRUCT(CLONE_NEWPID),
-	    NS_VALSTR_STRUCT(CLONE_NEWNET),
-	    NS_VALSTR_STRUCT(CLONE_IO),
+		NS_VALSTR_STRUCT(CLONE_PIDFD),
+		NS_VALSTR_STRUCT(CLONE_PTRACE),
+		NS_VALSTR_STRUCT(CLONE_VFORK),
+		NS_VALSTR_STRUCT(CLONE_PARENT),
+		NS_VALSTR_STRUCT(CLONE_THREAD),
+		NS_VALSTR_STRUCT(CLONE_NEWNS),
+		NS_VALSTR_STRUCT(CLONE_SYSVSEM),
+		NS_VALSTR_STRUCT(CLONE_SETTLS),
+		NS_VALSTR_STRUCT(CLONE_PARENT_SETTID),
+		NS_VALSTR_STRUCT(CLONE_CHILD_CLEARTID),
+		NS_VALSTR_STRUCT(CLONE_DETACHED),
+		NS_VALSTR_STRUCT(CLONE_UNTRACED),
+		NS_VALSTR_STRUCT(CLONE_CHILD_SETTID),
+		NS_VALSTR_STRUCT(CLONE_NEWCGROUP),
+		NS_VALSTR_STRUCT(CLONE_NEWUTS),
+		NS_VALSTR_STRUCT(CLONE_NEWIPC),
+		NS_VALSTR_STRUCT(CLONE_NEWUSER),
+		NS_VALSTR_STRUCT(CLONE_NEWPID),
+		NS_VALSTR_STRUCT(CLONE_NEWNET),
+		NS_VALSTR_STRUCT(CLONE_IO),
 	};
 
 	uintptr_t knownFlagMask = CSIGNAL;
@@ -133,7 +133,8 @@ static bool resetEnv(void) {
 static const char kSubprocDoneChar = 'D';
 static const char kSubprocErrorChar = 'E';
 
-static void subprocNewProc(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err, int pipefd) {
+static void subprocNewProc(
+    nsjconf_t* nsjconf, int netfd, int fd_in, int fd_out, int fd_err, int pipefd) {
 	if (!contain::setupFD(nsjconf, fd_in, fd_out, fd_err)) {
 		return;
 	}
@@ -174,7 +175,7 @@ static void subprocNewProc(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err
 		putenv(const_cast<char*>(env.c_str()));
 	}
 
-	auto connstr = net::connToText(fd_in, /* remote= */ true, NULL);
+	auto connstr = net::connToText(netfd, /* remote= */ true, NULL);
 	LOG_I("Executing '%s' for '%s'", nsjconf->exec_file.c_str(), connstr.c_str());
 
 	std::vector<const char*> argv;
@@ -207,7 +208,6 @@ static void subprocNewProc(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err
 static void addProc(nsjconf_t* nsjconf, pid_t pid, int sock) {
 	pids_t p;
 
-	p.pid = pid;
 	p.start = time(NULL);
 	p.remote_txt = net::connToText(sock, /* remote= */ true, &p.remote_addr);
 
@@ -215,24 +215,24 @@ static void addProc(nsjconf_t* nsjconf, pid_t pid, int sock) {
 	snprintf(fname, sizeof(fname), "/proc/%d/syscall", (int)pid);
 	p.pid_syscall_fd = TEMP_FAILURE_RETRY(open(fname, O_RDONLY | O_CLOEXEC));
 
-	nsjconf->pids.push_back(p);
+	nsjconf->pids.insert(std::make_pair(pid, p));
 
-	LOG_D("Added pid=%d with start time '%u' to the queue for IP: '%s'", p.pid,
+	LOG_D("Added pid=%d with start time '%u' to the queue for IP: '%s'", pid,
 	    (unsigned int)p.start, p.remote_txt.c_str());
 }
 
 static void removeProc(nsjconf_t* nsjconf, pid_t pid) {
-	for (auto p = nsjconf->pids.begin(); p != nsjconf->pids.end(); ++p) {
-		if (p->pid == pid) {
-			LOG_D("Removing pid=%d from the queue (IP:'%s', start time:'%s')", p->pid,
-			    p->remote_txt.c_str(), util::timeToStr(p->start).c_str());
-			close(p->pid_syscall_fd);
-			nsjconf->pids.erase(p);
-
-			return;
-		}
+	if (nsjconf->pids.find(pid) == nsjconf->pids.end()) {
+		LOG_W("pid=%d doesn't exist ?", pid);
+		return;
 	}
-	LOG_W("pid=%d not found (?)", pid);
+
+	const auto& p = nsjconf->pids[pid];
+	LOG_D("Removed pid=%d from the queue (IP:'%s', start time:'%s')", pid, p.remote_txt.c_str(),
+	    util::timeToStr(p.start).c_str());
+
+	close(p.pid_syscall_fd);
+	nsjconf->pids.erase(pid);
 }
 
 int countProc(nsjconf_t* nsjconf) {
@@ -243,27 +243,18 @@ void displayProc(nsjconf_t* nsjconf) {
 	LOG_I("Total number of spawned namespaces: %d", countProc(nsjconf));
 	time_t now = time(NULL);
 	for (const auto& pid : nsjconf->pids) {
-		time_t diff = now - pid.start;
+		time_t diff = now - pid.second.start;
 		uint64_t left = nsjconf->tlimit ? nsjconf->tlimit - (uint64_t)diff : 0;
 		LOG_I("pid=%d, Remote host: %s, Run time: %ld sec. (time left: %" PRId64 " sec.)",
-		    pid.pid, pid.remote_txt.c_str(), (long)diff, left);
+		    pid.first, pid.second.remote_txt.c_str(), (long)diff, left);
 	}
-}
-
-static const pids_t* getPidElem(nsjconf_t* nsjconf, pid_t pid) {
-	for (const auto& p : nsjconf->pids) {
-		if (p.pid == pid) {
-			return &p;
-		}
-	}
-	return NULL;
 }
 
 static void seccompViolation(nsjconf_t* nsjconf, siginfo_t* si) {
 	LOG_W("pid=%d commited a syscall/seccomp violation and exited with SIGSYS", si->si_pid);
 
-	const pids_t* p = getPidElem(nsjconf, si->si_pid);
-	if (p == NULL) {
+	const auto& p = nsjconf->pids.find(si->si_pid);
+	if (p == nsjconf->pids.end()) {
 		LOG_W("pid=%d SiSyscall: %d, SiCode: %d, SiErrno: %d, SiSigno: %d", (int)si->si_pid,
 		    si->si_syscall, si->si_code, si->si_errno, si->si_signo);
 		LOG_E("Couldn't find pid element in the subproc list for pid=%d", (int)si->si_pid);
@@ -271,7 +262,7 @@ static void seccompViolation(nsjconf_t* nsjconf, siginfo_t* si) {
 	}
 
 	char buf[4096];
-	ssize_t rdsize = util::readFromFd(p->pid_syscall_fd, buf, sizeof(buf) - 1);
+	ssize_t rdsize = util::readFromFd(p->second.pid_syscall_fd, buf, sizeof(buf) - 1);
 	if (rdsize < 1) {
 		LOG_W("pid=%d, SiSyscall: %d, SiCode: %d, SiErrno: %d, SiSigno: %d",
 		    (int)si->si_pid, si->si_syscall, si->si_code, si->si_errno, si->si_signo);
@@ -312,9 +303,9 @@ static int reapProc(nsjconf_t* nsjconf, pid_t pid, bool should_wait = false) {
 		}
 
 		std::string remote_txt = "[UNKNOWN]";
-		const pids_t* elem = getPidElem(nsjconf, pid);
-		if (elem) {
-			remote_txt = elem->remote_txt;
+		const auto& p = nsjconf->pids.find(pid);
+		if (p != nsjconf->pids.end()) {
+			remote_txt = p->second.remote_txt;
 		}
 
 		if (WIFEXITED(status)) {
@@ -357,11 +348,11 @@ int reapProc(nsjconf_t* nsjconf) {
 		if (nsjconf->tlimit == 0) {
 			continue;
 		}
-		pid_t pid = p.pid;
-		time_t diff = now - p.start;
+		pid_t pid = p.first;
+		time_t diff = now - p.second.start;
 		if ((uint64_t)diff >= nsjconf->tlimit) {
 			LOG_I("pid=%d run time >= time limit (%ld >= %" PRIu64 ") (%s). Killing it",
-			    pid, (long)diff, nsjconf->tlimit, p.remote_txt.c_str());
+			    pid, (long)diff, nsjconf->tlimit, p.second.remote_txt.c_str());
 			/*
 			 * Probably a kernel bug - some processes cannot be killed with KILL if
 			 * they're namespaced, and in a stopped state
@@ -377,7 +368,7 @@ int reapProc(nsjconf_t* nsjconf) {
 
 void killAndReapAll(nsjconf_t* nsjconf) {
 	while (!nsjconf->pids.empty()) {
-		pid_t pid = nsjconf->pids.front().pid;
+		pid_t pid = nsjconf->pids.begin()->first;
 		if (kill(pid, SIGKILL) == 0) {
 			reapProc(nsjconf, pid, true);
 		} else {
@@ -413,7 +404,7 @@ static bool initParent(nsjconf_t* nsjconf, pid_t pid, int pipefd) {
 	return true;
 }
 
-bool runChild(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
+bool runChild(nsjconf_t* nsjconf, int netfd, int fd_in, int fd_out, int fd_err) {
 	if (!net::limitConns(nsjconf, fd_in)) {
 		return true;
 	}
@@ -430,7 +421,7 @@ bool runChild(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
 		if (unshare(flags) == -1) {
 			PLOG_F("unshare(%s)", cloneFlagsToStr(flags).c_str());
 		}
-		subprocNewProc(nsjconf, fd_in, fd_out, fd_err, -1);
+		subprocNewProc(nsjconf, netfd, fd_in, fd_out, fd_err, -1);
 		LOG_F("Launching new process failed");
 	}
 
@@ -448,7 +439,7 @@ bool runChild(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
 	pid_t pid = cloneProc(flags);
 	if (pid == 0) {
 		close(parent_fd);
-		subprocNewProc(nsjconf, fd_in, fd_out, fd_err, child_fd);
+		subprocNewProc(nsjconf, netfd, fd_in, fd_out, fd_err, child_fd);
 		util::writeToFd(child_fd, &kSubprocErrorChar, sizeof(kSubprocErrorChar));
 		LOG_F("Launching child process failed");
 	}
@@ -470,7 +461,7 @@ bool runChild(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
 		close(parent_fd);
 		return false;
 	}
-	addProc(nsjconf, pid, fd_in);
+	addProc(nsjconf, pid, netfd);
 
 	if (!initParent(nsjconf, pid, parent_fd)) {
 		close(parent_fd);

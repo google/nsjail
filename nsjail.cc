@@ -210,7 +210,7 @@ static int listenMode(nsjconf_t* nsjconf) {
 				}
 				nsjconf->pipes.emplace_back(connfd, in[1]);
 				nsjconf->pipes.emplace_back(out[0], connfd);
-				subproc::runChild(nsjconf, in[0], out[1], out[1]);
+				subproc::runChild(nsjconf, connfd, in[0], out[1], out[1]);
 				close(in[0]);
 				close(out[1]);
 			}
@@ -221,7 +221,8 @@ static int listenMode(nsjconf_t* nsjconf) {
 
 static int standaloneMode(nsjconf_t* nsjconf) {
 	for (;;) {
-		if (!subproc::runChild(nsjconf, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO)) {
+		if (!subproc::runChild(
+			nsjconf, /* netfd= */ -1, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO)) {
 			LOG_E("Couldn't launch the child process");
 			return 0xff;
 		}

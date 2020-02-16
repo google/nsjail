@@ -33,7 +33,7 @@
 
 namespace subproc {
 
-bool runChild(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err);
+bool runChild(nsjconf_t* nsjconf, int listen_fd, int fd_in, int fd_out, int fd_err);
 int countProc(nsjconf_t* nsjconf);
 void displayProc(nsjconf_t* nsjconf);
 void killAndReapAll(nsjconf_t* nsjconf);

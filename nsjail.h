@@ -32,6 +32,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -48,7 +49,6 @@ static const int nssigs[] = {
 };
 
 struct pids_t {
-	pid_t pid;
 	time_t start;
 	std::string remote_txt;
 	struct sockaddr_in6 remote_addr;
@@ -151,7 +151,7 @@ struct nsjconf_t {
 	uid_t orig_uid;
 	uid_t orig_euid;
 	std::vector<mount_t> mountpts;
-	std::vector<pids_t> pids;
+	std::map<pid_t, pids_t> pids;
 	std::vector<idmap_t> uids;
 	std::vector<idmap_t> gids;
 	std::vector<std::string> envs;

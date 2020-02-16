@@ -191,8 +191,8 @@ bool limitConns(nsjconf_t* nsjconf, int connsock) {
 
 	unsigned cnt = 0;
 	for (const auto& pid : nsjconf->pids) {
-		if (memcmp(addr.sin6_addr.s6_addr, pid.remote_addr.sin6_addr.s6_addr,
-			sizeof(pid.remote_addr.sin6_addr.s6_addr)) == 0) {
+		if (memcmp(addr.sin6_addr.s6_addr, pid.second.remote_addr.sin6_addr.s6_addr,
+			sizeof(pid.second.remote_addr.sin6_addr.s6_addr)) == 0) {
 			cnt++;
 		}
 	}
