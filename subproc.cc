@@ -248,8 +248,9 @@ void displayProc(nsjconf_t* nsjconf) {
 	for (const auto& pid : nsjconf->pids) {
 		time_t diff = now - pid.second.start;
 		uint64_t left = nsjconf->tlimit ? nsjconf->tlimit - (uint64_t)diff : 0;
-		LOG_I("pid=%d, Remote host: %s, Run time: %ld sec. (time left: %" PRId64 " sec.)",
-		    pid.first, pid.second.remote_txt.c_str(), (long)diff, left);
+		LOG_I("pid=%d, Remote host: %s, Run time: %ld sec. (time left: %s s.)", pid.first,
+		    pid.second.remote_txt.c_str(), (long)diff,
+		    left == 0 ? "unlimited" : std::to_string(left).c_str());
 	}
 }
 
