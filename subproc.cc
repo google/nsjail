@@ -215,6 +215,9 @@ static void addProc(nsjconf_t* nsjconf, pid_t pid, int sock) {
 	snprintf(fname, sizeof(fname), "/proc/%d/syscall", (int)pid);
 	p.pid_syscall_fd = TEMP_FAILURE_RETRY(open(fname, O_RDONLY | O_CLOEXEC));
 
+	if (nsjconf->pids.find(pid) != nsjconf->pids.end()) {
+		LOG_F("pid=%d already exists", pid);
+	}
 	nsjconf->pids.insert(std::make_pair(pid, p));
 
 	LOG_D("Added pid=%d with start time '%u' to the queue for IP: '%s'", pid,
