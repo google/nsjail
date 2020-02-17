@@ -235,8 +235,11 @@ static int listenMode(nsjconf_t* nsjconf) {
 					PLOG_E("pipe");
 					continue;
 				}
-				nsjconf->pipes.push_back(
-				    {.sock_fd = connfd, .pipe_in = in[1], .pipe_out = out[0]});
+				nsjconf->pipes.push_back({
+				    .sock_fd = connfd,
+				    .pipe_in = in[1],
+				    .pipe_out = out[0],
+				});
 				subproc::runChild(nsjconf, connfd, in[0], out[1], out[1]);
 				close(in[0]);
 				close(out[1]);
