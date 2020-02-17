@@ -139,6 +139,9 @@ static bool pipeTraffic(nsjconf_t* nsjconf, int listenfd) {
 	});
 	LOG_D("Waiting for fd activity");
 	while (poll(fds.data(), fds.size(), -1) > 0) {
+		if (sigFatal > 0 || showProc) {
+			return false;
+		}
 		if (fds.back().revents != 0) {
 			LOG_D("New connection ready");
 			return true;
@@ -148,12 +151,18 @@ static bool pipeTraffic(nsjconf_t* nsjconf, int listenfd) {
 			bool read_ready = fds[i].events == 0 || (fds[i].revents & POLLIN) == POLLIN;
 			bool write_ready =
 			    fds[i + 1].events == 0 || (fds[i + 1].revents & POLLOUT) == POLLOUT;
+			bool pair_closed = (fds[i].revents & (POLLHUP | POLLERR)) != 0 ||
+					   (fds[i + 1].revents & (POLLHUP | POLLERR)) != 0;
 			if (read_ready && write_ready) {
-				if (splice(fds[i].fd, nullptr, fds[i + 1].fd, nullptr, 4096,
-					SPLICE_F_NONBLOCK) == -1 &&
-				    errno != EAGAIN) {
+				LOG_D("Read+write ready on %ld", i / 2);
+				ssize_t rv = splice(fds[i].fd, nullptr, fds[i + 1].fd, nullptr,
+				    4096, SPLICE_F_NONBLOCK);
+				if (rv == -1 && errno != EAGAIN) {
 					PLOG_E("splice fd pair #%ld {%d, %d}\n", i / 2, fds[i].fd,
 					    fds[i + 1].fd);
+				}
+				if (rv == 0) {
+					pair_closed = true;
 				}
 				fds[i].events = POLLIN;
 				fds[i + 1].events = POLLOUT;
@@ -164,8 +173,7 @@ static bool pipeTraffic(nsjconf_t* nsjconf, int listenfd) {
 				LOG_D("Write ready on %ld", i / 2);
 				fds[i + 1].events = 0;
 			}
-			if ((fds[i].revents & (POLLHUP | POLLERR)) != 0 ||
-			    (fds[i + 1].revents & (POLLHUP | POLLERR)) != 0) {
+			if (pair_closed) {
 				LOG_D("Hangup on %ld", i / 2);
 				cleanup = true;
 				close(fds[i].fd);
