@@ -250,7 +250,7 @@ void displayProc(nsjconf_t* nsjconf) {
 		uint64_t left = nsjconf->tlimit ? nsjconf->tlimit - (uint64_t)diff : 0;
 		LOG_I("pid=%d, Remote host: %s, Run time: %ld sec. (time left: %s s.)", pid.first,
 		    pid.second.remote_txt.c_str(), (long)diff,
-		    left == 0 ? "unlimited" : std::to_string(left).c_str());
+		    nsjconf->tlimit ? std::to_string(left).c_str() : "unlimited");
 	}
 }
 
