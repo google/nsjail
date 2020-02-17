@@ -82,6 +82,15 @@ enum ns_mode_t {
 	MODE_STANDALONE_RERUN
 };
 
+struct pipemap_t {
+	int sock_fd;
+	int pipe_in;
+	int pipe_out;
+	bool operator==(const pipemap_t& o) {
+		return sock_fd == o.sock_fd && pipe_in == o.pipe_in && pipe_out == o.pipe_out;
+	}
+};
+
 struct nsjconf_t {
 	std::string exec_file;
 	bool use_execveat;
@@ -158,7 +167,7 @@ struct nsjconf_t {
 	std::vector<int> openfds;
 	std::vector<int> caps;
 	std::vector<std::string> ifaces;
-	std::vector<std::pair<int, int>> pipes;
+	std::vector<pipemap_t> pipes;
 };
 
 #endif /* _NSJAIL_H */
