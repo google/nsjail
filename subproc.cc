@@ -409,7 +409,7 @@ static bool initParent(nsjconf_t* nsjconf, pid_t pid, int pipefd) {
 }
 
 bool runChild(nsjconf_t* nsjconf, int netfd, int fd_in, int fd_out, int fd_err) {
-	if (!net::limitConns(nsjconf, fd_in)) {
+	if (!net::limitConns(nsjconf, netfd)) {
 		return true;
 	}
 	unsigned long flags = 0UL;
