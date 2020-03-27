@@ -174,11 +174,11 @@ static bool pipeTraffic(nsjconf_t* nsjconf, int listenfd) {
 				bool out_ready = (fds[out].events & POLLOUT) == 0 ||
 						 (fds[out].revents & POLLOUT) == POLLOUT;
 				if (in_ready && out_ready) {
-					LOG_D("#%ld piping data %s", pipe_no, direction);
+					LOG_D("#%zu piping data %s", pipe_no, direction);
 					ssize_t rv = splice(fds[in].fd, nullptr, fds[out].fd,
 					    nullptr, 4096, SPLICE_F_NONBLOCK);
 					if (rv == -1 && errno != EAGAIN) {
-						PLOG_E("splice fd pair #%ld {%d, %d}\n", pipe_no,
+						PLOG_E("splice fd pair #%zu {%d, %d}\n", pipe_no,
 						    fds[in].fd, fds[out].fd);
 					}
 					if (rv == 0) {
@@ -193,7 +193,7 @@ static bool pipeTraffic(nsjconf_t* nsjconf, int listenfd) {
 				}
 			}
 			if (closed) {
-				LOG_D("#%ld connection closed", pipe_no);
+				LOG_D("#%zu connection closed", pipe_no);
 				cleanup = true;
 				close(nsjconf->pipes[pipe_no].sock_fd);
 				close(nsjconf->pipes[pipe_no].pipe_in);
