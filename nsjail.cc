@@ -313,7 +313,7 @@ int main(int argc, char* argv[]) {
 	if (!nsjconf) {
 		LOG_F("Couldn't parse cmdline options");
 	}
-	if (nsjconf->daemonize && (daemon(0, 0) == -1)) {
+	if (nsjconf->daemonize && (daemon(/* nochdir= */ 1, /* noclose= */ 0) == -1)) {
 		PLOG_F("daemon");
 	}
 	cmdline::logParams(nsjconf.get());
