@@ -43,6 +43,14 @@
 #include "subproc.h"
 #include "util.h"
 
+#ifndef NEWUIDMAP_PATH
+#define NEWUIDMAP_PATH "/usr/bin/newuidmap"
+#endif
+
+#ifndef NEWGIDMAP_PATH
+#define NEWGIDMAP_PATH "/usr/bin/newgidmap"
+#endif
+
 namespace user {
 
 static bool setResGid(gid_t gid) {
@@ -161,11 +169,11 @@ static bool gidMapSelf(nsjconf_t* nsjconf, pid_t pid) {
 	return true;
 }
 
-/* Use /usr/bin/newgidmap for writing the gid map */
+/* Use NEWGIDMAP_PATH for writing the gid map */
 static bool gidMapExternal(nsjconf_t* nsjconf, pid_t pid) {
 	bool use = false;
 
-	std::vector<std::string> argv = {"/usr/bin/newgidmap", std::to_string(pid)};
+	std::vector<std::string> argv = {NEWGIDMAP_PATH, std::to_string(pid)};
 	for (const auto& gid : nsjconf->gids) {
 		if (!gid.is_newidmap) {
 			continue;
@@ -180,18 +188,18 @@ static bool gidMapExternal(nsjconf_t* nsjconf, pid_t pid) {
 		return true;
 	}
 	if (subproc::systemExe(argv, environ) != 0) {
-		LOG_E("'/usr/bin/newgidmap' failed");
+		LOG_E("'%s' failed", NEWGIDMAP_PATH);
 		return false;
 	}
 
 	return true;
 }
 
-/* Use /usr/bin/newuidmap for writing the uid map */
+/* Use NEWUIDMAP_PATH for writing the uid map */
 static bool uidMapExternal(nsjconf_t* nsjconf, pid_t pid) {
 	bool use = false;
 
-	std::vector<std::string> argv = {"/usr/bin/newuidmap", std::to_string(pid)};
+	std::vector<std::string> argv = {NEWUIDMAP_PATH, std::to_string(pid)};
 	for (const auto& uid : nsjconf->uids) {
 		if (!uid.is_newidmap) {
 			continue;
@@ -206,7 +214,7 @@ static bool uidMapExternal(nsjconf_t* nsjconf, pid_t pid) {
 		return true;
 	}
 	if (subproc::systemExe(argv, environ) != 0) {
-		LOG_E("'/usr/bin/newuidmap' failed");
+		LOG_E("'%s' failed", NEWUIDMAP_PATH);
 		return false;
 	}
 
