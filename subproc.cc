@@ -134,7 +134,7 @@ static const char kSubprocDoneChar = 'D';
 static const char kSubprocErrorChar = 'E';
 
 static void subprocNewProc(
-    nsjconf_t* nsjconf, int netfd, int fd_in, int fd_out, int fd_err, int pipefd) {
+    nsjconf_t* nsjconf, int exec_wrapper_fd, int netfd, int fd_in, int fd_out, int fd_err, int pipefd) {
 	if (!contain::setupFD(nsjconf, fd_in, fd_out, fd_err)) {
 		return;
 	}
@@ -179,6 +179,19 @@ static void subprocNewProc(
 	LOG_I("Executing '%s' for '%s'", nsjconf->exec_file.c_str(), connstr.c_str());
 
 	std::vector<const char*> argv;
+    std::string fd_string = std::to_string(exec_wrapper_fd);
+    if (exec_wrapper_fd > 0) {
+        argv.push_back("exec_wrapper");
+        if(nsjconf->use_execveat) {
+            argv.push_back("--fd");
+            argv.push_back(fd_string.c_str());
+        } else {
+            argv.push_back("--file");
+            argv.push_back(nsjconf->exec_file.c_str());
+        }
+        argv.push_back("--");
+    }
+
 	for (const auto& s : nsjconf->argv) {
 		argv.push_back(s.c_str());
 		LOG_D(" Arg: '%s'", s.c_str());
@@ -188,7 +201,15 @@ static void subprocNewProc(
 	/* Should be the last one in the sequence */
 	if (!sandbox::applyPolicy(nsjconf)) {
 		return;
-	}
+    }
+    
+    if(exec_wrapper_fd > 0) {
+        LOG_I("executing wrapper");
+		util::syscall(__NR_execveat, exec_wrapper_fd, (uintptr_t) "",
+		    (uintptr_t)argv.data(), (uintptr_t)environ, AT_EMPTY_PATH);
+    	PLOG_E("execve('%s') failed", nsjconf->exec_wrapper.c_str());
+        return;
+    }
 
 	if (nsjconf->use_execveat) {
 #if defined(__NR_execveat)
@@ -421,11 +442,20 @@ pid_t runChild(nsjconf_t* nsjconf, int netfd, int fd_in, int fd_out, int fd_err)
 	flags |= (nsjconf->clone_newuts ? CLONE_NEWUTS : 0);
 	flags |= (nsjconf->clone_newcgroup ? CLONE_NEWCGROUP : 0);
 
+    int exec_wrapper_fd = -1;
+    if(nsjconf->exec_wrapper.length() > 0) {
+       exec_wrapper_fd = open(nsjconf->exec_wrapper.c_str(), O_RDONLY | O_PATH | O_CLOEXEC);
+       if (exec_wrapper_fd < 0) {
+            LOG_E("Error, failed to open exec_wrapper: %s", nsjconf->exec_wrapper.c_str());
+            return false;
+       }
+    }
+
 	if (nsjconf->mode == MODE_STANDALONE_EXECVE) {
 		if (unshare(flags) == -1) {
 			PLOG_F("unshare(%s)", cloneFlagsToStr(flags).c_str());
 		}
-		subprocNewProc(nsjconf, netfd, fd_in, fd_out, fd_err, -1);
+		subprocNewProc(nsjconf, exec_wrapper_fd, netfd, fd_in, fd_out, fd_err, -1);
 		LOG_F("Launching new process failed");
 	}
 
@@ -443,7 +473,7 @@ pid_t runChild(nsjconf_t* nsjconf, int netfd, int fd_in, int fd_out, int fd_err)
 	pid_t pid = cloneProc(flags);
 	if (pid == 0) {
 		close(parent_fd);
-		subprocNewProc(nsjconf, netfd, fd_in, fd_out, fd_err, child_fd);
+		subprocNewProc(nsjconf, exec_wrapper_fd, netfd, fd_in, fd_out, fd_err, child_fd);
 		util::writeToFd(child_fd, &kSubprocErrorChar, sizeof(kSubprocErrorChar));
 		LOG_F("Launching child process failed");
 	}

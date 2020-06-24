@@ -156,6 +156,7 @@ struct custom_option custom_opts[] = {
     { { "macvlan_vs_nm", required_argument, NULL, 0x702 }, "Netmask of the 'vs' interface (e.g. \"255.255.255.0\")" },
     { { "macvlan_vs_gw", required_argument, NULL, 0x703 }, "Default GW for the 'vs' interface (e.g. \"192.168.0.1\")" },
     { { "macvlan_vs_ma", required_argument, NULL, 0x705 }, "MAC-address of the 'vs' interface (e.g. \"ba:ad:ba:be:45:00\")" },
+    { { "exec_wrapper", required_argument, NULL, 0x706 }, "TODO" },
 };
 // clang-format on
 
@@ -328,8 +329,14 @@ static bool setupArgv(nsjconf_t* nsjconf, int argc, char** argv, int optind) {
 		    "specified the --execute_fd flag");
 		return false;
 #endif /* !defined(__NR_execveat) */
+        int open_flags = O_RDONLY | O_PATH;
+
+        // we need to pase the file decriptor to exec_wrapper
+        if(nsjconf->exec_wrapper.length() == 0)
+            open_flags |= O_CLOEXEC;
+
 		if ((nsjconf->exec_fd = TEMP_FAILURE_RETRY(
-			 open(nsjconf->exec_file.c_str(), O_RDONLY | O_PATH | O_CLOEXEC))) == -1) {
+			 open(nsjconf->exec_file.c_str(), open_flags))) == -1) {
 			PLOG_W("Couldn't open '%s' file", nsjconf->exec_file.c_str());
 			return false;
 		}
@@ -395,6 +402,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->hostname = "NSJAIL";
 	nsjconf->cwd = "/";
 	nsjconf->port = 0;
+    nsjconf->exec_wrapper = "";
 	nsjconf->bindhost = "::";
 	nsjconf->daemonize = false;
 	nsjconf->tlimit = 0;
@@ -799,6 +807,9 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			break;
 		case 0x705:
 			nsjconf->iface_vs_ma = optarg;
+			break;
+		case 0x706:
+			nsjconf->exec_wrapper = optarg;
 			break;
 		case 0x801:
 			nsjconf->cgroup_mem_max = (size_t)strtoull(optarg, NULL, 0);
