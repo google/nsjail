@@ -88,7 +88,7 @@ int nameToVal(const char* name) {
 			return cap.val;
 		}
 	}
-	LOG_W("Uknown capability: '%s'", name);
+	LOG_W("Unknown capability: '%s'", name);
 	return -1;
 }
 

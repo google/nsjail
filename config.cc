@@ -79,7 +79,7 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 		nsjconf->mode = MODE_STANDALONE_EXECVE;
 		break;
 	default:
-		LOG_E("Uknown running mode: %d", njc.mode());
+		LOG_E("Unknown running mode: %d", njc.mode());
 		return false;
 	}
 	if (njc.has_chroot_dir()) {

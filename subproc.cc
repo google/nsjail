@@ -255,7 +255,7 @@ void displayProc(nsjconf_t* nsjconf) {
 }
 
 static void seccompViolation(nsjconf_t* nsjconf, siginfo_t* si) {
-	LOG_W("pid=%d commited a syscall/seccomp violation and exited with SIGSYS", si->si_pid);
+	LOG_W("pid=%d committed a syscall/seccomp violation and exited with SIGSYS", si->si_pid);
 
 	const auto& p = nsjconf->pids.find(si->si_pid);
 	if (p == nsjconf->pids.end()) {
