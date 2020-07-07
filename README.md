@@ -357,9 +357,9 @@ Options:
  --rw 
 	Mount chroot dir (/) R/W (default: R/O)
  --user|-u VALUE
-	Username/uid of processess inside the jail (default: your current uid). You can also use inside_ns_uid:outside_ns_uid:count convention here. Can be specified multiple times
+	Username/uid of processes inside the jail (default: your current uid). You can also use inside_ns_uid:outside_ns_uid:count convention here. Can be specified multiple times
  --group|-g VALUE
-	Groupname/gid of processess inside the jail (default: your current gid). You can also use inside_ns_gid:global_ns_gid:count convention here. Can be specified multiple times
+	Groupname/gid of processes inside the jail (default: your current gid). You can also use inside_ns_gid:global_ns_gid:count convention here. Can be specified multiple times
  --hostname|-H VALUE
 	UTS name (hostname) of the jail (default: 'NSJAIL')
  --cwd|-D VALUE
