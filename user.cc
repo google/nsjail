@@ -48,15 +48,15 @@
 
 constexpr char kNewUidPath[] =
 #ifdef NEWUIDMAP_PATH
-  STR(NEWUIDMAP_PATH);
+    STR(NEWUIDMAP_PATH);
 #else
-  "/usr/bin/newuidmap";
+    "/usr/bin/newuidmap";
 #endif
 constexpr char kNewGidPath[] =
 #ifdef NEWGIDMAP_PATH
-  STR(NEWGIDMAP_PATH);
+    STR(NEWGIDMAP_PATH);
 #else
-  "/usr/bin/newgidmap";
+    "/usr/bin/newgidmap";
 #endif
 
 namespace user {

@@ -178,8 +178,8 @@ static bool mountPt(mount_t* mpt, const char* newroot, const char* tmpdir) {
 			return false;
 		}
 		if (!util::writeToFd(fd, mpt->src_content.data(), mpt->src_content.length())) {
-			LOG_W("Writing %zu bytes to '%s' failed", mpt->src_content.length(),
-			    srcpath);
+			LOG_W(
+			    "Writing %zu bytes to '%s' failed", mpt->src_content.length(), srcpath);
 			close(fd);
 			return false;
 		}
