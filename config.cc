@@ -82,10 +82,6 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 		LOG_E("Unknown running mode: %d", njc.mode());
 		return false;
 	}
-	if (njc.has_chroot_dir()) {
-		nsjconf->chroot = njc.chroot_dir();
-	}
-	nsjconf->is_root_rw = njc.is_root_rw();
 	nsjconf->hostname = njc.hostname();
 	nsjconf->cwd = njc.cwd();
 	nsjconf->port = njc.port();

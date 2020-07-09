@@ -81,10 +81,6 @@ message NsJailConfig {
 
     /* Execution mode: see 'msg Mode' description for more */
     optional Mode mode = 3 [default = ONCE];
-    /* Equivalent to a bind mount with dst='/'. DEPRECATED: Use bind mounts. */
-    optional string chroot_dir = 4 [deprecated = true];
-    /* Applies both to the chroot_dir and to /proc mounts. DEPRECATED: Use bind mounts */
-    optional bool is_root_rw = 5 [default = false, deprecated = true];
     /* Hostname inside jail */
     optional string hostname = 8 [default = "NSJAIL"];
     /* Initial current working directory for the binary */
