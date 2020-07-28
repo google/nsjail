@@ -223,7 +223,6 @@ message NsJailConfig {
     /* Writeable directory (for the nsjail user) under cgroup_cpu_mount */
     optional string cgroup_cpu_parent = 72 [default = "NSJAIL"];
 
-
     /* Mount point for cgroup v2 in your system */
     optional string cgroupv2_mount = 73 [default = "/sys/fs/cgroup"];
     /* Use cgroup v2 */
