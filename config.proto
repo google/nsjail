@@ -223,29 +223,29 @@ message NsJailConfig {
     /* Writeable directory (for the nsjail user) under cgroup_cpu_mount */
     optional string cgroup_cpu_parent = 72 [default = "NSJAIL"];
 
+
+    /* Mount point for cgroup v2 in your system */
+    optional string cgroupv2_mount = 73 [default = "/sys/fs/cgroup"];
+    /* Use cgroup v2 */
+    optional bool use_cgroupv2 = 74 [default = false];
+
     /* Should the 'lo' interface be brought up (active) inside this jail? */
-    optional bool iface_no_lo = 73 [default = false];
+    optional bool iface_no_lo = 75 [default = false];
 
     /* Put this interface inside the jail */
-    repeated string iface_own = 74;
+    repeated string iface_own = 76;
 
     /* Parameters for the cloned MACVLAN interface inside jail */
-    optional string macvlan_iface = 75; /* Interface to be cloned, eg 'eth0' */
-    optional string macvlan_vs_ip = 76 [default = "192.168.0.2"];
-    optional string macvlan_vs_nm = 77 [default = "255.255.255.0"];
-    optional string macvlan_vs_gw = 78 [default = "192.168.0.1"];
-    optional string macvlan_vs_ma = 79 [default = ""];
+    optional string macvlan_iface = 77; /* Interface to be cloned, eg 'eth0' */
+    optional string macvlan_vs_ip = 78 [default = "192.168.0.2"];
+    optional string macvlan_vs_nm = 79 [default = "255.255.255.0"];
+    optional string macvlan_vs_gw = 80 [default = "192.168.0.1"];
+    optional string macvlan_vs_ma = 81 [default = ""];
 
     /* Niceness level of the jailed process */
-    optional int32 nice_level = 80 [default = 19];
+    optional int32 nice_level = 82 [default = 19];
 
     /* Binary path (with arguments) to be executed. If not specified here, it
        can be specified with cmd-line as "-- /path/to/command arg1 arg2" */
-    optional Exe exec_bin = 81;
-
-    /* Mount point for cgroup v2 in your system */
-    optional string cgroupv2_mount = 82 [default = "/sys/fs/cgroup"];
-
-    /* Use cgroup v2 */
-    optional bool use_cgroupv2 = 83 [default = false];
+    optional Exe exec_bin = 83;
 }
