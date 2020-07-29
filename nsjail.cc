@@ -166,7 +166,9 @@ static bool pipeTraffic(nsjconf_t* nsjconf, int listenfd) {
 			const char* direction;
 			bool closed = false;
 			std::tuple<int, int, const char*> direction_map[] = {
-			    {i, i + 1, "in"}, {i + 2, i, "out"}};
+				std::make_tuple(i, i + 1, "in"),
+				std::make_tuple(i + 2, i, "out"),
+			};
 			for (const auto& entry : direction_map) {
 				std::tie(in, out, direction) = entry;
 				bool in_ready = (fds[in].events & POLLIN) == 0 ||
