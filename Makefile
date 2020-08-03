@@ -77,7 +77,7 @@ endif
 
 kafel/include/kafel.h: kafel_init
 kafel/libkafel.a: kafel_init
-	$(MAKE) -C kafel
+	CFLAGS=-fPIE $(MAKE) -C kafel
 
 # Sequence of proto deps, which doesn't fit automatic make rules
 config.o: $(SRCS_PB_O) $(SRCS_PB_H)
