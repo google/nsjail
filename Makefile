@@ -16,7 +16,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-PKG_CONFIG=$(shell which pkg-config)
+PKG_CONFIG=$(shell command -v pkg-config 2> /dev/null)
 ifeq ($(PKG_CONFIG),)
 $(error "Install pkg-config to make it work")
 endif
