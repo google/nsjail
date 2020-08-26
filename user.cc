@@ -68,7 +68,7 @@ static bool setResGid(gid_t gid) {
 		PLOG_W("setresgid32(%d)", (int)gid);
 		return false;
 	}
-#else  /* defined(__NR_setresgid32) */
+#else /* defined(__NR_setresgid32) */
 	if (util::syscall(__NR_setresgid, (uintptr_t)gid, (uintptr_t)gid, (uintptr_t)gid) == -1) {
 		PLOG_W("setresgid(%d)", gid);
 		return false;
@@ -84,7 +84,7 @@ static bool setResUid(uid_t uid) {
 		PLOG_W("setresuid32(%d)", (int)uid);
 		return false;
 	}
-#else  /* defined(__NR_setresuid32) */
+#else /* defined(__NR_setresuid32) */
 	if (util::syscall(__NR_setresuid, (uintptr_t)uid, (uintptr_t)uid, (uintptr_t)uid) == -1) {
 		PLOG_W("setresuid(%d)", uid);
 		return false;
