@@ -240,16 +240,25 @@ static int listenMode(nsjconf_t* nsjconf) {
 					PLOG_E("pipe");
 					continue;
 				}
+
 				pid_t pid =
 				    subproc::runChild(nsjconf, connfd, in[0], out[1], out[1]);
-				nsjconf->pipes.push_back({
-				    .sock_fd = connfd,
-				    .pipe_in = in[1],
-				    .pipe_out = out[0],
-				    .pid = pid,
-				});
+
 				close(in[0]);
 				close(out[1]);
+
+				if (pid <= 0) {
+					close(in[1]);
+					close(out[0]);
+					close(connfd);
+				} else {
+					nsjconf->pipes.push_back({
+					    .sock_fd = connfd,
+					    .pipe_in = in[1],
+					    .pipe_out = out[0],
+					    .pid = pid,
+					});
+				}
 			}
 		}
 		subproc::reapProc(nsjconf);
