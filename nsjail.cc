@@ -200,6 +200,9 @@ static bool pipeTraffic(nsjconf_t* nsjconf, int listenfd) {
 				close(nsjconf->pipes[pipe_no].sock_fd);
 				close(nsjconf->pipes[pipe_no].pipe_in);
 				close(nsjconf->pipes[pipe_no].pipe_out);
+				if (nsjconf->pipes[pipe_no].pid > 0) {
+					kill(nsjconf->pipes[pipe_no].pid, SIGKILL);
+				}
 				nsjconf->pipes[pipe_no] = {};
 			}
 		}
@@ -237,12 +240,14 @@ static int listenMode(nsjconf_t* nsjconf) {
 					PLOG_E("pipe");
 					continue;
 				}
+				pid_t pid =
+				    subproc::runChild(nsjconf, connfd, in[0], out[1], out[1]);
 				nsjconf->pipes.push_back({
 				    .sock_fd = connfd,
 				    .pipe_in = in[1],
 				    .pipe_out = out[0],
+				    .pid = pid,
 				});
-				subproc::runChild(nsjconf, connfd, in[0], out[1], out[1]);
 				close(in[0]);
 				close(out[1]);
 			}
@@ -253,8 +258,8 @@ static int listenMode(nsjconf_t* nsjconf) {
 
 static int standaloneMode(nsjconf_t* nsjconf) {
 	for (;;) {
-		if (!subproc::runChild(
-			nsjconf, /* netfd= */ -1, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO)) {
+		if (subproc::runChild(nsjconf, /* netfd= */ -1, STDIN_FILENO, STDOUT_FILENO,
+			STDERR_FILENO) == -1) {
 			LOG_E("Couldn't launch the child process");
 			return 0xff;
 		}

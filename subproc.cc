@@ -408,9 +408,9 @@ static bool initParent(nsjconf_t* nsjconf, pid_t pid, int pipefd) {
 	return true;
 }
 
-bool runChild(nsjconf_t* nsjconf, int netfd, int fd_in, int fd_out, int fd_err) {
+pid_t runChild(nsjconf_t* nsjconf, int netfd, int fd_in, int fd_out, int fd_err) {
 	if (!net::limitConns(nsjconf, netfd)) {
-		return true;
+		return 0;
 	}
 	unsigned long flags = 0UL;
 	flags |= (nsjconf->clone_newnet ? CLONE_NEWNET : 0);
@@ -435,7 +435,7 @@ bool runChild(nsjconf_t* nsjconf, int netfd, int fd_in, int fd_out, int fd_err) 
 	int sv[2];
 	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, sv) == -1) {
 		PLOG_E("socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC) failed");
-		return false;
+		return -1;
 	}
 	int child_fd = sv[0];
 	int parent_fd = sv[1];
@@ -463,13 +463,13 @@ bool runChild(nsjconf_t* nsjconf, int netfd, int fd_in, int fd_out, int fd_err) 
 		    "kernel.unprivileged_userns_clone sysctl",
 		    cloneFlagsToStr(flags).c_str());
 		close(parent_fd);
-		return false;
+		return -1;
 	}
 	addProc(nsjconf, pid, netfd);
 
 	if (!initParent(nsjconf, pid, parent_fd)) {
 		close(parent_fd);
-		return false;
+		return -1;
 	}
 
 	char rcvChar;
@@ -477,11 +477,11 @@ bool runChild(nsjconf_t* nsjconf, int netfd, int fd_in, int fd_out, int fd_err) 
 	    rcvChar == kSubprocErrorChar) {
 		LOG_W("Received error message from the child process before it has been executed");
 		close(parent_fd);
-		return false;
+		return -1;
 	}
 
 	close(parent_fd);
-	return true;
+	return pid;
 }
 
 /*

@@ -86,6 +86,7 @@ struct pipemap_t {
 	int sock_fd;
 	int pipe_in;
 	int pipe_out;
+	pid_t pid;
 	bool operator==(const pipemap_t& o) {
 		return sock_fd == o.sock_fd && pipe_in == o.pipe_in && pipe_out == o.pipe_out;
 	}

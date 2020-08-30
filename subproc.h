@@ -33,7 +33,8 @@
 
 namespace subproc {
 
-bool runChild(nsjconf_t* nsjconf, int listen_fd, int fd_in, int fd_out, int fd_err);
+/* 0 - network connection limit reached, -1 - error */
+pid_t runChild(nsjconf_t* nsjconf, int listen_fd, int fd_in, int fd_out, int fd_err);
 int countProc(nsjconf_t* nsjconf);
 void displayProc(nsjconf_t* nsjconf);
 void killAndReapAll(nsjconf_t* nsjconf);
