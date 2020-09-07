@@ -100,7 +100,7 @@ struct nsjconf_t {
 	std::string hostname;
 	std::string cwd;
 	std::string chroot;
-    std::string exec_wrapper;
+	std::string exec_wrapper;
 	int port;
 	std::string bindhost;
 	bool daemonize;
