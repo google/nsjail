@@ -329,11 +329,12 @@ static bool setupArgv(nsjconf_t* nsjconf, int argc, char** argv, int optind) {
 		    "specified the --execute_fd flag");
 		return false;
 #endif /* !defined(__NR_execveat) */
-	int open_flags = O_RDONLY | O_PATH;
+		int open_flags = O_RDONLY | O_PATH;
 
-	// we need to pass the file decriptor to exec_wrapper
-	if(nsjconf->exec_wrapper.length() == 0)
-		open_flags |= O_CLOEXEC;
+		// we need to pass the file decriptor to exec_wrapper
+		if(nsjconf->exec_wrapper.length() == 0) {
+			open_flags |= O_CLOEXEC;
+		}
 
 		if ((nsjconf->exec_fd = TEMP_FAILURE_RETRY(
 			open(nsjconf->exec_file.c_str(), open_flags))) == -1) {
