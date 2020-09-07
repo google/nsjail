@@ -331,7 +331,7 @@ static bool setupArgv(nsjconf_t* nsjconf, int argc, char** argv, int optind) {
 #endif /* !defined(__NR_execveat) */
         int open_flags = O_RDONLY | O_PATH;
 
-        // we need to pase the file decriptor to exec_wrapper
+        // we need to pass the file decriptor to exec_wrapper
         if(nsjconf->exec_wrapper.length() == 0)
             open_flags |= O_CLOEXEC;
 
