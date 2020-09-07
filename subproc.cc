@@ -179,18 +179,18 @@ static void subprocNewProc(
 	LOG_I("Executing '%s' for '%s'", nsjconf->exec_file.c_str(), connstr.c_str());
 
 	std::vector<const char*> argv;
-    std::string fd_string = std::to_string(exec_wrapper_fd);
-    if (exec_wrapper_fd > 0) {
-        argv.push_back("exec_wrapper");
-        if(nsjconf->use_execveat) {
-            argv.push_back("--fd");
-            argv.push_back(fd_string.c_str());
-        } else {
-            argv.push_back("--file");
-            argv.push_back(nsjconf->exec_file.c_str());
-        }
-        argv.push_back("--");
-    }
+	std::string fd_string = std::to_string(exec_wrapper_fd);
+	if (exec_wrapper_fd > 0) {
+		argv.push_back("exec_wrapper");
+		if(nsjconf->use_execveat) {
+			argv.push_back("--fd");
+			argv.push_back(fd_string.c_str());
+		} else {
+			argv.push_back("--file");
+			argv.push_back(nsjconf->exec_file.c_str());
+		}
+		argv.push_back("--");
+	}
 
 	for (const auto& s : nsjconf->argv) {
 		argv.push_back(s.c_str());
