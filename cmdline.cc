@@ -156,7 +156,7 @@ struct custom_option custom_opts[] = {
     { { "macvlan_vs_nm", required_argument, NULL, 0x702 }, "Netmask of the 'vs' interface (e.g. \"255.255.255.0\")" },
     { { "macvlan_vs_gw", required_argument, NULL, 0x703 }, "Default GW for the 'vs' interface (e.g. \"192.168.0.1\")" },
     { { "macvlan_vs_ma", required_argument, NULL, 0x705 }, "MAC-address of the 'vs' interface (e.g. \"ba:ad:ba:be:45:00\")" },
-    { { "exec_wrapper", required_argument, NULL, 0x706 }, "TODO" },
+    { { "exec_wrapper", required_argument, NULL, 0x706 }, "Path to wrapper binary that will get the main binary and its args as arguments. This can be used to implement e.g. a PoW challenge. The wrapper will be invoked as `exec_wrapper --file <binary-path> -- <args>` or as `exec_wrapper --fd <binary-fd> -- <args> if `--execute_fd` is passed."},
 };
 // clang-format on
 
