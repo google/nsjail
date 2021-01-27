@@ -80,6 +80,15 @@ struct {
 #if defined(CAP_AUDIT_READ)
     NS_VALSTR_STRUCT(CAP_AUDIT_READ),
 #endif /* defined(CAP_AUDIT_READ) */
+#if defined(CAP_BPF)
+    NS_VALSTR_STRUCT(CAP_BPF),
+#endif /* defined(CAP_BPF) */
+#if defined(CAP_PERFMON)
+    NS_VALSTR_STRUCT(CAP_PERFMON),
+#endif /* defined(CAP_PERFMON) */
+#if defined(CAP_CHECKPOINT_RESTORE)
+    NS_VALSTR_STRUCT(CAP_CHECKPOINT_RESTORE),
+#endif /* defined(CAP_CHECKPOINT_RESTORE) */
 };
 
 int nameToVal(const char* name) {
@@ -245,6 +254,11 @@ bool initNs(nsjconf_t* nsjconf) {
 	if (getEffective(cap_data, CAP_SETPCAP)) {
 		for (const auto& i : capNames) {
 			if (getInheritable(cap_data, i.val)) {
+				continue;
+			}
+			if (prctl(PR_CAPBSET_READ, (unsigned long)i.val, 0UL, 0UL, 0UL) ==
+				-1 && errno = EINVAL) {
+				LOG_D("Skipping unsupported capability: %s", i.name.c_str());
 				continue;
 			}
 			dbgmsg.append(" ").append(i.name);
