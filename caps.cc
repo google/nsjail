@@ -257,8 +257,8 @@ bool initNs(nsjconf_t* nsjconf) {
 				continue;
 			}
 			if (prctl(PR_CAPBSET_READ, (unsigned long)i.val, 0UL, 0UL, 0UL) ==
-				-1 && errno = EINVAL) {
-				LOG_D("Skipping unsupported capability: %s", i.name.c_str());
+				-1 && errno == EINVAL) {
+				LOG_D("Skipping unsupported capability: %s", i.name);
 				continue;
 			}
 			dbgmsg.append(" ").append(i.name);
