@@ -194,7 +194,7 @@ static void subprocNewProc(
 #if defined(__NR_execveat)
 		util::syscall(__NR_execveat, nsjconf->exec_fd, (uintptr_t) "",
 		    (uintptr_t)argv.data(), (uintptr_t)environ, AT_EMPTY_PATH);
-#else /* defined(__NR_execveat) */
+#else  /* defined(__NR_execveat) */
 		LOG_E("Your system doesn't support execveat() syscall");
 		return;
 #endif /* defined(__NR_execveat) */
@@ -259,8 +259,11 @@ static void seccompViolation(nsjconf_t* nsjconf, siginfo_t* si) {
 
 	const auto& p = nsjconf->pids.find(si->si_pid);
 	if (p == nsjconf->pids.end()) {
-		LOG_W("pid=%d SiSyscall: %d, SiCode: %d, SiErrno: %d, SiSigno: %d", (int)si->si_pid,
-		    si->si_syscall, si->si_code, si->si_errno, si->si_signo);
+		LOG_W(
+		    "pid=%d SiSyscall: %d, SiCode: %d, SiErrno: %d, SiSigno: %d. (If "
+		    "SiSyscall==31, then it's most likely the SIGSYS value. See 'dmesg' or "
+		    "'journalctl -ek' for possible auditd report with more data)",
+		    (int)si->si_pid, si->si_syscall, si->si_code, si->si_errno, si->si_signo);
 		LOG_E("Couldn't find pid element in the subproc list for pid=%d", (int)si->si_pid);
 		return;
 	}
@@ -268,7 +271,10 @@ static void seccompViolation(nsjconf_t* nsjconf, siginfo_t* si) {
 	char buf[4096];
 	ssize_t rdsize = util::readFromFd(p->second.pid_syscall_fd, buf, sizeof(buf) - 1);
 	if (rdsize < 1) {
-		LOG_W("pid=%d, SiSyscall: %d, SiCode: %d, SiErrno: %d, SiSigno: %d",
+		LOG_W(
+		    "pid=%d, SiSyscall: %d, SiCode: %d, SiErrno: %d, SiSigno: %d. (If "
+		    "SiSyscall==31, then it's most likely the SIGSYS value. See 'dmesg' or "
+		    "'journalctl -ek' for possible auditd report with more data)",
 		    (int)si->si_pid, si->si_syscall, si->si_code, si->si_errno, si->si_signo);
 		return;
 	}
@@ -287,11 +293,15 @@ static void seccompViolation(nsjconf_t* nsjconf, siginfo_t* si) {
 	} else if (ret == 3) {
 		LOG_W(
 		    "pid=%d, SiSyscall: %d, SiCode: %d, SiErrno: %d, SiSigno: %d, SP: %#tx, PC: "
-		    "%#tx",
+		    "%#tx (If SiSyscall==31, then it's most likely the SIGSYS value. See 'dmesg' "
+		    "or 'journalctl -ek' for possible auditd report with more data)",
 		    (int)si->si_pid, si->si_syscall, si->si_code, si->si_errno, si->si_signo, arg1,
 		    arg2);
 	} else {
-		LOG_W("pid=%d, SiSyscall: %d, SiCode: %d, SiErrno: %d, Syscall string '%s'",
+		LOG_W(
+		    "pid=%d, SiSyscall: %d, SiCode: %d, SiErrno: %d, Syscall string '%s'. (If "
+		    "SiSyscall==31, then it's most likely the SIGSYS value. See 'dmesg' or "
+		    "'journalctl -ek' for possible auditd report with more data)",
 		    (int)si->si_pid, si->si_syscall, si->si_code, si->si_errno, buf);
 	}
 }
