@@ -86,6 +86,7 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 	nsjconf->cwd = njc.cwd();
 	nsjconf->port = njc.port();
 	nsjconf->bindhost = njc.bindhost();
+	nsjconf->max_conns = njc.max_conns();
 	nsjconf->max_conns_per_ip = njc.max_conns_per_ip();
 	nsjconf->tlimit = njc.time_limit();
 	nsjconf->max_cpus = njc.max_cpus();

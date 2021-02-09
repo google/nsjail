@@ -182,6 +182,12 @@ static bool isSocket(int fd) {
 
 bool limitConns(nsjconf_t* nsjconf, int connsock) {
 	/* 0 means 'unlimited' */
+	if (nsjconf->max_conns != 0 && nsjconf->pids.size() >= nsjconf->max_conns) {
+		LOG_W("Rejecting connection, max_conns limit reached: %u", nsjconf->max_conns);
+		return false;
+	}
+
+	/* 0 means 'unlimited' */
 	if (nsjconf->max_conns_per_ip == 0) {
 		return true;
 	}

@@ -61,6 +61,9 @@ TCP port to bind to (enables MODE_LISTEN_TCP) (default: 0)
 \fB\-\-bindhost\fR VALUE
 IP address to bind the port to (only in [MODE_LISTEN_TCP]), (default: '::')
 .TP
+\fB\-\-max_conns\fR VALUE
+Maximum number of connections across all IPs (only in [MODE_LISTEN_TCP]), (default: 0 (unlimited))
+.TP
 \fB\-\-max_conns_per_ip\fR|\fB\-i\fR VALUE
 Maximum number of connections per one IP (only in [MODE_LISTEN_TCP]), (default: 0 (unlimited))
 .TP

@@ -83,6 +83,7 @@ struct custom_option custom_opts[] = {
     { { "cwd", required_argument, NULL, 'D' }, "Directory in the namespace the process will run (default: '/')" },
     { { "port", required_argument, NULL, 'p' }, "TCP port to bind to (enables MODE_LISTEN_TCP) (default: 0)" },
     { { "bindhost", required_argument, NULL, 0x604 }, "IP address to bind the port to (only in [MODE_LISTEN_TCP]), (default: '::')" },
+    { { "max_conns", required_argument, NULL, 0x608 }, "Maximum number of connections across all IPs (only in [MODE_LISTEN_TCP]), (default: 0 (unlimited))" },
     { { "max_conns_per_ip", required_argument, NULL, 'i' }, "Maximum number of connections per one IP (only in [MODE_LISTEN_TCP]), (default: 0 (unlimited))" },
     { { "log", required_argument, NULL, 'l' }, "Log file (default: use log_fd)" },
     { { "log_fd", required_argument, NULL, 'L' }, "Log FD (default: 2)" },
@@ -226,19 +227,19 @@ void logParams(nsjconf_t* nsjconf) {
 
 	LOG_I(
 	    "Jail parameters: hostname:'%s', chroot:'%s', process:'%s', bind:[%s]:%d, "
-	    "max_conns_per_ip:%u, time_limit:%" PRId64
+	    "max_conns:%u, max_conns_per_ip:%u, time_limit:%" PRId64
 	    ", personality:%#lx, daemonize:%s, clone_newnet:%s, "
 	    "clone_newuser:%s, clone_newns:%s, clone_newpid:%s, clone_newipc:%s, clone_newuts:%s, "
 	    "clone_newcgroup:%s, keep_caps:%s, disable_no_new_privs:%s, max_cpus:%zu",
 	    nsjconf->hostname.c_str(), nsjconf->chroot.c_str(),
 	    nsjconf->exec_file.empty() ? nsjconf->argv[0].c_str() : nsjconf->exec_file.c_str(),
-	    nsjconf->bindhost.c_str(), nsjconf->port, nsjconf->max_conns_per_ip, nsjconf->tlimit,
-	    nsjconf->personality, logYesNo(nsjconf->daemonize), logYesNo(nsjconf->clone_newnet),
-	    logYesNo(nsjconf->clone_newuser), logYesNo(nsjconf->clone_newns),
-	    logYesNo(nsjconf->clone_newpid), logYesNo(nsjconf->clone_newipc),
-	    logYesNo(nsjconf->clone_newuts), logYesNo(nsjconf->clone_newcgroup),
-	    logYesNo(nsjconf->keep_caps), logYesNo(nsjconf->disable_no_new_privs),
-	    nsjconf->max_cpus);
+	    nsjconf->bindhost.c_str(), nsjconf->port, nsjconf->max_conns, nsjconf->max_conns_per_ip,
+	    nsjconf->tlimit, nsjconf->personality, logYesNo(nsjconf->daemonize),
+	    logYesNo(nsjconf->clone_newnet), logYesNo(nsjconf->clone_newuser),
+	    logYesNo(nsjconf->clone_newns), logYesNo(nsjconf->clone_newpid),
+	    logYesNo(nsjconf->clone_newipc), logYesNo(nsjconf->clone_newuts),
+	    logYesNo(nsjconf->clone_newcgroup), logYesNo(nsjconf->keep_caps),
+	    logYesNo(nsjconf->disable_no_new_privs), nsjconf->max_cpus);
 
 	for (const auto& p : nsjconf->mountpts) {
 		LOG_I(
@@ -423,6 +424,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->is_silent = false;
 	nsjconf->stderr_to_null = false;
 	nsjconf->skip_setsid = false;
+	nsjconf->max_conns = 0;
 	nsjconf->max_conns_per_ip = 0;
 	nsjconf->proc_path = "/proc";
 	nsjconf->is_proc_rw = false;
@@ -502,6 +504,9 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			break;
 		case 0x604:
 			nsjconf->bindhost = optarg;
+			break;
+		case 0x608:
+			nsjconf->max_conns = strtoul(optarg, NULL, 0);
 			break;
 		case 'i':
 			nsjconf->max_conns_per_ip = strtoul(optarg, NULL, 0);
