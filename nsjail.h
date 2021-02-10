@@ -129,6 +129,7 @@ struct nsjconf_t {
 	bool is_silent;
 	bool stderr_to_null;
 	bool skip_setsid;
+	unsigned int max_conns;
 	unsigned int max_conns_per_ip;
 	std::string proc_path;
 	bool is_proc_rw;

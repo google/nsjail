@@ -90,6 +90,8 @@ message NsJailConfig {
     optional uint32 port = 10 [default = 0];
     /* Host to bind to for mode=LISTEN. Must be in IPv6 format */
     optional string bindhost = 11 [default = "::"];
+    /* For mode=LISTEN, maximum number of connections across all IPs */
+    optional uint32 max_conns = 85 [default = 0];
     /* For mode=LISTEN, maximum number of connections from a single IP */
     optional uint32 max_conns_per_ip = 12 [default = 0];
 

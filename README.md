@@ -368,6 +368,8 @@ Options:
 	TCP port to bind to (enables MODE_LISTEN_TCP) (default: 0)
  --bindhost VALUE
 	IP address to bind the port to (only in [MODE_LISTEN_TCP]), (default: '::')
+ --max_conns VALUE
+	Maximum number of connections across all IPs (only in [MODE_LISTEN_TCP]), (default: 0 (unlimited))
  --max_conns_per_ip|-i VALUE
 	Maximum number of connections per one IP (only in [MODE_LISTEN_TCP]), (default: 0 (unlimited))
  --log|-l VALUE
