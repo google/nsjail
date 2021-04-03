@@ -491,7 +491,7 @@ Options:
  --cgroup_cpu_ms_per_sec VALUE
 	Number of milliseconds of CPU time per second that the process group can use (default: '0' - no limit)
  --cgroup_cpu_mount VALUE
-	Location of cpu cgroup FS (default: '/sys/fs/cgroup/net_cls')
+	Location of cpu cgroup FS (default: '/sys/fs/cgroup/cpu')
  --cgroup_cpu_parent VALUE
 	Which pre-existing cpu cgroup to use as a parent (default: 'NSJAIL')
  --iface_no_lo 
