@@ -122,6 +122,7 @@ struct custom_option custom_opts[] = {
     { { "disable_clone_newipc", no_argument, NULL, 0x0405 }, "Don't use CLONE_NEWIPC" },
     { { "disable_clone_newuts", no_argument, NULL, 0x0406 }, "Don't use CLONE_NEWUTS" },
     { { "disable_clone_newcgroup", no_argument, NULL, 0x0407 }, "Don't use CLONE_NEWCGROUP. Might be required for kernel versions < 4.6" },
+    { { "enable_clone_newtime", no_argument, NULL, 0x0408 }, "Use CLONE_NEWTIME. Supported with kernel versions >= 5.3" },
     { { "uid_mapping", required_argument, NULL, 'U' }, "Add a custom uid mapping of the form inside_uid:outside_uid:count. Setting this requires newuidmap (set-uid) to be present" },
     { { "gid_mapping", required_argument, NULL, 'G' }, "Add a custom gid mapping of the form inside_gid:outside_gid:count. Setting this requires newgidmap (set-uid) to be present" },
     { { "bindmount_ro", required_argument, NULL, 'R' }, "List of mountpoints to be mounted --bind (ro) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'" },
@@ -230,7 +231,7 @@ void logParams(nsjconf_t* nsjconf) {
 	    "max_conns:%u, max_conns_per_ip:%u, time_limit:%" PRId64
 	    ", personality:%#lx, daemonize:%s, clone_newnet:%s, "
 	    "clone_newuser:%s, clone_newns:%s, clone_newpid:%s, clone_newipc:%s, clone_newuts:%s, "
-	    "clone_newcgroup:%s, keep_caps:%s, disable_no_new_privs:%s, max_cpus:%zu",
+	    "clone_newcgroup:%s, clone_newtime:%s, keep_caps:%s, disable_no_new_privs:%s, max_cpus:%zu",
 	    nsjconf->hostname.c_str(), nsjconf->chroot.c_str(),
 	    nsjconf->exec_file.empty() ? nsjconf->argv[0].c_str() : nsjconf->exec_file.c_str(),
 	    nsjconf->bindhost.c_str(), nsjconf->port, nsjconf->max_conns, nsjconf->max_conns_per_ip,
@@ -238,7 +239,7 @@ void logParams(nsjconf_t* nsjconf) {
 	    logYesNo(nsjconf->clone_newnet), logYesNo(nsjconf->clone_newuser),
 	    logYesNo(nsjconf->clone_newns), logYesNo(nsjconf->clone_newpid),
 	    logYesNo(nsjconf->clone_newipc), logYesNo(nsjconf->clone_newuts),
-	    logYesNo(nsjconf->clone_newcgroup), logYesNo(nsjconf->keep_caps),
+	    logYesNo(nsjconf->clone_newcgroup), logYesNo(nsjconf->clone_newtime), logYesNo(nsjconf->keep_caps),
 	    logYesNo(nsjconf->disable_no_new_privs), nsjconf->max_cpus);
 
 	for (const auto& p : nsjconf->mountpts) {
@@ -419,6 +420,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->clone_newipc = true;
 	nsjconf->clone_newuts = true;
 	nsjconf->clone_newcgroup = true;
+	nsjconf->clone_newcgroup = false;
 	nsjconf->mode = MODE_STANDALONE_ONCE;
 	nsjconf->is_root_rw = false;
 	nsjconf->is_silent = false;
@@ -600,7 +602,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			nsjconf->clone_newcgroup = false;
 			break;
 		case 0x0408:
-			nsjconf->clone_newcgroup = true;
+			nsjconf->clone_newtime = true;
 			break;
 		case 0x0501:
 			nsjconf->keep_caps = true;

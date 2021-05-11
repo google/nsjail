@@ -124,6 +124,7 @@ struct nsjconf_t {
 	bool clone_newipc;
 	bool clone_newuts;
 	bool clone_newcgroup;
+	bool clone_newtime;
 	enum ns_mode_t mode;
 	bool is_root_rw;
 	bool is_silent;

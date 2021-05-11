@@ -59,6 +59,9 @@ namespace subproc {
 #if !defined(CLONE_NEWCGROUP)
 #define CLONE_NEWCGROUP 0x02000000
 #endif /* !defined(CLONE_NEWCGROUP) */
+#if !defined(CLONE_NEWTIME)
+#define #define CLONE_NEWTIME 0x00000080
+#endif /* !defined(CLONE_NEWTIME) */
 
 static const std::string cloneFlagsToStr(uintptr_t flags) {
 	std::string res;
@@ -67,6 +70,7 @@ static const std::string cloneFlagsToStr(uintptr_t flags) {
 		const uintptr_t flag;
 		const char* const name;
 	} static const cloneFlags[] = {
+		NS_VALSTR_STRUCT(CLONE_NEWTIME),
 		NS_VALSTR_STRUCT(CLONE_VM),
 		NS_VALSTR_STRUCT(CLONE_FS),
 		NS_VALSTR_STRUCT(CLONE_FILES),
@@ -430,6 +434,7 @@ pid_t runChild(nsjconf_t* nsjconf, int netfd, int fd_in, int fd_out, int fd_err)
 	flags |= (nsjconf->clone_newipc ? CLONE_NEWIPC : 0);
 	flags |= (nsjconf->clone_newuts ? CLONE_NEWUTS : 0);
 	flags |= (nsjconf->clone_newcgroup ? CLONE_NEWCGROUP : 0);
+	flags |= (nsjconf->clone_newtime ? CLONE_NEWTIME : 0);
 
 	if (nsjconf->mode == MODE_STANDALONE_EXECVE) {
 		if (unshare(flags) == -1) {
