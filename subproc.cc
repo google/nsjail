@@ -60,7 +60,7 @@ namespace subproc {
 #define CLONE_NEWCGROUP 0x02000000
 #endif /* !defined(CLONE_NEWCGROUP) */
 #if !defined(CLONE_NEWTIME)
-#define #define CLONE_NEWTIME 0x00000080
+#define CLONE_NEWTIME 0x00000080
 #endif /* !defined(CLONE_NEWTIME) */
 
 static const std::string cloneFlagsToStr(uintptr_t flags) {
