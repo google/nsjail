@@ -453,7 +453,7 @@ bool initNs(nsjconf_t* nsjconf) {
 		return initNsInternal(nsjconf);
 	}
 
-	pid_t pid = subproc::cloneProc(CLONE_FS | SIGCHLD);
+	pid_t pid = subproc::cloneProc(CLONE_FS, SIGCHLD);
 	if (pid == -1) {
 		return false;
 	}

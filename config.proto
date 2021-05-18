@@ -177,7 +177,7 @@ message NsJailConfig {
     optional bool clone_newuts = 52 [default = true];
     /* Disable for kernel versions < 4.6 as it's not supported there */
     optional bool clone_newcgroup = 53 [default = true];
-	/* Supported with kernel versions >= 5.3 */
+    /* Supported with kernel versions >= 5.3 */
     optional bool clone_newtime = 86 [default = false];
 
     /* Mappings for UIDs and GIDs. See the description for 'msg IdMap'

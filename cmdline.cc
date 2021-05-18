@@ -231,7 +231,8 @@ void logParams(nsjconf_t* nsjconf) {
 	    "max_conns:%u, max_conns_per_ip:%u, time_limit:%" PRId64
 	    ", personality:%#lx, daemonize:%s, clone_newnet:%s, "
 	    "clone_newuser:%s, clone_newns:%s, clone_newpid:%s, clone_newipc:%s, clone_newuts:%s, "
-	    "clone_newcgroup:%s, clone_newtime:%s, keep_caps:%s, disable_no_new_privs:%s, max_cpus:%zu",
+	    "clone_newcgroup:%s, clone_newtime:%s, keep_caps:%s, disable_no_new_privs:%s, "
+	    "max_cpus:%zu",
 	    nsjconf->hostname.c_str(), nsjconf->chroot.c_str(),
 	    nsjconf->exec_file.empty() ? nsjconf->argv[0].c_str() : nsjconf->exec_file.c_str(),
 	    nsjconf->bindhost.c_str(), nsjconf->port, nsjconf->max_conns, nsjconf->max_conns_per_ip,
@@ -239,8 +240,9 @@ void logParams(nsjconf_t* nsjconf) {
 	    logYesNo(nsjconf->clone_newnet), logYesNo(nsjconf->clone_newuser),
 	    logYesNo(nsjconf->clone_newns), logYesNo(nsjconf->clone_newpid),
 	    logYesNo(nsjconf->clone_newipc), logYesNo(nsjconf->clone_newuts),
-	    logYesNo(nsjconf->clone_newcgroup), logYesNo(nsjconf->clone_newtime), logYesNo(nsjconf->keep_caps),
-	    logYesNo(nsjconf->disable_no_new_privs), nsjconf->max_cpus);
+	    logYesNo(nsjconf->clone_newcgroup), logYesNo(nsjconf->clone_newtime),
+	    logYesNo(nsjconf->keep_caps), logYesNo(nsjconf->disable_no_new_privs),
+	    nsjconf->max_cpus);
 
 	for (const auto& p : nsjconf->mountpts) {
 		LOG_I(

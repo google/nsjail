@@ -100,18 +100,20 @@ static const std::string cloneFlagsToStr(uintptr_t flags) {
 		NS_VALSTR_STRUCT(CLONE_IO),
 	};
 
-	uintptr_t knownFlagMask = CSIGNAL;
+	uintptr_t knownFlagMask = 0;
 	for (const auto& i : cloneFlags) {
 		if (flags & i.flag) {
-			res.append(i.name).append("|");
+			if (!res.empty()) {
+				res.append("|");
+			}
+			res.append(i.name);
 		}
 		knownFlagMask |= i.flag;
 	}
 
 	if (flags & ~(knownFlagMask)) {
-		util::StrAppend(&res, "%#tx|", flags & ~(knownFlagMask));
+		util::StrAppend(&res, "|%#tx", flags & ~(knownFlagMask));
 	}
-	res.append(util::sigName(flags & CSIGNAL).c_str());
 	return res;
 }
 
@@ -444,8 +446,8 @@ pid_t runChild(nsjconf_t* nsjconf, int netfd, int fd_in, int fd_out, int fd_err)
 		LOG_F("Launching new process failed");
 	}
 
-	flags |= SIGCHLD;
-	LOG_D("Creating new process with clone flags:%s", cloneFlagsToStr(flags).c_str());
+	LOG_D("Creating new process with clone flags:%s and exit_signal:SIGCHLD",
+	    cloneFlagsToStr(flags).c_str());
 
 	int sv[2];
 	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, sv) == -1) {
@@ -455,7 +457,7 @@ pid_t runChild(nsjconf_t* nsjconf, int netfd, int fd_in, int fd_out, int fd_err)
 	int child_fd = sv[0];
 	int parent_fd = sv[1];
 
-	pid_t pid = cloneProc(flags);
+	pid_t pid = cloneProc(flags, SIGCHLD);
 	if (pid == 0) {
 		close(parent_fd);
 		subprocNewProc(nsjconf, netfd, fd_in, fd_out, fd_err, child_fd);
@@ -464,21 +466,20 @@ pid_t runChild(nsjconf_t* nsjconf, int netfd, int fd_in, int fd_out, int fd_err)
 	}
 	close(child_fd);
 	if (pid == -1) {
+		auto saved_errno = errno;
+		PLOG_W("clone(flags=%s) failed", cloneFlagsToStr(flags).c_str());
 		if (flags & CLONE_NEWCGROUP) {
-			auto saved_errno = errno;
-			PLOG_E(
+			LOG_W(
 			    "nsjail tried to use the CLONE_NEWCGROUP clone flag, which is "
-			    "supported under kernel versions >= 4.6 only. Try disabling this flag");
-			errno = saved_errno;
+			    "supported under kernel versions >= 4.6 only");
+		} else if (flags & CLONE_NEWTIME) {
+			LOG_W(
+			    "nsjail tried to use the CLONE_NEWTIME clone flag, which is "
+			    "supported under kernel versions >= 5.13 only");
 		}
-		PLOG_E(
-		    "clone(flags=%s) failed. You probably need root privileges if your system "
-		    "doesn't support CLONE_NEWUSER. Alternatively, you might want to recompile "
-		    "your kernel with support for namespaces or check the current value of the "
-		    "kernel.unprivileged_userns_clone sysctl",
-		    cloneFlagsToStr(flags).c_str());
 		close(parent_fd);
-		return -1;
+		errno = saved_errno;
+		return pid;
 	}
 	addProc(nsjconf, pid, netfd);
 
@@ -517,9 +518,39 @@ static int cloneFunc(void* arg __attribute__((unused))) {
  * update the internal PID/TID caches, what can lead to invalid values being returned by getpid()
  * or incorrect PID/TIDs used in raise()/abort() functions
  */
-pid_t cloneProc(uintptr_t flags) {
+pid_t cloneProc(uintptr_t flags, int exit_signal) {
+	exit_signal &= CSIGNAL;
+
 	if (flags & CLONE_VM) {
 		LOG_E("Cannot use clone(flags & CLONE_VM)");
+		errno = 0;
+		return -1;
+	}
+
+#if defined(__NR_clone3)
+	struct clone_args ca = {
+	    .flags = (uint64_t)flags,
+	    .pidfd = 0,
+	    .child_tid = 0,
+	    .parent_tid = 0,
+	    .exit_signal = (uint64_t)exit_signal,
+	    .stack = 0,
+	    .stack_size = 0,
+	    .tls = 0,
+	    .set_tid = 0,
+	    .set_tid_size = 0,
+	    .cgroup = 0,
+	};
+
+	pid_t ret = util::syscall(__NR_clone3, (uintptr_t)&ca, sizeof(ca));
+	if (ret != -1 || errno != ENOSYS) {
+		return ret;
+	}
+#endif /* defined(__NR_clone3) */
+
+	if (flags & CLONE_NEWTIME) {
+		LOG_E("CLONE_NEWTIME was requested but clone3() is not supported");
+		errno = 0;
 		return -1;
 	}
 
@@ -532,7 +563,7 @@ pid_t cloneProc(uintptr_t flags) {
 		 */
 		void* stack = &cloneStack[sizeof(cloneStack) / 2];
 		/* Parent */
-		return clone(cloneFunc, stack, flags, NULL, NULL, NULL);
+		return clone(cloneFunc, stack, flags | exit_signal, NULL, NULL, NULL);
 	}
 	/* Child */
 	return 0;
