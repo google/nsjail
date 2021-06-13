@@ -84,7 +84,12 @@ static bool cloneIface(
 		rtnl_link_set_addr(rmv, nladdr);
 		nl_addr_put(nladdr);
 	}
-
+	
+	if ((err = rtnl_link_macvlan_set_mode(rmv, rtnl_link_macvlan_str2mode(nsjconf->iface_vs_mo.c_str()))) < 0) {
+		LOG_E("rtnl_link_macvlan_set_mode(mode:'%s') failed: %s", 
+		nsjconf->iface_vs_mo.c_str(), nl_geterror(err));
+	}
+		
 	if ((err = rtnl_link_add(sk, rmv, NLM_F_CREATE)) < 0) {
 		LOG_E("rtnl_link_add(name:'%s' link:'%s'): %s", IFACE_NAME,
 		    nsjconf->iface_vs.c_str(), nl_geterror(err));
