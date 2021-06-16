@@ -158,6 +158,7 @@ struct custom_option custom_opts[] = {
     { { "macvlan_vs_nm", required_argument, NULL, 0x702 }, "Netmask of the 'vs' interface (e.g. \"255.255.255.0\")" },
     { { "macvlan_vs_gw", required_argument, NULL, 0x703 }, "Default GW for the 'vs' interface (e.g. \"192.168.0.1\")" },
     { { "macvlan_vs_ma", required_argument, NULL, 0x705 }, "MAC-address of the 'vs' interface (e.g. \"ba:ad:ba:be:45:00\")" },
+    { { "macvlan_vs_mo", required_argument, NULL, 0x706 }, "Mode of the 'vs' interface. Can be either 'private', 'vepa', 'bridge' or 'passthru' (default: 'private')" },
 };
 // clang-format on
 
@@ -391,6 +392,19 @@ void setupUsers(nsjconf_t* nsjconf) {
 	}
 }
 
+std::string parseMACVlanMode(const char* optarg) {
+	if (strcasecmp(optarg, "private") != 0 	&&
+		strcasecmp(optarg, "vepa") != 0 	&&
+		strcasecmp(optarg, "bridge") != 0 	&&
+		strcasecmp(optarg, "passthru") != 0)  {
+		LOG_F(
+		    "macvlan mode can only be one of the values: 'private'/'vepa'/'bridge'/'passthru' ('%s' "
+		    "provided).",
+		    optarg);
+	} 
+	return std::string(optarg);
+}
+
 std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	std::unique_ptr<nsjconf_t> nsjconf(new nsjconf_t);
 
@@ -451,6 +465,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->iface_vs_nm = "255.255.255.0";
 	nsjconf->iface_vs_gw = "0.0.0.0";
 	nsjconf->iface_vs_ma = "";
+	nsjconf->iface_vs_mo = "private";
 	nsjconf->orig_uid = getuid();
 	nsjconf->orig_euid = geteuid();
 	nsjconf->num_cpus = sysconf(_SC_NPROCESSORS_ONLN);
@@ -808,6 +823,9 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			break;
 		case 0x705:
 			nsjconf->iface_vs_ma = optarg;
+			break;
+		case 0x706:
+			nsjconf->iface_vs_mo = parseMACVlanMode(optarg);
 			break;
 		case 0x801:
 			nsjconf->cgroup_mem_max = (size_t)strtoull(optarg, NULL, 0);
