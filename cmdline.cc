@@ -393,15 +393,14 @@ void setupUsers(nsjconf_t* nsjconf) {
 }
 
 std::string parseMACVlanMode(const char* optarg) {
-	if (strcasecmp(optarg, "private") != 0 	&&
-		strcasecmp(optarg, "vepa") != 0 	&&
-		strcasecmp(optarg, "bridge") != 0 	&&
-		strcasecmp(optarg, "passthru") != 0)  {
+	if (strcasecmp(optarg, "private") != 0 && strcasecmp(optarg, "vepa") != 0 &&
+	    strcasecmp(optarg, "bridge") != 0 && strcasecmp(optarg, "passthru") != 0) {
 		LOG_F(
-		    "macvlan mode can only be one of the values: 'private'/'vepa'/'bridge'/'passthru' ('%s' "
+		    "macvlan mode can only be one of the values: "
+		    "'private'/'vepa'/'bridge'/'passthru' ('%s' "
 		    "provided).",
 		    optarg);
-	} 
+	}
 	return std::string(optarg);
 }
 
