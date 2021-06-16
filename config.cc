@@ -267,6 +267,7 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 	nsjconf->iface_vs_nm = njc.macvlan_vs_nm();
 	nsjconf->iface_vs_gw = njc.macvlan_vs_gw();
 	nsjconf->iface_vs_ma = njc.macvlan_vs_ma();
+	nsjconf->iface_vs_mo = njc.macvlan_vs_mo();
 
 	if (njc.has_exec_bin()) {
 		if (njc.exec_bin().has_path()) {
