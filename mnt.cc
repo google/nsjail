@@ -424,7 +424,7 @@ static bool initCloneNs(nsjconf_t* nsjconf) {
         * operation is forbidden. There are systems (mainly embedded) that keep their root
         * file system in RAM, when initially loaded by the kernel (e.g. initramfs),
         * and there is no other file system that is mounted on top of it.In such systems,
-        * there is option to pivot_root!
+        * there is no option to pivot_root!
         * For more information, see kernel.org/doc/Documentation/filesystems/ramfs-rootfs-initramfs.txt.
         * switch_root alternative:
         * Innstead of un-mounting the old rootfs, it is over mounted by moving the new root to it.
