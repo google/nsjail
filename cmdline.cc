@@ -435,7 +435,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->clone_newipc = true;
 	nsjconf->clone_newuts = true;
 	nsjconf->clone_newcgroup = true;
-	nsjconf->clone_newcgroup = false;
+	nsjconf->clone_newtime = false;
 	nsjconf->mode = MODE_STANDALONE_ONCE;
 	nsjconf->is_root_rw = false;
 	nsjconf->is_silent = false;
