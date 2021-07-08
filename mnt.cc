@@ -399,7 +399,7 @@ static bool initCloneNs(nsjconf_t* nsjconf) {
 		return false;
 	}
 	
-    if (false == nsjconf->use_switchroot) {
+    if (!nsjconf->use_switchroot) {
         /*
         * This requires some explanation: It's actually possible to pivot_root('/', '/').
         * After this operation has been completed, the old root is mounted over the new
