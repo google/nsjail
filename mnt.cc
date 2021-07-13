@@ -426,19 +426,22 @@ static bool initCloneNs(nsjconf_t* nsjconf) {
         * and there is no other file system that is mounted on top of it.In such systems,
         * there is no option to pivot_root!
         * For more information, see kernel.org/doc/Documentation/filesystems/ramfs-rootfs-initramfs.txt.
-        * switch_root alternative:
-        * Innstead of un-mounting the old rootfs, it is over mounted by moving the new root to it.
-        * This way, we prevent the process from hacking its way back into the old root. 
+        * The alternative is to override '/' mount point with the new root within the mount namespace.
         */
         if (chdir(destdir->c_str()) == -1) {
             PLOG_E("chdir('%s')", destdir->c_str());
             return false;
         }
 
-        /* mount moving the new root on top of '/'. This operation is atomic and doesn't involve
-        un-mounting '/' at any stage */
-        if (mount(".", "/", NULL, MS_MOVE, NULL) == -1) {
-            PLOG_E("mount('/', %s, NULL, MS_MOVE, NULL)", destdir->c_str());
+        /* Override '/' mount point with the target chroot dir */
+        if (mount(".", "/", NULL, MS_REC | MS_BIND, NULL) == -1) {
+            PLOG_E("mount('.', '/', NULL, MS_REC | MS_BIND, NULL)");
+            return false;
+        }
+		
+        /* Remount '/' as private so that there will be no mount propagation */
+        if (mount(NULL, "/", NULL, MS_REC | MS_PRIVATE, NULL) == -1) {
+            PLOG_E("mount(NULL, '/', NULL, MS_REC | MS_BIND, NULL)");
             return false;
         }
 
