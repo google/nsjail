@@ -439,6 +439,7 @@ pid_t runChild(nsjconf_t* nsjconf, int netfd, int fd_in, int fd_out, int fd_err)
 	flags |= (nsjconf->clone_newtime ? CLONE_NEWTIME : 0);
 
 	if (nsjconf->mode == MODE_STANDALONE_EXECVE) {
+		LOG_D("unshare(flags: %s)", cloneFlagsToStr(flags).c_str());
 		if (unshare(flags) == -1) {
 			PLOG_F("unshare(%s)", cloneFlagsToStr(flags).c_str());
 		}
