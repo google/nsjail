@@ -109,6 +109,9 @@ struct custom_option custom_opts[] = {
     { { "rlimit_nofile", required_argument, NULL, 0x0205 }, "RLIMIT_NOFILE, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 32)" },
     { { "rlimit_nproc", required_argument, NULL, 0x0206 }, "RLIMIT_NPROC, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 'soft')" },
     { { "rlimit_stack", required_argument, NULL, 0x0207 }, "RLIMIT_STACK in MB, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 'soft')" },
+    { { "rlimit_mlock", required_argument, NULL, 0x0209 }, "RLIMIT_MEMLOCK in KB, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 'soft')" },
+    { { "rlimit_rtpr", required_argument, NULL, 0x0210 }, "RLIMIT_RTPRIO, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 0)" },
+    { { "rlimit_msgq", required_argument, NULL, 0x0211 }, "RLIMIT_MSGQUEUE in bytes, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 128)" },
     { { "disable_rlimits", no_argument, NULL, 0x0208 }, "Disable all rlimits, default to limits set by parent" },
     { { "persona_addr_compat_layout", no_argument, NULL, 0x0301 }, "personality(ADDR_COMPAT_LAYOUT)" },
     { { "persona_mmap_page_zero", no_argument, NULL, 0x0302 }, "personality(MMAP_PAGE_ZERO)" },
@@ -426,6 +429,9 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->rl_nofile = 32ULL;
 	nsjconf->rl_nproc = parseRLimit(RLIMIT_NPROC, "soft", 1);
 	nsjconf->rl_stack = parseRLimit(RLIMIT_STACK, "soft", 1);
+	nsjconf->rl_mlock = parseRLimit(RLIMIT_MEMLOCK, "soft", 1);
+	nsjconf->rl_rtpr = 0;
+	nsjconf->rl_msgq = 1024ULL;
 	nsjconf->disable_rl = false;
 	nsjconf->personality = 0;
 	nsjconf->clone_newnet = true;
@@ -577,6 +583,15 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			break;
 		case 0x0207:
 			nsjconf->rl_stack = parseRLimit(RLIMIT_STACK, optarg, (1024 * 1024));
+			break;
+		case 0x0209:
+			nsjconf->rl_mlock = parseRLimit(RLIMIT_MEMLOCK, optarg, 1024);
+			break;
+		case 0x0210:
+			nsjconf->rl_rtpr = parseRLimit(RLIMIT_RTPRIO, optarg, 1);
+			break;
+		case 0x0211:
+			nsjconf->rl_msgq = parseRLimit(RLIMIT_MSGQUEUE, optarg, 1);
 			break;
 		case 0x0208:
 			nsjconf->disable_rl = true;
