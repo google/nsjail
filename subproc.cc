@@ -439,6 +439,7 @@ pid_t runChild(nsjconf_t* nsjconf, int netfd, int fd_in, int fd_out, int fd_err)
 	flags |= (nsjconf->clone_newtime ? CLONE_NEWTIME : 0);
 
 	if (nsjconf->mode == MODE_STANDALONE_EXECVE) {
+		LOG_D("unshare(flags: %s)", cloneFlagsToStr(flags).c_str());
 		if (unshare(flags) == -1) {
 			PLOG_F("unshare(%s)", cloneFlagsToStr(flags).c_str());
 		}
@@ -468,15 +469,6 @@ pid_t runChild(nsjconf_t* nsjconf, int netfd, int fd_in, int fd_out, int fd_err)
 	if (pid == -1) {
 		auto saved_errno = errno;
 		PLOG_W("clone(flags=%s) failed", cloneFlagsToStr(flags).c_str());
-		if (flags & CLONE_NEWCGROUP) {
-			LOG_W(
-			    "nsjail tried to use the CLONE_NEWCGROUP clone flag, which is "
-			    "supported under kernel versions >= 4.6 only");
-		} else if (flags & CLONE_NEWTIME) {
-			LOG_W(
-			    "nsjail tried to use the CLONE_NEWTIME clone flag, which is "
-			    "supported under kernel versions >= 5.13 only");
-		}
 		close(parent_fd);
 		errno = saved_errno;
 		return pid;
@@ -525,6 +517,12 @@ pid_t cloneProc(uintptr_t flags, int exit_signal) {
 		LOG_E("Cannot use clone(flags & CLONE_VM)");
 		errno = 0;
 		return -1;
+	}
+
+	if (flags & CLONE_NEWTIME) {
+		LOG_W(
+		    "CLONE_NEWTIME reuqested, but it's only supported with the unshare() mode "
+		    "(-Me)");
 	}
 
 #if defined(__NR_clone3)
