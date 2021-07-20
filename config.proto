@@ -87,7 +87,7 @@ message NsJailConfig {
     optional string cwd = 9 [default = "/"];
 
     /* Defines whether to use switch_root or pivot_root */
-    optional bool use_switchroot = 88  [default = false];
+    optional bool no_pivotroot = 88  [default = false];
     
     /* TCP port to listen to. Valid with mode=LISTEN only */
     optional uint32 port = 10 [default = 0];

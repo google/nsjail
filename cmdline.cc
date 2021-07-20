@@ -76,7 +76,7 @@ struct custom_option custom_opts[] = {
     { { "exec_file", required_argument, NULL, 'x' }, "File to exec (default: argv[0])" },
     { { "execute_fd", no_argument, NULL, 0x0607 }, "Use execveat() to execute a file-descriptor instead of executing the binary path. In such case argv[0]/exec_file denotes a file path before mount namespacing" },
     { { "chroot", required_argument, NULL, 'c' }, "Directory containing / of the jail (default: none)" },
-    { { "use_switchroot", no_argument, NULL, 0x600 }, "When creating a mount namespace, use switch_root rather then pivot_root. Usefull when pivot_root is disallowed (e.g. initramfs). Note: escapable is some configuration" },
+    { { "no_pivotroot", no_argument, NULL, 0x600 }, "When creating a mount namespace, use mount(MS_MOVE) and chroot rather than pivot_root. Usefull when pivot_root is disallowed (e.g. initramfs). Note: escapable is some configuration" },
     { { "rw", no_argument, NULL, 0x601 }, "Mount chroot dir (/) R/W (default: R/O)" },
     { { "user", required_argument, NULL, 'u' }, "Username/uid of processes inside the jail (default: your current uid). You can also use inside_ns_uid:outside_ns_uid:count convention here. Can be specified multiple times" },
     { { "group", required_argument, NULL, 'g' }, "Groupname/gid of processes inside the jail (default: your current gid). You can also use inside_ns_gid:global_ns_gid:count convention here. Can be specified multiple times" },
@@ -432,7 +432,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->clone_newnet = true;
 	nsjconf->clone_newuser = true;
 	nsjconf->clone_newns = true;
-	nsjconf->use_switchroot = false;
+	nsjconf->no_pivotroot = false;
 	nsjconf->clone_newpid = true;
 	nsjconf->clone_newipc = true;
 	nsjconf->clone_newuts = true;
@@ -651,7 +651,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			nsjconf->caps.push_back(cap);
 		} break;
 		case 0x0600:
-			nsjconf->use_switchroot = true;
+			nsjconf->no_pivotroot = true;
 			break;
 		case 0x0601:
 			nsjconf->is_root_rw = true;

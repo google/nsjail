@@ -120,7 +120,7 @@ struct nsjconf_t {
 	bool clone_newnet;
 	bool clone_newuser;
 	bool clone_newns;
-	bool use_switchroot;
+	bool no_pivotroot;
 	bool clone_newpid;
 	bool clone_newipc;
 	bool clone_newuts;

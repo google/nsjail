@@ -399,7 +399,7 @@ static bool initCloneNs(nsjconf_t* nsjconf) {
 		return false;
 	}
 	
-    if (!nsjconf->use_switchroot) {
+    if (!nsjconf->no_pivotroot) {
         /*
         * This requires some explanation: It's actually possible to pivot_root('/', '/').
         * After this operation has been completed, the old root is mounted over the new
@@ -435,7 +435,7 @@ static bool initCloneNs(nsjconf_t* nsjconf) {
         * and using setns to re-enter the mount namespace.
         */
        	LOG_W(
-			    "Using switch_root is escapable when user posseses relevant capabilities, "
+			    "Using no_pivotroot is escapable when user posseses relevant capabilities, "
 			    "Use it with care!"
         );
 		
