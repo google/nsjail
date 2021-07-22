@@ -160,6 +160,21 @@ static bool containSetLimits(nsjconf_t* nsjconf) {
 		PLOG_E("setrlimit64(0, RLIMIT_STACK, %" PRIu64 ")", nsjconf->rl_stack);
 		return false;
 	}
+	rl.rlim_cur = rl.rlim_max = nsjconf->rl_mlock;
+	if (setrlimit64(RLIMIT_MEMLOCK, &rl) == -1) {
+		PLOG_E("setrlimit64(0, RLIMIT_MEMLOCK, %" PRIu64 ")", nsjconf->rl_mlock);
+		return false;
+	}
+	rl.rlim_cur = rl.rlim_max = nsjconf->rl_rtpr;
+	if (setrlimit64(RLIMIT_RTPRIO, &rl) == -1) {
+		PLOG_E("setrlimit64(0, RLIMIT_RTPRIO, %" PRIu64 ")", nsjconf->rl_rtpr);
+		return false;
+	}
+	rl.rlim_cur = rl.rlim_max = nsjconf->rl_msgq;
+	if (setrlimit64(RLIMIT_MSGQUEUE , &rl) == -1) {
+		PLOG_E("setrlimit64(0, RLIMIT_MSGQUEUE , %" PRIu64 ")", nsjconf->rl_msgq);
+		return false;
+	}
 	return true;
 }
 

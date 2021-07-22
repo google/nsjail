@@ -157,6 +157,13 @@ message NsJailConfig {
     /* In MiB, use the soft limit value by default */
     optional uint64 rlimit_stack = 40 [default = 8];
     optional RLimit rlimit_stack_type = 41 [default = SOFT];
+    /* In KB, use the soft limit value by default */
+    optional uint64 rlimit_memlock = 88 [default = 64];
+    optional RLimit rlimit_memlock_type = 89 [default = SOFT];
+    optional uint64 rlimit_rtprio =  90 [default = 0];
+    optional RLimit rlimit_rtprio_type = 91 [default = SOFT];
+    optional uint64 rlimit_msgqueue =  92 [default = 1024]; /* In bytes */
+    optional RLimit rlimit_msgqueue_type = 93 [default = SOFT];
 
     /* Disable all rlimits, default to limits set by parent */
     optional bool disable_rl = 84 [default = false];

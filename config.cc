@@ -158,6 +158,11 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 	nsjconf->rl_nproc = configRLimit(RLIMIT_NPROC, njc.rlimit_nproc_type(), njc.rlimit_nproc());
 	nsjconf->rl_stack = configRLimit(
 	    RLIMIT_STACK, njc.rlimit_stack_type(), njc.rlimit_stack(), 1024UL * 1024UL);
+	nsjconf->rl_mlock = configRLimit(
+	    RLIMIT_MEMLOCK, njc.rlimit_memlock_type(), njc.rlimit_memlock(), 1024UL);
+	nsjconf->rl_rtpr = configRLimit(RLIMIT_RTPRIO, njc.rlimit_rtprio_type(), njc.rlimit_rtprio());
+	nsjconf->rl_msgq = configRLimit(RLIMIT_MSGQUEUE, njc.rlimit_msgqueue_type(), njc.rlimit_msgqueue());
+
 	nsjconf->disable_rl = njc.disable_rl();
 
 	if (njc.persona_addr_compat_layout()) {
