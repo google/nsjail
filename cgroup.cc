@@ -134,12 +134,12 @@ static bool initNsFromParentCpu(nsjconf_t* nsjconf, pid_t pid) {
 				      "/NSJAIL." + std::to_string(pid);
 	RETURN_ON_FAILURE(createCgroup(cpu_cgroup_path, pid));
 
+	RETURN_ON_FAILURE(
+	    writeToCgroup(cpu_cgroup_path + "/cpu.cfs_period_us", "1000000", "cpu period"));
+
 	std::string cpu_ms_per_sec_str = std::to_string(nsjconf->cgroup_cpu_ms_per_sec * 1000U);
 	RETURN_ON_FAILURE(
 	    writeToCgroup(cpu_cgroup_path + "/cpu.cfs_quota_us", cpu_ms_per_sec_str, "cpu quota"));
-
-	RETURN_ON_FAILURE(
-	    writeToCgroup(cpu_cgroup_path + "/cpu.cfs_period_us", "1000000", "cpu period"));
 
 	return addPidToTaskList(cpu_cgroup_path, pid);
 }
