@@ -171,7 +171,7 @@ static bool containSetLimits(nsjconf_t* nsjconf) {
 		return false;
 	}
 	rl.rlim_cur = rl.rlim_max = nsjconf->rl_msgq;
-	if (setrlimit64(RLIMIT_MSGQUEUE , &rl) == -1) {
+	if (setrlimit64(RLIMIT_MSGQUEUE, &rl) == -1) {
 		PLOG_E("setrlimit64(0, RLIMIT_MSGQUEUE , %" PRIu64 ")", nsjconf->rl_msgq);
 		return false;
 	}
