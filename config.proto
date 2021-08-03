@@ -86,6 +86,9 @@ message NsJailConfig {
     /* Initial current working directory for the binary */
     optional string cwd = 9 [default = "/"];
 
+    /* Defines whether to use switch_root or pivot_root */
+    optional bool no_pivotroot = 88  [default = false];
+    
     /* TCP port to listen to. Valid with mode=LISTEN only */
     optional uint32 port = 10 [default = 0];
     /* Host to bind to for mode=LISTEN. Must be in IPv6 format */

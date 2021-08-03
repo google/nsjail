@@ -398,30 +398,70 @@ static bool initCloneNs(nsjconf_t* nsjconf) {
 		PLOG_E("umount2('%s', MNT_DETACH)", tmpdir->c_str());
 		return false;
 	}
-	/*
-	 * This requires some explanation: It's actually possible to pivot_root('/', '/').
-	 * After this operation has been completed, the old root is mounted over the new
-	 * root, and it's OK to simply umount('/') now, and to have new_root as '/'. This
-	 * allows us not care about providing any special directory for old_root, which is
-	 * sometimes not easy, given that e.g. /tmp might not always be present inside
-	 * new_root
-	 */
-	if (util::syscall(
-		__NR_pivot_root, (uintptr_t)destdir->c_str(), (uintptr_t)destdir->c_str()) == -1) {
-		PLOG_E("pivot_root('%s', '%s')", destdir->c_str(), destdir->c_str());
-		return false;
-	}
+	
+    if (!nsjconf->no_pivotroot) {
+        /*
+        * This requires some explanation: It's actually possible to pivot_root('/', '/').
+        * After this operation has been completed, the old root is mounted over the new
+        * root, and it's OK to simply umount('/') now, and to have new_root as '/'. This
+        * allows us not care about providing any special directory for old_root, which is
+        * sometimes not easy, given that e.g. /tmp might not always be present inside
+        * new_root
+        */
+        if (util::syscall(
+            __NR_pivot_root, (uintptr_t)destdir->c_str(), (uintptr_t)destdir->c_str()) == -1) {
+            PLOG_E("pivot_root('%s', '%s')", destdir->c_str(), destdir->c_str());
+            return false;
+        }
 
-	if (umount2("/", MNT_DETACH) == -1) {
-		PLOG_E("umount2('/', MNT_DETACH)");
-		return false;
-	}
+        if (umount2("/", MNT_DETACH) == -1) {
+            PLOG_E("umount2('/', MNT_DETACH)");
+            return false;
+        }
+    } else {
+        /*
+        * pivot_root would normally un-mount the old root, however in certain cases this
+        * operation is forbidden. There are systems (mainly embedded) that keep their root
+        * file system in RAM, when initially loaded by the kernel (e.g. initramfs),
+        * and there is no other file system that is mounted on top of it.In such systems,
+        * there is no option to pivot_root!
+        * For more information, see kernel.org/doc/Documentation/filesystems/ramfs-rootfs-initramfs.txt.
+        * switch_root alternative:
+        * Innstead of un-mounting the old rootfs, it is over mounted by moving the new root to it.
+        */
+       
+        /* NOTE: Using mount move and chroot allows escaping back into the old root when proper
+        * capabilities are kept in the user namespace. It can be acheived by unmounting the new root
+        * and using setns to re-enter the mount namespace.
+        */
+       	LOG_W(
+			    "Using no_pivotroot is escapable when user posseses relevant capabilities, "
+			    "Use it with care!"
+        );
+		
+        if (chdir(destdir->c_str()) == -1) {
+            PLOG_E("chdir('%s')", destdir->c_str());
+            return false;
+        }
 
-	for (const auto& p : nsjconf->mountpts) {
-		if (!remountPt(p) && p.is_mandatory) {
-			return false;
-		}
-	}
+        /* mount moving the new root on top of '/'. This operation is atomic and doesn't involve
+        un-mounting '/' at any stage */
+        if (mount(".", "/", NULL, MS_MOVE, NULL) == -1) {
+            PLOG_E("mount('/', %s, NULL, MS_MOVE, NULL)", destdir->c_str());
+            return false;
+        }
+
+        if (chroot(".") == -1) {
+            PLOG_E("chroot('%s')", destdir->c_str());
+            return false;
+        }
+    }
+
+    for (const auto& p : nsjconf->mountpts) {
+        if (!remountPt(p) && p.is_mandatory) {
+            return false;
+        }
+    }
 
 	return true;
 }

@@ -189,6 +189,8 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 	nsjconf->clone_newuts = njc.clone_newuts();
 	nsjconf->clone_newcgroup = njc.clone_newcgroup();
 	nsjconf->clone_newtime = njc.clone_newtime();
+	
+	nsjconf->no_pivotroot = njc.no_pivotroot();
 
 	for (ssize_t i = 0; i < njc.uidmap_size(); i++) {
 		if (!user::parseId(nsjconf, njc.uidmap(i).inside_id(), njc.uidmap(i).outside_id(),
