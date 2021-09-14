@@ -407,7 +407,7 @@ Options:
  --disable_no_new_privs 
 	Don't set the prctl(NO_NEW_PRIVS, 1) (DANGEROUS)
  --rlimit_as VALUE
-	RLIMIT_AS in MB, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 512)
+	RLIMIT_AS in MB, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 4096)
  --rlimit_core VALUE
 	RLIMIT_CORE in MB, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 0)
  --rlimit_cpu VALUE
