@@ -103,7 +103,7 @@ struct custom_option custom_opts[] = {
     { { "skip_setsid", no_argument, NULL, 0x0504 }, "Don't call setsid(), allows for terminal signal handling in the sandboxed process. Dangerous" },
     { { "pass_fd", required_argument, NULL, 0x0505 }, "Don't close this FD before executing the child process (can be specified multiple times), by default: 0/1/2 are kept open" },
     { { "disable_no_new_privs", no_argument, NULL, 0x0507 }, "Don't set the prctl(NO_NEW_PRIVS, 1) (DANGEROUS)" },
-    { { "rlimit_as", required_argument, NULL, 0x0201 }, "RLIMIT_AS in MB, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 512)" },
+    { { "rlimit_as", required_argument, NULL, 0x0201 }, "RLIMIT_AS in MB, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 4096)" },
     { { "rlimit_core", required_argument, NULL, 0x0202 }, "RLIMIT_CORE in MB, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 0)" },
     { { "rlimit_cpu", required_argument, NULL, 0x0203 }, "RLIMIT_CPU, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 600)" },
     { { "rlimit_fsize", required_argument, NULL, 0x0204 }, "RLIMIT_FSIZE in MB, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 1)" },
