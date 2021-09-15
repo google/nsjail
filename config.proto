@@ -211,6 +211,8 @@ message NsJailConfig {
 
     /* If > 0, maximum cumulative size of RAM used inside any jail */
     optional uint64 cgroup_mem_max = 67 [default = 0]; /* In bytes */
+    /* If > 0, maximum cumulative size of RAM + swap used inside any jail */
+    optional uint64 cgroup_mem_memsw_max = 91 [default = 0]; /* In bytes */
     /* Mount point for cgroups-memory in your system */
     optional string cgroup_mem_mount = 68 [default = "/sys/fs/cgroup/memory"];
     /* Writeable directory (for the nsjail user) under cgroup_mem_mount */
