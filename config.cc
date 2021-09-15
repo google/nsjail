@@ -251,6 +251,7 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 	nsjconf->nice_level = njc.nice_level();
 
 	nsjconf->cgroup_mem_max = njc.cgroup_mem_max();
+	nsjconf->cgroup_mem_memsw_max = njc.cgroup_mem_memsw_max();
 	nsjconf->cgroup_mem_mount = njc.cgroup_mem_mount();
 	nsjconf->cgroup_mem_parent = njc.cgroup_mem_parent();
 	nsjconf->cgroup_pids_max = njc.cgroup_pids_max();

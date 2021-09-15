@@ -65,7 +65,7 @@ static bool addPidToTaskList(const std::string& cgroup_path, pid_t pid) {
 }
 
 static bool initNsFromParentMem(nsjconf_t* nsjconf, pid_t pid) {
-	if (nsjconf->cgroup_mem_max == (size_t)0) {
+	if (nsjconf->cgroup_mem_max == (size_t)0 && nsjconf->cgroup_mem_memsw_max == (size_t)0) {
 		return true;
 	}
 
@@ -73,15 +73,23 @@ static bool initNsFromParentMem(nsjconf_t* nsjconf, pid_t pid) {
 				      "/NSJAIL." + std::to_string(pid);
 	RETURN_ON_FAILURE(createCgroup(mem_cgroup_path, pid));
 
-	std::string mem_max_str = std::to_string(nsjconf->cgroup_mem_max);
-	RETURN_ON_FAILURE(writeToCgroup(
-	    mem_cgroup_path + "/memory.limit_in_bytes", mem_max_str, "memory cgroup max limit"));
-
 	/*
 	 * Use OOM-killer instead of making processes hang/sleep
 	 */
 	RETURN_ON_FAILURE(writeToCgroup(
 	    mem_cgroup_path + "/memory.oom_control", "0", "memory cgroup oom control"));
+
+        if (nsjconf->cgroup_mem_max > (size_t)0) {
+          std::string mem_max_str = std::to_string(nsjconf->cgroup_mem_max);
+          RETURN_ON_FAILURE(writeToCgroup(
+              mem_cgroup_path + "/memory.limit_in_bytes", mem_max_str, "memory cgroup max limit"));
+        }
+
+        if (nsjconf->cgroup_mem_memsw_max > (size_t)0) {
+          std::string mem_memsw_max_str = std::to_string(nsjconf->cgroup_mem_memsw_max);
+          RETURN_ON_FAILURE(writeToCgroup(
+              mem_cgroup_path + "/memory.memsw.limit_in_bytes", mem_memsw_max_str, "memory+Swap cgroup max limit"));
+        }
 
 	return addPidToTaskList(mem_cgroup_path, pid);
 }

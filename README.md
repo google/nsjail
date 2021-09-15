@@ -472,6 +472,8 @@ Options:
 	Use SECCOMP_FILTER_FLAG_LOG. Log all actions except SECCOMP_RET_ALLOW). Supported since kernel version 4.14
  --cgroup_mem_max VALUE
 	Maximum number of bytes to use in the group (default: '0' - disabled)
+ --cgroup_mem_memsw_max VALUE
+	Maximum number of memory+Swap bytes to use in the group (default: '0' - disabled)
  --cgroup_mem_mount VALUE
 	Location of memory cgroup FS (default: '/sys/fs/cgroup/memory')
  --cgroup_mem_parent VALUE
