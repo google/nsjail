@@ -43,6 +43,7 @@
 #include <unistd.h>
 
 #include <memory>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -777,7 +778,12 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 				dst = src;
 			}
 			std::string fs_type = argFromVec(subopts, 2);
-			std::string options = argFromVec(subopts, 3);
+			std::stringstream optionsStream;
+			optionsStream << argFromVec(subopts, 3);
+			for (std::size_t i = 4; i < subopts.size(); ++i) {
+				optionsStream << ":" << subopts[i];
+			}
+			std::string options = optionsStream.str();
 			if (!mnt::addMountPtTail(nsjconf.get(), src, dst, /* fstype= */ fs_type,
 				/* options= */ options, /* flags= */ 0,
 				/* is_dir= */ mnt::NS_DIR_MAYBE, /* is_mandatory= */ true,
