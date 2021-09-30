@@ -67,7 +67,7 @@ static const std::string cloneFlagsToStr(uintptr_t flags) {
 	std::string res;
 
 	struct {
-		const uintptr_t flag;
+		const uint64_t flag;
 		const char* const name;
 	} static const cloneFlags[] = {
 		NS_VALSTR_STRUCT(CLONE_NEWTIME),
@@ -100,7 +100,7 @@ static const std::string cloneFlagsToStr(uintptr_t flags) {
 		NS_VALSTR_STRUCT(CLONE_IO),
 	};
 
-	uintptr_t knownFlagMask = 0;
+	uint64_t knownFlagMask = 0;
 	for (const auto& i : cloneFlags) {
 		if (flags & i.flag) {
 			if (!res.empty()) {

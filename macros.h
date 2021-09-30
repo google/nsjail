@@ -65,6 +65,6 @@ static void __attribute__ ((unused)) __clang_cleanup_func(void (^*dfunc) (void))
 #endif
 
 #define NS_VALSTR_STRUCT(x) \
-	{ x, #x }
+	{ (uint64_t) x, #x }
 
 #endif /* NS_COMMON_H */
