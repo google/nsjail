@@ -84,14 +84,25 @@ static void removeCgroup(const std::string &cgroup_path) {
 }
 
 static bool initNsFromParentMem(nsjconf_t *nsjconf, pid_t pid) {
-	if (nsjconf->cgroup_mem_max == (size_t)0) {
+	if (nsjconf->cgroup_mem_max == (size_t)0 && nsjconf->cgroup_mem_memsw_max == (size_t)0) {
 		return true;
 	}
 
 	std::string cgroup_path = getCgroupPath(nsjconf, pid);
 	RETURN_ON_FAILURE(createCgroup(cgroup_path, pid));
 	RETURN_ON_FAILURE(addPidToProcList(cgroup_path, pid));
-	return writeToCgroup(cgroup_path, "memory.max", std::to_string(nsjconf->cgroup_mem_max));
+
+	if (nsjconf->cgroup_mem_max > (size_t)0) {
+		RETURN_ON_FAILURE(writeToCgroup(
+		    cgroup_path, "memory.max", std::to_string(nsjconf->cgroup_mem_max)));
+	}
+
+	if (nsjconf->cgroup_mem_memsw_max >= nsjconf->cgroup_mem_max) {
+		RETURN_ON_FAILURE(writeToCgroup(cgroup_path, "memory.swap.max",
+		    std::to_string(nsjconf->cgroup_mem_memsw_max - nsjconf->cgroup_mem_max)));
+	}
+
+	return true;
 }
 
 static bool initNsFromParentPids(nsjconf_t *nsjconf, pid_t pid) {
