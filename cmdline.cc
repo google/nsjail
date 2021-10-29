@@ -143,7 +143,8 @@ struct custom_option custom_opts[] = {
     { { "seccomp_log", no_argument, NULL, 0x0902 }, "Use SECCOMP_FILTER_FLAG_LOG. Log all actions except SECCOMP_RET_ALLOW). Supported since kernel version 4.14" },
     { { "nice_level", required_argument, NULL, 0x0903 }, "Set jailed process niceness (-20 is highest -priority, 19 is lowest). By default, set to 19" },
     { { "cgroup_mem_max", required_argument, NULL, 0x0801 }, "Maximum number of bytes to use in the group (default: '0' - disabled)" },
-    { { "cgroup_mem_memsw_max", required_argument, NULL, 0x0804 }, "Maximum number of memory+Swap bytes to use in the group (default: '0' - disabled)" },
+    { { "cgroup_mem_memsw_max", required_argument, NULL, 0x0804 }, "Maximum number of memory+swap bytes to use (default: '0' - disabled)" },
+    { { "cgroup_mem_swap_max", required_argument, NULL, 0x0805 }, "Maximum number of swap bytes to use (default: '-1' - disabled)" },
     { { "cgroup_mem_mount", required_argument, NULL, 0x0802 }, "Location of memory cgroup FS (default: '/sys/fs/cgroup/memory')" },
     { { "cgroup_mem_parent", required_argument, NULL, 0x0803 }, "Which pre-existing memory cgroup to use as a parent (default: 'NSJAIL')" },
     { { "cgroup_pids_max", required_argument, NULL, 0x0811 }, "Maximum number of pids in a cgroup (default: '0' - disabled)" },
@@ -459,6 +460,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->cgroup_mem_parent = "NSJAIL";
 	nsjconf->cgroup_mem_max = (size_t)0;
 	nsjconf->cgroup_mem_memsw_max = (size_t)0;
+	nsjconf->cgroup_mem_swap_max = (ssize_t)-1;
 	nsjconf->cgroup_pids_mount = "/sys/fs/cgroup/pids";
 	nsjconf->cgroup_pids_parent = "NSJAIL";
 	nsjconf->cgroup_pids_max = 0U;
@@ -866,6 +868,9 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 		case 0x804:
 			nsjconf->cgroup_mem_memsw_max = (size_t)strtoull(optarg, NULL, 0);
 			break;
+		case 0x805:
+			nsjconf->cgroup_mem_swap_max = (ssize_t)strtoll(optarg, NULL, 0);
+			break;
 		case 0x811:
 			nsjconf->cgroup_pids_max = (unsigned int)strtoul(optarg, NULL, 0);
 			break;
@@ -928,6 +933,11 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 		return nullptr;
 	}
 	setupUsers(nsjconf.get());
+
+	if (nsjconf->cgroup_mem_memsw_max > (size_t)0 &&
+	    nsjconf->cgroup_mem_swap_max >= (ssize_t)0) {
+		LOG_F("cannot set both cgroup_mem_memsw_max and cgroup_mem_swap_max");
+	}
 
 	return nsjconf;
 }

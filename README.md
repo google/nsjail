@@ -474,6 +474,8 @@ Options:
 	Maximum number of bytes to use in the group (default: '0' - disabled)
  --cgroup_mem_memsw_max VALUE
 	Maximum number of memory+Swap bytes to use in the group (default: '0' - disabled)
+ --cgroup_mem_swap_max VALUE
+	Maximum number of swap bytes to use in the group (default: '-1' - disabled)
  --cgroup_mem_mount VALUE
 	Location of memory cgroup FS (default: '/sys/fs/cgroup/memory')
  --cgroup_mem_parent VALUE
