@@ -526,19 +526,9 @@ pid_t cloneProc(uintptr_t flags, int exit_signal) {
 	}
 
 #if defined(__NR_clone3)
-	struct clone_args ca = {
-	    .flags = (uint64_t)flags,
-	    .pidfd = 0,
-	    .child_tid = 0,
-	    .parent_tid = 0,
-	    .exit_signal = (uint64_t)exit_signal,
-	    .stack = 0,
-	    .stack_size = 0,
-	    .tls = 0,
-	    .set_tid = 0,
-	    .set_tid_size = 0,
-	    .cgroup = 0,
-	};
+    struct clone_args ca = {};
+    ca.flags = (uint64_t)flags;
+    ca.exit_signal = (uint64_t)exit_signal;
 
 	pid_t ret = util::syscall(__NR_clone3, (uintptr_t)&ca, sizeof(ca));
 	if (ret != -1 || errno != ENOSYS) {
