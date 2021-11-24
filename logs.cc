@@ -156,9 +156,7 @@ void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt
 	msg.append("\n");
 	/* End printing logs */
 
-	if (write(_log_fd, msg.c_str(), msg.size()) == -1) {
-		dprintf(_log_fd, "%s", msg.c_str());
-	}
+	TEMP_FAILURE_RETRY(write(_log_fd, msg.c_str(), msg.size()));
 
 	if (ll == FATAL) {
 		exit(0xff);
