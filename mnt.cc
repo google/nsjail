@@ -150,7 +150,7 @@ static bool mountPt(mount_t* mpt, const char* newroot, const char* tmpdir) {
 		LOG_D("symlink('%s', '%s')", srcpath, dstpath);
 		if (symlink(srcpath, dstpath) == -1) {
 			if (mpt->is_mandatory) {
-				PLOG_W("symlink('%s', '%s')", srcpath, dstpath);
+				PLOG_E("symlink('%s', '%s')", srcpath, dstpath);
 				return false;
 			} else {
 				PLOG_W("symlink('%s', '%s'), but it's not mandatory, continuing",
@@ -396,6 +396,7 @@ static bool initCloneNs(nsjconf_t* nsjconf) {
 
 	for (auto& p : nsjconf->mountpts) {
 		if (!mountPt(&p, destdir->c_str(), tmpdir->c_str()) && p.is_mandatory) {
+			LOG_E("Couldn't mount '%s'", p.dst.c_str());
 			return false;
 		}
 	}
