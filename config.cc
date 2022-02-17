@@ -280,6 +280,8 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 	nsjconf->iface_vs_ma = njc.macvlan_vs_ma();
 	nsjconf->iface_vs_mo = njc.macvlan_vs_mo();
 
+	nsjconf->disable_tsc = njc.disable_tsc();
+
 	if (njc.has_exec_bin()) {
 		if (njc.exec_bin().has_path()) {
 			nsjconf->exec_file = njc.exec_bin().path();
