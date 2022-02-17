@@ -266,4 +266,6 @@ message NsJailConfig {
     /* Binary path (with arguments) to be executed. If not specified here, it
        can be specified with cmd-line as "-- /path/to/command arg1 arg2" */
     optional Exe exec_bin = 90;
+
+    optional bool disable_tsc = 93 [default = false];
 }
