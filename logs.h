@@ -29,21 +29,21 @@
 
 namespace logs {
 
-#define LOG_HELP(...) logs::logMsg(logs::HELP, __PRETTY_FUNCTION__, __LINE__, false, __VA_ARGS__);
+#define LOG_HELP(...) logs::logMsg(logs::HELP, __FUNCTION__, __LINE__, false, __VA_ARGS__);
 #define LOG_HELP_BOLD(...) \
-	logs::logMsg(logs::HELP_BOLD, __PRETTY_FUNCTION__, __LINE__, false, __VA_ARGS__);
+	logs::logMsg(logs::HELP_BOLD, __FUNCTION__, __LINE__, false, __VA_ARGS__);
 
-#define LOG_D(...) logs::logMsg(logs::DEBUG, __PRETTY_FUNCTION__, __LINE__, false, __VA_ARGS__);
-#define LOG_I(...) logs::logMsg(logs::INFO, __PRETTY_FUNCTION__, __LINE__, false, __VA_ARGS__);
-#define LOG_W(...) logs::logMsg(logs::WARNING, __PRETTY_FUNCTION__, __LINE__, false, __VA_ARGS__);
-#define LOG_E(...) logs::logMsg(logs::ERROR, __PRETTY_FUNCTION__, __LINE__, false, __VA_ARGS__);
-#define LOG_F(...) logs::logMsg(logs::FATAL, __PRETTY_FUNCTION__, __LINE__, false, __VA_ARGS__);
+#define LOG_D(...) logs::logMsg(logs::DEBUG, __FUNCTION__, __LINE__, false, __VA_ARGS__);
+#define LOG_I(...) logs::logMsg(logs::INFO, __FUNCTION__, __LINE__, false, __VA_ARGS__);
+#define LOG_W(...) logs::logMsg(logs::WARNING, __FUNCTION__, __LINE__, false, __VA_ARGS__);
+#define LOG_E(...) logs::logMsg(logs::ERROR, __FUNCTION__, __LINE__, false, __VA_ARGS__);
+#define LOG_F(...) logs::logMsg(logs::FATAL, __FUNCTION__, __LINE__, false, __VA_ARGS__);
 
-#define PLOG_D(...) logs::logMsg(logs::DEBUG, __PRETTY_FUNCTION__, __LINE__, true, __VA_ARGS__);
-#define PLOG_I(...) logs::logMsg(logs::INFO, __PRETTY_FUNCTION__, __LINE__, true, __VA_ARGS__);
-#define PLOG_W(...) logs::logMsg(logs::WARNING, __PRETTY_FUNCTION__, __LINE__, true, __VA_ARGS__);
-#define PLOG_E(...) logs::logMsg(logs::ERROR, __PRETTY_FUNCTION__, __LINE__, true, __VA_ARGS__);
-#define PLOG_F(...) logs::logMsg(logs::FATAL, __PRETTY_FUNCTION__, __LINE__, true, __VA_ARGS__);
+#define PLOG_D(...) logs::logMsg(logs::DEBUG, __FUNCTION__, __LINE__, true, __VA_ARGS__);
+#define PLOG_I(...) logs::logMsg(logs::INFO, __FUNCTION__, __LINE__, true, __VA_ARGS__);
+#define PLOG_W(...) logs::logMsg(logs::WARNING, __FUNCTION__, __LINE__, true, __VA_ARGS__);
+#define PLOG_E(...) logs::logMsg(logs::ERROR, __FUNCTION__, __LINE__, true, __VA_ARGS__);
+#define PLOG_F(...) logs::logMsg(logs::FATAL, __FUNCTION__, __LINE__, true, __VA_ARGS__);
 
 enum llevel_t {
 	DEBUG = 0,
