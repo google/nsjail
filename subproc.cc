@@ -266,7 +266,7 @@ static void seccompViolation(nsjconf_t* nsjconf, siginfo_t* si) {
 	const auto& p = nsjconf->pids.find(si->si_pid);
 	if (p == nsjconf->pids.end()) {
 		LOG_W(
-		    "pid=%d SiStatus:%d SiUid:%d SiUime:%ld SiStime:%ld (If "
+		    "pid=%d SiStatus:%d SiUid:%d SiUtime:%ld SiStime:%ld (If "
 		    "SiStatus==31 (SIGSYS), then see 'dmesg' or 'journalctl -ek' for possible "
 		    "auditd report with more data)",
 		    (int)si->si_pid, si->si_status, si->si_uid, (long)si->si_utime,
@@ -279,7 +279,7 @@ static void seccompViolation(nsjconf_t* nsjconf, siginfo_t* si) {
 	ssize_t rdsize = util::readFromFd(p->second.pid_syscall_fd, buf, sizeof(buf) - 1);
 	if (rdsize < 1) {
 		LOG_W(
-		    "pid=%d SiStatus:%d SiUid:%d SiUime:%ld SiStime:%ld (If "
+		    "pid=%d SiStatus:%d SiUid:%d SiUtime:%ld SiStime:%ld (If "
 		    "SiStatus==31 (SIGSYS), then see 'dmesg' or 'journalctl -ek' for possible "
 		    "auditd report with more data)",
 		    (int)si->si_pid, si->si_status, si->si_uid, (long)si->si_utime,
@@ -299,7 +299,7 @@ static void seccompViolation(nsjconf_t* nsjconf, siginfo_t* si) {
 		    (int)si->si_pid, sc, arg1, arg2, arg3, arg4, arg5, arg6, sp, pc, si->si_status);
 	} else if (ret == 3) {
 		LOG_W(
-		    "pid=%d SiStatus:%d SiUid:%d SiUime:%ld SiStime:%ld SP:%#tx, PC:%#tx (If "
+		    "pid=%d SiStatus:%d SiUid:%d SiUtime:%ld SiStime:%ld SP:%#tx, PC:%#tx (If "
 		    "SiStatus==31 (SIGSYS), then see 'dmesg' or 'journalctl -ek' for possible "
 		    "auditd report with more data)",
 		    (int)si->si_pid, si->si_status, si->si_uid, (long)si->si_utime,
@@ -307,7 +307,7 @@ static void seccompViolation(nsjconf_t* nsjconf, siginfo_t* si) {
 		return;
 	} else {
 		LOG_W(
-		    "pid=%d SiStatus:%d SiUid:%d SiUime:%ld SiStime:%ld (If "
+		    "pid=%d SiStatus:%d SiUid:%d SiUtime:%ld SiStime:%ld (If "
 		    "SiStatus==31 (SIGSYS), then see 'dmesg' or 'journalctl -ek' for possible "
 		    "auditd report with more data)",
 		    (int)si->si_pid, si->si_status, si->si_uid, (long)si->si_utime,
