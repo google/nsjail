@@ -326,11 +326,11 @@ bool parseFile(nsjconf_t* nsjconf, const char* file) {
 		return false;
 	}
 	if (!configParseInternal(nsjconf, nsc)) {
-		LOG_W("Couldn't parse the ProtoBuf");
+		LOG_W("Couldn't parse the ProtoBuf from '%s'", file);
 		return false;
 	}
 
-	LOG_D("Parsed config:\n'%s'", nsc.DebugString().c_str());
+	LOG_D("Parsed config from '%s':\n'%s'", file, nsc.DebugString().c_str());
 	return true;
 }
 
