@@ -146,6 +146,7 @@ struct nsjconf_t {
 	std::string iface_vs_ma;
 	std::string iface_vs_mo;
 	bool disable_tsc;
+	bool forward_signals;
 	std::string cgroup_mem_mount;
 	std::string cgroup_mem_parent;
 	size_t cgroup_mem_max;

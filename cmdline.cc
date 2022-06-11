@@ -167,6 +167,7 @@ struct custom_option custom_opts[] = {
     { { "macvlan_vs_ma", required_argument, NULL, 0x705 }, "MAC-address of the 'vs' interface (e.g. \"ba:ad:ba:be:45:00\")" },
     { { "macvlan_vs_mo", required_argument, NULL, 0x706 }, "Mode of the 'vs' interface. Can be either 'private', 'vepa', 'bridge' or 'passthru' (default: 'private')" },
     { { "disable_tsc", no_argument, NULL, 0x707 }, "Disable rdtsc and rdtscp instructions. WARNING: To make it effective, you also need to forbid `prctl(PR_SET_TSC, PR_TSC_ENABLE, ...)` in seccomp rules! (x86 and x86_64 only). Dynamic binaries produced by GCC seem to rely on RDTSC, but static ones should work." },
+    { { "forward_signals", no_argument, NULL, 0x708 }, "Forward fatal signals to the child process instead of always using SIKGILL." },
 };
 // clang-format on
 
@@ -480,6 +481,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->iface_vs_ma = "";
 	nsjconf->iface_vs_mo = "private";
 	nsjconf->disable_tsc = false;
+	nsjconf->forward_signals = false;
 	nsjconf->orig_uid = getuid();
 	nsjconf->orig_euid = geteuid();
 	nsjconf->num_cpus = sysconf(_SC_NPROCESSORS_ONLN);
@@ -860,6 +862,9 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			break;
 		case 0x707:
 			nsjconf->disable_tsc = true;
+			break;
+		case 0x708:
+			nsjconf->forward_signals = true;
 			break;
 		case 0x801:
 			nsjconf->cgroup_mem_max = (size_t)strtoull(optarg, NULL, 0);

@@ -389,10 +389,10 @@ int reapProc(nsjconf_t* nsjconf) {
 	return rv;
 }
 
-void killAndReapAll(nsjconf_t* nsjconf) {
+void killAndReapAll(nsjconf_t* nsjconf, int signal) {
 	while (!nsjconf->pids.empty()) {
 		pid_t pid = nsjconf->pids.begin()->first;
-		if (kill(pid, SIGKILL) == 0) {
+		if (kill(pid, signal) == 0) {
 			reapProc(nsjconf, pid, true);
 		} else {
 			removeProc(nsjconf, pid);

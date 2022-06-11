@@ -282,6 +282,8 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 
 	nsjconf->disable_tsc = njc.disable_tsc();
 
+	nsjconf->forward_signals = njc.forward_signals();
+
 	if (njc.has_exec_bin()) {
 		if (njc.exec_bin().has_path()) {
 			nsjconf->exec_file = njc.exec_bin().path();

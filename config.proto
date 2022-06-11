@@ -268,4 +268,8 @@ message NsJailConfig {
     optional Exe exec_bin = 90;
 
     optional bool disable_tsc = 93 [default = false];
+
+    /* Set this to true to forward fatal signals to the child process instead
+     * of always using SIGKILL. */
+    optional bool forward_signals = 94 [default = false];
 }
