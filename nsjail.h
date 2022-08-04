@@ -168,7 +168,6 @@ struct nsjconf_t {
 	struct sock_fprog seccomp_fprog;
 	bool seccomp_log;
 	int nice_level;
-	long num_cpus;
 	uid_t orig_uid;
 	uid_t orig_euid;
 	std::vector<mount_t> mountpts;

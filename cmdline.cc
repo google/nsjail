@@ -484,7 +484,6 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->forward_signals = false;
 	nsjconf->orig_uid = getuid();
 	nsjconf->orig_euid = geteuid();
-	nsjconf->num_cpus = sysconf(_SC_NPROCESSORS_ONLN);
 	nsjconf->seccomp_fprog.filter = NULL;
 	nsjconf->seccomp_fprog.len = 0;
 	nsjconf->seccomp_log = false;
