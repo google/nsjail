@@ -34,30 +34,45 @@
 
 namespace cpu {
 
-static size_t getNthCpu(cpu_set_t* mask, size_t mask_size, size_t n, size_t cpus_left) {
+static std::string listCpusInSet(cpu_set_t* mask) {
+	std::string ret = "[ ";
+	for (size_t i = 0; i < CPU_SETSIZE; i++) {
+		if (CPU_ISSET(i, mask)) {
+			ret.append(std::to_string(i));
+			ret.append(" ");
+		}
+	}
+	ret.append("]");
+	return ret;
+}
+
+static size_t getNthOnlineCpu(cpu_set_t* mask, size_t n) {
 	for (size_t i = 0, j = 0; i < CPU_SETSIZE; i++) {
-		if (CPU_ISSET_S(i, mask_size, mask)) {
+		if (CPU_ISSET(i, mask)) {
 			if (j == n) {
 				return i;
 			}
 			j++;
 		}
 	}
-	LOG_F("No CPU #%zu found, yet there should be %zu left", n,
-	    (size_t)CPU_COUNT_S(mask_size, mask));
+	LOG_F("No CPU #%zu found, yet there should be %zu left", n, (size_t)CPU_COUNT(mask));
 	return 0;
 }
 
-static void setRandomCpu(cpu_set_t* original_mask, cpu_set_t* new_mask, size_t mask_size) {
-	size_t cpus_left = CPU_COUNT_S(mask_size, original_mask);
+static void setRandomCpu(cpu_set_t* original_mask, cpu_set_t* new_mask) {
+	size_t cpus_left = CPU_COUNT(original_mask);
 	if (cpus_left == 0) {
-		LOG_F("There are no more CPUs left to use");
+		LOG_F("There are no more CPUs left to use, and there should be at least 1 left");
 	}
 
-	size_t n = getNthCpu(original_mask, mask_size, util::rnd64() % cpus_left, cpus_left);
-	LOG_D("Setting allowed CPU#:%" PRIu64, n);
-	CPU_SET_S(n, mask_size, new_mask);
-	CPU_CLR_S(n, mask_size, original_mask);
+	size_t n = util::rnd64() % cpus_left;
+	n = getNthOnlineCpu(original_mask, n);
+
+	LOG_D(
+	    "Setting allowed CPU#:%zu from the set of %s", n, listCpusInSet(original_mask).c_str());
+
+	CPU_SET(n, new_mask);
+	CPU_CLR(n, original_mask);
 }
 
 bool initCpu(nsjconf_t* nsjconf) {
@@ -66,17 +81,19 @@ bool initCpu(nsjconf_t* nsjconf) {
 		return true;
 	}
 
-	size_t mask_size = CPU_ALLOC_SIZE(CPU_SETSIZE);
-	std::unique_ptr<cpu_set_t> original_mask(CPU_ALLOC(CPU_SETSIZE));
-	if (original_mask.get() == NULL) {
-		PLOG_W("Failure allocating cpu_set_t for %d CPUs", CPU_SETSIZE);
+	std::unique_ptr<cpu_set_t> original_mask(new cpu_set_t);
+	if (!original_mask) {
+		PLOG_W("Failure allocating cpu_set_t");
 		return false;
 	}
-	if (sched_getaffinity(0, mask_size, original_mask.get()) == -1) {
-		PLOG_W("sched_getaffinity(0, mask_size=%zu)", mask_size);
+	if (sched_getaffinity(0, CPU_ALLOC_SIZE(CPU_SETSIZE), original_mask.get()) == -1) {
+		PLOG_W("sched_getaffinity(0, mask_size=%zu)", (size_t)CPU_ALLOC_SIZE(CPU_SETSIZE));
 		return false;
 	}
-	size_t available_cpus = CPU_COUNT_S(mask_size, original_mask.get());
+	size_t available_cpus = CPU_COUNT(original_mask.get());
+
+	LOG_D("Original CPU set: %s, with %zu allowed CPUs",
+	    listCpusInSet(original_mask.get()).c_str(), available_cpus);
 
 	if (nsjconf->max_cpus > available_cpus) {
 		LOG_W(
@@ -89,19 +106,23 @@ bool initCpu(nsjconf_t* nsjconf) {
 		return true;
 	}
 
-	std::unique_ptr<cpu_set_t> new_mask(CPU_ALLOC(CPU_SETSIZE));
-	if (new_mask.get() == NULL) {
-		PLOG_W("Failure allocating cpu_set_t for %d CPUs", CPU_SETSIZE);
+	std::unique_ptr<cpu_set_t> new_mask(new cpu_set_t);
+	if (!new_mask) {
+		PLOG_W("Failure allocating cpu_set_t");
 		return false;
 	}
-	CPU_ZERO_S(mask_size, new_mask.get());
+	CPU_ZERO(new_mask.get());
 
 	for (size_t i = 0; i < nsjconf->max_cpus; i++) {
-		setRandomCpu(original_mask.get(), new_mask.get(), mask_size);
+		setRandomCpu(original_mask.get(), new_mask.get());
 	}
 
-	if (sched_setaffinity(0, mask_size, new_mask.get()) == -1) {
-		PLOG_W("sched_setaffinity(max_cpus=%zu) failed", nsjconf->max_cpus);
+	LOG_D("Setting new CPU mask: %s with %zu allowed CPUs",
+	    listCpusInSet(new_mask.get()).c_str(), (size_t)CPU_COUNT(new_mask.get()));
+
+	if (sched_setaffinity(0, CPU_ALLOC_SIZE(CPU_SETSIZE), new_mask.get()) == -1) {
+		PLOG_W("sched_setaffinity(0, mask_size=%zu, max_cpus=%zu) failed",
+		    (size_t)CPU_ALLOC_SIZE(CPU_SETSIZE), nsjconf->max_cpus);
 		return false;
 	}
 
