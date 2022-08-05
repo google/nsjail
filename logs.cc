@@ -70,8 +70,12 @@ bool logSet() {
 	return _log_set;
 }
 
-void logLevel(enum llevel_t ll) {
+void setLogLevel(enum llevel_t ll) {
 	_log_level = ll;
+}
+
+enum llevel_t getLogLevel(void) {
+	return _log_level;
 }
 
 void logFile(const std::string& log_file, int log_fd) {

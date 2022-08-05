@@ -555,13 +555,13 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			nsjconf->daemonize = true;
 			break;
 		case 'v':
-			logs::logLevel(logs::DEBUG);
+			logs::setLogLevel(logs::DEBUG);
 			break;
 		case 'q':
-			logs::logLevel(logs::WARNING);
+			logs::setLogLevel(logs::WARNING);
 			break;
 		case 'Q':
-			logs::logLevel(logs::FATAL);
+			logs::setLogLevel(logs::FATAL);
 			break;
 		case 'e':
 			nsjconf->keep_env = true;
