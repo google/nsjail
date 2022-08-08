@@ -34,17 +34,16 @@
 
 namespace cpu {
 
-static std::string listCpusInSet(cpu_set_t* mask) {
-	std::string ret = "[";
+static const std::string listCpusInSet(cpu_set_t* mask) {
+	std::string ret;
 	for (size_t i = 0; i < CPU_SETSIZE; i++) {
 		if (CPU_ISSET(i, mask)) {
-			if (ret.length() != 1) {
+			if (!ret.empty()) {
 				ret.append(",");
 			}
 			ret.append(std::to_string(i));
 		}
 	}
-	ret.append("]");
 	return ret;
 }
 
@@ -57,7 +56,7 @@ static size_t getNthOnlineCpu(cpu_set_t* mask, size_t n) {
 			j++;
 		}
 	}
-	LOG_F("No CPU #%zu found, yet there should be %zu left in the mask %s", n,
+	LOG_F("No CPU #%zu found, yet there should be %zu left in the mask [%s]", n,
 	    (size_t)CPU_COUNT(mask), listCpusInSet(mask).c_str());
 	return 0;
 }
@@ -72,7 +71,7 @@ static void setRandomCpu(cpu_set_t* orig_mask, cpu_set_t* new_mask) {
 	n = getNthOnlineCpu(orig_mask, n);
 
 	CPU_SET(n, new_mask);
-	LOG_D("Updating allowed CPU#:%zu from the set of %s (size=%zu), new mask %s (size=%zu)", n,
+	LOG_D("Add CPU #%zu from the original set of [%s] (size=%zu), new mask [%s] (size=%zu)", n,
 	    listCpusInSet(orig_mask).c_str(), (size_t)CPU_COUNT(orig_mask),
 	    listCpusInSet(new_mask).c_str(), (size_t)CPU_COUNT(new_mask));
 	CPU_CLR(n, orig_mask);
@@ -95,8 +94,8 @@ bool initCpu(nsjconf_t* nsjconf) {
 	}
 	size_t available_cpus = CPU_COUNT(orig_mask.get());
 
-	LOG_D("Original CPU set: %s, with %zu allowed CPUs", listCpusInSet(orig_mask.get()).c_str(),
-	    available_cpus);
+	LOG_D("Original CPU set: [%s], with %zu allowed CPUs",
+	    listCpusInSet(orig_mask.get()).c_str(), available_cpus);
 
 	if (nsjconf->max_cpus > available_cpus) {
 		LOG_W(
@@ -120,7 +119,7 @@ bool initCpu(nsjconf_t* nsjconf) {
 		setRandomCpu(orig_mask.get(), new_mask.get());
 	}
 
-	LOG_D("Setting new CPU mask: %s with %zu allowed CPUs",
+	LOG_D("Setting new CPU mask: [%s] with %zu allowed CPUs",
 	    listCpusInSet(new_mask.get()).c_str(), (size_t)CPU_COUNT(new_mask.get()));
 
 	if (sched_setaffinity(0, CPU_ALLOC_SIZE(CPU_SETSIZE), new_mask.get()) == -1) {

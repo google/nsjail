@@ -139,6 +139,19 @@ static bool resetEnv(void) {
 static const char kSubprocDoneChar = 'D';
 static const char kSubprocErrorChar = 'E';
 
+static const std::string contactArgs(const std::vector<const char*>& argv) {
+	std::string ret;
+	for (auto s : argv) {
+		if (s) {
+			if (!ret.empty()) {
+				ret.append(", ");
+			}
+			ret.append("'").append(s).append("'");
+		}
+	}
+	return ret;
+}
+
 static void subprocNewProc(
     nsjconf_t* nsjconf, int netfd, int fd_in, int fd_out, int fd_err, int pipefd) {
 	if (!contain::setupFD(nsjconf, fd_in, fd_out, fd_err)) {
@@ -187,9 +200,10 @@ static void subprocNewProc(
 	std::vector<const char*> argv;
 	for (const auto& s : nsjconf->argv) {
 		argv.push_back(s.c_str());
-		LOG_D(" Arg: '%s'", s.c_str());
 	}
 	argv.push_back(nullptr);
+
+	LOG_D("Exec: '%s', Args: [%s]", nsjconf->exec_file.c_str(), contactArgs(argv).c_str());
 
 	/* Should be the last one in the sequence */
 	if (!sandbox::applyPolicy(nsjconf)) {
