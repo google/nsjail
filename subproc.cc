@@ -139,9 +139,9 @@ static bool resetEnv(void) {
 static const char kSubprocDoneChar = 'D';
 static const char kSubprocErrorChar = 'E';
 
-static const std::string contactArgs(const std::vector<const char*>& argv) {
+static const std::string concatArgs(const std::vector<const char*>& argv) {
 	std::string ret;
-	for (auto s : argv) {
+	for (const auto& s : argv) {
 		if (s) {
 			if (!ret.empty()) {
 				ret.append(", ");
@@ -203,7 +203,7 @@ static void subprocNewProc(
 	}
 	argv.push_back(nullptr);
 
-	LOG_D("Exec: '%s', Args: [%s]", nsjconf->exec_file.c_str(), contactArgs(argv).c_str());
+	LOG_D("Exec: '%s', Args: [%s]", nsjconf->exec_file.c_str(), concatArgs(argv).c_str());
 
 	/* Should be the last one in the sequence */
 	if (!sandbox::applyPolicy(nsjconf)) {
