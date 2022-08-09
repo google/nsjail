@@ -195,7 +195,7 @@ static void subprocNewProc(
 	}
 
 	auto connstr = net::connToText(netfd, /* remote= */ true, NULL);
-	LOG_I("Executing '%s' for '%s'", nsjconf->exec_file.c_str(), connstr.c_str());
+	LOG_I("Executing %s for '%s'", util::StrQuote(nsjconf->exec_file).c_str(), connstr.c_str());
 
 	std::vector<const char*> argv;
 	for (const auto& s : nsjconf->argv) {

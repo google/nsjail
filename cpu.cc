@@ -61,13 +61,12 @@ static size_t getNthOnlineCpu(cpu_set_t* mask, size_t n) {
 	return 0;
 }
 
-static void setRandomCpu(cpu_set_t* orig_mask, cpu_set_t* new_mask) {
-	size_t cpus_left = CPU_COUNT(orig_mask);
-	if (cpus_left == 0) {
+static void setRandomCpu(cpu_set_t* orig_mask, cpu_set_t* new_mask, size_t available_cpus) {
+	if (available_cpus == 0) {
 		LOG_F("There are no more CPUs left to use, and there should be at least 1 left");
 	}
 
-	size_t n = util::rnd64() % cpus_left;
+	size_t n = util::rnd64() % available_cpus;
 	n = getNthOnlineCpu(orig_mask, n);
 
 	CPU_SET(n, new_mask);
@@ -116,15 +115,20 @@ bool initCpu(nsjconf_t* nsjconf) {
 	CPU_ZERO(new_mask.get());
 
 	for (size_t i = 0; i < nsjconf->max_cpus; i++) {
-		setRandomCpu(orig_mask.get(), new_mask.get());
+		setRandomCpu(orig_mask.get(), new_mask.get(), available_cpus);
+		available_cpus--;
 	}
 
-	LOG_D("Setting new CPU mask: [%s] with %zu allowed CPUs",
-	    listCpusInSet(new_mask.get()).c_str(), (size_t)CPU_COUNT(new_mask.get()));
+	LOG_D(
+	    "Setting new CPU mask: [%s] with %zu allowed CPUs (max_cpus=%zu), %zu (CPU_COUNT=%zu) "
+	    "left",
+	    listCpusInSet(new_mask.get()).c_str(), nsjconf->max_cpus,
+	    (size_t)CPU_COUNT(new_mask.get()), available_cpus, (size_t)CPU_COUNT(orig_mask.get()));
 
 	if (sched_setaffinity(0, CPU_ALLOC_SIZE(CPU_SETSIZE), new_mask.get()) == -1) {
-		PLOG_W("sched_setaffinity(0, mask_size=%zu, max_cpus=%zu) failed",
-		    (size_t)CPU_ALLOC_SIZE(CPU_SETSIZE), nsjconf->max_cpus);
+		PLOG_W("sched_setaffinity(0, mask_size=%zu, max_cpus=%zu (CPU_COUNT=%zu)) failed",
+		    (size_t)CPU_ALLOC_SIZE(CPU_SETSIZE), nsjconf->max_cpus,
+		    (size_t)CPU_COUNT(new_mask.get()));
 		return false;
 	}
 
