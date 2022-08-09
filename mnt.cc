@@ -129,7 +129,7 @@ static bool isDir(const char* path) {
 }
 
 static bool mountPt(mount_t* mpt, const char* newroot, const char* tmpdir) {
-	LOG_D("Mounting '%s'", describeMountPt(*mpt).c_str());
+	LOG_D("Mounting %s", describeMountPt(*mpt).c_str());
 
 	char dstpath[PATH_MAX];
 	snprintf(dstpath, sizeof(dstpath), "%s/%s", newroot, mpt->dst.c_str());
