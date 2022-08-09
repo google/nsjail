@@ -146,7 +146,7 @@ static const std::string concatArgs(const std::vector<const char*>& argv) {
 			if (!ret.empty()) {
 				ret.append(", ");
 			}
-			ret.append("'").append(s).append("'");
+			ret.append(util::StrQuote(s));
 		}
 	}
 	return ret;
@@ -203,7 +203,8 @@ static void subprocNewProc(
 	}
 	argv.push_back(nullptr);
 
-	LOG_D("Exec: '%s', Args: [%s]", nsjconf->exec_file.c_str(), concatArgs(argv).c_str());
+	LOG_D("Exec: %s, Args: [%s]", util::StrQuote(nsjconf->exec_file).c_str(),
+	    concatArgs(argv).c_str());
 
 	/* Should be the last one in the sequence */
 	if (!sandbox::applyPolicy(nsjconf)) {

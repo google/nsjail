@@ -147,14 +147,17 @@ static bool mountPt(mount_t* mpt, const char* newroot, const char* tmpdir) {
 	}
 
 	if (mpt->is_symlink) {
-		LOG_D("symlink('%s', '%s')", srcpath, dstpath);
+		LOG_D("symlink(%s, %s)", util::StrQuote(srcpath).c_str(),
+		    util::StrQuote(dstpath).c_str());
 		if (symlink(srcpath, dstpath) == -1) {
 			if (mpt->is_mandatory) {
-				PLOG_E("symlink('%s', '%s')", srcpath, dstpath);
+				PLOG_E("symlink('%s', '%s')", util::StrQuote(srcpath).c_str(),
+				    util::StrQuote(dstpath).c_str());
 				return false;
 			} else {
 				PLOG_W("symlink('%s', '%s'), but it's not mandatory, continuing",
-				    srcpath, dstpath);
+				    util::StrQuote(srcpath).c_str(),
+				    util::StrQuote(dstpath).c_str());
 			}
 		}
 		return true;
@@ -162,14 +165,15 @@ static bool mountPt(mount_t* mpt, const char* newroot, const char* tmpdir) {
 
 	if (mpt->is_dir) {
 		if (mkdir(dstpath, 0711) == -1 && errno != EEXIST) {
-			PLOG_W("mkdir('%s')", dstpath);
+			PLOG_W("mkdir(%s)", util::StrQuote(dstpath).c_str());
 		}
 	} else {
 		int fd = TEMP_FAILURE_RETRY(open(dstpath, O_CREAT | O_RDONLY | O_CLOEXEC, 0644));
 		if (fd >= 0) {
 			close(fd);
 		} else {
-			PLOG_W("open('%s', O_CREAT|O_RDONLY|O_CLOEXEC, 0644)", dstpath);
+			PLOG_W("open(%s, O_CREAT|O_RDONLY|O_CLOEXEC, 0644)",
+			    util::StrQuote(dstpath).c_str());
 		}
 	}
 
@@ -605,18 +609,15 @@ bool addMountPtTail(nsjconf_t* nsjconf, const std::string& src, const std::strin
 const std::string describeMountPt(const mount_t& mpt) {
 	std::string descr;
 
-	descr.append(mpt.src.empty() ? "" : "'")
-	    .append(mpt.src.empty() ? "" : mpt.src)
-	    .append(mpt.src.empty() ? "" : "' -> ")
-	    .append("'")
-	    .append(mpt.dst)
-	    .append("' flags:")
+	descr.append(mpt.src.empty() ? "" : util::StrQuote(mpt.src))
+	    .append(mpt.src.empty() ? "" : " -> ")
+	    .append(util::StrQuote(mpt.dst))
+	    .append(" flags:")
 	    .append(flagsToStr(mpt.flags))
-	    .append(" type:'")
-	    .append(mpt.fs_type)
-	    .append("' options:'")
-	    .append(mpt.options)
-	    .append("'");
+	    .append(" type:")
+	    .append(util::StrQuote(mpt.fs_type))
+	    .append(" options:")
+	    .append(util::StrQuote(mpt.options));
 
 	if (mpt.is_dir) {
 		descr.append(" dir:true");

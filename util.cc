@@ -40,6 +40,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <iomanip>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -191,6 +192,12 @@ std::string StrPrintf(const char* format, ...) {
 	std::string str(strp, ret);
 	free(strp);
 	return str;
+}
+
+const std::string StrQuote(const std::string& str) {
+	std::ostringstream ss;
+	ss << std::quoted(str, '\'');
+	return ss.str();
 }
 
 bool isANumber(const char* s) {
