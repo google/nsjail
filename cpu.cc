@@ -120,15 +120,16 @@ bool initCpu(nsjconf_t* nsjconf) {
 	}
 
 	LOG_D(
-	    "Setting new CPU mask: [%s] with %zu allowed CPUs (max_cpus=%zu), %zu (CPU_COUNT=%zu) "
-	    "left",
+	    "Setting new CPU mask=[%s] with %zu allowed CPUs (max_cpus=%zu), %zu CPUs "
+	    "(CPU_COUNT=%zu) left CPU mask=[%s]",
 	    listCpusInSet(new_mask.get()).c_str(), nsjconf->max_cpus,
-	    (size_t)CPU_COUNT(new_mask.get()), available_cpus, (size_t)CPU_COUNT(orig_mask.get()));
+	    (size_t)CPU_COUNT(new_mask.get()), available_cpus, (size_t)CPU_COUNT(orig_mask.get()),
+	    listCpusInSet(orig_mask.get()).c_str());
 
 	if (sched_setaffinity(0, CPU_ALLOC_SIZE(CPU_SETSIZE), new_mask.get()) == -1) {
-		PLOG_W("sched_setaffinity(0, mask_size=%zu, max_cpus=%zu (CPU_COUNT=%zu)) failed",
-		    (size_t)CPU_ALLOC_SIZE(CPU_SETSIZE), nsjconf->max_cpus,
-		    (size_t)CPU_COUNT(new_mask.get()));
+		PLOG_W("sched_setaffinity(mask=%s size=%zu max_cpus=%zu (CPU_COUNT=%zu)) failed",
+		    listCpusInSet(new_mask.get()).c_str(), (size_t)CPU_ALLOC_SIZE(CPU_SETSIZE),
+		    nsjconf->max_cpus, (size_t)CPU_COUNT(new_mask.get()));
 		return false;
 	}
 
