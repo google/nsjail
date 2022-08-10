@@ -152,8 +152,7 @@ static const std::string concatArgs(const std::vector<const char*>& argv) {
 	return ret;
 }
 
-static void subprocNewProc(
-    nsjconf_t* nsjconf, int netfd, int fd_in, int fd_out, int fd_err, int pipefd) {
+static void newProc(nsjconf_t* nsjconf, int netfd, int fd_in, int fd_out, int fd_err, int pipefd) {
 	if (!contain::setupFD(nsjconf, fd_in, fd_out, fd_err)) {
 		return;
 	}
@@ -241,7 +240,7 @@ static void addProc(nsjconf_t* nsjconf, pid_t pid, int sock) {
 	}
 	nsjconf->pids.insert(std::make_pair(pid, p));
 
-	LOG_D("Added pid=%d with start time '%u' to the queue for IP: '%s'", pid,
+	LOG_D("Added pid=%d with start time %u to the queue for IP: '%s'", pid,
 	    (unsigned int)p.start, p.remote_txt.c_str());
 }
 
@@ -461,7 +460,7 @@ pid_t runChild(nsjconf_t* nsjconf, int netfd, int fd_in, int fd_out, int fd_err)
 		if (unshare(flags) == -1) {
 			PLOG_F("unshare(%s)", cloneFlagsToStr(flags).c_str());
 		}
-		subprocNewProc(nsjconf, netfd, fd_in, fd_out, fd_err, -1);
+		newProc(nsjconf, netfd, fd_in, fd_out, fd_err, -1);
 		LOG_F("Launching new process failed");
 	}
 
@@ -479,7 +478,7 @@ pid_t runChild(nsjconf_t* nsjconf, int netfd, int fd_in, int fd_out, int fd_err)
 	pid_t pid = cloneProc(flags, SIGCHLD);
 	if (pid == 0) {
 		close(parent_fd);
-		subprocNewProc(nsjconf, netfd, fd_in, fd_out, fd_err, child_fd);
+		newProc(nsjconf, netfd, fd_in, fd_out, fd_err, child_fd);
 		util::writeToFd(child_fd, &kSubprocErrorChar, sizeof(kSubprocErrorChar));
 		LOG_F("Launching child process failed");
 	}

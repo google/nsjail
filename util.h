@@ -39,6 +39,8 @@
 		}                     \
 	} while (0)
 
+#define QC(x) util::StrQuote(x).c_str()
+
 namespace util {
 
 ssize_t readFromFd(int fd, void* buf, size_t len);

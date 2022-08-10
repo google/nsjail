@@ -38,9 +38,9 @@
 namespace cgroup {
 
 static bool createCgroup(const std::string& cgroup_path, pid_t pid) {
-	LOG_D("Create '%s' for pid=%d", cgroup_path.c_str(), (int)pid);
+	LOG_D("Create %s for pid=%d", QC(cgroup_path), (int)pid);
 	if (mkdir(cgroup_path.c_str(), 0700) == -1 && errno != EEXIST) {
-		PLOG_W("mkdir('%s', 0700) failed", cgroup_path.c_str());
+		PLOG_W("mkdir(%s, 0700) failed", QC(cgroup_path));
 		return false;
 	}
 	return true;
@@ -48,7 +48,7 @@ static bool createCgroup(const std::string& cgroup_path, pid_t pid) {
 
 static bool writeToCgroup(
     const std::string& cgroup_path, const std::string& value, const std::string& what) {
-	LOG_D("Setting '%s' to '%s'", cgroup_path.c_str(), value.c_str());
+	LOG_D("Setting %s to '%s'", QC(cgroup_path), value.c_str());
 	if (!util::writeBufToFile(
 		cgroup_path.c_str(), value.c_str(), value.length(), O_WRONLY | O_CLOEXEC)) {
 		LOG_W("Could not update %s", what.c_str());
@@ -60,7 +60,7 @@ static bool writeToCgroup(
 static bool addPidToTaskList(const std::string& cgroup_path, pid_t pid) {
 	std::string pid_str = std::to_string(pid);
 	std::string tasks_path = cgroup_path + "/tasks";
-	LOG_D("Adding pid='%s' to '%s'", pid_str.c_str(), tasks_path.c_str());
+	LOG_D("Adding pid='%s' to %s", pid_str.c_str(), QC(tasks_path));
 	return writeToCgroup(tasks_path, pid_str, "'" + tasks_path + "' task list");
 }
 
@@ -165,9 +165,9 @@ bool initNsFromParent(nsjconf_t* nsjconf, pid_t pid) {
 }
 
 static void removeCgroup(const std::string& cgroup_path) {
-	LOG_D("Remove '%s'", cgroup_path.c_str());
+	LOG_D("Remove %s", QC(cgroup_path));
 	if (rmdir(cgroup_path.c_str()) == -1) {
-		PLOG_W("rmdir('%s') failed", cgroup_path.c_str());
+		PLOG_W("rmdir(%s) failed", QC(cgroup_path));
 	}
 }
 

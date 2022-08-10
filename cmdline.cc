@@ -210,8 +210,7 @@ void addEnv(nsjconf_t* nsjconf, const std::string& env) {
 	}
 	char* e = getenv(env.c_str());
 	if (!e) {
-		LOG_W("Requested to use the '%s' envar, but it's not set. It'll be ignored",
-		    env.c_str());
+		LOG_W("Requested to use the %s envar, but it's not set. It'll be ignored", QC(env));
 		return;
 	}
 	nsjconf->envs.push_back(std::string(env).append("=").append(e));
@@ -237,13 +236,13 @@ void logParams(nsjconf_t* nsjconf) {
 	}
 
 	LOG_I(
-	    "Jail parameters: hostname:'%s', chroot:'%s', process:'%s', bind:[%s]:%d, "
+	    "Jail parameters: hostname:'%s', chroot:%s, process:'%s', bind:[%s]:%d, "
 	    "max_conns:%u, max_conns_per_ip:%u, time_limit:%" PRId64
 	    ", personality:%#lx, daemonize:%s, clone_newnet:%s, "
 	    "clone_newuser:%s, clone_newns:%s, clone_newpid:%s, clone_newipc:%s, clone_newuts:%s, "
 	    "clone_newcgroup:%s, clone_newtime:%s, keep_caps:%s, disable_no_new_privs:%s, "
 	    "max_cpus:%zu",
-	    nsjconf->hostname.c_str(), nsjconf->chroot.c_str(),
+	    nsjconf->hostname.c_str(), QC(nsjconf->chroot),
 	    nsjconf->exec_file.empty() ? nsjconf->argv[0].c_str() : nsjconf->exec_file.c_str(),
 	    nsjconf->bindhost.c_str(), nsjconf->port, nsjconf->max_conns, nsjconf->max_conns_per_ip,
 	    nsjconf->tlimit, nsjconf->personality, logYesNo(nsjconf->daemonize),
@@ -344,7 +343,7 @@ static bool setupArgv(nsjconf_t* nsjconf, int argc, char** argv, int optind) {
 #endif /* !defined(__NR_execveat) */
 		if ((nsjconf->exec_fd = TEMP_FAILURE_RETRY(
 			 open(nsjconf->exec_file.c_str(), O_RDONLY | O_PATH | O_CLOEXEC))) == -1) {
-			PLOG_W("Couldn't open '%s' file", nsjconf->exec_file.c_str());
+			PLOG_W("Couldn't open %s file", QC(nsjconf->exec_file));
 			return false;
 		}
 	}
@@ -522,7 +521,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			break;
 		case 'C':
 			if (!config::parseFile(nsjconf.get(), optarg)) {
-				LOG_F("Couldn't parse configuration from '%s' file", optarg);
+				LOG_F("Couldn't parse configuration from %s file", QC(optarg));
 			}
 			break;
 		case 'c':
