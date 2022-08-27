@@ -62,8 +62,7 @@ static bool prepareAndCommit(nsjconf_t* nsjconf) {
 #ifndef __NR_seccomp
 		LOG_E(
 		    "The __NR_seccomp is not defined with this kernel's header files (kernel "
-		    "headers "
-		    "too old?)");
+		    "headers too old?)");
 		return false;
 #else
 		if (util::syscall(__NR_seccomp, (uintptr_t)SECCOMP_SET_MODE_FILTER,
