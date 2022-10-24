@@ -53,11 +53,11 @@ namespace mnt {
 #define MS_LAZYTIME (1 << 25)
 #endif /* if !defined(MS_LAZYTIME) */
 
-static const std::string flagsToStr(uintptr_t flags) {
+static const std::string flagsToStr(unsigned long flags) {
 	std::string res;
 
 	struct {
-		const uint64_t flag;
+		const unsigned long flag;
 		const char* const name;
 	} static const mountFlags[] = {
 		NS_VALSTR_STRUCT(MS_RDONLY),
@@ -92,7 +92,7 @@ static const std::string flagsToStr(uintptr_t flags) {
 #endif /* defined(MS_NOUSER) */
 	};
 
-	uint64_t knownFlagMask = 0U;
+	unsigned knownFlagMask = 0U;
 	for (const auto& i : mountFlags) {
 		if (flags & i.flag) {
 			if (!res.empty()) {
@@ -104,7 +104,7 @@ static const std::string flagsToStr(uintptr_t flags) {
 	}
 
 	if (flags & ~(knownFlagMask)) {
-		util::StrAppend(&res, "|%#tx", flags & ~(knownFlagMask));
+		util::StrAppend(&res, "|%#lx", flags & ~(knownFlagMask));
 	}
 
 	return res;

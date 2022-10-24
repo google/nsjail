@@ -63,7 +63,7 @@ namespace subproc {
 #define CLONE_NEWTIME 0x00000080
 #endif /* !defined(CLONE_NEWTIME) */
 
-static const std::string cloneFlagsToStr(uintptr_t flags) {
+static const std::string cloneFlagsToStr(uint64_t flags) {
 	std::string res;
 
 	struct {
@@ -112,7 +112,7 @@ static const std::string cloneFlagsToStr(uintptr_t flags) {
 	}
 
 	if (flags & ~(knownFlagMask)) {
-		util::StrAppend(&res, "|%#tx", flags & ~(knownFlagMask));
+		util::StrAppend(&res, "|%#" PRIx64, flags & ~(knownFlagMask));
 	}
 	return res;
 }
@@ -445,7 +445,7 @@ pid_t runChild(nsjconf_t* nsjconf, int netfd, int fd_in, int fd_out, int fd_err)
 	if (!net::limitConns(nsjconf, netfd)) {
 		return 0;
 	}
-	unsigned long flags = 0UL;
+	uint64_t flags = 0UL;
 	flags |= (nsjconf->clone_newnet ? CLONE_NEWNET : 0);
 	flags |= (nsjconf->clone_newuser ? CLONE_NEWUSER : 0);
 	flags |= (nsjconf->clone_newns ? CLONE_NEWNS : 0);
@@ -527,7 +527,7 @@ static int cloneFunc(void* arg __attribute__((unused))) {
  * update the internal PID/TID caches, what can lead to invalid values being returned by getpid()
  * or incorrect PID/TIDs used in raise()/abort() functions
  */
-pid_t cloneProc(uintptr_t flags, int exit_signal) {
+pid_t cloneProc(uint64_t flags, int exit_signal) {
 	exit_signal &= CSIGNAL;
 
 	if (flags & CLONE_VM) {
@@ -544,7 +544,7 @@ pid_t cloneProc(uintptr_t flags, int exit_signal) {
 
 #if defined(__NR_clone3)
 	struct clone_args ca = {};
-	ca.flags = (uint64_t)flags;
+	ca.flags = flags;
 	ca.exit_signal = (uint64_t)exit_signal;
 
 	pid_t ret = util::syscall(__NR_clone3, (uintptr_t)&ca, sizeof(ca));
@@ -568,7 +568,7 @@ pid_t cloneProc(uintptr_t flags, int exit_signal) {
 		 */
 		void* stack = &cloneStack[sizeof(cloneStack) / 2];
 		/* Parent */
-		return clone(cloneFunc, stack, flags | exit_signal, NULL, NULL, NULL);
+		return clone(cloneFunc, stack, (int)flags | exit_signal, NULL, NULL, NULL);
 	}
 	/* Child */
 	return 0;
