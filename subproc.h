@@ -41,7 +41,7 @@ void killAndReapAll(nsjconf_t* nsjconf, int signal);
 /* Returns the exit code of the first failing subprocess, or 0 if none fail */
 int reapProc(nsjconf_t* nsjconf);
 int systemExe(const std::vector<std::string>& args, char** env);
-pid_t cloneProc(uintptr_t flags, int exit_signal);
+pid_t cloneProc(uint64_t flags, int exit_signal);
 
 }  // namespace subproc
 
