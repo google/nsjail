@@ -266,6 +266,7 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 	nsjconf->cgroup_cpu_parent = njc.cgroup_cpu_parent();
 	nsjconf->cgroupv2_mount = njc.cgroupv2_mount();
 	nsjconf->use_cgroupv2 = njc.use_cgroupv2();
+	nsjconf->detect_cgroupv2 = njc.detect_cgroupv2();
 
 	nsjconf->iface_lo = !(njc.iface_no_lo());
 	for (ssize_t i = 0; i < njc.iface_own().size(); i++) {

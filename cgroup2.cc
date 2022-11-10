@@ -28,6 +28,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/vfs.h>
+#include <linux/magic.h>
 #include <unistd.h>
 
 #include <fstream>
@@ -39,8 +41,13 @@
 
 namespace cgroup2 {
 
+static bool addPidToProcList(const std::string &cgroup_path, pid_t pid);
+
 static std::string getCgroupPath(nsjconf_t *nsjconf, pid_t pid) {
 	return nsjconf->cgroupv2_mount + "/NSJAIL." + std::to_string(pid);
+}
+static std::string getJailCgroupPath(nsjconf_t *nsjconf) {
+	return nsjconf->cgroupv2_mount + "/NSJAIL_SELF." + std::to_string(getpid());
 }
 
 static bool createCgroup(const std::string &cgroup_path, pid_t pid) {
@@ -50,6 +57,39 @@ static bool createCgroup(const std::string &cgroup_path, pid_t pid) {
 		return false;
 	}
 	return true;
+}
+
+static bool moveSelfIntoChildCgroup(nsjconf_t *nsjconf) {
+	// Move ourselves into another group to avoid the 'No internal processes' rule
+	// https://unix.stackexchange.com/a/713343
+	std::string jail_cgroup_path = getJailCgroupPath(nsjconf);
+	LOG_I("nsjail is moving itself to a new child cgroup: %s\n", jail_cgroup_path.c_str());
+	RETURN_ON_FAILURE(createCgroup(jail_cgroup_path, getpid()));
+	RETURN_ON_FAILURE(addPidToProcList(jail_cgroup_path, 0));
+	return true;
+}
+
+
+static bool enableCgroupSubtree(nsjconf_t *nsjconf, const std::string &controller, pid_t pid) {
+	std::string cgroup_path = nsjconf->cgroupv2_mount;
+	LOG_D("Enable cgroup.subtree_control +'%s' to '%s' for pid=%d", controller.c_str(), cgroup_path.c_str(), pid);
+	std::string val = "+" + controller;
+
+	// Try once without moving the nsjail process and if that fails then try moving the nsjail process
+	// into a child cgroup before trying a second time.
+	if (util::writeBufToFile(
+		(cgroup_path + "/cgroup.subtree_control").c_str(), val.c_str(), val.length(), O_WRONLY, false)) {
+		return true;
+	}
+	if (errno == EBUSY) {
+		RETURN_ON_FAILURE(moveSelfIntoChildCgroup(nsjconf));
+		if (util::writeBufToFile(
+			(cgroup_path + "/cgroup.subtree_control").c_str(), val.c_str(), val.length(), O_WRONLY)) {
+			return true;
+		}
+	}
+	LOG_E("Could not apply '%s' to cgroup.subtree_control in '%s'. If you are running in Docker, nsjail MUST be the root process to use cgroups.", val.c_str(), cgroup_path.c_str());
+	return false;
 }
 
 static bool writeToCgroup(
@@ -81,6 +121,76 @@ static void removeCgroup(const std::string &cgroup_path) {
 	if (rmdir(cgroup_path.c_str()) == -1) {
 		PLOG_W("rmdir('%s') failed", cgroup_path.c_str());
 	}
+}
+
+static bool needMemoryController(nsjconf_t *nsjconf) {
+	// Check if we need 'memory'
+	// This matches the check in initNsFromParentMem
+	ssize_t swap_max = nsjconf->cgroup_mem_swap_max;
+	if (nsjconf->cgroup_mem_memsw_max > (size_t)0) {
+		swap_max = nsjconf->cgroup_mem_memsw_max - nsjconf->cgroup_mem_max;
+	}
+	if (nsjconf->cgroup_mem_max == (size_t)0 && swap_max < (ssize_t)0) {
+		return false;
+	}
+	return true;
+}
+
+static bool needPidsController(nsjconf_t *nsjconf) {
+	return nsjconf->cgroup_pids_max != 0;
+}
+
+static bool needCpuController(nsjconf_t *nsjconf) {
+	return nsjconf->cgroup_cpu_ms_per_sec != 0U;
+}
+
+// We will use this buf to read from cgroup.subtree_control to see if
+// the root cgroup has the necessary controllers listed
+#define SUBTREE_CONTROL_BUF_LEN 0x40
+
+bool setup(nsjconf_t *nsjconf) {
+	// Read from cgroup.subtree_control in the root to see if
+	// the controllers we need are there.
+	auto p = nsjconf->cgroupv2_mount + "/cgroup.subtree_control";
+	char buf[SUBTREE_CONTROL_BUF_LEN];
+        int read = util::readFromFile(p.c_str(), buf, SUBTREE_CONTROL_BUF_LEN-1);
+	if (read < 0) {
+		LOG_W("cgroupv2 setup: Could not read root subtree_control");
+		return false;
+	}
+	buf[read] = 0;
+
+	// Are the controllers we need there?
+	bool subtree_ok = (!needMemoryController(nsjconf) || strstr(buf, "memory")) &&
+		(!needPidsController(nsjconf) || strstr(buf, "pids")) &&
+		(!needCpuController(nsjconf) || strstr(buf, "cpu"));
+	if (!subtree_ok) {
+		// Now we can write to the root cgroup.subtree_control
+		if (needMemoryController(nsjconf)) {
+			RETURN_ON_FAILURE(enableCgroupSubtree(nsjconf, "memory", getpid()));
+		}
+
+		if (needPidsController(nsjconf)) {
+			RETURN_ON_FAILURE(enableCgroupSubtree(nsjconf, "pids", getpid()));
+		}
+
+		if (needCpuController(nsjconf)) {
+			RETURN_ON_FAILURE(enableCgroupSubtree(nsjconf, "cpu", getpid()));
+		}
+	}
+	return true;
+}
+
+bool detectCgroupv2(nsjconf_t *nsjconf) {
+	// Check cgroupv2_mount, if it is a cgroup2 mount, use it.
+	struct statfs buf;
+	if (statfs(nsjconf->cgroupv2_mount.c_str(), &buf)) {
+		LOG_D("statfs %s failed with %d", nsjconf->cgroupv2_mount.c_str(), errno);
+		nsjconf->use_cgroupv2 = false;
+		return false;
+	}
+	nsjconf->use_cgroupv2 = (buf.f_type == CGROUP2_SUPER_MAGIC);
+	return true;
 }
 
 static bool initNsFromParentMem(nsjconf_t *nsjconf, pid_t pid) {

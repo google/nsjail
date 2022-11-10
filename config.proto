@@ -272,4 +272,7 @@ message NsJailConfig {
     /* Set this to true to forward fatal signals to the child process instead
      * of always using SIGKILL. */
     optional bool forward_signals = 94 [default = false];
+
+    /* Check whether cgroupv2 is available, and use it if available. */
+    optional bool detect_cgroupv2 = 95 [default = false];
 }

@@ -163,6 +163,7 @@ struct nsjconf_t {
 	unsigned int cgroup_cpu_ms_per_sec;
 	std::string cgroupv2_mount;
 	bool use_cgroupv2;
+	bool detect_cgroupv2;
 	std::string kafel_file_path;
 	std::string kafel_string;
 	struct sock_fprog seccomp_fprog;
