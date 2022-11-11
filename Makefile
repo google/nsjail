@@ -76,8 +76,10 @@ ifeq ("$(wildcard kafel/Makefile)","")
 endif
 
 kafel/include/kafel.h: kafel_init
+# LDFLAGS is unset as a workaround for Kafel using the parent LDFLAGS
+# incorrectly.
 kafel/libkafel.a: kafel_init
-	CFLAGS=-fPIE $(MAKE) -C kafel
+	LDFLAGS="" CFLAGS=-fPIE $(MAKE) -C kafel
 
 # Sequence of proto deps, which doesn't fit automatic make rules
 config.o: $(SRCS_PB_O) $(SRCS_PB_H)
