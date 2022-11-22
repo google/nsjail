@@ -46,7 +46,8 @@ namespace util {
 ssize_t readFromFd(int fd, void* buf, size_t len);
 ssize_t readFromFile(const char* fname, void* buf, size_t len);
 bool writeToFd(int fd, const void* buf, size_t len);
-bool writeBufToFile(const char* filename, const void* buf, size_t len, int open_flags, bool log_errors = true);
+bool writeBufToFile(
+    const char* filename, const void* buf, size_t len, int open_flags, bool log_errors = true);
 bool createDirRecursively(const char* dir);
 std::string* StrAppend(std::string* str, const char* format, ...)
     __attribute__((format(printf, 2, 3)));

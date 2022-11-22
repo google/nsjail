@@ -32,8 +32,8 @@ namespace cgroup2 {
 bool initNsFromParent(nsjconf_t* nsjconf, pid_t pid);
 bool initNs(void);
 void finishFromParent(nsjconf_t* nsjconf, pid_t pid);
-bool setup(nsjconf_t *nsjconf);
-bool detectCgroupv2(nsjconf_t *nsjconf);
+bool setup(nsjconf_t* nsjconf);
+bool detectCgroupv2(nsjconf_t* nsjconf);
 
 }  // namespace cgroup2
 

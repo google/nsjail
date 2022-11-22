@@ -89,7 +89,8 @@ bool writeToFd(int fd, const void* buf, size_t len) {
 	return true;
 }
 
-bool writeBufToFile(const char* filename, const void* buf, size_t len, int open_flags, bool log_errors) {
+bool writeBufToFile(
+    const char* filename, const void* buf, size_t len, int open_flags, bool log_errors) {
 	int fd;
 	TEMP_FAILURE_RETRY(fd = open(filename, open_flags, 0644));
 	if (fd == -1) {
@@ -101,7 +102,8 @@ bool writeBufToFile(const char* filename, const void* buf, size_t len, int open_
 
 	if (!writeToFd(fd, buf, len)) {
 		if (log_errors) {
-			PLOG_E("Couldn't write '%zu' bytes to file '%s' (fd='%d')", len, filename, fd);
+			PLOG_E(
+			    "Couldn't write '%zu' bytes to file '%s' (fd='%d')", len, filename, fd);
 		}
 		close(fd);
 		if (open_flags & O_CREAT) {

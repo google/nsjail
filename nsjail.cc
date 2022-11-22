@@ -39,6 +39,7 @@
 #include <memory>
 #include <vector>
 
+#include "cgroup2.h"
 #include "cmdline.h"
 #include "logs.h"
 #include "macros.h"
@@ -46,7 +47,6 @@
 #include "sandbox.h"
 #include "subproc.h"
 #include "util.h"
-#include "cgroup2.h"
 
 namespace nsjail {
 

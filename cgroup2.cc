@@ -24,12 +24,12 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <linux/magic.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/vfs.h>
-#include <linux/magic.h>
 #include <unistd.h>
 
 #include <fstream>
@@ -60,8 +60,10 @@ static bool createCgroup(const std::string &cgroup_path, pid_t pid) {
 }
 
 static bool moveSelfIntoChildCgroup(nsjconf_t *nsjconf) {
-	// Move ourselves into another group to avoid the 'No internal processes' rule
-	// https://unix.stackexchange.com/a/713343
+	/*
+	 * Move ourselves into another group to avoid the 'No internal processes' rule
+	 * https://unix.stackexchange.com/a/713343
+	 */
 	std::string jail_cgroup_path = getJailCgroupPath(nsjconf);
 	LOG_I("nsjail is moving itself to a new child cgroup: %s\n", jail_cgroup_path.c_str());
 	RETURN_ON_FAILURE(createCgroup(jail_cgroup_path, getpid()));
@@ -69,26 +71,30 @@ static bool moveSelfIntoChildCgroup(nsjconf_t *nsjconf) {
 	return true;
 }
 
-
 static bool enableCgroupSubtree(nsjconf_t *nsjconf, const std::string &controller, pid_t pid) {
 	std::string cgroup_path = nsjconf->cgroupv2_mount;
-	LOG_D("Enable cgroup.subtree_control +'%s' to '%s' for pid=%d", controller.c_str(), cgroup_path.c_str(), pid);
+	LOG_D("Enable cgroup.subtree_control +'%s' to '%s' for pid=%d", controller.c_str(),
+	    cgroup_path.c_str(), pid);
 	std::string val = "+" + controller;
 
-	// Try once without moving the nsjail process and if that fails then try moving the nsjail process
-	// into a child cgroup before trying a second time.
-	if (util::writeBufToFile(
-		(cgroup_path + "/cgroup.subtree_control").c_str(), val.c_str(), val.length(), O_WRONLY, false)) {
+	/* Try once without moving the nsjail process and if that fails then try moving the nsjail
+	 * process into a child cgroup before trying a second time.
+	 */
+	if (util::writeBufToFile((cgroup_path + "/cgroup.subtree_control").c_str(), val.c_str(),
+		val.length(), O_WRONLY, false)) {
 		return true;
 	}
 	if (errno == EBUSY) {
 		RETURN_ON_FAILURE(moveSelfIntoChildCgroup(nsjconf));
-		if (util::writeBufToFile(
-			(cgroup_path + "/cgroup.subtree_control").c_str(), val.c_str(), val.length(), O_WRONLY)) {
+		if (util::writeBufToFile((cgroup_path + "/cgroup.subtree_control").c_str(),
+			val.c_str(), val.length(), O_WRONLY)) {
 			return true;
 		}
 	}
-	LOG_E("Could not apply '%s' to cgroup.subtree_control in '%s'. If you are running in Docker, nsjail MUST be the root process to use cgroups.", val.c_str(), cgroup_path.c_str());
+	LOG_E(
+	    "Could not apply '%s' to cgroup.subtree_control in '%s'. If you are running in Docker, "
+	    "nsjail MUST be the root process to use cgroups.",
+	    val.c_str(), cgroup_path.c_str());
 	return false;
 }
 
@@ -153,7 +159,7 @@ bool setup(nsjconf_t *nsjconf) {
 	// the controllers we need are there.
 	auto p = nsjconf->cgroupv2_mount + "/cgroup.subtree_control";
 	char buf[SUBTREE_CONTROL_BUF_LEN];
-        int read = util::readFromFile(p.c_str(), buf, SUBTREE_CONTROL_BUF_LEN-1);
+	int read = util::readFromFile(p.c_str(), buf, SUBTREE_CONTROL_BUF_LEN - 1);
 	if (read < 0) {
 		LOG_W("cgroupv2 setup: Could not read root subtree_control");
 		return false;
@@ -162,8 +168,8 @@ bool setup(nsjconf_t *nsjconf) {
 
 	// Are the controllers we need there?
 	bool subtree_ok = (!needMemoryController(nsjconf) || strstr(buf, "memory")) &&
-		(!needPidsController(nsjconf) || strstr(buf, "pids")) &&
-		(!needCpuController(nsjconf) || strstr(buf, "cpu"));
+			  (!needPidsController(nsjconf) || strstr(buf, "pids")) &&
+			  (!needCpuController(nsjconf) || strstr(buf, "cpu"));
 	if (!subtree_ok) {
 		// Now we can write to the root cgroup.subtree_control
 		if (needMemoryController(nsjconf)) {
