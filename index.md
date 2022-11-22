@@ -336,186 +336,218 @@ The command-line options should be self-explanatory, while the proto-buf config 
 </pre>
 
 <pre>
-Usage: ./nsjail [options] -- path_to_command [args]
-Options:
- --help|-h 
-	Help plz..
- --mode|-M VALUE
-	Execution mode (default: 'o' [MODE_STANDALONE_ONCE]):
+ Usage: ./nsjail [options] -- path_to_command [args]
+ Options:
+  --help|-h 
+ 	Help plz..
+  --mode|-M VALUE
+ 	Execution mode (default: 'o' [MODE_STANDALONE_ONCE]):
 	l: Wait for connections on a TCP port (specified with --port) [MODE_LISTEN_TCP]
 	o: Launch a single process on the console using clone/execve [MODE_STANDALONE_ONCE]
 	e: Launch a single process on the console using execve [MODE_STANDALONE_EXECVE]
 	r: Launch a single process on the console with clone/execve, keep doing it forever [MODE_STANDALONE_RERUN]
- --config|-C VALUE
-	Configuration file in the config.proto ProtoBuf format (see configs/ directory for examples)
- --exec_file|-x VALUE
-	File to exec (default: argv[0])
- --execute_fd 
-	Use execveat() to execute a file-descriptor instead of executing the binary path. In such case argv[0]/exec_file denotes a file path before mount namespacing
- --chroot|-c VALUE
-	Directory containing / of the jail (default: none)
- --rw 
-	Mount chroot dir (/) R/W (default: R/O)
- --user|-u VALUE
-	Username/uid of processess inside the jail (default: your current uid). You can also use inside_ns_uid:outside_ns_uid:count convention here. Can be specified multiple times
- --group|-g VALUE
-	Groupname/gid of processess inside the jail (default: your current gid). You can also use inside_ns_gid:global_ns_gid:count convention here. Can be specified multiple times
- --hostname|-H VALUE
-	UTS name (hostname) of the jail (default: 'NSJAIL')
- --cwd|-D VALUE
-	Directory in the namespace the process will run (default: '/')
- --port|-p VALUE
-	TCP port to bind to (enables MODE_LISTEN_TCP) (default: 0)
- --bindhost VALUE
-	IP address to bind the port to (only in [MODE_LISTEN_TCP]), (default: '::')
- --max_conns_per_ip|-i VALUE
-	Maximum number of connections per one IP (only in [MODE_LISTEN_TCP]), (default: 0 (unlimited))
- --log|-l VALUE
-	Log file (default: use log_fd)
- --log_fd|-L VALUE
-	Log FD (default: 2)
- --time_limit|-t VALUE
-	Maximum time that a jail can exist, in seconds (default: 600)
- --max_cpus VALUE
-	Maximum number of CPUs a single jailed process can use (default: 0 'no limit')
- --daemon|-d 
-	Daemonize after start
- --verbose|-v 
-	Verbose output
- --quiet|-q 
-	Log warning and more important messages only
- --really_quiet|-Q 
-	Log fatal messages only
- --keep_env|-e 
-	Pass all environment variables to the child process (default: all envvars are cleared)
- --env|-E VALUE
-	Additional environment variable (can be used multiple times)
- --keep_caps 
-	Don't drop any capabilities
- --cap VALUE
-	Retain this capability, e.g. CAP_PTRACE (can be specified multiple times)
- --silent 
-	Redirect child process' fd:0/1/2 to /dev/null
- --stderr_to_null
-	Redirect FD=2 (STDERR_FILENO) to /dev/null
- --skip_setsid 
-	Don't call setsid(), allows for terminal signal handling in the sandboxed process. Dangerous
- --pass_fd VALUE
-	Don't close this FD before executing the child process (can be specified multiple times), by default: 0/1/2 are kept open
- --disable_no_new_privs 
-	Don't set the prctl(NO_NEW_PRIVS, 1) (DANGEROUS)
- --rlimit_as VALUE
-	RLIMIT_AS in MB, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 512)
- --rlimit_core VALUE
-	RLIMIT_CORE in MB, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 0)
- --rlimit_cpu VALUE
-	RLIMIT_CPU, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 600)
- --rlimit_fsize VALUE
-	RLIMIT_FSIZE in MB, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 1)
- --rlimit_nofile VALUE
-	RLIMIT_NOFILE, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 32)
- --rlimit_nproc VALUE
-	RLIMIT_NPROC, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 'soft')
- --rlimit_stack VALUE
-	RLIMIT_STACK in MB, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 'soft')
- --persona_addr_compat_layout 
-	personality(ADDR_COMPAT_LAYOUT)
- --persona_mmap_page_zero 
-	personality(MMAP_PAGE_ZERO)
- --persona_read_implies_exec 
-	personality(READ_IMPLIES_EXEC)
- --persona_addr_limit_3gb 
-	personality(ADDR_LIMIT_3GB)
- --persona_addr_no_randomize 
-	personality(ADDR_NO_RANDOMIZE)
- --disable_clone_newnet|-N 
-	Don't use CLONE_NEWNET. Enable global networking inside the jail
- --disable_clone_newuser 
-	Don't use CLONE_NEWUSER. Requires euid==0
- --disable_clone_newns 
-	Don't use CLONE_NEWNS
- --disable_clone_newpid 
-	Don't use CLONE_NEWPID
- --disable_clone_newipc 
-	Don't use CLONE_NEWIPC
- --disable_clone_newuts 
-	Don't use CLONE_NEWUTS
- --disable_clone_newcgroup 
-	Don't use CLONE_NEWCGROUP. Might be required for kernel versions < 4.6
- --uid_mapping|-U VALUE
-	Add a custom uid mapping of the form inside_uid:outside_uid:count. Setting this requires newuidmap (set-uid) to be present
- --gid_mapping|-G VALUE
-	Add a custom gid mapping of the form inside_gid:outside_gid:count. Setting this requires newgidmap (set-uid) to be present
- --bindmount_ro|-R VALUE
-	List of mountpoints to be mounted --bind (ro) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'
- --bindmount|-B VALUE
-	List of mountpoints to be mounted --bind (rw) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'
- --tmpfsmount|-T VALUE
-	List of mountpoints to be mounted as tmpfs (R/W) inside the container. Can be specified multiple times. Supports 'dest' syntax. Alternatively, use '-m none:dest:tmpfs:size=8388608'
- --mount|-m VALUE
-	Arbitrary mount, format src:dst:fs_type:options
- --symlink|-s VALUE
-	Symlink, format src:dst
- --disable_proc 
-	Disable mounting procfs in the jail
- --proc_path VALUE
-	Path used to mount procfs (default: '/proc')
- --proc_rw 
-	Is procfs mounted as R/W (default: R/O)
- --seccomp_policy|-P VALUE
-	Path to file containing seccomp-bpf policy (see kafel/)
- --seccomp_string VALUE
-	String with kafel seccomp-bpf policy (see kafel/)
- --seccomp_log 
-	Use SECCOMP_FILTER_FLAG_LOG. Log all actions except SECCOMP_RET_ALLOW). Supported since kernel version 4.14
- --cgroup_mem_max VALUE
-	Maximum number of bytes to use in the group (default: '0' - disabled)
- --cgroup_mem_mount VALUE
-	Location of memory cgroup FS (default: '/sys/fs/cgroup/memory')
- --cgroup_mem_parent VALUE
-	Which pre-existing memory cgroup to use as a parent (default: 'NSJAIL')
- --cgroup_pids_max VALUE
-	Maximum number of pids in a cgroup (default: '0' - disabled)
- --cgroup_pids_mount VALUE
-	Location of pids cgroup FS (default: '/sys/fs/cgroup/pids')
- --cgroup_pids_parent VALUE
-	Which pre-existing pids cgroup to use as a parent (default: 'NSJAIL')
- --cgroup_net_cls_classid VALUE
-	Class identifier of network packets in the group (default: '0' - disabled)
- --cgroup_net_cls_mount VALUE
-	Location of net_cls cgroup FS (default: '/sys/fs/cgroup/net_cls')
- --cgroup_net_cls_parent VALUE
-	Which pre-existing net_cls cgroup to use as a parent (default: 'NSJAIL')
- --cgroup_cpu_ms_per_sec VALUE
-	Number of us that the process group can use per second (default: '0' - disabled)
- --cgroup_cpu_mount VALUE
-	Location of cpu cgroup FS (default: '/sys/fs/cgroup/net_cls')
- --cgroup_cpu_parent VALUE
-	Which pre-existing cpu cgroup to use as a parent (default: 'NSJAIL')
- --iface_no_lo 
-	Don't bring the 'lo' interface up
- --iface_own VALUE
-	Move this existing network interface into the new NET namespace. Can be specified multiple times
- --macvlan_iface|-I VALUE
-	Interface which will be cloned (MACVLAN) and put inside the subprocess' namespace as 'vs'
- --macvlan_vs_ip VALUE
-	IP of the 'vs' interface (e.g. "192.168.0.1")
- --macvlan_vs_nm VALUE
-	Netmask of the 'vs' interface (e.g. "255.255.255.0")
- --macvlan_vs_gw VALUE
-	Default GW for the 'vs' interface (e.g. "192.168.0.1")
- --macvlan_vs_ma VALUE
-	MAC-address of the 'vs' interface (e.g. "ba:ad:ba:be:45:00")
-
+  --config|-C VALUE
+ 	Configuration file in the config.proto ProtoBuf format (see configs/ directory for examples)
+  --exec_file|-x VALUE
+ 	File to exec (default: argv[0])
+  --execute_fd 
+ 	Use execveat() to execute a file-descriptor instead of executing the binary path. In such case argv[0]/exec_file denotes a file path before mount namespacing
+  --chroot|-c VALUE
+ 	Directory containing / of the jail (default: none)
+  --no_pivotroot 
+ 	When creating a mount namespace, use mount(MS_MOVE) and chroot rather than pivot_root. Usefull when pivot_root is disallowed (e.g. initramfs). Note: escapable is some configuration
+  --rw 
+ 	Mount chroot dir (/) R/W (default: R/O)
+  --user|-u VALUE
+ 	Username/uid of processes inside the jail (default: your current uid). You can also use inside_ns_uid:outside_ns_uid:count convention here. Can be specified multiple times
+  --group|-g VALUE
+ 	Groupname/gid of processes inside the jail (default: your current gid). You can also use inside_ns_gid:global_ns_gid:count convention here. Can be specified multiple times
+  --hostname|-H VALUE
+ 	UTS name (hostname) of the jail (default: 'NSJAIL')
+  --cwd|-D VALUE
+ 	Directory in the namespace the process will run (default: '/')
+  --port|-p VALUE
+ 	TCP port to bind to (enables MODE_LISTEN_TCP) (default: 0)
+  --bindhost VALUE
+ 	IP address to bind the port to (only in [MODE_LISTEN_TCP]), (default: '::')
+  --max_conns VALUE
+ 	Maximum number of connections across all IPs (only in [MODE_LISTEN_TCP]), (default: 0 (unlimited))
+  --max_conns_per_ip|-i VALUE
+ 	Maximum number of connections per one IP (only in [MODE_LISTEN_TCP]), (default: 0 (unlimited))
+  --log|-l VALUE
+ 	Log file (default: use log_fd)
+  --log_fd|-L VALUE
+ 	Log FD (default: 2)
+  --time_limit|-t VALUE
+ 	Maximum time that a jail can exist, in seconds (default: 600)
+  --max_cpus VALUE
+ 	Maximum number of CPUs a single jailed process can use (default: 0 'no limit')
+  --daemon|-d 
+ 	Daemonize after start
+  --verbose|-v 
+ 	Verbose output
+  --quiet|-q 
+ 	Log warning and more important messages only
+  --really_quiet|-Q 
+ 	Log fatal messages only
+  --keep_env|-e 
+ 	Pass all environment variables to the child process (default: all envars are cleared)
+  --env|-E VALUE
+ 	Additional environment variable (can be used multiple times). If the envar doesn't contain '=' (e.g. just the 'DISPLAY' string), the current envar value will be used
+  --keep_caps 
+ 	Don't drop any capabilities
+  --cap VALUE
+ 	Retain this capability, e.g. CAP_PTRACE (can be specified multiple times)
+  --silent 
+ 	Redirect child process' fd:0/1/2 to /dev/null
+  --stderr_to_null 
+ 	Redirect child process' fd:2 (STDERR_FILENO) to /dev/null
+  --skip_setsid 
+ 	Don't call setsid(), allows for terminal signal handling in the sandboxed process. Dangerous
+  --pass_fd VALUE
+ 	Don't close this FD before executing the child process (can be specified multiple times), by default: 0/1/2 are kept open
+  --disable_no_new_privs 
+ 	Don't set the prctl(NO_NEW_PRIVS, 1) (DANGEROUS)
+  --rlimit_as VALUE
+ 	RLIMIT_AS in MB, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 4096)
+  --rlimit_core VALUE
+ 	RLIMIT_CORE in MB, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 0)
+  --rlimit_cpu VALUE
+ 	RLIMIT_CPU, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 600)
+  --rlimit_fsize VALUE
+ 	RLIMIT_FSIZE in MB, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 1)
+  --rlimit_nofile VALUE
+ 	RLIMIT_NOFILE, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 32)
+  --rlimit_nproc VALUE
+ 	RLIMIT_NPROC, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 'soft')
+  --rlimit_stack VALUE
+ 	RLIMIT_STACK in MB, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 'soft')
+  --rlimit_memlock VALUE
+ 	RLIMIT_MEMLOCK in KB, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 'soft')
+  --rlimit_rtprio VALUE
+ 	RLIMIT_RTPRIO, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 'soft')
+  --rlimit_msgqueue VALUE
+ 	RLIMIT_MSGQUEUE in bytes, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 'soft')
+  --disable_rlimits 
+ 	Disable all rlimits, default to limits set by parent
+  --persona_addr_compat_layout 
+ 	personality(ADDR_COMPAT_LAYOUT)
+  --persona_mmap_page_zero 
+ 	personality(MMAP_PAGE_ZERO)
+  --persona_read_implies_exec 
+ 	personality(READ_IMPLIES_EXEC)
+  --persona_addr_limit_3gb 
+ 	personality(ADDR_LIMIT_3GB)
+  --persona_addr_no_randomize 
+ 	personality(ADDR_NO_RANDOMIZE)
+  --disable_clone_newnet|-N 
+ 	Don't use CLONE_NEWNET. Enable global networking inside the jail
+  --disable_clone_newuser 
+ 	Don't use CLONE_NEWUSER. Requires euid==0
+  --disable_clone_newns 
+ 	Don't use CLONE_NEWNS
+  --disable_clone_newpid 
+ 	Don't use CLONE_NEWPID
+  --disable_clone_newipc 
+ 	Don't use CLONE_NEWIPC
+  --disable_clone_newuts 
+ 	Don't use CLONE_NEWUTS
+  --disable_clone_newcgroup 
+ 	Don't use CLONE_NEWCGROUP. Might be required for kernel versions < 4.6
+  --enable_clone_newtime 
+ 	Use CLONE_NEWTIME. Supported with kernel versions >= 5.3
+  --uid_mapping|-U VALUE
+ 	Add a custom uid mapping of the form inside_uid:outside_uid:count. Setting this requires newuidmap (set-uid) to be present
+  --gid_mapping|-G VALUE
+ 	Add a custom gid mapping of the form inside_gid:outside_gid:count. Setting this requires newgidmap (set-uid) to be present
+  --bindmount_ro|-R VALUE
+ 	List of mountpoints to be mounted --bind (ro) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'
+  --bindmount|-B VALUE
+ 	List of mountpoints to be mounted --bind (rw) inside the container. Can be specified multiple times. Supports 'source' syntax, or 'source:dest'
+  --tmpfsmount|-T VALUE
+ 	List of mountpoints to be mounted as tmpfs (R/W) inside the container. Can be specified multiple times. Supports 'dest' syntax. Alternatively, use '-m none:dest:tmpfs:size=8388608'
+  --mount|-m VALUE
+ 	Arbitrary mount, format src:dst:fs_type:options
+  --symlink|-s VALUE
+ 	Symlink, format src:dst
+  --disable_proc 
+ 	Disable mounting procfs in the jail
+  --proc_path VALUE
+ 	Path used to mount procfs (default: '/proc')
+  --proc_rw 
+ 	Is procfs mounted as R/W (default: R/O)
+  --seccomp_policy|-P VALUE
+ 	Path to file containing seccomp-bpf policy (see kafel/)
+  --seccomp_string VALUE
+ 	String with kafel seccomp-bpf policy (see kafel/)
+  --seccomp_log 
+ 	Use SECCOMP_FILTER_FLAG_LOG. Log all actions except SECCOMP_RET_ALLOW). Supported since kernel version 4.14
+  --nice_level VALUE
+ 	Set jailed process niceness (-20 is highest -priority, 19 is lowest). By default, set to 19
+  --cgroup_mem_max VALUE
+ 	Maximum number of bytes to use in the group (default: '0' - disabled)
+  --cgroup_mem_memsw_max VALUE
+ 	Maximum number of memory+swap bytes to use (default: '0' - disabled)
+  --cgroup_mem_swap_max VALUE
+ 	Maximum number of swap bytes to use (default: '-1' - disabled)
+  --cgroup_mem_mount VALUE
+ 	Location of memory cgroup FS (default: '/sys/fs/cgroup/memory')
+  --cgroup_mem_parent VALUE
+ 	Which pre-existing memory cgroup to use as a parent (default: 'NSJAIL')
+  --cgroup_pids_max VALUE
+ 	Maximum number of pids in a cgroup (default: '0' - disabled)
+  --cgroup_pids_mount VALUE
+ 	Location of pids cgroup FS (default: '/sys/fs/cgroup/pids')
+  --cgroup_pids_parent VALUE
+ 	Which pre-existing pids cgroup to use as a parent (default: 'NSJAIL')
+  --cgroup_net_cls_classid VALUE
+ 	Class identifier of network packets in the group (default: '0' - disabled)
+  --cgroup_net_cls_mount VALUE
+ 	Location of net_cls cgroup FS (default: '/sys/fs/cgroup/net_cls')
+  --cgroup_net_cls_parent VALUE
+ 	Which pre-existing net_cls cgroup to use as a parent (default: 'NSJAIL')
+  --cgroup_cpu_ms_per_sec VALUE
+ 	Number of milliseconds of CPU time per second that the process group can use (default: '0' - no limit)
+  --cgroup_cpu_mount VALUE
+ 	Location of cpu cgroup FS (default: '/sys/fs/cgroup/cpu')
+  --cgroup_cpu_parent VALUE
+ 	Which pre-existing cpu cgroup to use as a parent (default: 'NSJAIL')
+  --cgroupv2_mount VALUE
+ 	Location of cgroupv2 directory (default: '/sys/fs/cgroup')
+  --use_cgroupv2 
+ 	Use cgroup v2
+  --detect_cgroupv2 
+ 	Use cgroupv2, if it is available. (Specify instead of use_cgroupv2)
+  --iface_no_lo 
+ 	Don't bring the 'lo' interface up
+  --iface_own VALUE
+ 	Move this existing network interface into the new NET namespace. Can be specified multiple times
+  --macvlan_iface|-I VALUE
+ 	Interface which will be cloned (MACVLAN) and put inside the subprocess' namespace as 'vs'
+  --macvlan_vs_ip VALUE
+ 	IP of the 'vs' interface (e.g. "192.168.0.1")
+  --macvlan_vs_nm VALUE
+ 	Netmask of the 'vs' interface (e.g. "255.255.255.0")
+  --macvlan_vs_gw VALUE
+ 	Default GW for the 'vs' interface (e.g. "192.168.0.1")
+  --macvlan_vs_ma VALUE
+ 	MAC-address of the 'vs' interface (e.g. "ba:ad:ba:be:45:00")
+  --macvlan_vs_mo VALUE
+ 	Mode of the 'vs' interface. Can be either 'private', 'vepa', 'bridge' or 'passthru' (default: 'private')
+  --disable_tsc 
+ 	Disable rdtsc and rdtscp instructions. WARNING: To make it effective, you also need to forbid `prctl(PR_SET_TSC, PR_TSC_ENABLE, ...)` in seccomp rules! (x86 and x86_64 only). Dynamic binaries produced by GCC seem to rely on RDTSC, but static ones should work.
+  --forward_signals 
+ 	Forward fatal signals to the child process instead of always using SIKGILL.
+ 
  Examples: 
- Wait on a port 31337 for connections, and run /bin/sh
-  nsjail -Ml --port 31337 --chroot / -- /bin/sh -i
- Re-run echo command as a sub-process
-  nsjail -Mr --chroot / -- /bin/echo "ABC"
- Run echo command once only, as a sub-process
-  nsjail -Mo --chroot / -- /bin/echo "ABC"
- Execute echo command directly, without a supervising process
-  nsjail -Me --chroot / --disable_proc -- /bin/echo "ABC"
+  Wait on a port 31337 for connections, and run /bin/sh
+   nsjail -Ml --port 31337 --chroot / -- /bin/sh -i
+  Re-run echo command as a sub-process
+   nsjail -Mr --chroot / -- /bin/echo "ABC"
+  Run echo command once only, as a sub-process
+   nsjail -Mo --chroot / -- /bin/echo "ABC"
+  Execute echo command directly, without a supervising process
+   nsjail -Me --chroot / --disable_proc -- /bin/echo "ABC"
 </pre>
 
 ***
