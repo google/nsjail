@@ -89,16 +89,20 @@ bool writeToFd(int fd, const void* buf, size_t len) {
 	return true;
 }
 
-bool writeBufToFile(const char* filename, const void* buf, size_t len, int open_flags) {
+bool writeBufToFile(const char* filename, const void* buf, size_t len, int open_flags, bool log_errors) {
 	int fd;
 	TEMP_FAILURE_RETRY(fd = open(filename, open_flags, 0644));
 	if (fd == -1) {
-		PLOG_E("Couldn't open '%s' for writing", filename);
+		if (log_errors) {
+			PLOG_E("Couldn't open '%s' for writing", filename);
+		}
 		return false;
 	}
 
 	if (!writeToFd(fd, buf, len)) {
-		PLOG_E("Couldn't write '%zu' bytes to file '%s' (fd='%d')", len, filename, fd);
+		if (log_errors) {
+			PLOG_E("Couldn't write '%zu' bytes to file '%s' (fd='%d')", len, filename, fd);
+		}
 		close(fd);
 		if (open_flags & O_CREAT) {
 			unlink(filename);

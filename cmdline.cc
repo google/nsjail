@@ -158,6 +158,7 @@ struct custom_option custom_opts[] = {
     { { "cgroup_cpu_parent", required_argument, NULL, 0x0833 }, "Which pre-existing cpu cgroup to use as a parent (default: 'NSJAIL')" },
     { { "cgroupv2_mount", required_argument, NULL, 0x0834}, "Location of cgroupv2 directory (default: '/sys/fs/cgroup')"},
     { { "use_cgroupv2", no_argument, NULL, 0x0835}, "Use cgroup v2"},
+    { { "detect_cgroupv2", no_argument, NULL, 0x0836}, "Use cgroupv2, if it is available. (Specify instead of use_cgroupv2)"},
     { { "iface_no_lo", no_argument, NULL, 0x700 }, "Don't bring the 'lo' interface up" },
     { { "iface_own", required_argument, NULL, 0x704 }, "Move this existing network interface into the new NET namespace. Can be specified multiple times" },
     { { "macvlan_iface", required_argument, NULL, 'I' }, "Interface which will be cloned (MACVLAN) and put inside the subprocess' namespace as 'vs'" },
@@ -473,6 +474,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->cgroup_cpu_ms_per_sec = 0U;
 	nsjconf->cgroupv2_mount = "/sys/fs/cgroup";
 	nsjconf->use_cgroupv2 = false;
+	nsjconf->detect_cgroupv2 = false;
 	nsjconf->iface_lo = true;
 	nsjconf->iface_vs_ip = "0.0.0.0";
 	nsjconf->iface_vs_nm = "255.255.255.0";
@@ -911,6 +913,9 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			break;
 		case 0x835:
 			nsjconf->use_cgroupv2 = true;
+			break;
+		case 0x836:
+			nsjconf->detect_cgroupv2 = true;
 			break;
 		case 'P':
 			nsjconf->kafel_file_path = optarg;

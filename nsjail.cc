@@ -46,6 +46,7 @@
 #include "sandbox.h"
 #include "subproc.h"
 #include "util.h"
+#include "cgroup2.h"
 
 namespace nsjail {
 
@@ -342,6 +343,19 @@ int main(int argc, char* argv[]) {
 	if (!nsjail::setTimer(nsjconf.get())) {
 		LOG_F("nsjail::setTimer() failed");
 	}
+
+	if (nsjconf->detect_cgroupv2) {
+		cgroup2::detectCgroupv2(nsjconf.get());
+		LOG_I("Detected cgroups version: %d", nsjconf->use_cgroupv2 ? 2 : 1);
+	}
+
+	if (nsjconf->use_cgroupv2) {
+		if (!cgroup2::setup(nsjconf.get())) {
+			LOG_E("Couldn't setup parent cgroup (cgroupv2)");
+			return -1;
+		}
+	}
+
 	if (!sandbox::preparePolicy(nsjconf.get())) {
 		LOG_F("Couldn't prepare sandboxing policy");
 	}
