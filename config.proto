@@ -267,6 +267,9 @@ message NsJailConfig {
        can be specified with cmd-line as "-- /path/to/command arg1 arg2" */
     optional Exe exec_bin = 90;
 
+    /* Disable rdtsc and rdtscp instructions. WARNING: To make it effective, you also need to
+     * forbid `prctl(PR_SET_TSC, PR_TSC_ENABLE, ...)` in seccomp rules! (x86 and x86_64 only).
+     * Dynamic binaries produced by GCC seem to rely on RDTSC, but static ones should work. */
     optional bool disable_tsc = 93 [default = false];
 
     /* Set this to true to forward fatal signals to the child process instead
