@@ -494,13 +494,13 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->openfds.push_back(STDOUT_FILENO);
 	nsjconf->openfds.push_back(STDERR_FILENO);
 
-	// Generate options array for getopt_long.
+	/* Generate options array for getopt_long. */
 	size_t options_length = ARR_SZ(custom_opts) + 1;
 	struct option opts[options_length];
 	for (unsigned i = 0; i < ARR_SZ(custom_opts); i++) {
 		opts[i] = custom_opts[i].opt;
 	}
-	// Last, NULL option as a terminator.
+	/* Lastly, NULL option as a terminator */
 	struct option terminator = {NULL, 0, NULL, 0};
 	memcpy(&opts[options_length - 1].name, &terminator, sizeof(terminator));
 

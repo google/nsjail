@@ -77,7 +77,8 @@ static bool enableCgroupSubtree(nsjconf_t *nsjconf, const std::string &controlle
 	    cgroup_path.c_str(), pid);
 	std::string val = "+" + controller;
 
-	/* Try once without moving the nsjail process and if that fails then try moving the nsjail
+	/*
+	 * Try once without moving the nsjail process and if that fails then try moving the nsjail
 	 * process into a child cgroup before trying a second time.
 	 */
 	if (util::writeBufToFile((cgroup_path + "/cgroup.subtree_control").c_str(), val.c_str(),
@@ -130,8 +131,10 @@ static void removeCgroup(const std::string &cgroup_path) {
 }
 
 static bool needMemoryController(nsjconf_t *nsjconf) {
-	// Check if we need 'memory'
-	// This matches the check in initNsFromParentMem
+	/*
+	 * Check if we need 'memory'
+	 * This matches the check in initNsFromParentMem()
+	 */
 	ssize_t swap_max = nsjconf->cgroup_mem_swap_max;
 	if (nsjconf->cgroup_mem_memsw_max > (size_t)0) {
 		swap_max = nsjconf->cgroup_mem_memsw_max - nsjconf->cgroup_mem_max;
@@ -150,13 +153,17 @@ static bool needCpuController(nsjconf_t *nsjconf) {
 	return nsjconf->cgroup_cpu_ms_per_sec != 0U;
 }
 
-// We will use this buf to read from cgroup.subtree_control to see if
-// the root cgroup has the necessary controllers listed
+/*
+ * We will use this buf to read from cgroup.subtree_control to see if
+ * the root cgroup has the necessary controllers listed
+ */
 #define SUBTREE_CONTROL_BUF_LEN 0x40
 
 bool setup(nsjconf_t *nsjconf) {
-	// Read from cgroup.subtree_control in the root to see if
-	// the controllers we need are there.
+	/*
+	 * Read from cgroup.subtree_control in the root to see if
+	 * the controllers we need are there.
+	 */
 	auto p = nsjconf->cgroupv2_mount + "/cgroup.subtree_control";
 	char buf[SUBTREE_CONTROL_BUF_LEN];
 	int read = util::readFromFile(p.c_str(), buf, SUBTREE_CONTROL_BUF_LEN - 1);
@@ -166,12 +173,12 @@ bool setup(nsjconf_t *nsjconf) {
 	}
 	buf[read] = 0;
 
-	// Are the controllers we need there?
+	/* Are the controllers we need there? */
 	bool subtree_ok = (!needMemoryController(nsjconf) || strstr(buf, "memory")) &&
 			  (!needPidsController(nsjconf) || strstr(buf, "pids")) &&
 			  (!needCpuController(nsjconf) || strstr(buf, "cpu"));
 	if (!subtree_ok) {
-		// Now we can write to the root cgroup.subtree_control
+		/* Now we can write to the root cgroup.subtree_control */
 		if (needMemoryController(nsjconf)) {
 			RETURN_ON_FAILURE(enableCgroupSubtree(nsjconf, "memory", getpid()));
 		}
@@ -188,7 +195,9 @@ bool setup(nsjconf_t *nsjconf) {
 }
 
 bool detectCgroupv2(nsjconf_t *nsjconf) {
-	// Check cgroupv2_mount, if it is a cgroup2 mount, use it.
+	/*
+	 * Check cgroupv2_mount, if it is a cgroup2 mount, use it.
+	 */
 	struct statfs buf;
 	if (statfs(nsjconf->cgroupv2_mount.c_str(), &buf)) {
 		LOG_D("statfs %s failed with %d", nsjconf->cgroupv2_mount.c_str(), errno);
@@ -245,9 +254,11 @@ static bool initNsFromParentCpu(nsjconf_t *nsjconf, pid_t pid) {
 	RETURN_ON_FAILURE(createCgroup(cgroup_path, pid));
 	RETURN_ON_FAILURE(addPidToProcList(cgroup_path, pid));
 
-	// The maximum bandwidth limit in the format: `$MAX $PERIOD`.
-	// This indicates that the group may consume up to $MAX in each $PERIOD
-	// duration.
+	/*
+	 * The maximum bandwidth limit in the format: `$MAX $PERIOD`.
+	 * This indicates that the group may consume up to $MAX in each $PERIOD
+	 * duration.
+	 */
 	std::string cpu_ms_per_sec_str = std::to_string(nsjconf->cgroup_cpu_ms_per_sec * 1000U);
 	cpu_ms_per_sec_str += " 1000000";
 	return writeToCgroup(cgroup_path, "cpu.max", cpu_ms_per_sec_str);
