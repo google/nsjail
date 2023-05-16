@@ -128,6 +128,19 @@ static bool isDir(const char* path) {
 	return false;
 }
 
+static int mountRWIfPossible(mount_t* mpt, const char* src, const char* dst) {
+	int res =
+	    mount(src, dst, mpt->fs_type.c_str(), mpt->flags & ~(MS_RDONLY), mpt->options.c_str());
+	if ((mpt->flags & MS_RDONLY) && res == -1 && errno == EPERM) {
+		LOG_W(
+		    "mount('%s') src: '%s' dstpath: '%s' could not mount read-write, falling back "
+		    "to mounting read-only directly",
+		    describeMountPt(*mpt).c_str(), src, dst);
+		res = mount(src, dst, mpt->fs_type.c_str(), mpt->flags, mpt->options.c_str());
+	}
+	return res;
+}
+
 static bool mountPt(mount_t* mpt, const char* newroot, const char* tmpdir) {
 	LOG_D("Mounting %s", describeMountPt(*mpt).c_str());
 
@@ -199,8 +212,7 @@ static bool mountPt(mount_t* mpt, const char* newroot, const char* tmpdir) {
 	/*
 	 * Initially mount it as RW, it will be remounted later on if needed
 	 */
-	unsigned long flags = mpt->flags & ~(MS_RDONLY);
-	if (mount(srcpath, dstpath, mpt->fs_type.c_str(), flags, mpt->options.c_str()) == -1) {
+	if (mountRWIfPossible(mpt, srcpath, dstpath) == -1) {
 		if (errno == EACCES) {
 			PLOG_W(
 			    "mount('%s') src:'%s' dstpath:'%s' failed. "
