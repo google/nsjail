@@ -55,6 +55,9 @@ static void setDupLogFdOr(int fd, int orfd) {
 		_log_fd = orfd;
 	}
 	_log_fd_isatty = (isatty(_log_fd) == 1);
+	if (getenv("NO_COLOR")) {
+		_log_fd_isatty = false;
+	}
 	errno = saved_errno;
 }
 
