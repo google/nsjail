@@ -93,8 +93,11 @@ static bool enableCgroupSubtree(nsjconf_t *nsjconf, const std::string &controlle
 		}
 	}
 	LOG_E(
-	    "Could not apply '%s' to cgroup.subtree_control in '%s'. If you are running in Docker, "
-	    "nsjail MUST be the root process to use cgroups.",
+	    "Could not apply '%s' to cgroup.subtree_control in '%s'. nsjail MUST be run from root "
+	    "and the cgroup mount path must refer to the root/host cgroup to use cgroupv2. If you "
+	    "use Docker, you may need to run the container with --cgroupns=host so that nsjail can"
+	    " access the host/root cgroupv2 hierarchy. An alternative is mounting (or remounting) "
+	    "the cgroupv2 filesystem but using the flag is just simpler.",
 	    val.c_str(), cgroup_path.c_str());
 	return false;
 }
