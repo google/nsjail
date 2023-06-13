@@ -58,7 +58,7 @@ static void __attribute__ ((unused)) __clang_cleanup_func(void (^*dfunc) (void))
 #define _DEFER(a, count)                                                                          \
 	auto void _STRMERGE(__defer_f_, count)(void* _defer_arg __attribute__((unused)));         \
 	int _STRMERGE(__defer_var_, count) __attribute__((cleanup(_STRMERGE(__defer_f_, count)))) \
-	__attribute__((unused));                                                                  \
+	    __attribute__((unused));                                                              \
 	void _STRMERGE(__defer_f_, count)(void* _defer_arg __attribute__((unused)))
 #define defer _DEFER(a, __COUNTER__)
 #endif

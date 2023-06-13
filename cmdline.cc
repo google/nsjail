@@ -59,11 +59,10 @@
 namespace cmdline {
 
 #define _LOG_DEFAULT_FILE "/var/log/nsjail.log"
-#define _MAX_CONSOLE_OUTPUT_WIDTH 65
 
 struct custom_option {
-  struct option opt;
-  const char *descr;
+	struct option opt;
+	const char *descr;
 };
 
 // clang-format off
@@ -174,862 +173,848 @@ struct custom_option custom_opts[] = {
 };
 // clang-format on
 
-static const char *logYesNo(bool yes) { return (yes ? "true" : "false"); }
+static const char *logYesNo(bool yes) {
+	return (yes ? "true" : "false");
+}
 
 size_t GetConsoleLength(const std::string &str) {
-  int result = 0;
-  for (char c : str) {
-    if (c == '\t') {
-      result += 8;
-    } else {
-      ++result;
-    }
-  }
-  return result;
+	int result = 0;
+	for (char c : str) {
+		if (c == '\t') {
+			result += 8;
+		} else {
+			++result;
+		}
+	}
+	return result;
 }
 
 std::string FormatLine(const std::string &line, size_t max_len = 80) {
-  std::string indent = line.substr(0, line.find_first_not_of(" \t"));
-  size_t indent_len = GetConsoleLength(indent);
-  size_t cursor = 0;
-  std::string formatted;
-  std::vector<std::string> words = util::strSplit(line.c_str(), ' ');
-  for (const auto &word : words) {
-    size_t wlen = GetConsoleLength(word);
-    std::string separator = cursor == 0 ? "" : " ";
-    size_t slen = GetConsoleLength(separator);
-    if (cursor != 0 && cursor + slen + wlen >= max_len) {
-      util::StrAppend(&formatted, "\n");
-      cursor = 0;
-      separator = indent;
-      slen = indent_len;
-    }
-    util::StrAppend(&formatted, "%s%s", separator.c_str(), word.c_str());
-    cursor += slen + wlen;
-  }
-  return formatted;
+	std::string indent = line.substr(0, line.find_first_not_of(" \t"));
+	size_t indent_len = GetConsoleLength(indent);
+	size_t cursor = 0;
+	std::string formatted;
+	std::vector<std::string> words = util::strSplit(line.c_str(), ' ');
+	for (const auto &word : words) {
+		size_t wlen = GetConsoleLength(word);
+		std::string separator = cursor == 0 ? "" : " ";
+		size_t slen = GetConsoleLength(separator);
+		if (cursor != 0 && cursor + slen + wlen >= max_len) {
+			util::StrAppend(&formatted, "\n");
+			cursor = 0;
+			separator = indent;
+			slen = indent_len;
+		}
+		util::StrAppend(&formatted, "%s%s", separator.c_str(), word.c_str());
+		cursor += slen + wlen;
+	}
+	return formatted;
 }
 
 std::string FormatDescription(const char *descr) {
-  std::string formatted;
-  std::vector<std::string> lines = util::strSplit(descr, '\n');
+	std::string formatted;
+	std::vector<std::string> lines = util::strSplit(descr, '\n');
 
-  for (const auto &line : lines) {
-    util::StrAppend(&formatted, "%s\n",
-                    FormatLine(std::string("\t") + line).c_str());
-  }
-  return formatted;
+	for (const auto &line : lines) {
+		util::StrAppend(&formatted, "%s\n", FormatLine(std::string("\t") + line).c_str());
+	}
+	return formatted;
 }
 
 static void cmdlineOptUsage(struct custom_option *option) {
-  if (option->opt.val < 0x80) {
-    LOG_HELP_BOLD(" --%s%s%c %s", option->opt.name, "|-", option->opt.val,
-                  option->opt.has_arg == required_argument ? "VALUE" : "");
-  } else {
-    LOG_HELP_BOLD(" --%s %s", option->opt.name,
-                  option->opt.has_arg == required_argument ? "VALUE" : "");
-  }
-  LOG_HELP("%s", FormatDescription(option->descr).c_str());
+	if (option->opt.val < 0x80) {
+		LOG_HELP_BOLD(" --%s%s%c %s", option->opt.name, "|-", option->opt.val,
+		    option->opt.has_arg == required_argument ? "VALUE" : "");
+	} else {
+		LOG_HELP_BOLD(" --%s %s", option->opt.name,
+		    option->opt.has_arg == required_argument ? "VALUE" : "");
+	}
+	LOG_HELP("%s", FormatDescription(option->descr).c_str());
 }
 
 static void cmdlineUsage(const char *pname) {
-  LOG_HELP_BOLD("Usage: %s [options] -- path_to_command [args]", pname);
-  LOG_HELP_BOLD("Options:");
-  for (size_t i = 0; i < ARR_SZ(custom_opts); i++) {
-    cmdlineOptUsage(&custom_opts[i]);
-  }
-  LOG_HELP_BOLD("\n Examples: ");
-  LOG_HELP(" Wait on a port 31337 for connections, and run /bin/sh");
-  LOG_HELP_BOLD("  nsjail -Ml --port 31337 --chroot / -- /bin/sh -i");
-  LOG_HELP(" Re-run echo command as a sub-process");
-  LOG_HELP_BOLD("  nsjail -Mr --chroot / -- /bin/echo \"ABC\"");
-  LOG_HELP(" Run echo command once only, as a sub-process");
-  LOG_HELP_BOLD("  nsjail -Mo --chroot / -- /bin/echo \"ABC\"");
-  LOG_HELP(" Execute echo command directly, without a supervising process");
-  LOG_HELP_BOLD("  nsjail -Me --chroot / --disable_proc -- /bin/echo \"ABC\"");
+	LOG_HELP_BOLD("Usage: %s [options] -- path_to_command [args]", pname);
+	LOG_HELP_BOLD("Options:");
+	for (size_t i = 0; i < ARR_SZ(custom_opts); i++) {
+		cmdlineOptUsage(&custom_opts[i]);
+	}
+	LOG_HELP_BOLD("\n Examples: ");
+	LOG_HELP(" Wait on a port 31337 for connections, and run /bin/sh");
+	LOG_HELP_BOLD("  nsjail -Ml --port 31337 --chroot / -- /bin/sh -i");
+	LOG_HELP(" Re-run echo command as a sub-process");
+	LOG_HELP_BOLD("  nsjail -Mr --chroot / -- /bin/echo \"ABC\"");
+	LOG_HELP(" Run echo command once only, as a sub-process");
+	LOG_HELP_BOLD("  nsjail -Mo --chroot / -- /bin/echo \"ABC\"");
+	LOG_HELP(" Execute echo command directly, without a supervising process");
+	LOG_HELP_BOLD("  nsjail -Me --chroot / --disable_proc -- /bin/echo \"ABC\"");
 }
 
 void addEnv(nsjconf_t *nsjconf, const std::string &env) {
-  if (env.find('=') != std::string::npos) {
-    nsjconf->envs.push_back(env);
-    return;
-  }
-  char *e = getenv(env.c_str());
-  if (!e) {
-    LOG_W("Requested to use the %s envar, but it's not set. It'll be ignored",
-          QC(env));
-    return;
-  }
-  nsjconf->envs.push_back(std::string(env).append("=").append(e));
+	if (env.find('=') != std::string::npos) {
+		nsjconf->envs.push_back(env);
+		return;
+	}
+	char *e = getenv(env.c_str());
+	if (!e) {
+		LOG_W("Requested to use the %s envar, but it's not set. It'll be ignored", QC(env));
+		return;
+	}
+	nsjconf->envs.push_back(std::string(env).append("=").append(e));
 }
 
 void logParams(nsjconf_t *nsjconf) {
-  switch (nsjconf->mode) {
-    case MODE_LISTEN_TCP:
-      LOG_I("Mode: LISTEN_TCP");
-      break;
-    case MODE_STANDALONE_ONCE:
-      LOG_I("Mode: STANDALONE_ONCE");
-      break;
-    case MODE_STANDALONE_EXECVE:
-      LOG_I("Mode: STANDALONE_EXECVE");
-      break;
-    case MODE_STANDALONE_RERUN:
-      LOG_I("Mode: STANDALONE_RERUN");
-      break;
-    default:
-      LOG_F("Mode: UNKNOWN");
-      break;
-  }
+	switch (nsjconf->mode) {
+	case MODE_LISTEN_TCP:
+		LOG_I("Mode: LISTEN_TCP");
+		break;
+	case MODE_STANDALONE_ONCE:
+		LOG_I("Mode: STANDALONE_ONCE");
+		break;
+	case MODE_STANDALONE_EXECVE:
+		LOG_I("Mode: STANDALONE_EXECVE");
+		break;
+	case MODE_STANDALONE_RERUN:
+		LOG_I("Mode: STANDALONE_RERUN");
+		break;
+	default:
+		LOG_F("Mode: UNKNOWN");
+		break;
+	}
 
-  LOG_I(
-      "Jail parameters: hostname:'%s', chroot:%s, process:'%s', "
-      "bind:[%s]:%d, "
-      "max_conns:%u, max_conns_per_ip:%u, time_limit:%" PRId64
-      ", personality:%#lx, daemonize:%s, clone_newnet:%s, "
-      "clone_newuser:%s, clone_newns:%s, clone_newpid:%s, clone_newipc:%s, "
-      "clone_newuts:%s, "
-      "clone_newcgroup:%s, clone_newtime:%s, keep_caps:%s, "
-      "disable_no_new_privs:%s, "
-      "max_cpus:%zu",
-      nsjconf->hostname.c_str(), QC(nsjconf->chroot),
-      nsjconf->exec_file.empty() ? nsjconf->argv[0].c_str()
-                                 : nsjconf->exec_file.c_str(),
-      nsjconf->bindhost.c_str(), nsjconf->port, nsjconf->max_conns,
-      nsjconf->max_conns_per_ip, nsjconf->tlimit, nsjconf->personality,
-      logYesNo(nsjconf->daemonize), logYesNo(nsjconf->clone_newnet),
-      logYesNo(nsjconf->clone_newuser), logYesNo(nsjconf->clone_newns),
-      logYesNo(nsjconf->clone_newpid), logYesNo(nsjconf->clone_newipc),
-      logYesNo(nsjconf->clone_newuts), logYesNo(nsjconf->clone_newcgroup),
-      logYesNo(nsjconf->clone_newtime), logYesNo(nsjconf->keep_caps),
-      logYesNo(nsjconf->disable_no_new_privs), nsjconf->max_cpus);
+	LOG_I(
+	    "Jail parameters: hostname:'%s', chroot:%s, process:'%s', "
+	    "bind:[%s]:%d, "
+	    "max_conns:%u, max_conns_per_ip:%u, time_limit:%" PRId64
+	    ", personality:%#lx, daemonize:%s, clone_newnet:%s, "
+	    "clone_newuser:%s, clone_newns:%s, clone_newpid:%s, clone_newipc:%s, "
+	    "clone_newuts:%s, "
+	    "clone_newcgroup:%s, clone_newtime:%s, keep_caps:%s, "
+	    "disable_no_new_privs:%s, "
+	    "max_cpus:%zu",
+	    nsjconf->hostname.c_str(), QC(nsjconf->chroot),
+	    nsjconf->exec_file.empty() ? nsjconf->argv[0].c_str() : nsjconf->exec_file.c_str(),
+	    nsjconf->bindhost.c_str(), nsjconf->port, nsjconf->max_conns, nsjconf->max_conns_per_ip,
+	    nsjconf->tlimit, nsjconf->personality, logYesNo(nsjconf->daemonize),
+	    logYesNo(nsjconf->clone_newnet), logYesNo(nsjconf->clone_newuser),
+	    logYesNo(nsjconf->clone_newns), logYesNo(nsjconf->clone_newpid),
+	    logYesNo(nsjconf->clone_newipc), logYesNo(nsjconf->clone_newuts),
+	    logYesNo(nsjconf->clone_newcgroup), logYesNo(nsjconf->clone_newtime),
+	    logYesNo(nsjconf->keep_caps), logYesNo(nsjconf->disable_no_new_privs),
+	    nsjconf->max_cpus);
 
-  for (const auto &p : nsjconf->mountpts) {
-    LOG_I("%s: %s", p.is_symlink ? "Symlink" : "Mount",
-          mnt::describeMountPt(p).c_str());
-  }
-  for (const auto &uid : nsjconf->uids) {
-    LOG_I("Uid map: inside_uid:%lu outside_uid:%lu count:%zu newuidmap:%s",
-          (unsigned long)uid.inside_id, (unsigned long)uid.outside_id,
-          uid.count, uid.is_newidmap ? "true" : "false");
-    if (uid.outside_id == 0 && nsjconf->clone_newuser) {
-      LOG_W(
-          "Process will be UID/EUID=0 in the global user namespace, and "
-          "will "
-          "have user root-level access to files");
-    }
-  }
-  for (const auto &gid : nsjconf->gids) {
-    LOG_I("Gid map: inside_gid:%lu outside_gid:%lu count:%zu newgidmap:%s",
-          (unsigned long)gid.inside_id, (unsigned long)gid.outside_id,
-          gid.count, gid.is_newidmap ? "true" : "false");
-    if (gid.outside_id == 0 && nsjconf->clone_newuser) {
-      LOG_W(
-          "Process will be GID/EGID=0 in the global user namespace, and "
-          "will "
-          "have group root-level access to files");
-    }
-  }
+	for (const auto &p : nsjconf->mountpts) {
+		LOG_I(
+		    "%s: %s", p.is_symlink ? "Symlink" : "Mount", mnt::describeMountPt(p).c_str());
+	}
+	for (const auto &uid : nsjconf->uids) {
+		LOG_I("Uid map: inside_uid:%lu outside_uid:%lu count:%zu newuidmap:%s",
+		    (unsigned long)uid.inside_id, (unsigned long)uid.outside_id, uid.count,
+		    uid.is_newidmap ? "true" : "false");
+		if (uid.outside_id == 0 && nsjconf->clone_newuser) {
+			LOG_W(
+			    "Process will be UID/EUID=0 in the global user namespace, and "
+			    "will "
+			    "have user root-level access to files");
+		}
+	}
+	for (const auto &gid : nsjconf->gids) {
+		LOG_I("Gid map: inside_gid:%lu outside_gid:%lu count:%zu newgidmap:%s",
+		    (unsigned long)gid.inside_id, (unsigned long)gid.outside_id, gid.count,
+		    gid.is_newidmap ? "true" : "false");
+		if (gid.outside_id == 0 && nsjconf->clone_newuser) {
+			LOG_W(
+			    "Process will be GID/EGID=0 in the global user namespace, and "
+			    "will "
+			    "have group root-level access to files");
+		}
+	}
 }
 
 uint64_t parseRLimit(int res, const char *optarg, unsigned long mul) {
-  if (strcasecmp(optarg, "inf") == 0) {
-    return RLIM64_INFINITY;
-  }
-  struct rlimit64 cur;
-  if (getrlimit64(res, &cur) == -1) {
-    PLOG_F("getrlimit(%d)", res);
-  }
-  if (strcasecmp(optarg, "def") == 0 || strcasecmp(optarg, "soft") == 0) {
-    return cur.rlim_cur;
-  }
-  if (strcasecmp(optarg, "max") == 0 || strcasecmp(optarg, "hard") == 0) {
-    return cur.rlim_max;
-  }
-  if (!util::isANumber(optarg)) {
-    LOG_F(
-        "RLIMIT %d needs a numeric or 'max'/'hard'/'def'/'soft'/'inf' "
-        "value "
-        "('%s' "
-        "provided)",
-        res, optarg);
-  }
-  errno = 0;
-  uint64_t val = strtoull(optarg, NULL, 0);
-  if (val == ULLONG_MAX && errno != 0) {
-    PLOG_F("strtoull('%s', 0)", optarg);
-  }
-  return val * mul;
+	if (strcasecmp(optarg, "inf") == 0) {
+		return RLIM64_INFINITY;
+	}
+	struct rlimit64 cur;
+	if (getrlimit64(res, &cur) == -1) {
+		PLOG_F("getrlimit(%d)", res);
+	}
+	if (strcasecmp(optarg, "def") == 0 || strcasecmp(optarg, "soft") == 0) {
+		return cur.rlim_cur;
+	}
+	if (strcasecmp(optarg, "max") == 0 || strcasecmp(optarg, "hard") == 0) {
+		return cur.rlim_max;
+	}
+	if (!util::isANumber(optarg)) {
+		LOG_F(
+		    "RLIMIT %d needs a numeric or 'max'/'hard'/'def'/'soft'/'inf' "
+		    "value "
+		    "('%s' "
+		    "provided)",
+		    res, optarg);
+	}
+	errno = 0;
+	uint64_t val = strtoull(optarg, NULL, 0);
+	if (val == ULLONG_MAX && errno != 0) {
+		PLOG_F("strtoull('%s', 0)", optarg);
+	}
+	return val * mul;
 }
 
 static std::string argFromVec(const std::vector<std::string> &vec, size_t pos) {
-  if (pos >= vec.size()) {
-    return "";
-  }
-  return vec[pos];
+	if (pos >= vec.size()) {
+		return "";
+	}
+	return vec[pos];
 }
 
 static bool setupArgv(nsjconf_t *nsjconf, int argc, char **argv, int optind) {
-  /*
-   * If user provided cmdline via nsjail [opts] -- [cmdline], then override
-   * the one from the config file
-   */
-  if (optind < argc) {
-    nsjconf->argv.clear();
-    for (int i = optind; i < argc; i++) {
-      nsjconf->argv.push_back(argv[i]);
-    }
-  }
-  if (nsjconf->exec_file.empty() && !nsjconf->argv.empty()) {
-    nsjconf->exec_file = nsjconf->argv[0];
-  }
-  if (nsjconf->exec_file.empty()) {
-    cmdlineUsage(argv[0]);
-    LOG_E("No command-line provided");
-    return false;
-  }
+	/*
+	 * If user provided cmdline via nsjail [opts] -- [cmdline], then override
+	 * the one from the config file
+	 */
+	if (optind < argc) {
+		nsjconf->argv.clear();
+		for (int i = optind; i < argc; i++) {
+			nsjconf->argv.push_back(argv[i]);
+		}
+	}
+	if (nsjconf->exec_file.empty() && !nsjconf->argv.empty()) {
+		nsjconf->exec_file = nsjconf->argv[0];
+	}
+	if (nsjconf->exec_file.empty()) {
+		cmdlineUsage(argv[0]);
+		LOG_E("No command-line provided");
+		return false;
+	}
 
-  if (nsjconf->use_execveat) {
+	if (nsjconf->use_execveat) {
 #if !defined(__NR_execveat)
-    LOG_E(
-        "Your nsjail is compiled without support for the execveat() "
-        "syscall, "
-        "yet you "
-        "specified the --execute_fd flag");
-    return false;
+		LOG_E(
+		    "Your nsjail is compiled without support for the execveat() "
+		    "syscall, "
+		    "yet you "
+		    "specified the --execute_fd flag");
+		return false;
 #endif /* !defined(__NR_execveat) */
-    if ((nsjconf->exec_fd = TEMP_FAILURE_RETRY(open(
-             nsjconf->exec_file.c_str(), O_RDONLY | O_PATH | O_CLOEXEC))) ==
-        -1) {
-      PLOG_W("Couldn't open %s file", QC(nsjconf->exec_file));
-      return false;
-    }
-  }
-  return true;
+		if ((nsjconf->exec_fd = TEMP_FAILURE_RETRY(
+			 open(nsjconf->exec_file.c_str(), O_RDONLY | O_PATH | O_CLOEXEC))) == -1) {
+			PLOG_W("Couldn't open %s file", QC(nsjconf->exec_file));
+			return false;
+		}
+	}
+	return true;
 }
 
 static bool setupMounts(nsjconf_t *nsjconf) {
-  if (!(nsjconf->chroot.empty())) {
-    if (!mnt::addMountPtHead(nsjconf, nsjconf->chroot, "/", /* fstype= */ "",
-                             /* options= */ "",
-                             nsjconf->is_root_rw
-                                 ? (MS_BIND | MS_REC | MS_PRIVATE)
-                                 : (MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY),
-                             /* is_dir= */ mnt::NS_DIR_YES,
-                             /* is_mandatory= */ true, /* src_env= */ "",
-                             /* dst_env= */ "", /* src_content= */ "",
-                             /* is_symlink= */ false)) {
-      return false;
-    }
-  } else {
-    if (!mnt::addMountPtHead(
-            nsjconf, /* src= */ "", "/", "tmpfs",
-            /* options= */ "", nsjconf->is_root_rw ? 0 : MS_RDONLY,
-            /* is_dir= */ mnt::NS_DIR_YES,
-            /* is_mandatory= */ true, /* src_env= */ "", /* dst_env= */ "",
-            /* src_content= */ "", /* is_symlink= */ false)) {
-      return false;
-    }
-  }
-  if (!nsjconf->proc_path.empty()) {
-    if (!mnt::addMountPtTail(nsjconf, /* src= */ "", nsjconf->proc_path, "proc",
-                             /* options= */ "",
-                             nsjconf->is_proc_rw ? 0 : MS_RDONLY,
-                             /* is_dir= */ mnt::NS_DIR_YES,
-                             /* is_mandatory= */ true, /* src_env= */ "",
-                             /* dst_env= */ "", /* src_content= */ "",
-                             /* is_symlink= */ false)) {
-      return false;
-    }
-  }
+	if (!(nsjconf->chroot.empty())) {
+		if (!mnt::addMountPtHead(nsjconf, nsjconf->chroot, "/", /* fstype= */ "",
+			/* options= */ "",
+			nsjconf->is_root_rw ? (MS_BIND | MS_REC | MS_PRIVATE)
+					    : (MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY),
+			/* is_dir= */ mnt::NS_DIR_YES,
+			/* is_mandatory= */ true, /* src_env= */ "",
+			/* dst_env= */ "", /* src_content= */ "",
+			/* is_symlink= */ false)) {
+			return false;
+		}
+	} else {
+		if (!mnt::addMountPtHead(nsjconf, /* src= */ "", "/", "tmpfs",
+			/* options= */ "", nsjconf->is_root_rw ? 0 : MS_RDONLY,
+			/* is_dir= */ mnt::NS_DIR_YES,
+			/* is_mandatory= */ true, /* src_env= */ "", /* dst_env= */ "",
+			/* src_content= */ "", /* is_symlink= */ false)) {
+			return false;
+		}
+	}
+	if (!nsjconf->proc_path.empty()) {
+		if (!mnt::addMountPtTail(nsjconf, /* src= */ "", nsjconf->proc_path, "proc",
+			/* options= */ "", nsjconf->is_proc_rw ? 0 : MS_RDONLY,
+			/* is_dir= */ mnt::NS_DIR_YES,
+			/* is_mandatory= */ true, /* src_env= */ "",
+			/* dst_env= */ "", /* src_content= */ "",
+			/* is_symlink= */ false)) {
+			return false;
+		}
+	}
 
-  return true;
+	return true;
 }
 
 void setupUsers(nsjconf_t *nsjconf) {
-  if (nsjconf->uids.empty()) {
-    idmap_t uid;
-    uid.inside_id = getuid();
-    uid.outside_id = getuid();
-    uid.count = 1U;
-    uid.is_newidmap = false;
-    nsjconf->uids.push_back(uid);
-  }
-  if (nsjconf->gids.empty()) {
-    idmap_t gid;
-    gid.inside_id = getgid();
-    gid.outside_id = getgid();
-    gid.count = 1U;
-    gid.is_newidmap = false;
-    nsjconf->gids.push_back(gid);
-  }
+	if (nsjconf->uids.empty()) {
+		idmap_t uid;
+		uid.inside_id = getuid();
+		uid.outside_id = getuid();
+		uid.count = 1U;
+		uid.is_newidmap = false;
+		nsjconf->uids.push_back(uid);
+	}
+	if (nsjconf->gids.empty()) {
+		idmap_t gid;
+		gid.inside_id = getgid();
+		gid.outside_id = getgid();
+		gid.count = 1U;
+		gid.is_newidmap = false;
+		nsjconf->gids.push_back(gid);
+	}
 }
 
 std::string parseMACVlanMode(const char *optarg) {
-  if (strcasecmp(optarg, "private") != 0 && strcasecmp(optarg, "vepa") != 0 &&
-      strcasecmp(optarg, "bridge") != 0 &&
-      strcasecmp(optarg, "passthru") != 0) {
-    LOG_F(
-        "macvlan mode can only be one of the values: "
-        "'private'/'vepa'/'bridge'/'passthru' ('%s' "
-        "provided).",
-        optarg);
-  }
-  return std::string(optarg);
+	if (strcasecmp(optarg, "private") != 0 && strcasecmp(optarg, "vepa") != 0 &&
+	    strcasecmp(optarg, "bridge") != 0 && strcasecmp(optarg, "passthru") != 0) {
+		LOG_F(
+		    "macvlan mode can only be one of the values: "
+		    "'private'/'vepa'/'bridge'/'passthru' ('%s' "
+		    "provided).",
+		    optarg);
+	}
+	return std::string(optarg);
 }
 
 std::unique_ptr<nsjconf_t> parseArgs(int argc, char *argv[]) {
-  std::unique_ptr<nsjconf_t> nsjconf(new nsjconf_t);
+	std::unique_ptr<nsjconf_t> nsjconf(new nsjconf_t);
 
-  nsjconf->use_execveat = false;
-  nsjconf->exec_fd = -1;
-  nsjconf->hostname = "NSJAIL";
-  nsjconf->cwd = "/";
-  nsjconf->port = 0;
-  nsjconf->bindhost = "::";
-  nsjconf->daemonize = false;
-  nsjconf->tlimit = 0;
-  nsjconf->max_cpus = 0;
-  nsjconf->keep_env = false;
-  nsjconf->keep_caps = false;
-  nsjconf->disable_no_new_privs = false;
-  nsjconf->rl_as = 4096ULL * (1024ULL * 1024ULL);
-  nsjconf->rl_core = 0ULL;
-  nsjconf->rl_cpu = 600ULL;
-  nsjconf->rl_fsize = 1ULL * (1024ULL * 1024ULL);
-  nsjconf->rl_nofile = 32ULL;
-  nsjconf->rl_nproc = parseRLimit(RLIMIT_NPROC, "soft", 1);
-  nsjconf->rl_stack = parseRLimit(RLIMIT_STACK, "soft", 1);
-  nsjconf->rl_mlock = parseRLimit(RLIMIT_MEMLOCK, "soft", 1);
-  nsjconf->rl_rtpr = parseRLimit(RLIMIT_RTPRIO, "soft", 1);
-  nsjconf->rl_msgq = parseRLimit(RLIMIT_MSGQUEUE, "soft", 1);
-  nsjconf->disable_rl = false;
-  nsjconf->personality = 0;
-  nsjconf->clone_newnet = true;
-  nsjconf->clone_newuser = true;
-  nsjconf->clone_newns = true;
-  nsjconf->no_pivotroot = false;
-  nsjconf->clone_newpid = true;
-  nsjconf->clone_newipc = true;
-  nsjconf->clone_newuts = true;
-  nsjconf->clone_newcgroup = true;
-  nsjconf->clone_newtime = false;
-  nsjconf->mode = MODE_STANDALONE_ONCE;
-  nsjconf->is_root_rw = false;
-  nsjconf->is_silent = false;
-  nsjconf->stderr_to_null = false;
-  nsjconf->skip_setsid = false;
-  nsjconf->max_conns = 0;
-  nsjconf->max_conns_per_ip = 0;
-  nsjconf->proc_path = "/proc";
-  nsjconf->is_proc_rw = false;
-  nsjconf->cgroup_mem_mount = "/sys/fs/cgroup/memory";
-  nsjconf->cgroup_mem_parent = "NSJAIL";
-  nsjconf->cgroup_mem_max = (size_t)0;
-  nsjconf->cgroup_mem_memsw_max = (size_t)0;
-  nsjconf->cgroup_mem_swap_max = (ssize_t)-1;
-  nsjconf->cgroup_pids_mount = "/sys/fs/cgroup/pids";
-  nsjconf->cgroup_pids_parent = "NSJAIL";
-  nsjconf->cgroup_pids_max = 0U;
-  nsjconf->cgroup_net_cls_mount = "/sys/fs/cgroup/net_cls";
-  nsjconf->cgroup_net_cls_parent = "NSJAIL";
-  nsjconf->cgroup_net_cls_classid = 0U;
-  nsjconf->cgroup_cpu_mount = "/sys/fs/cgroup/cpu";
-  nsjconf->cgroup_cpu_parent = "NSJAIL";
-  nsjconf->cgroup_cpu_ms_per_sec = 0U;
-  nsjconf->cgroupv2_mount = "/sys/fs/cgroup";
-  nsjconf->use_cgroupv2 = false;
-  nsjconf->detect_cgroupv2 = false;
-  nsjconf->iface_lo = true;
-  nsjconf->iface_vs_ip = "0.0.0.0";
-  nsjconf->iface_vs_nm = "255.255.255.0";
-  nsjconf->iface_vs_gw = "0.0.0.0";
-  nsjconf->iface_vs_ma = "";
-  nsjconf->iface_vs_mo = "private";
-  nsjconf->disable_tsc = false;
-  nsjconf->forward_signals = false;
-  nsjconf->orig_uid = getuid();
-  nsjconf->orig_euid = geteuid();
-  nsjconf->seccomp_fprog.filter = NULL;
-  nsjconf->seccomp_fprog.len = 0;
-  nsjconf->seccomp_log = false;
-  nsjconf->nice_level = 19;
+	nsjconf->use_execveat = false;
+	nsjconf->exec_fd = -1;
+	nsjconf->hostname = "NSJAIL";
+	nsjconf->cwd = "/";
+	nsjconf->port = 0;
+	nsjconf->bindhost = "::";
+	nsjconf->daemonize = false;
+	nsjconf->tlimit = 0;
+	nsjconf->max_cpus = 0;
+	nsjconf->keep_env = false;
+	nsjconf->keep_caps = false;
+	nsjconf->disable_no_new_privs = false;
+	nsjconf->rl_as = 4096ULL * (1024ULL * 1024ULL);
+	nsjconf->rl_core = 0ULL;
+	nsjconf->rl_cpu = 600ULL;
+	nsjconf->rl_fsize = 1ULL * (1024ULL * 1024ULL);
+	nsjconf->rl_nofile = 32ULL;
+	nsjconf->rl_nproc = parseRLimit(RLIMIT_NPROC, "soft", 1);
+	nsjconf->rl_stack = parseRLimit(RLIMIT_STACK, "soft", 1);
+	nsjconf->rl_mlock = parseRLimit(RLIMIT_MEMLOCK, "soft", 1);
+	nsjconf->rl_rtpr = parseRLimit(RLIMIT_RTPRIO, "soft", 1);
+	nsjconf->rl_msgq = parseRLimit(RLIMIT_MSGQUEUE, "soft", 1);
+	nsjconf->disable_rl = false;
+	nsjconf->personality = 0;
+	nsjconf->clone_newnet = true;
+	nsjconf->clone_newuser = true;
+	nsjconf->clone_newns = true;
+	nsjconf->no_pivotroot = false;
+	nsjconf->clone_newpid = true;
+	nsjconf->clone_newipc = true;
+	nsjconf->clone_newuts = true;
+	nsjconf->clone_newcgroup = true;
+	nsjconf->clone_newtime = false;
+	nsjconf->mode = MODE_STANDALONE_ONCE;
+	nsjconf->is_root_rw = false;
+	nsjconf->is_silent = false;
+	nsjconf->stderr_to_null = false;
+	nsjconf->skip_setsid = false;
+	nsjconf->max_conns = 0;
+	nsjconf->max_conns_per_ip = 0;
+	nsjconf->proc_path = "/proc";
+	nsjconf->is_proc_rw = false;
+	nsjconf->cgroup_mem_mount = "/sys/fs/cgroup/memory";
+	nsjconf->cgroup_mem_parent = "NSJAIL";
+	nsjconf->cgroup_mem_max = (size_t)0;
+	nsjconf->cgroup_mem_memsw_max = (size_t)0;
+	nsjconf->cgroup_mem_swap_max = (ssize_t)-1;
+	nsjconf->cgroup_pids_mount = "/sys/fs/cgroup/pids";
+	nsjconf->cgroup_pids_parent = "NSJAIL";
+	nsjconf->cgroup_pids_max = 0U;
+	nsjconf->cgroup_net_cls_mount = "/sys/fs/cgroup/net_cls";
+	nsjconf->cgroup_net_cls_parent = "NSJAIL";
+	nsjconf->cgroup_net_cls_classid = 0U;
+	nsjconf->cgroup_cpu_mount = "/sys/fs/cgroup/cpu";
+	nsjconf->cgroup_cpu_parent = "NSJAIL";
+	nsjconf->cgroup_cpu_ms_per_sec = 0U;
+	nsjconf->cgroupv2_mount = "/sys/fs/cgroup";
+	nsjconf->use_cgroupv2 = false;
+	nsjconf->detect_cgroupv2 = false;
+	nsjconf->iface_lo = true;
+	nsjconf->iface_vs_ip = "0.0.0.0";
+	nsjconf->iface_vs_nm = "255.255.255.0";
+	nsjconf->iface_vs_gw = "0.0.0.0";
+	nsjconf->iface_vs_ma = "";
+	nsjconf->iface_vs_mo = "private";
+	nsjconf->disable_tsc = false;
+	nsjconf->forward_signals = false;
+	nsjconf->orig_uid = getuid();
+	nsjconf->orig_euid = geteuid();
+	nsjconf->seccomp_fprog.filter = NULL;
+	nsjconf->seccomp_fprog.len = 0;
+	nsjconf->seccomp_log = false;
+	nsjconf->nice_level = 19;
 
-  nsjconf->openfds.push_back(STDIN_FILENO);
-  nsjconf->openfds.push_back(STDOUT_FILENO);
-  nsjconf->openfds.push_back(STDERR_FILENO);
+	nsjconf->openfds.push_back(STDIN_FILENO);
+	nsjconf->openfds.push_back(STDOUT_FILENO);
+	nsjconf->openfds.push_back(STDERR_FILENO);
 
-  /* Generate options array for getopt_long. */
-  size_t options_length = ARR_SZ(custom_opts) + 1;
-  struct option opts[options_length];
-  for (unsigned i = 0; i < ARR_SZ(custom_opts); i++) {
-    opts[i] = custom_opts[i].opt;
-  }
-  /* Lastly, NULL option as a terminator */
-  struct option terminator = {NULL, 0, NULL, 0};
-  memcpy(&opts[options_length - 1].name, &terminator, sizeof(terminator));
+	/* Generate options array for getopt_long. */
+	size_t options_length = ARR_SZ(custom_opts) + 1;
+	struct option opts[options_length];
+	for (unsigned i = 0; i < ARR_SZ(custom_opts); i++) {
+		opts[i] = custom_opts[i].opt;
+	}
+	/* Lastly, NULL option as a terminator */
+	struct option terminator = {NULL, 0, NULL, 0};
+	memcpy(&opts[options_length - 1].name, &terminator, sizeof(terminator));
 
-  int opt_index = 0;
-  for (;;) {
-    int c = getopt_long(
-        argc, argv,
-        "x:H:D:C:c:p:i:u:g:l:L:t:M:NdvqQeh?E:R:B:T:m:s:P:I:U:G:", opts,
-        &opt_index);
-    if (c == -1) {
-      break;
-    }
-    switch (c) {
-      case 'x':
-        nsjconf->exec_file = optarg;
-        break;
-      case 'H':
-        nsjconf->hostname = optarg;
-        break;
-      case 'D':
-        nsjconf->cwd = optarg;
-        break;
-      case 'C':
-        if (!config::parseFile(nsjconf.get(), optarg)) {
-          LOG_F("Couldn't parse configuration from %s file", QC(optarg));
-        }
-        break;
-      case 'c':
-        nsjconf->chroot = optarg;
-        break;
-      case 'p':
-        if (!util::isANumber(optarg)) {
-          LOG_E("Couldn't parse TCP port '%s'", optarg);
-          return nullptr;
-        }
-        nsjconf->port = strtoumax(optarg, NULL, 0);
-        nsjconf->mode = MODE_LISTEN_TCP;
-        break;
-      case 0x604:
-        nsjconf->bindhost = optarg;
-        break;
-      case 0x608:
-        nsjconf->max_conns = strtoul(optarg, NULL, 0);
-        break;
-      case 'i':
-        nsjconf->max_conns_per_ip = strtoul(optarg, NULL, 0);
-        break;
-      case 'l':
-        logs::logFile(optarg, STDERR_FILENO);
-        break;
-      case 'L':
-        logs::logFile("", std::strtol(optarg, NULL, 0));
-        break;
-      case 'd':
-        nsjconf->daemonize = true;
-        break;
-      case 'v':
-        logs::setLogLevel(logs::DEBUG);
-        break;
-      case 'q':
-        logs::setLogLevel(logs::WARNING);
-        break;
-      case 'Q':
-        logs::setLogLevel(logs::FATAL);
-        break;
-      case 'e':
-        nsjconf->keep_env = true;
-        break;
-      case 't':
-        nsjconf->tlimit = (uint64_t)strtoull(optarg, NULL, 0);
-        break;
-      case 'h': /* help */
-        cmdlineUsage(argv[0]);
-        exit(0);
-        break;
-      case 0x0201:
-        nsjconf->rl_as = parseRLimit(RLIMIT_AS, optarg, (1024 * 1024));
-        break;
-      case 0x0202:
-        nsjconf->rl_core = parseRLimit(RLIMIT_CORE, optarg, (1024 * 1024));
-        break;
-      case 0x0203:
-        nsjconf->rl_cpu = parseRLimit(RLIMIT_CPU, optarg, 1);
-        break;
-      case 0x0204:
-        nsjconf->rl_fsize = parseRLimit(RLIMIT_FSIZE, optarg, (1024 * 1024));
-        break;
-      case 0x0205:
-        nsjconf->rl_nofile = parseRLimit(RLIMIT_NOFILE, optarg, 1);
-        break;
-      case 0x0206:
-        nsjconf->rl_nproc = parseRLimit(RLIMIT_NPROC, optarg, 1);
-        break;
-      case 0x0207:
-        nsjconf->rl_stack = parseRLimit(RLIMIT_STACK, optarg, (1024 * 1024));
-        break;
-      case 0x0209:
-        nsjconf->rl_mlock = parseRLimit(RLIMIT_MEMLOCK, optarg, 1024);
-        break;
-      case 0x0210:
-        nsjconf->rl_rtpr = parseRLimit(RLIMIT_RTPRIO, optarg, 1);
-        break;
-      case 0x0211:
-        nsjconf->rl_msgq = parseRLimit(RLIMIT_MSGQUEUE, optarg, 1);
-        break;
-      case 0x0208:
-        nsjconf->disable_rl = true;
-        break;
-      case 0x0301:
-        nsjconf->personality |= ADDR_COMPAT_LAYOUT;
-        break;
-      case 0x0302:
-        nsjconf->personality |= MMAP_PAGE_ZERO;
-        break;
-      case 0x0303:
-        nsjconf->personality |= READ_IMPLIES_EXEC;
-        break;
-      case 0x0304:
-        nsjconf->personality |= ADDR_LIMIT_3GB;
-        break;
-      case 0x0305:
-        nsjconf->personality |= ADDR_NO_RANDOMIZE;
-        break;
-      case 'N':
-        nsjconf->clone_newnet = false;
-        break;
-      case 0x0402:
-        nsjconf->clone_newuser = false;
-        break;
-      case 0x0403:
-        nsjconf->clone_newns = false;
-        break;
-      case 0x0404:
-        nsjconf->clone_newpid = false;
-        break;
-      case 0x0405:
-        nsjconf->clone_newipc = false;
-        break;
-      case 0x0406:
-        nsjconf->clone_newuts = false;
-        break;
-      case 0x0407:
-        nsjconf->clone_newcgroup = false;
-        break;
-      case 0x0408:
-        nsjconf->clone_newtime = true;
-        break;
-      case 0x0501:
-        nsjconf->keep_caps = true;
-        break;
-      case 0x0502:
-        nsjconf->is_silent = true;
-        break;
-      case 0x0503:
-        nsjconf->stderr_to_null = true;
-        break;
-      case 0x0504:
-        nsjconf->skip_setsid = true;
-        break;
-      case 0x0505:
-        nsjconf->openfds.push_back((int)strtol(optarg, NULL, 0));
-        break;
-      case 0x0507:
-        nsjconf->disable_no_new_privs = true;
-        break;
-      case 0x0508:
-        nsjconf->max_cpus = strtoul(optarg, NULL, 0);
-        break;
-      case 0x0509: {
-        int cap = caps::nameToVal(optarg);
-        if (cap == -1) {
-          return nullptr;
-        }
-        nsjconf->caps.push_back(cap);
-      } break;
-      case 0x0600:
-        nsjconf->no_pivotroot = true;
-        break;
-      case 0x0601:
-        nsjconf->is_root_rw = true;
-        break;
-      case 0x0603:
-        nsjconf->proc_path.clear();
-        break;
-      case 0x0605:
-        nsjconf->proc_path = optarg;
-        break;
-      case 0x0606:
-        nsjconf->is_proc_rw = true;
-        break;
-      case 0x0607:
-        nsjconf->use_execveat = true;
-        break;
-      case 'E':
-        addEnv(nsjconf.get(), optarg);
-        break;
-      case 'u': {
-        std::vector<std::string> subopts = util::strSplit(optarg, ':');
-        std::string i_id = argFromVec(subopts, 0);
-        std::string o_id = argFromVec(subopts, 1);
-        std::string cnt = argFromVec(subopts, 2);
-        size_t count = strtoul(cnt.c_str(), nullptr, 0);
-        if (!user::parseId(nsjconf.get(), i_id, o_id, count,
-                           /* is_gid= */ false,
-                           /* is_newidmap= */ false)) {
-          return nullptr;
-        }
-      } break;
-      case 'g': {
-        std::vector<std::string> subopts = util::strSplit(optarg, ':');
-        std::string i_id = argFromVec(subopts, 0);
-        std::string o_id = argFromVec(subopts, 1);
-        std::string cnt = argFromVec(subopts, 2);
-        size_t count = strtoul(cnt.c_str(), nullptr, 0);
-        if (!user::parseId(nsjconf.get(), i_id, o_id, count,
-                           /* is_gid= */ true,
-                           /* is_newidmap= */ false)) {
-          return nullptr;
-        }
-      } break;
-      case 'U': {
-        std::vector<std::string> subopts = util::strSplit(optarg, ':');
-        std::string i_id = argFromVec(subopts, 0);
-        std::string o_id = argFromVec(subopts, 1);
-        std::string cnt = argFromVec(subopts, 2);
-        size_t count = strtoul(cnt.c_str(), nullptr, 0);
-        if (!user::parseId(nsjconf.get(), i_id, o_id, count,
-                           /* is_gid= */ false,
-                           /* is_newidmap= */ true)) {
-          return nullptr;
-        }
-      } break;
-      case 'G': {
-        std::vector<std::string> subopts = util::strSplit(optarg, ':');
-        std::string i_id = argFromVec(subopts, 0);
-        std::string o_id = argFromVec(subopts, 1);
-        std::string cnt = argFromVec(subopts, 2);
-        size_t count = strtoul(cnt.c_str(), nullptr, 0);
-        if (!user::parseId(nsjconf.get(), i_id, o_id, count,
-                           /* is_gid= */ true,
-                           /* is_newidmap= */ true)) {
-          return nullptr;
-        }
-      } break;
-      case 'R': {
-        std::vector<std::string> subopts = util::strSplit(optarg, ':');
-        std::string src = argFromVec(subopts, 0);
-        std::string dst = argFromVec(subopts, 1);
-        if (dst.empty()) {
-          dst = src;
-        }
-        if (!mnt::addMountPtTail(
-                nsjconf.get(), src, dst, /* fstype= */ "",
-                /* options= */ "", MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY,
-                /* is_dir= */ mnt::NS_DIR_MAYBE, /* is_mandatory= */ true,
-                /* src_env= */ "", /* dst_env= */ "", /* src_content= */ "",
-                /* is_symlink= */ false)) {
-          return nullptr;
-        }
-      }; break;
-      case 'B': {
-        std::vector<std::string> subopts = util::strSplit(optarg, ':');
-        std::string src = argFromVec(subopts, 0);
-        std::string dst = argFromVec(subopts, 1);
-        if (dst.empty()) {
-          dst = src;
-        }
-        if (!mnt::addMountPtTail(
-                nsjconf.get(), src, dst, /* fstype= */ "",
-                /* options= */ "", MS_BIND | MS_REC | MS_PRIVATE,
-                /* is_dir= */ mnt::NS_DIR_MAYBE, /* is_mandatory= */ true,
-                /* src_env= */ "", /* dst_env= */ "", /* src_content= */ "",
-                /* is_symlink= */ false)) {
-          return nullptr;
-        }
-      }; break;
-      case 'T': {
-        if (!mnt::addMountPtTail(
-                nsjconf.get(), "", optarg, /* fstype= */ "tmpfs",
-                /* options= */ "size=4194304", 0,
-                /* is_dir= */ mnt::NS_DIR_YES, /* is_mandatory= */ true,
-                /* src_env= */ "", /* dst_env= */ "", /* src_content= */ "",
-                /* is_symlink= */ false)) {
-          return nullptr;
-        }
-      }; break;
-      case 'm': {
-        std::vector<std::string> subopts = util::strSplit(optarg, ':');
-        std::string src = argFromVec(subopts, 0);
-        std::string dst = argFromVec(subopts, 1);
-        if (dst.empty()) {
-          dst = src;
-        }
-        std::string fs_type = argFromVec(subopts, 2);
-        std::stringstream optionsStream;
-        optionsStream << argFromVec(subopts, 3);
-        for (std::size_t i = 4; i < subopts.size(); ++i) {
-          optionsStream << ":" << subopts[i];
-        }
-        std::string options = optionsStream.str();
-        if (!mnt::addMountPtTail(
-                nsjconf.get(), src, dst, /* fstype= */ fs_type,
-                /* options= */ options, /* flags= */ 0,
-                /* is_dir= */ mnt::NS_DIR_MAYBE, /* is_mandatory= */ true,
-                /* src_env= */ "", /* dst_env= */ "", /* src_content= */ "",
-                /* is_symlink= */ false)) {
-          return nullptr;
-        }
-      }; break;
-      case 's': {
-        std::vector<std::string> subopts = util::strSplit(optarg, ':');
-        std::string src = argFromVec(subopts, 0);
-        std::string dst = argFromVec(subopts, 1);
-        if (!mnt::addMountPtTail(
-                nsjconf.get(), src, dst, /* fstype= */ "",
-                /* options= */ "", /* flags= */ 0,
-                /* is_dir= */ mnt::NS_DIR_NO, /* is_mandatory= */ true,
-                /* src_env= */ "", /* dst_env= */ "", /* src_content= */ "",
-                /* is_symlink= */ true)) {
-          return nullptr;
-        }
-      }; break;
-      case 'M':
-        switch (optarg[0]) {
-          case 'l':
-            nsjconf->mode = MODE_LISTEN_TCP;
-            break;
-          case 'o':
-            nsjconf->mode = MODE_STANDALONE_ONCE;
-            break;
-          case 'e':
-            nsjconf->mode = MODE_STANDALONE_EXECVE;
-            break;
-          case 'r':
-            nsjconf->mode = MODE_STANDALONE_RERUN;
-            break;
-          default:
-            LOG_E("Modes supported: -M l - MODE_LISTEN_TCP (default)");
-            LOG_E("                 -M o - MODE_STANDALONE_ONCE");
-            LOG_E("                 -M r - MODE_STANDALONE_RERUN");
-            LOG_E("                 -M e - MODE_STANDALONE_EXECVE");
-            cmdlineUsage(argv[0]);
-            return nullptr;
-            break;
-        }
-        break;
-      case 0x700:
-        nsjconf->iface_lo = false;
-        break;
-      case 'I':
-        nsjconf->iface_vs = optarg;
-        break;
-      case 0x701:
-        nsjconf->iface_vs_ip = optarg;
-        break;
-      case 0x702:
-        nsjconf->iface_vs_nm = optarg;
-        break;
-      case 0x703:
-        nsjconf->iface_vs_gw = optarg;
-        break;
-      case 0x704:
-        nsjconf->ifaces.push_back(optarg);
-        break;
-      case 0x705:
-        nsjconf->iface_vs_ma = optarg;
-        break;
-      case 0x706:
-        nsjconf->iface_vs_mo = parseMACVlanMode(optarg);
-        break;
-      case 0x707:
-        nsjconf->disable_tsc = true;
-        break;
-      case 0x708:
-        nsjconf->forward_signals = true;
-        break;
-      case 0x801:
-        nsjconf->cgroup_mem_max = (size_t)strtoull(optarg, NULL, 0);
-        break;
-      case 0x802:
-        nsjconf->cgroup_mem_mount = optarg;
-        break;
-      case 0x803:
-        nsjconf->cgroup_mem_parent = optarg;
-        break;
-      case 0x804:
-        nsjconf->cgroup_mem_memsw_max = (size_t)strtoull(optarg, NULL, 0);
-        break;
-      case 0x805:
-        nsjconf->cgroup_mem_swap_max = (ssize_t)strtoll(optarg, NULL, 0);
-        break;
-      case 0x811:
-        nsjconf->cgroup_pids_max = (unsigned int)strtoul(optarg, NULL, 0);
-        break;
-      case 0x812:
-        nsjconf->cgroup_pids_mount = optarg;
-        break;
-      case 0x813:
-        nsjconf->cgroup_pids_parent = optarg;
-        break;
-      case 0x821:
-        nsjconf->cgroup_net_cls_classid =
-            (unsigned int)strtoul(optarg, NULL, 0);
-        break;
-      case 0x822:
-        nsjconf->cgroup_net_cls_mount = optarg;
-        break;
-      case 0x823:
-        nsjconf->cgroup_net_cls_parent = optarg;
-        break;
-      case 0x831:
-        nsjconf->cgroup_cpu_ms_per_sec = (unsigned int)strtoul(optarg, NULL, 0);
-        break;
-      case 0x832:
-        nsjconf->cgroup_cpu_mount = optarg;
-        break;
-      case 0x833:
-        nsjconf->cgroup_cpu_parent = optarg;
-        break;
-      case 0x834:
-        nsjconf->cgroupv2_mount = optarg;
-        break;
-      case 0x835:
-        nsjconf->use_cgroupv2 = true;
-        break;
-      case 0x836:
-        nsjconf->detect_cgroupv2 = true;
-        break;
-      case 'P':
-        nsjconf->kafel_file_path = optarg;
-        break;
-      case 0x901:
-        nsjconf->kafel_string = optarg;
-        break;
-      case 0x902:
-        nsjconf->seccomp_log = true;
-        break;
-      case 0x903:
-        nsjconf->nice_level = (int)strtol(optarg, NULL, 0);
-        break;
-      default:
-        cmdlineUsage(argv[0]);
-        return nullptr;
-        break;
-    }
-  }
+	int opt_index = 0;
+	for (;;) {
+		int c = getopt_long(argc, argv,
+		    "x:H:D:C:c:p:i:u:g:l:L:t:M:NdvqQeh?E:R:B:T:m:s:P:I:U:G:", opts, &opt_index);
+		if (c == -1) {
+			break;
+		}
+		switch (c) {
+		case 'x':
+			nsjconf->exec_file = optarg;
+			break;
+		case 'H':
+			nsjconf->hostname = optarg;
+			break;
+		case 'D':
+			nsjconf->cwd = optarg;
+			break;
+		case 'C':
+			if (!config::parseFile(nsjconf.get(), optarg)) {
+				LOG_F("Couldn't parse configuration from %s file", QC(optarg));
+			}
+			break;
+		case 'c':
+			nsjconf->chroot = optarg;
+			break;
+		case 'p':
+			if (!util::isANumber(optarg)) {
+				LOG_E("Couldn't parse TCP port '%s'", optarg);
+				return nullptr;
+			}
+			nsjconf->port = strtoumax(optarg, NULL, 0);
+			nsjconf->mode = MODE_LISTEN_TCP;
+			break;
+		case 0x604:
+			nsjconf->bindhost = optarg;
+			break;
+		case 0x608:
+			nsjconf->max_conns = strtoul(optarg, NULL, 0);
+			break;
+		case 'i':
+			nsjconf->max_conns_per_ip = strtoul(optarg, NULL, 0);
+			break;
+		case 'l':
+			logs::logFile(optarg, STDERR_FILENO);
+			break;
+		case 'L':
+			logs::logFile("", std::strtol(optarg, NULL, 0));
+			break;
+		case 'd':
+			nsjconf->daemonize = true;
+			break;
+		case 'v':
+			logs::setLogLevel(logs::DEBUG);
+			break;
+		case 'q':
+			logs::setLogLevel(logs::WARNING);
+			break;
+		case 'Q':
+			logs::setLogLevel(logs::FATAL);
+			break;
+		case 'e':
+			nsjconf->keep_env = true;
+			break;
+		case 't':
+			nsjconf->tlimit = (uint64_t)strtoull(optarg, NULL, 0);
+			break;
+		case 'h': /* help */
+			cmdlineUsage(argv[0]);
+			exit(0);
+			break;
+		case 0x0201:
+			nsjconf->rl_as = parseRLimit(RLIMIT_AS, optarg, (1024 * 1024));
+			break;
+		case 0x0202:
+			nsjconf->rl_core = parseRLimit(RLIMIT_CORE, optarg, (1024 * 1024));
+			break;
+		case 0x0203:
+			nsjconf->rl_cpu = parseRLimit(RLIMIT_CPU, optarg, 1);
+			break;
+		case 0x0204:
+			nsjconf->rl_fsize = parseRLimit(RLIMIT_FSIZE, optarg, (1024 * 1024));
+			break;
+		case 0x0205:
+			nsjconf->rl_nofile = parseRLimit(RLIMIT_NOFILE, optarg, 1);
+			break;
+		case 0x0206:
+			nsjconf->rl_nproc = parseRLimit(RLIMIT_NPROC, optarg, 1);
+			break;
+		case 0x0207:
+			nsjconf->rl_stack = parseRLimit(RLIMIT_STACK, optarg, (1024 * 1024));
+			break;
+		case 0x0209:
+			nsjconf->rl_mlock = parseRLimit(RLIMIT_MEMLOCK, optarg, 1024);
+			break;
+		case 0x0210:
+			nsjconf->rl_rtpr = parseRLimit(RLIMIT_RTPRIO, optarg, 1);
+			break;
+		case 0x0211:
+			nsjconf->rl_msgq = parseRLimit(RLIMIT_MSGQUEUE, optarg, 1);
+			break;
+		case 0x0208:
+			nsjconf->disable_rl = true;
+			break;
+		case 0x0301:
+			nsjconf->personality |= ADDR_COMPAT_LAYOUT;
+			break;
+		case 0x0302:
+			nsjconf->personality |= MMAP_PAGE_ZERO;
+			break;
+		case 0x0303:
+			nsjconf->personality |= READ_IMPLIES_EXEC;
+			break;
+		case 0x0304:
+			nsjconf->personality |= ADDR_LIMIT_3GB;
+			break;
+		case 0x0305:
+			nsjconf->personality |= ADDR_NO_RANDOMIZE;
+			break;
+		case 'N':
+			nsjconf->clone_newnet = false;
+			break;
+		case 0x0402:
+			nsjconf->clone_newuser = false;
+			break;
+		case 0x0403:
+			nsjconf->clone_newns = false;
+			break;
+		case 0x0404:
+			nsjconf->clone_newpid = false;
+			break;
+		case 0x0405:
+			nsjconf->clone_newipc = false;
+			break;
+		case 0x0406:
+			nsjconf->clone_newuts = false;
+			break;
+		case 0x0407:
+			nsjconf->clone_newcgroup = false;
+			break;
+		case 0x0408:
+			nsjconf->clone_newtime = true;
+			break;
+		case 0x0501:
+			nsjconf->keep_caps = true;
+			break;
+		case 0x0502:
+			nsjconf->is_silent = true;
+			break;
+		case 0x0503:
+			nsjconf->stderr_to_null = true;
+			break;
+		case 0x0504:
+			nsjconf->skip_setsid = true;
+			break;
+		case 0x0505:
+			nsjconf->openfds.push_back((int)strtol(optarg, NULL, 0));
+			break;
+		case 0x0507:
+			nsjconf->disable_no_new_privs = true;
+			break;
+		case 0x0508:
+			nsjconf->max_cpus = strtoul(optarg, NULL, 0);
+			break;
+		case 0x0509: {
+			int cap = caps::nameToVal(optarg);
+			if (cap == -1) {
+				return nullptr;
+			}
+			nsjconf->caps.push_back(cap);
+		} break;
+		case 0x0600:
+			nsjconf->no_pivotroot = true;
+			break;
+		case 0x0601:
+			nsjconf->is_root_rw = true;
+			break;
+		case 0x0603:
+			nsjconf->proc_path.clear();
+			break;
+		case 0x0605:
+			nsjconf->proc_path = optarg;
+			break;
+		case 0x0606:
+			nsjconf->is_proc_rw = true;
+			break;
+		case 0x0607:
+			nsjconf->use_execveat = true;
+			break;
+		case 'E':
+			addEnv(nsjconf.get(), optarg);
+			break;
+		case 'u': {
+			std::vector<std::string> subopts = util::strSplit(optarg, ':');
+			std::string i_id = argFromVec(subopts, 0);
+			std::string o_id = argFromVec(subopts, 1);
+			std::string cnt = argFromVec(subopts, 2);
+			size_t count = strtoul(cnt.c_str(), nullptr, 0);
+			if (!user::parseId(nsjconf.get(), i_id, o_id, count,
+				/* is_gid= */ false,
+				/* is_newidmap= */ false)) {
+				return nullptr;
+			}
+		} break;
+		case 'g': {
+			std::vector<std::string> subopts = util::strSplit(optarg, ':');
+			std::string i_id = argFromVec(subopts, 0);
+			std::string o_id = argFromVec(subopts, 1);
+			std::string cnt = argFromVec(subopts, 2);
+			size_t count = strtoul(cnt.c_str(), nullptr, 0);
+			if (!user::parseId(nsjconf.get(), i_id, o_id, count,
+				/* is_gid= */ true,
+				/* is_newidmap= */ false)) {
+				return nullptr;
+			}
+		} break;
+		case 'U': {
+			std::vector<std::string> subopts = util::strSplit(optarg, ':');
+			std::string i_id = argFromVec(subopts, 0);
+			std::string o_id = argFromVec(subopts, 1);
+			std::string cnt = argFromVec(subopts, 2);
+			size_t count = strtoul(cnt.c_str(), nullptr, 0);
+			if (!user::parseId(nsjconf.get(), i_id, o_id, count,
+				/* is_gid= */ false,
+				/* is_newidmap= */ true)) {
+				return nullptr;
+			}
+		} break;
+		case 'G': {
+			std::vector<std::string> subopts = util::strSplit(optarg, ':');
+			std::string i_id = argFromVec(subopts, 0);
+			std::string o_id = argFromVec(subopts, 1);
+			std::string cnt = argFromVec(subopts, 2);
+			size_t count = strtoul(cnt.c_str(), nullptr, 0);
+			if (!user::parseId(nsjconf.get(), i_id, o_id, count,
+				/* is_gid= */ true,
+				/* is_newidmap= */ true)) {
+				return nullptr;
+			}
+		} break;
+		case 'R': {
+			std::vector<std::string> subopts = util::strSplit(optarg, ':');
+			std::string src = argFromVec(subopts, 0);
+			std::string dst = argFromVec(subopts, 1);
+			if (dst.empty()) {
+				dst = src;
+			}
+			if (!mnt::addMountPtTail(nsjconf.get(), src, dst, /* fstype= */ "",
+				/* options= */ "", MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY,
+				/* is_dir= */ mnt::NS_DIR_MAYBE, /* is_mandatory= */ true,
+				/* src_env= */ "", /* dst_env= */ "", /* src_content= */ "",
+				/* is_symlink= */ false)) {
+				return nullptr;
+			}
+		}; break;
+		case 'B': {
+			std::vector<std::string> subopts = util::strSplit(optarg, ':');
+			std::string src = argFromVec(subopts, 0);
+			std::string dst = argFromVec(subopts, 1);
+			if (dst.empty()) {
+				dst = src;
+			}
+			if (!mnt::addMountPtTail(nsjconf.get(), src, dst, /* fstype= */ "",
+				/* options= */ "", MS_BIND | MS_REC | MS_PRIVATE,
+				/* is_dir= */ mnt::NS_DIR_MAYBE, /* is_mandatory= */ true,
+				/* src_env= */ "", /* dst_env= */ "", /* src_content= */ "",
+				/* is_symlink= */ false)) {
+				return nullptr;
+			}
+		}; break;
+		case 'T': {
+			if (!mnt::addMountPtTail(nsjconf.get(), "", optarg, /* fstype= */ "tmpfs",
+				/* options= */ "size=4194304", 0,
+				/* is_dir= */ mnt::NS_DIR_YES, /* is_mandatory= */ true,
+				/* src_env= */ "", /* dst_env= */ "", /* src_content= */ "",
+				/* is_symlink= */ false)) {
+				return nullptr;
+			}
+		}; break;
+		case 'm': {
+			std::vector<std::string> subopts = util::strSplit(optarg, ':');
+			std::string src = argFromVec(subopts, 0);
+			std::string dst = argFromVec(subopts, 1);
+			if (dst.empty()) {
+				dst = src;
+			}
+			std::string fs_type = argFromVec(subopts, 2);
+			std::stringstream optionsStream;
+			optionsStream << argFromVec(subopts, 3);
+			for (std::size_t i = 4; i < subopts.size(); ++i) {
+				optionsStream << ":" << subopts[i];
+			}
+			std::string options = optionsStream.str();
+			if (!mnt::addMountPtTail(nsjconf.get(), src, dst, /* fstype= */ fs_type,
+				/* options= */ options, /* flags= */ 0,
+				/* is_dir= */ mnt::NS_DIR_MAYBE, /* is_mandatory= */ true,
+				/* src_env= */ "", /* dst_env= */ "", /* src_content= */ "",
+				/* is_symlink= */ false)) {
+				return nullptr;
+			}
+		}; break;
+		case 's': {
+			std::vector<std::string> subopts = util::strSplit(optarg, ':');
+			std::string src = argFromVec(subopts, 0);
+			std::string dst = argFromVec(subopts, 1);
+			if (!mnt::addMountPtTail(nsjconf.get(), src, dst, /* fstype= */ "",
+				/* options= */ "", /* flags= */ 0,
+				/* is_dir= */ mnt::NS_DIR_NO, /* is_mandatory= */ true,
+				/* src_env= */ "", /* dst_env= */ "", /* src_content= */ "",
+				/* is_symlink= */ true)) {
+				return nullptr;
+			}
+		}; break;
+		case 'M':
+			switch (optarg[0]) {
+			case 'l':
+				nsjconf->mode = MODE_LISTEN_TCP;
+				break;
+			case 'o':
+				nsjconf->mode = MODE_STANDALONE_ONCE;
+				break;
+			case 'e':
+				nsjconf->mode = MODE_STANDALONE_EXECVE;
+				break;
+			case 'r':
+				nsjconf->mode = MODE_STANDALONE_RERUN;
+				break;
+			default:
+				LOG_E("Modes supported: -M l - MODE_LISTEN_TCP (default)");
+				LOG_E("                 -M o - MODE_STANDALONE_ONCE");
+				LOG_E("                 -M r - MODE_STANDALONE_RERUN");
+				LOG_E("                 -M e - MODE_STANDALONE_EXECVE");
+				cmdlineUsage(argv[0]);
+				return nullptr;
+				break;
+			}
+			break;
+		case 0x700:
+			nsjconf->iface_lo = false;
+			break;
+		case 'I':
+			nsjconf->iface_vs = optarg;
+			break;
+		case 0x701:
+			nsjconf->iface_vs_ip = optarg;
+			break;
+		case 0x702:
+			nsjconf->iface_vs_nm = optarg;
+			break;
+		case 0x703:
+			nsjconf->iface_vs_gw = optarg;
+			break;
+		case 0x704:
+			nsjconf->ifaces.push_back(optarg);
+			break;
+		case 0x705:
+			nsjconf->iface_vs_ma = optarg;
+			break;
+		case 0x706:
+			nsjconf->iface_vs_mo = parseMACVlanMode(optarg);
+			break;
+		case 0x707:
+			nsjconf->disable_tsc = true;
+			break;
+		case 0x708:
+			nsjconf->forward_signals = true;
+			break;
+		case 0x801:
+			nsjconf->cgroup_mem_max = (size_t)strtoull(optarg, NULL, 0);
+			break;
+		case 0x802:
+			nsjconf->cgroup_mem_mount = optarg;
+			break;
+		case 0x803:
+			nsjconf->cgroup_mem_parent = optarg;
+			break;
+		case 0x804:
+			nsjconf->cgroup_mem_memsw_max = (size_t)strtoull(optarg, NULL, 0);
+			break;
+		case 0x805:
+			nsjconf->cgroup_mem_swap_max = (ssize_t)strtoll(optarg, NULL, 0);
+			break;
+		case 0x811:
+			nsjconf->cgroup_pids_max = (unsigned int)strtoul(optarg, NULL, 0);
+			break;
+		case 0x812:
+			nsjconf->cgroup_pids_mount = optarg;
+			break;
+		case 0x813:
+			nsjconf->cgroup_pids_parent = optarg;
+			break;
+		case 0x821:
+			nsjconf->cgroup_net_cls_classid = (unsigned int)strtoul(optarg, NULL, 0);
+			break;
+		case 0x822:
+			nsjconf->cgroup_net_cls_mount = optarg;
+			break;
+		case 0x823:
+			nsjconf->cgroup_net_cls_parent = optarg;
+			break;
+		case 0x831:
+			nsjconf->cgroup_cpu_ms_per_sec = (unsigned int)strtoul(optarg, NULL, 0);
+			break;
+		case 0x832:
+			nsjconf->cgroup_cpu_mount = optarg;
+			break;
+		case 0x833:
+			nsjconf->cgroup_cpu_parent = optarg;
+			break;
+		case 0x834:
+			nsjconf->cgroupv2_mount = optarg;
+			break;
+		case 0x835:
+			nsjconf->use_cgroupv2 = true;
+			break;
+		case 0x836:
+			nsjconf->detect_cgroupv2 = true;
+			break;
+		case 'P':
+			nsjconf->kafel_file_path = optarg;
+			break;
+		case 0x901:
+			nsjconf->kafel_string = optarg;
+			break;
+		case 0x902:
+			nsjconf->seccomp_log = true;
+			break;
+		case 0x903:
+			nsjconf->nice_level = (int)strtol(optarg, NULL, 0);
+			break;
+		default:
+			cmdlineUsage(argv[0]);
+			return nullptr;
+			break;
+		}
+	}
 
-  if (nsjconf->daemonize && !logs::logSet()) {
-    logs::logFile(_LOG_DEFAULT_FILE, STDERR_FILENO);
-  }
-  if (!setupMounts(nsjconf.get())) {
-    return nullptr;
-  }
-  if (!setupArgv(nsjconf.get(), argc, argv, optind)) {
-    return nullptr;
-  }
-  setupUsers(nsjconf.get());
+	if (nsjconf->daemonize && !logs::logSet()) {
+		logs::logFile(_LOG_DEFAULT_FILE, STDERR_FILENO);
+	}
+	if (!setupMounts(nsjconf.get())) {
+		return nullptr;
+	}
+	if (!setupArgv(nsjconf.get(), argc, argv, optind)) {
+		return nullptr;
+	}
+	setupUsers(nsjconf.get());
 
-  if (nsjconf->cgroup_mem_memsw_max > (size_t)0 &&
-      nsjconf->cgroup_mem_swap_max >= (ssize_t)0) {
-    LOG_F("cannot set both cgroup_mem_memsw_max and cgroup_mem_swap_max");
-  }
+	if (nsjconf->cgroup_mem_memsw_max > (size_t)0 &&
+	    nsjconf->cgroup_mem_swap_max >= (ssize_t)0) {
+		LOG_F("cannot set both cgroup_mem_memsw_max and cgroup_mem_swap_max");
+	}
 
-  return nsjconf;
+	return nsjconf;
 }
 
 }  // namespace cmdline
