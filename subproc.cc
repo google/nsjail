@@ -552,10 +552,20 @@ pid_t cloneProc(uint64_t flags, int exit_signal) {
 
 #if defined(__NR_clone3)
 	struct clone_args ca = {};
-	ca.flags = flags;
 	ca.exit_signal = (uint64_t)exit_signal;
 
+	ca.flags = flags | CLONE_CLEAR_SIGHAND;
 	pid_t ret = util::syscall(__NR_clone3, (uintptr_t)&ca, sizeof(ca));
+	if (ret != -1) {
+		return ret;
+	}
+
+	/*
+	 * Now try without CLONE_CLEAR_SIGHAND as it's supported since Linux 5.5, while clone3
+	 * appeared in Linux 5.3
+	 */
+	ca.flags = flags;
+	ret = util::syscall(__NR_clone3, (uintptr_t)&ca, sizeof(ca));
 	if (ret != -1 || errno != ENOSYS) {
 		return ret;
 	}
