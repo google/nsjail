@@ -287,6 +287,7 @@ const std::string sigName(int signo) {
 	    NS_VALSTR_STRUCT(SIGUSR1),
 	    NS_VALSTR_STRUCT(SIGUSR2),
 	    NS_VALSTR_STRUCT(SIGWINCH),
+	    NS_VALSTR_STRUCT(SIGPWR),
 	};
 
 	for (const auto& i : sigNames) {
