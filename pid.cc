@@ -68,7 +68,7 @@ bool initNs(nsjconf_t* nsjconf) {
 	}
 
 	/* Act sort-a like a init by reaping zombie processes */
-	struct sigaction sa;
+	struct sigaction sa = {};
 	sa.sa_handler = SIG_DFL;
 	sa.sa_flags = SA_NOCLDWAIT | SA_NOCLDSTOP;
 	sa.sa_restorer = NULL;
