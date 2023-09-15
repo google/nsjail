@@ -61,12 +61,12 @@ namespace cmdline {
 #define _LOG_DEFAULT_FILE "/var/log/nsjail.log"
 
 struct custom_option {
-	struct option opt;
-	const char *descr;
+	const struct option opt;
+	const char *const descr;
 };
 
 // clang-format off
-struct custom_option custom_opts[] = {
+static const struct custom_option custom_opts[] = {
     { { "help", no_argument, NULL, 'h' }, "Help plz.." },
     { { "mode", required_argument, NULL, 'M' },
         "Execution mode (default: 'o' [MODE_STANDALONE_ONCE]):\n"
@@ -221,7 +221,7 @@ std::string FormatDescription(const char *descr) {
 	return formatted;
 }
 
-static void cmdlineOptUsage(struct custom_option *option) {
+static void cmdlineOptUsage(const struct custom_option *option) {
 	if (option->opt.val < 0x80) {
 		LOG_HELP_BOLD(" --%s%s%c %s", option->opt.name, "|-", option->opt.val,
 		    option->opt.has_arg == required_argument ? "VALUE" : "");

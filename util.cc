@@ -224,7 +224,8 @@ static const uint64_t c = 1442695040888963407ULL;
 
 static void rndInitThread(void) {
 #if defined(__NR_getrandom)
-	if (util::syscall(__NR_getrandom, (uintptr_t)&rndX, sizeof(rndX), 0) == sizeof(rndX)) {
+	if (TEMP_FAILURE_RETRY(util::syscall(__NR_getrandom, (uintptr_t)&rndX, sizeof(rndX), 0)) ==
+	    sizeof(rndX)) {
 		return;
 	}
 #endif /* defined(__NR_getrandom) */
