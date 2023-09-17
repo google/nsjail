@@ -35,6 +35,19 @@
 #include "macros.h"
 #include "util.h"
 
+#if !defined(CAP_AUDIT_READ)
+#define CAP_AUDICAP_AUDIT_READ 37
+#endif /* !defined(CAP_AUDIT_READ) */
+#if !defined(CAP_PERFMON)
+#define CAP_PERFMON 38
+#endif /* !defined(CAP_PERFMON) */
+#if !defined(CAP_BPF)
+#define CAP_BPF 39
+#endif /* !defined(CAP_BPF) */
+#if !defined(CAP_CHECKPOINT_RESTORE)
+#define CAP_CHECKPOINT_RESTORE 40
+#endif /* !defined(CAP_CHECKPOINT_RESTORE) */
+
 namespace caps {
 
 struct {
@@ -78,18 +91,10 @@ struct {
     NS_VALSTR_STRUCT(CAP_SYSLOG),
     NS_VALSTR_STRUCT(CAP_WAKE_ALARM),
     NS_VALSTR_STRUCT(CAP_BLOCK_SUSPEND),
-#if defined(CAP_AUDIT_READ)
     NS_VALSTR_STRUCT(CAP_AUDIT_READ),
-#endif /* defined(CAP_AUDIT_READ) */
-#if defined(CAP_BPF)
-    NS_VALSTR_STRUCT(CAP_BPF),
-#endif /* defined(CAP_BPF) */
-#if defined(CAP_PERFMON)
     NS_VALSTR_STRUCT(CAP_PERFMON),
-#endif /* defined(CAP_PERFMON) */
-#if defined(CAP_CHECKPOINT_RESTORE)
+    NS_VALSTR_STRUCT(CAP_BPF),
     NS_VALSTR_STRUCT(CAP_CHECKPOINT_RESTORE),
-#endif /* defined(CAP_CHECKPOINT_RESTORE) */
 };
 
 int nameToVal(const char* name) {
