@@ -38,6 +38,7 @@ LDFLAGS += -pie -Wl,-z,noexecstack -lpthread $(shell pkg-config --libs protobuf)
 BIN = nsjail
 LIBS = kafel/libkafel.a
 SRCS_CXX = caps.cc cgroup.cc cgroup2.cc cmdline.cc config.cc contain.cc cpu.cc logs.cc mnt.cc net.cc nsjail.cc pid.cc sandbox.cc subproc.cc uts.cc user.cc util.cc
+SRCS_H = $(SRCS_CXX:.cc=.h) macros.h
 SRCS_PROTO = config.proto
 SRCS_PB_CXX = $(SRCS_PROTO:.proto=.pb.cc)
 SRCS_PB_H = $(SRCS_PROTO:.proto=.pb.h)
@@ -56,7 +57,7 @@ endif
 
 .PHONY: all clean depend indent
 
-.cc.o: %.cc
+.o: %.cc
 	$(CXX) $(CXXFLAGS) $< -o $@
 
 all: $(BIN)
@@ -82,14 +83,13 @@ kafel/libkafel.a: kafel_init
 	LDFLAGS="" CFLAGS=-fPIE $(MAKE) -C kafel
 
 # Sequence of proto deps, which doesn't fit automatic make rules
-config.o: $(SRCS_PB_O) $(SRCS_PB_H)
-$(SRCS_PB_O): $(SRCS_PB_CXX) $(SRCS_PB_H)
+$(SRCS_PB_O): $(SRCS_PB_H) $(SRCS_PB_CXX)
 $(SRCS_PB_CXX) $(SRCS_PB_H): $(SRCS_PROTO)
 	protoc --cpp_out=. $(SRCS_PROTO)
 
 .PHONY: clean
 clean:
-	$(RM) core Makefile.bak $(OBJS) $(SRCS_PB_CXX) $(SRCS_PB_H) $(BIN)
+	$(RM) core Makefile.bak $(OBJS) $(SRCS_PB_CXX) $(SRCS_PB_H) $(SRCS_PB_O) $(BIN)
 ifneq ("$(wildcard kafel/Makefile)","")
 	$(MAKE) -C kafel clean
 endif
@@ -100,7 +100,7 @@ depend: all
 
 .PHONY: indent
 indent:
-	clang-format -style="{BasedOnStyle: google, IndentWidth: 8, UseTab: Always, IndentCaseLabels: false, ColumnLimit: 100, AlignAfterOpenBracket: false, AllowShortFunctionsOnASingleLine: false}" -i -sort-includes *.h $(SRCS_CXX)
+	clang-format -style="{BasedOnStyle: google, IndentWidth: 8, UseTab: Always, IndentCaseLabels: false, ColumnLimit: 100, AlignAfterOpenBracket: false, AllowShortFunctionsOnASingleLine: false}" -i -sort-includes $(SRCS_H) $(SRCS_CXX)
 	clang-format -style="{BasedOnStyle: google, IndentWidth: 4, UseTab: Always, ColumnLimit: 100}" -i $(SRCS_PROTO)
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
