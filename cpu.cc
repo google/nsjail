@@ -70,9 +70,8 @@ static void setRandomCpu(cpu_set_t* orig_mask, cpu_set_t* new_mask, size_t avail
 	n = getNthOnlineCpu(orig_mask, n);
 
 	CPU_SET(n, new_mask);
-	LOG_D(
-	    "Add CPU #%zu from the original mask=[%s] (size=%zu, available_cpus=%zu), new "
-	    "mask=[%s] (size=%zu)",
+	LOG_D("Add CPU #%zu from the original mask=[%s] (size=%zu, available_cpus=%zu), new "
+	      "mask=[%s] (size=%zu)",
 	    n, listCpusInSet(orig_mask).c_str(), (size_t)CPU_COUNT(orig_mask), available_cpus,
 	    listCpusInSet(new_mask).c_str(), (size_t)CPU_COUNT(new_mask));
 	CPU_CLR(n, orig_mask);
@@ -121,9 +120,8 @@ bool initCpu(nsjconf_t* nsjconf) {
 		available_cpus--;
 	}
 
-	LOG_D(
-	    "Setting new CPU mask=[%s] with %zu allowed CPUs (max_cpus=%zu), %zu CPUs "
-	    "(CPU_COUNT=%zu) left mask=[%s]",
+	LOG_D("Setting new CPU mask=[%s] with %zu allowed CPUs (max_cpus=%zu), %zu CPUs "
+	      "(CPU_COUNT=%zu) left mask=[%s]",
 	    listCpusInSet(new_mask.get()).c_str(), nsjconf->max_cpus,
 	    (size_t)CPU_COUNT(new_mask.get()), available_cpus, (size_t)CPU_COUNT(orig_mask.get()),
 	    listCpusInSet(orig_mask.get()).c_str());

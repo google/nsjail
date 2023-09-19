@@ -127,9 +127,8 @@ static bool containTSC(nsjconf_t* nsjconf) {
 			return false;
 		}
 #else  /* defined(__x86_64__) || defined(__i386__) */
-		LOG_W(
-		    "prctl(PR_SET_TSC, PR_TSC_SIGSEGV) requested, but it's supported under "
-		    "x86/x86-64 CPU architectures only. Ignoring it!");
+		LOG_W("prctl(PR_SET_TSC, PR_TSC_SIGSEGV) requested, but it's supported under "
+		      "x86/x86-64 CPU architectures only. Ignoring it!");
 #endif /* defined(__x86_64__) || defined(__i386__) */
 	}
 	return true;

@@ -281,16 +281,15 @@ void logParams(nsjconf_t *nsjconf) {
 		break;
 	}
 
-	LOG_I(
-	    "Jail parameters: hostname:'%s', chroot:%s, process:'%s', "
-	    "bind:[%s]:%d, "
-	    "max_conns:%u, max_conns_per_ip:%u, time_limit:%" PRId64
-	    ", personality:%#lx, daemonize:%s, clone_newnet:%s, "
-	    "clone_newuser:%s, clone_newns:%s, clone_newpid:%s, clone_newipc:%s, "
-	    "clone_newuts:%s, "
-	    "clone_newcgroup:%s, clone_newtime:%s, keep_caps:%s, "
-	    "disable_no_new_privs:%s, "
-	    "max_cpus:%zu",
+	LOG_I("Jail parameters: hostname:'%s', chroot:%s, process:'%s', "
+	      "bind:[%s]:%d, "
+	      "max_conns:%u, max_conns_per_ip:%u, time_limit:%" PRId64
+	      ", personality:%#lx, daemonize:%s, clone_newnet:%s, "
+	      "clone_newuser:%s, clone_newns:%s, clone_newpid:%s, clone_newipc:%s, "
+	      "clone_newuts:%s, "
+	      "clone_newcgroup:%s, clone_newtime:%s, keep_caps:%s, "
+	      "disable_no_new_privs:%s, "
+	      "max_cpus:%zu",
 	    nsjconf->hostname.c_str(), QC(nsjconf->chroot),
 	    nsjconf->exec_file.empty() ? nsjconf->argv[0].c_str() : nsjconf->exec_file.c_str(),
 	    nsjconf->bindhost.c_str(), nsjconf->port, nsjconf->max_conns, nsjconf->max_conns_per_ip,
@@ -311,10 +310,9 @@ void logParams(nsjconf_t *nsjconf) {
 		    (unsigned long)uid.inside_id, (unsigned long)uid.outside_id, uid.count,
 		    uid.is_newidmap ? "true" : "false");
 		if (uid.outside_id == 0 && nsjconf->clone_newuser) {
-			LOG_W(
-			    "Process will be UID/EUID=0 in the global user namespace, and "
-			    "will "
-			    "have user root-level access to files");
+			LOG_W("Process will be UID/EUID=0 in the global user namespace, and "
+			      "will "
+			      "have user root-level access to files");
 		}
 	}
 	for (const auto &gid : nsjconf->gids) {
@@ -322,10 +320,9 @@ void logParams(nsjconf_t *nsjconf) {
 		    (unsigned long)gid.inside_id, (unsigned long)gid.outside_id, gid.count,
 		    gid.is_newidmap ? "true" : "false");
 		if (gid.outside_id == 0 && nsjconf->clone_newuser) {
-			LOG_W(
-			    "Process will be GID/EGID=0 in the global user namespace, and "
-			    "will "
-			    "have group root-level access to files");
+			LOG_W("Process will be GID/EGID=0 in the global user namespace, and "
+			      "will "
+			      "have group root-level access to files");
 		}
 	}
 }
@@ -345,11 +342,10 @@ uint64_t parseRLimit(int res, const char *optarg, unsigned long mul) {
 		return cur.rlim_max;
 	}
 	if (!util::isANumber(optarg)) {
-		LOG_F(
-		    "RLIMIT %d needs a numeric or 'max'/'hard'/'def'/'soft'/'inf' "
-		    "value "
-		    "('%s' "
-		    "provided)",
+		LOG_F("RLIMIT %d needs a numeric or 'max'/'hard'/'def'/'soft'/'inf' "
+		      "value "
+		      "('%s' "
+		      "provided)",
 		    res, optarg);
 	}
 	errno = 0;
@@ -389,11 +385,10 @@ static bool setupArgv(nsjconf_t *nsjconf, int argc, char **argv, int optind) {
 
 	if (nsjconf->use_execveat) {
 #if !defined(__NR_execveat)
-		LOG_E(
-		    "Your nsjail is compiled without support for the execveat() "
-		    "syscall, "
-		    "yet you "
-		    "specified the --execute_fd flag");
+		LOG_E("Your nsjail is compiled without support for the execveat() "
+		      "syscall, "
+		      "yet you "
+		      "specified the --execute_fd flag");
 		return false;
 #endif /* !defined(__NR_execveat) */
 		if ((nsjconf->exec_fd = TEMP_FAILURE_RETRY(
@@ -462,10 +457,9 @@ void setupUsers(nsjconf_t *nsjconf) {
 std::string parseMACVlanMode(const char *optarg) {
 	if (strcasecmp(optarg, "private") != 0 && strcasecmp(optarg, "vepa") != 0 &&
 	    strcasecmp(optarg, "bridge") != 0 && strcasecmp(optarg, "passthru") != 0) {
-		LOG_F(
-		    "macvlan mode can only be one of the values: "
-		    "'private'/'vepa'/'bridge'/'passthru' ('%s' "
-		    "provided).",
+		LOG_F("macvlan mode can only be one of the values: "
+		      "'private'/'vepa'/'bridge'/'passthru' ('%s' "
+		      "provided).",
 		    optarg);
 	}
 	return std::string(optarg);

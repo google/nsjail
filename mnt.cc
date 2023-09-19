@@ -214,10 +214,9 @@ static bool mountPt(mount_t* mpt, const char* newroot, const char* tmpdir) {
 	 */
 	if (mountRWIfPossible(mpt, srcpath, dstpath) == -1) {
 		if (errno == EACCES) {
-			PLOG_W(
-			    "mount('%s') src:'%s' dstpath:'%s' failed. "
-			    "Try fixing this problem by applying 'chmod o+x' to the '%s' "
-			    "directory and its ancestors",
+			PLOG_W("mount('%s') src:'%s' dstpath:'%s' failed. "
+			       "Try fixing this problem by applying 'chmod o+x' to the '%s' "
+			       "directory and its ancestors",
 			    describeMountPt(*mpt).c_str(), srcpath, dstpath, srcpath);
 		} else {
 			PLOG_W("mount('%s') src:'%s' dstpath:'%s' failed",
@@ -457,9 +456,8 @@ static bool initCloneNs(nsjconf_t* nsjconf) {
 		 * proper capabilities are kept in the user namespace. It can be acheived by
 		 * unmounting the new root and using setns to re-enter the mount namespace.
 		 */
-		LOG_W(
-		    "Using no_pivotroot is escapable when user posseses relevant capabilities, "
-		    "Use it with care!");
+		LOG_W("Using no_pivotroot is escapable when user posseses relevant capabilities, "
+		      "Use it with care!");
 
 		if (chdir(destdir->c_str()) == -1) {
 			PLOG_E("chdir(%s)", QC(*destdir));
