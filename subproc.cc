@@ -520,7 +520,7 @@ static uint8_t cloneStack[128 * 1024] __attribute__((aligned(__BIGGEST_ALIGNMENT
 /* Cannot be on the stack, as the child's stack pointer will change after clone() */
 static __thread jmp_buf env;
 
-[[noreturn]] static int cloneFunc(void* arg __attribute__((unused))) {
+[[noreturn]] static int cloneFunc([[maybe_unused]] void* arg ) {
 	longjmp(env, 1);
 	LOG_F("Execution past longjmp");
 }

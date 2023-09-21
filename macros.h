@@ -37,32 +37,6 @@
 #if !defined(ARR_SZ)
 #define ARR_SZ(array) (sizeof(array) / sizeof(*array))
 #endif /* !defined(ARR_SZ) */
-#define UNUSED __attribute__((unused))
-
-#if 0 /* Works, but needs -fblocks and libBlocksRuntime with clang */
-/* Go-style defer implementation */
-#define __STRMERGE(a, b) a##b
-#define _STRMERGE(a, b) __STRMERGE(a, b)
-
-#ifdef __clang__
-static void __attribute__ ((unused)) __clang_cleanup_func(void (^*dfunc) (void))
-{
-	(*dfunc) ();
-}
-
-#define defer                                            \
-	void (^_STRMERGE(__defer_f_, __COUNTER__))(void) \
-	    __attribute__((cleanup(__clang_cleanup_func))) __attribute__((unused)) = ^
-#else
-#define __block
-#define _DEFER(a, count)                                                                          \
-	auto void _STRMERGE(__defer_f_, count)(void* _defer_arg __attribute__((unused)));         \
-	int _STRMERGE(__defer_var_, count) __attribute__((cleanup(_STRMERGE(__defer_f_, count)))) \
-	__attribute__((unused));                                                                  \
-	void _STRMERGE(__defer_f_, count)(void* _defer_arg __attribute__((unused)))
-#define defer _DEFER(a, __COUNTER__)
-#endif
-#endif
 
 #define NS_VALSTR_STRUCT(x) \
 	{ (uint64_t) x, #x }
