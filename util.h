@@ -39,7 +39,7 @@
 		}                     \
 	} while (0)
 
-#define QC(x) util::StrQuote(x).c_str()
+#define QC(x) (util::StrQuote(x).c_str())
 
 namespace util {
 
