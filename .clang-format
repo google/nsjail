@@ -1,0 +1,10 @@
+BasedOnStyle: Google
+AlignAfterOpenBracket: DontAlign
+AlignEscapedNewlines: Right
+AlignOperands: true
+AllowShortFunctionsOnASingleLine: false
+AlwaysBreakBeforeMultilineStrings: false
+ColumnLimit: 100
+IndentWidth: 8
+IndentCaseLabels: false
+UseTab: Always
