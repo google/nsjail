@@ -100,7 +100,7 @@ depend: all
 
 .PHONY: indent
 indent:
-	clang-format -style="{BasedOnStyle: google, IndentWidth: 8, UseTab: Always, IndentCaseLabels: false, ColumnLimit: 100, AlignAfterOpenBracket: false, AllowShortFunctionsOnASingleLine: false, AlwaysBreakBeforeMultilineStrings: false}" -i -sort-includes $(SRCS_H) $(SRCS_CXX)
+	clang-format -style="{BasedOnStyle: google, IndentWidth: 8, UseTab: Always, IndentCaseLabels: false, ColumnLimit: 100, AlignAfterOpenBracket: false, AllowShortFunctionsOnASingleLine: false, AlwaysBreakBeforeMultilineStrings: false, AlignEscapedNewlines: Right}" -i -sort-includes $(SRCS_H) $(SRCS_CXX)
 	clang-format -style="{BasedOnStyle: google, IndentWidth: 4, UseTab: Always, ColumnLimit: 100}" -i $(SRCS_PROTO)
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.

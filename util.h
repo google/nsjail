@@ -32,11 +32,11 @@
 
 #include "nsjail.h"
 
-#define RETURN_ON_FAILURE(expr)       \
-	do {                          \
-		if (!(expr)) {        \
-			return false; \
-		}                     \
+#define RETURN_ON_FAILURE(expr)                                                                    \
+	do {                                                                                       \
+		if (!(expr)) {                                                                     \
+			return false;                                                              \
+		}                                                                                  \
 	} while (0)
 
 #define QC(x) (util::StrQuote(x).c_str())

@@ -25,12 +25,12 @@
 #include <unistd.h>
 
 #if !defined(TEMP_FAILURE_RETRY)
-#define TEMP_FAILURE_RETRY(expression)                     \
-	(__extension__({                                   \
-		long int __result;                         \
-		do __result = (long int)(expression);      \
-		while (__result == -1L && errno == EINTR); \
-		__result;                                  \
+#define TEMP_FAILURE_RETRY(expression)                                                             \
+	(__extension__({                                                                           \
+		long int __result;                                                                 \
+		do __result = (long int)(expression);                                              \
+		while (__result == -1L && errno == EINTR);                                         \
+		__result;                                                                          \
 	}))
 #endif /* !defined(TEMP_FAILURE_RETRY) */
 
@@ -38,7 +38,7 @@
 #define ARR_SZ(array) (sizeof(array) / sizeof(*array))
 #endif /* !defined(ARR_SZ) */
 
-#define NS_VALSTR_STRUCT(x) \
+#define NS_VALSTR_STRUCT(x)                                                                        \
 	{ (uint64_t) x, #x }
 
 #endif /* NS_COMMON_H */
