@@ -3,279 +3,279 @@ syntax = "proto2";
 package nsjail;
 
 enum Mode {
-    LISTEN = 0; /* Listening on a TCP port */
-    ONCE = 1;	/* Running the command once only */
-    RERUN = 2;	/* Re-executing the command (forever) */
-    EXECVE = 3; /* Executing command w/o the supervisor */
+	LISTEN = 0; /* Listening on a TCP port */
+	ONCE = 1;   /* Running the command once only */
+	RERUN = 2;  /* Re-executing the command (forever) */
+	EXECVE = 3; /* Executing command w/o the supervisor */
 }
 /* Should be self explanatory */
 enum LogLevel {
-    DEBUG = 0;	 /* Equivalent to the '-v' cmd-line option */
-    INFO = 1;	 /* Default level */
-    WARNING = 2; /* Equivalent to the '-q' cmd-line option */
-    ERROR = 3;
-    FATAL = 4;
+	DEBUG = 0;   /* Equivalent to the '-v' cmd-line option */
+	INFO = 1;    /* Default level */
+	WARNING = 2; /* Equivalent to the '-q' cmd-line option */
+	ERROR = 3;
+	FATAL = 4;
 }
 message IdMap {
-    /* Empty string means "current uid/gid" */
-    optional string inside_id = 1 [default = ""];
-    optional string outside_id = 2 [default = ""];
-    /* See 'man user_namespaces' for the meaning of count */
-    optional uint32 count = 3 [default = 1];
-    /* Does this map use /usr/bin/new[u|g]idmap binary? */
-    optional bool use_newidmap = 4 [default = false];
+	/* Empty string means "current uid/gid" */
+	optional string inside_id = 1 [default = ""];
+	optional string outside_id = 2 [default = ""];
+	/* See 'man user_namespaces' for the meaning of count */
+	optional uint32 count = 3 [default = 1];
+	/* Does this map use /usr/bin/new[u|g]idmap binary? */
+	optional bool use_newidmap = 4 [default = false];
 }
 message MountPt {
-    /* Can be skipped for filesystems like 'proc' */
-    optional string src = 1 [default = ""];
-    /* Should 'src' path be prefixed with this envar? */
-    optional string prefix_src_env = 2 [default = ""];
-    /* If specified, contains buffer that will be written to the dst file */
-    optional bytes src_content = 3 [default = ""];
-    /* Mount point inside jail */
-    required string dst = 4 [default = ""];
-    /* Should 'dst' path be prefixed with this envar? */
-    optional string prefix_dst_env = 5 [default = ""];
-    /* Can be empty for mount --bind mounts */
-    optional string fstype = 6 [default = ""];
-    /* E.g. size=5000000 for 'tmpfs' */
-    optional string options = 7 [default = ""];
-    /* Is it a 'mount --bind src dst' type of mount? */
-    optional bool is_bind = 8 [default = false];
-    /* Is it a R/W mount? */
-    optional bool rw = 9 [default = false];
-    /* Is it a directory? If not specified an internal
-       heuristics will be used to determine that */
-    optional bool is_dir = 10;
-    /* Should the sandboxing fail if we cannot mount this resource? */
-    optional bool mandatory = 11 [default = true];
-    /* Is it a symlink (instead of real mount point)? */
-    optional bool is_symlink = 12 [default = false];
-    /* Is it a nosuid mount */
-    optional bool nosuid = 13 [default = false];
-    /* Is it a nodev mount */
-    optional bool nodev = 14 [default = false];
-    /* Is it a noexec mount */
-    optional bool noexec = 15 [default = false];
+	/* Can be skipped for filesystems like 'proc' */
+	optional string src = 1 [default = ""];
+	/* Should 'src' path be prefixed with this envar? */
+	optional string prefix_src_env = 2 [default = ""];
+	/* If specified, contains buffer that will be written to the dst file */
+	optional bytes src_content = 3 [default = ""];
+	/* Mount point inside jail */
+	required string dst = 4 [default = ""];
+	/* Should 'dst' path be prefixed with this envar? */
+	optional string prefix_dst_env = 5 [default = ""];
+	/* Can be empty for mount --bind mounts */
+	optional string fstype = 6 [default = ""];
+	/* E.g. size=5000000 for 'tmpfs' */
+	optional string options = 7 [default = ""];
+	/* Is it a 'mount --bind src dst' type of mount? */
+	optional bool is_bind = 8 [default = false];
+	/* Is it a R/W mount? */
+	optional bool rw = 9 [default = false];
+	/* Is it a directory? If not specified an internal
+	   heuristics will be used to determine that */
+	optional bool is_dir = 10;
+	/* Should the sandboxing fail if we cannot mount this resource? */
+	optional bool mandatory = 11 [default = true];
+	/* Is it a symlink (instead of real mount point)? */
+	optional bool is_symlink = 12 [default = false];
+	/* Is it a nosuid mount */
+	optional bool nosuid = 13 [default = false];
+	/* Is it a nodev mount */
+	optional bool nodev = 14 [default = false];
+	/* Is it a noexec mount */
+	optional bool noexec = 15 [default = false];
 }
 enum RLimit {
-    VALUE = 0; /* Use the provided value */
-    SOFT = 1;  /* Use the current soft rlimit */
-    HARD = 2;  /* Use the current hard rlimit */
-    INF = 3;   /* Use RLIM64_INFINITY */
+	VALUE = 0; /* Use the provided value */
+	SOFT = 1;  /* Use the current soft rlimit */
+	HARD = 2;  /* Use the current hard rlimit */
+	INF = 3;   /* Use RLIM64_INFINITY */
 }
 message Exe {
-    /* Will be used both as execv's path and as argv[0] */
-    required string path = 1;
-    /* This will be argv[1] and so on.. */
-    repeated string arg = 2;
-    /* Override argv[0] */
-    optional string arg0 = 3;
-    /* Should execveat() be used to execute a file-descriptor instead? */
-    optional bool exec_fd = 4 [default = false];
+	/* Will be used both as execv's path and as argv[0] */
+	required string path = 1;
+	/* This will be argv[1] and so on.. */
+	repeated string arg = 2;
+	/* Override argv[0] */
+	optional string arg0 = 3;
+	/* Should execveat() be used to execute a file-descriptor instead? */
+	optional bool exec_fd = 4 [default = false];
 }
 message NsJailConfig {
-    /* Optional name and description for this config */
-    optional string name = 1 [default = ""];
-    repeated string description = 2;
+	/* Optional name and description for this config */
+	optional string name = 1 [default = ""];
+	repeated string description = 2;
 
-    /* Execution mode: see 'msg Mode' description for more */
-    optional Mode mode = 3 [default = ONCE];
-    /* Hostname inside jail */
-    optional string hostname = 4 [default = "NSJAIL"];
-    /* Initial current working directory for the binary */
-    optional string cwd = 5 [default = "/"];
+	/* Execution mode: see 'msg Mode' description for more */
+	optional Mode mode = 3 [default = ONCE];
+	/* Hostname inside jail */
+	optional string hostname = 4 [default = "NSJAIL"];
+	/* Initial current working directory for the binary */
+	optional string cwd = 5 [default = "/"];
 
-    /* Defines whether to use switch_root or pivot_root */
-    optional bool no_pivotroot = 6 [default = false];
+	/* Defines whether to use switch_root or pivot_root */
+	optional bool no_pivotroot = 6 [default = false];
 
-    /* TCP port to listen to. Valid with mode=LISTEN only */
-    optional uint32 port = 7 [default = 0];
-    /* Host to bind to for mode=LISTEN. Must be in IPv6 format */
-    optional string bindhost = 8 [default = "::"];
-    /* For mode=LISTEN, maximum number of connections across all IPs */
-    optional uint32 max_conns = 9 [default = 0];
-    /* For mode=LISTEN, maximum number of connections from a single IP */
-    optional uint32 max_conns_per_ip = 10 [default = 0];
+	/* TCP port to listen to. Valid with mode=LISTEN only */
+	optional uint32 port = 7 [default = 0];
+	/* Host to bind to for mode=LISTEN. Must be in IPv6 format */
+	optional string bindhost = 8 [default = "::"];
+	/* For mode=LISTEN, maximum number of connections across all IPs */
+	optional uint32 max_conns = 9 [default = 0];
+	/* For mode=LISTEN, maximum number of connections from a single IP */
+	optional uint32 max_conns_per_ip = 10 [default = 0];
 
-    /* Wall-time time limit for commands */
-    optional uint32 time_limit = 11 [default = 600];
-    /* Should nsjail go into background? */
-    optional bool daemon = 12 [default = false];
-    /* Maximum number of CPUs to use: 0 - no limit */
-    optional uint32 max_cpus = 13 [default = 0];
+	/* Wall-time time limit for commands */
+	optional uint32 time_limit = 11 [default = 600];
+	/* Should nsjail go into background? */
+	optional bool daemon = 12 [default = false];
+	/* Maximum number of CPUs to use: 0 - no limit */
+	optional uint32 max_cpus = 13 [default = 0];
 
-    /* FD to log to. */
-    optional int32 log_fd = 14;
-    /* File to save logs to. */
-    optional string log_file = 15;
-    /* Minimum log level displayed.
-       See 'msg LogLevel' description for more */
-    optional LogLevel log_level = 16;
+	/* FD to log to. */
+	optional int32 log_fd = 14;
+	/* File to save logs to. */
+	optional string log_file = 15;
+	/* Minimum log level displayed.
+	   See 'msg LogLevel' description for more */
+	optional LogLevel log_level = 16;
 
-    /* Should the current environment variables be kept
-       when executing the binary */
-    optional bool keep_env = 17 [default = false];
-    /* EnvVars to be set before executing binaries. If the envar doesn't contain '='
-       (e.g. just the 'DISPLAY' string), the current envar value will be used */
-    repeated string envar = 18;
+	/* Should the current environment variables be kept
+	   when executing the binary */
+	optional bool keep_env = 17 [default = false];
+	/* EnvVars to be set before executing binaries. If the envar doesn't contain '='
+	   (e.g. just the 'DISPLAY' string), the current envar value will be used */
+	repeated string envar = 18;
 
-    /* Should capabilities be preserved or dropped */
-    optional bool keep_caps = 19 [default = false];
-    /* Which capabilities should be preserved if keep_caps == false.
-       Format: "CAP_SYS_PTRACE" */
-    repeated string cap = 20;
-    /* Should nsjail close FD=0,1,2 before executing the process */
-    optional bool silent = 21 [default = false];
-    /* Should the child process have control over terminal?
-       Can be useful to allow /bin/sh to provide
-       job control / signals. Dangerous, can be used to put
-       characters into the controlling terminal back */
-    optional bool skip_setsid = 22 [default = false];
-    /* Redirect sdterr of the process to /dev/null instead of the socket or original TTY */
-    optional bool stderr_to_null = 23 [default = false];
-    /* Which FDs should be passed to the newly executed process
-       By default only FD=0,1,2 are passed */
-    repeated int32 pass_fd = 24;
-    /* Setting it to true will allow to have set-uid binaries
-       inside the jail */
-    optional bool disable_no_new_privs = 25 [default = false];
+	/* Should capabilities be preserved or dropped */
+	optional bool keep_caps = 19 [default = false];
+	/* Which capabilities should be preserved if keep_caps == false.
+	   Format: "CAP_SYS_PTRACE" */
+	repeated string cap = 20;
+	/* Should nsjail close FD=0,1,2 before executing the process */
+	optional bool silent = 21 [default = false];
+	/* Should the child process have control over terminal?
+	   Can be useful to allow /bin/sh to provide
+	   job control / signals. Dangerous, can be used to put
+	   characters into the controlling terminal back */
+	optional bool skip_setsid = 22 [default = false];
+	/* Redirect sdterr of the process to /dev/null instead of the socket or original TTY */
+	optional bool stderr_to_null = 23 [default = false];
+	/* Which FDs should be passed to the newly executed process
+	   By default only FD=0,1,2 are passed */
+	repeated int32 pass_fd = 24;
+	/* Setting it to true will allow to have set-uid binaries
+	   inside the jail */
+	optional bool disable_no_new_privs = 25 [default = false];
 
-    /* Various rlimits, the rlimit_as/rlimit_core/... are used only if
-       rlimit_as_type/rlimit_core_type/... are set to RLimit::VALUE */
-    optional uint64 rlimit_as = 26 [default = 4096]; /* In MiB */
-    optional RLimit rlimit_as_type = 27 [default = VALUE];
-    optional uint64 rlimit_core = 28 [default = 0]; /* In MiB */
-    optional RLimit rlimit_core_type = 29 [default = VALUE];
-    optional uint64 rlimit_cpu = 30 [default = 600]; /* In seconds */
-    optional RLimit rlimit_cpu_type = 31 [default = VALUE];
-    optional uint64 rlimit_fsize = 32 [default = 1]; /* In MiB */
-    optional RLimit rlimit_fsize_type = 33 [default = VALUE];
-    optional uint64 rlimit_nofile = 34 [default = 32];
-    optional RLimit rlimit_nofile_type = 35 [default = VALUE];
-    /* RLIMIT_NPROC is system-wide - tricky to use; use the soft limit value by
-     * default here */
-    optional uint64 rlimit_nproc = 36 [default = 1024];
-    optional RLimit rlimit_nproc_type = 37 [default = SOFT];
-    /* In MiB, use the soft limit value by default */
-    optional uint64 rlimit_stack = 38 [default = 8];
-    optional RLimit rlimit_stack_type = 39 [default = SOFT];
-    /* In KB, use the soft limit value by default */
-    optional uint64 rlimit_memlock = 40 [default = 64];
-    optional RLimit rlimit_memlock_type = 41 [default = SOFT];
-    optional uint64 rlimit_rtprio = 42 [default = 0];
-    optional RLimit rlimit_rtprio_type = 43 [default = SOFT];
-    optional uint64 rlimit_msgqueue = 44 [default = 1024]; /* In bytes */
-    optional RLimit rlimit_msgqueue_type = 45 [default = SOFT];
+	/* Various rlimits, the rlimit_as/rlimit_core/... are used only if
+	   rlimit_as_type/rlimit_core_type/... are set to RLimit::VALUE */
+	optional uint64 rlimit_as = 26 [default = 4096]; /* In MiB */
+	optional RLimit rlimit_as_type = 27 [default = VALUE];
+	optional uint64 rlimit_core = 28 [default = 0]; /* In MiB */
+	optional RLimit rlimit_core_type = 29 [default = VALUE];
+	optional uint64 rlimit_cpu = 30 [default = 600]; /* In seconds */
+	optional RLimit rlimit_cpu_type = 31 [default = VALUE];
+	optional uint64 rlimit_fsize = 32 [default = 1]; /* In MiB */
+	optional RLimit rlimit_fsize_type = 33 [default = VALUE];
+	optional uint64 rlimit_nofile = 34 [default = 32];
+	optional RLimit rlimit_nofile_type = 35 [default = VALUE];
+	/* RLIMIT_NPROC is system-wide - tricky to use; use the soft limit value by
+	 * default here */
+	optional uint64 rlimit_nproc = 36 [default = 1024];
+	optional RLimit rlimit_nproc_type = 37 [default = SOFT];
+	/* In MiB, use the soft limit value by default */
+	optional uint64 rlimit_stack = 38 [default = 8];
+	optional RLimit rlimit_stack_type = 39 [default = SOFT];
+	/* In KB, use the soft limit value by default */
+	optional uint64 rlimit_memlock = 40 [default = 64];
+	optional RLimit rlimit_memlock_type = 41 [default = SOFT];
+	optional uint64 rlimit_rtprio = 42 [default = 0];
+	optional RLimit rlimit_rtprio_type = 43 [default = SOFT];
+	optional uint64 rlimit_msgqueue = 44 [default = 1024]; /* In bytes */
+	optional RLimit rlimit_msgqueue_type = 45 [default = SOFT];
 
-    /* Disable all rlimits, default to limits set by parent */
-    optional bool disable_rl = 46 [default = false];
+	/* Disable all rlimits, default to limits set by parent */
+	optional bool disable_rl = 46 [default = false];
 
-    /* See 'man personality' for more */
-    optional bool persona_addr_compat_layout = 47 [default = false];
-    optional bool persona_mmap_page_zero = 48 [default = false];
-    optional bool persona_read_implies_exec = 49 [default = false];
-    optional bool persona_addr_limit_3gb = 50 [default = false];
-    optional bool persona_addr_no_randomize = 51 [default = false];
+	/* See 'man personality' for more */
+	optional bool persona_addr_compat_layout = 47 [default = false];
+	optional bool persona_mmap_page_zero = 48 [default = false];
+	optional bool persona_read_implies_exec = 49 [default = false];
+	optional bool persona_addr_limit_3gb = 50 [default = false];
+	optional bool persona_addr_no_randomize = 51 [default = false];
 
-    /* Which name-spaces should be used? */
-    optional bool clone_newnet = 52 [default = true];
-    optional bool clone_newuser = 53 [default = true];
-    optional bool clone_newns = 54 [default = true];
-    optional bool clone_newpid = 55 [default = true];
-    optional bool clone_newipc = 56 [default = true];
-    optional bool clone_newuts = 57 [default = true];
-    /* Disable for kernel versions < 4.6 as it's not supported there */
-    optional bool clone_newcgroup = 58 [default = true];
-    /* Supported with kernel versions >= 5.3 */
-    optional bool clone_newtime = 59 [default = false];
+	/* Which name-spaces should be used? */
+	optional bool clone_newnet = 52 [default = true];
+	optional bool clone_newuser = 53 [default = true];
+	optional bool clone_newns = 54 [default = true];
+	optional bool clone_newpid = 55 [default = true];
+	optional bool clone_newipc = 56 [default = true];
+	optional bool clone_newuts = 57 [default = true];
+	/* Disable for kernel versions < 4.6 as it's not supported there */
+	optional bool clone_newcgroup = 58 [default = true];
+	/* Supported with kernel versions >= 5.3 */
+	optional bool clone_newtime = 59 [default = false];
 
-    /* Mappings for UIDs and GIDs. See the description for 'msg IdMap'
-       for more */
-    repeated IdMap uidmap = 60;
-    repeated IdMap gidmap = 61;
+	/* Mappings for UIDs and GIDs. See the description for 'msg IdMap'
+	   for more */
+	repeated IdMap uidmap = 60;
+	repeated IdMap gidmap = 61;
 
-    /* Should /proc be mounted (R/O)? This can also be added in the 'mount'
-       section below */
-    optional bool mount_proc = 62 [default = false];
-    /* Mount points inside the jail. See the description for 'msg MountPt'
-       for more */
-    repeated MountPt mount = 63;
+	/* Should /proc be mounted (R/O)? This can also be added in the 'mount'
+	   section below */
+	optional bool mount_proc = 62 [default = false];
+	/* Mount points inside the jail. See the description for 'msg MountPt'
+	   for more */
+	repeated MountPt mount = 63;
 
-    /* Kafel seccomp-bpf policy file or a string:
-       Homepage of the project: https://github.com/google/kafel */
-    optional string seccomp_policy_file = 64;
-    repeated string seccomp_string = 65;
-    /* Setting it to true makes audit write seccomp logs to dmesg */
-    optional bool seccomp_log = 66 [default = false];
+	/* Kafel seccomp-bpf policy file or a string:
+	   Homepage of the project: https://github.com/google/kafel */
+	optional string seccomp_policy_file = 64;
+	repeated string seccomp_string = 65;
+	/* Setting it to true makes audit write seccomp logs to dmesg */
+	optional bool seccomp_log = 66 [default = false];
 
-    /* If > 0, maximum cumulative size of RAM used inside any jail */
-    optional uint64 cgroup_mem_max = 67 [default = 0]; /* In bytes */
-    /* If > 0, maximum cumulative size of RAM + swap used inside any jail */
-    optional uint64 cgroup_mem_memsw_max = 91 [default = 0]; /* In bytes */
-    /* If >= 0, maximum cumulative size of swap used inside any jail */
-    optional int64 cgroup_mem_swap_max = 92 [default = -1]; /* In bytes */
-    /* Mount point for cgroups-memory in your system */
-    optional string cgroup_mem_mount = 68 [default = "/sys/fs/cgroup/memory"];
-    /* Writeable directory (for the nsjail user) under cgroup_mem_mount */
-    optional string cgroup_mem_parent = 69 [default = "NSJAIL"];
+	/* If > 0, maximum cumulative size of RAM used inside any jail */
+	optional uint64 cgroup_mem_max = 67 [default = 0]; /* In bytes */
+	/* If > 0, maximum cumulative size of RAM + swap used inside any jail */
+	optional uint64 cgroup_mem_memsw_max = 91 [default = 0]; /* In bytes */
+	/* If >= 0, maximum cumulative size of swap used inside any jail */
+	optional int64 cgroup_mem_swap_max = 92 [default = -1]; /* In bytes */
+	/* Mount point for cgroups-memory in your system */
+	optional string cgroup_mem_mount = 68 [default = "/sys/fs/cgroup/memory"];
+	/* Writeable directory (for the nsjail user) under cgroup_mem_mount */
+	optional string cgroup_mem_parent = 69 [default = "NSJAIL"];
 
-    /* If > 0, maximum number of PIDs (threads/processes) inside jail */
-    optional uint64 cgroup_pids_max = 70 [default = 0];
-    /* Mount point for cgroups-pids in your system */
-    optional string cgroup_pids_mount = 71 [default = "/sys/fs/cgroup/pids"];
-    /* Writeable directory (for the nsjail user) under cgroup_pids_mount */
-    optional string cgroup_pids_parent = 72 [default = "NSJAIL"];
+	/* If > 0, maximum number of PIDs (threads/processes) inside jail */
+	optional uint64 cgroup_pids_max = 70 [default = 0];
+	/* Mount point for cgroups-pids in your system */
+	optional string cgroup_pids_mount = 71 [default = "/sys/fs/cgroup/pids"];
+	/* Writeable directory (for the nsjail user) under cgroup_pids_mount */
+	optional string cgroup_pids_parent = 72 [default = "NSJAIL"];
 
-    /* If > 0, Class identifier of network packets inside jail */
-    optional uint32 cgroup_net_cls_classid = 73 [default = 0];
-    /* Mount point for cgroups-net-cls in your system */
-    optional string cgroup_net_cls_mount = 74 [default = "/sys/fs/cgroup/net_cls"];
-    /* Writeable directory (for the nsjail user) under cgroup_net_mount */
-    optional string cgroup_net_cls_parent = 75 [default = "NSJAIL"];
+	/* If > 0, Class identifier of network packets inside jail */
+	optional uint32 cgroup_net_cls_classid = 73 [default = 0];
+	/* Mount point for cgroups-net-cls in your system */
+	optional string cgroup_net_cls_mount = 74 [default = "/sys/fs/cgroup/net_cls"];
+	/* Writeable directory (for the nsjail user) under cgroup_net_mount */
+	optional string cgroup_net_cls_parent = 75 [default = "NSJAIL"];
 
-    /* If > 0, number of milliseconds of CPU time per second that jailed processes can use */
-    optional uint32 cgroup_cpu_ms_per_sec = 76 [default = 0];
-    /* Mount point for cgroups-cpu in your system */
-    optional string cgroup_cpu_mount = 77 [default = "/sys/fs/cgroup/cpu"];
-    /* Writeable directory (for the nsjail user) under cgroup_cpu_mount */
-    optional string cgroup_cpu_parent = 78 [default = "NSJAIL"];
+	/* If > 0, number of milliseconds of CPU time per second that jailed processes can use */
+	optional uint32 cgroup_cpu_ms_per_sec = 76 [default = 0];
+	/* Mount point for cgroups-cpu in your system */
+	optional string cgroup_cpu_mount = 77 [default = "/sys/fs/cgroup/cpu"];
+	/* Writeable directory (for the nsjail user) under cgroup_cpu_mount */
+	optional string cgroup_cpu_parent = 78 [default = "NSJAIL"];
 
-    /* Mount point for cgroup v2 in your system */
-    optional string cgroupv2_mount = 79 [default = "/sys/fs/cgroup"];
-    /* Use cgroup v2 */
-    optional bool use_cgroupv2 = 80 [default = false];
+	/* Mount point for cgroup v2 in your system */
+	optional string cgroupv2_mount = 79 [default = "/sys/fs/cgroup"];
+	/* Use cgroup v2 */
+	optional bool use_cgroupv2 = 80 [default = false];
 
-    /* Should the 'lo' interface be brought up (active) inside this jail? */
-    optional bool iface_no_lo = 81 [default = false];
+	/* Should the 'lo' interface be brought up (active) inside this jail? */
+	optional bool iface_no_lo = 81 [default = false];
 
-    /* Put this interface inside the jail */
-    repeated string iface_own = 82;
+	/* Put this interface inside the jail */
+	repeated string iface_own = 82;
 
-    /* Parameters for the cloned MACVLAN interface inside jail */
-    optional string macvlan_iface = 83; /* Interface to be cloned, eg 'eth0' */
-    optional string macvlan_vs_ip = 84 [default = "192.168.0.2"];
-    optional string macvlan_vs_nm = 85 [default = "255.255.255.0"];
-    optional string macvlan_vs_gw = 86 [default = "192.168.0.1"];
-    optional string macvlan_vs_ma = 87 [default = ""];
-    optional string macvlan_vs_mo = 88 [default = "private"];
+	/* Parameters for the cloned MACVLAN interface inside jail */
+	optional string macvlan_iface = 83; /* Interface to be cloned, eg 'eth0' */
+	optional string macvlan_vs_ip = 84 [default = "192.168.0.2"];
+	optional string macvlan_vs_nm = 85 [default = "255.255.255.0"];
+	optional string macvlan_vs_gw = 86 [default = "192.168.0.1"];
+	optional string macvlan_vs_ma = 87 [default = ""];
+	optional string macvlan_vs_mo = 88 [default = "private"];
 
-    /* Niceness level of the jailed process */
-    optional int32 nice_level = 89 [default = 19];
+	/* Niceness level of the jailed process */
+	optional int32 nice_level = 89 [default = 19];
 
-    /* Binary path (with arguments) to be executed. If not specified here, it
-       can be specified with cmd-line as "-- /path/to/command arg1 arg2" */
-    optional Exe exec_bin = 90;
+	/* Binary path (with arguments) to be executed. If not specified here, it
+	   can be specified with cmd-line as "-- /path/to/command arg1 arg2" */
+	optional Exe exec_bin = 90;
 
-    /* Disable rdtsc and rdtscp instructions. WARNING: To make it effective, you also need to
-     * forbid `prctl(PR_SET_TSC, PR_TSC_ENABLE, ...)` in seccomp rules! (x86 and x86_64 only).
-     * Dynamic binaries produced by GCC seem to rely on RDTSC, but static ones should work. */
-    optional bool disable_tsc = 93 [default = false];
+	/* Disable rdtsc and rdtscp instructions. WARNING: To make it effective, you also need to
+	 * forbid `prctl(PR_SET_TSC, PR_TSC_ENABLE, ...)` in seccomp rules! (x86 and x86_64 only).
+	 * Dynamic binaries produced by GCC seem to rely on RDTSC, but static ones should work. */
+	optional bool disable_tsc = 93 [default = false];
 
-    /* Set this to true to forward fatal signals to the child process instead
-     * of always using SIGKILL. */
-    optional bool forward_signals = 94 [default = false];
+	/* Set this to true to forward fatal signals to the child process instead
+	 * of always using SIGKILL. */
+	optional bool forward_signals = 94 [default = false];
 
-    /* Check whether cgroupv2 is available, and use it if available. */
-    optional bool detect_cgroupv2 = 95 [default = false];
+	/* Check whether cgroupv2 is available, and use it if available. */
+	optional bool detect_cgroupv2 = 95 [default = false];
 }
