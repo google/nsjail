@@ -332,7 +332,7 @@ uint64_t parseRLimit(int res, const char *optarg, unsigned long mul) {
 		return RLIM64_INFINITY;
 	}
 	struct rlimit64 cur;
-	if (getrlimit64(res, &cur) == -1) {
+	if (util::getrlimit(res, &cur) == -1) {
 		PLOG_F("getrlimit(%d)", res);
 	}
 	if (strcasecmp(optarg, "def") == 0 || strcasecmp(optarg, "soft") == 0) {

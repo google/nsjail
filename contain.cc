@@ -141,53 +141,53 @@ static bool containSetLimits(nsjconf_t* nsjconf) {
 
 	struct rlimit64 rl;
 	rl.rlim_cur = rl.rlim_max = nsjconf->rl_as;
-	if (setrlimit64(RLIMIT_AS, &rl) == -1) {
-		PLOG_E("setrlimit64(0, RLIMIT_AS, %" PRIu64 ")", nsjconf->rl_as);
+	if (util::setrlimit(RLIMIT_AS, rl) == -1) {
+		PLOG_E("util::setrlimit(0, RLIMIT_AS, %" PRIu64 ")", nsjconf->rl_as);
 		return false;
 	}
 	rl.rlim_cur = rl.rlim_max = nsjconf->rl_core;
-	if (setrlimit64(RLIMIT_CORE, &rl) == -1) {
-		PLOG_E("setrlimit64(0, RLIMIT_CORE, %" PRIu64 ")", nsjconf->rl_core);
+	if (util::setrlimit(RLIMIT_CORE, rl) == -1) {
+		PLOG_E("util::setrlimit(0, RLIMIT_CORE, %" PRIu64 ")", nsjconf->rl_core);
 		return false;
 	}
 	rl.rlim_cur = rl.rlim_max = nsjconf->rl_cpu;
-	if (setrlimit64(RLIMIT_CPU, &rl) == -1) {
-		PLOG_E("setrlimit64(0, RLIMIT_CPU, %" PRIu64 ")", nsjconf->rl_cpu);
+	if (util::setrlimit(RLIMIT_CPU, rl) == -1) {
+		PLOG_E("util::setrlimit(0, RLIMIT_CPU, %" PRIu64 ")", nsjconf->rl_cpu);
 		return false;
 	}
 	rl.rlim_cur = rl.rlim_max = nsjconf->rl_fsize;
-	if (setrlimit64(RLIMIT_FSIZE, &rl) == -1) {
-		PLOG_E("setrlimit64(0, RLIMIT_FSIZE, %" PRIu64 ")", nsjconf->rl_fsize);
+	if (util::setrlimit(RLIMIT_FSIZE, rl) == -1) {
+		PLOG_E("util::setrlimit(0, RLIMIT_FSIZE, %" PRIu64 ")", nsjconf->rl_fsize);
 		return false;
 	}
 	rl.rlim_cur = rl.rlim_max = nsjconf->rl_nofile;
-	if (setrlimit64(RLIMIT_NOFILE, &rl) == -1) {
-		PLOG_E("setrlimit64(0, RLIMIT_NOFILE, %" PRIu64 ")", nsjconf->rl_nofile);
+	if (util::setrlimit(RLIMIT_NOFILE, rl) == -1) {
+		PLOG_E("util::setrlimit(0, RLIMIT_NOFILE, %" PRIu64 ")", nsjconf->rl_nofile);
 		return false;
 	}
 	rl.rlim_cur = rl.rlim_max = nsjconf->rl_nproc;
-	if (setrlimit64(RLIMIT_NPROC, &rl) == -1) {
-		PLOG_E("setrlimit64(0, RLIMIT_NPROC, %" PRIu64 ")", nsjconf->rl_nproc);
+	if (util::setrlimit(RLIMIT_NPROC, rl) == -1) {
+		PLOG_E("util::setrlimit(0, RLIMIT_NPROC, %" PRIu64 ")", nsjconf->rl_nproc);
 		return false;
 	}
 	rl.rlim_cur = rl.rlim_max = nsjconf->rl_stack;
-	if (setrlimit64(RLIMIT_STACK, &rl) == -1) {
-		PLOG_E("setrlimit64(0, RLIMIT_STACK, %" PRIu64 ")", nsjconf->rl_stack);
+	if (util::setrlimit(RLIMIT_STACK, rl) == -1) {
+		PLOG_E("util::setrlimit(0, RLIMIT_STACK, %" PRIu64 ")", nsjconf->rl_stack);
 		return false;
 	}
 	rl.rlim_cur = rl.rlim_max = nsjconf->rl_mlock;
-	if (setrlimit64(RLIMIT_MEMLOCK, &rl) == -1) {
-		PLOG_E("setrlimit64(0, RLIMIT_MEMLOCK, %" PRIu64 ")", nsjconf->rl_mlock);
+	if (util::setrlimit(RLIMIT_MEMLOCK, rl) == -1) {
+		PLOG_E("util::setrlimit(0, RLIMIT_MEMLOCK, %" PRIu64 ")", nsjconf->rl_mlock);
 		return false;
 	}
 	rl.rlim_cur = rl.rlim_max = nsjconf->rl_rtpr;
-	if (setrlimit64(RLIMIT_RTPRIO, &rl) == -1) {
-		PLOG_E("setrlimit64(0, RLIMIT_RTPRIO, %" PRIu64 ")", nsjconf->rl_rtpr);
+	if (util::setrlimit(RLIMIT_RTPRIO, rl) == -1) {
+		PLOG_E("util::setrlimit(0, RLIMIT_RTPRIO, %" PRIu64 ")", nsjconf->rl_rtpr);
 		return false;
 	}
 	rl.rlim_cur = rl.rlim_max = nsjconf->rl_msgq;
-	if (setrlimit64(RLIMIT_MSGQUEUE, &rl) == -1) {
-		PLOG_E("setrlimit64(0, RLIMIT_MSGQUEUE , %" PRIu64 ")", nsjconf->rl_msgq);
+	if (util::setrlimit(RLIMIT_MSGQUEUE, rl) == -1) {
+		PLOG_E("util::setrlimit(0, RLIMIT_MSGQUEUE , %" PRIu64 ")", nsjconf->rl_msgq);
 		return false;
 	}
 	return true;

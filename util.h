@@ -26,6 +26,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <sys/resource.h>
 
 #include <string>
 #include <vector>
@@ -40,6 +41,14 @@
 	} while (0)
 
 #define QC(x) (util::StrQuote(x).c_str())
+
+#if !defined(RLIM64_INFINITY)
+#define RLIM64_INFINITY (~0ULL)
+struct rlimit64 {
+	uint64_t rlim_cur;
+	uint64_t rlim_max;
+};
+#endif /* !defined(RLIM64_INFINITY) */
 
 namespace util {
 
@@ -60,6 +69,8 @@ const std::string timeToStr(time_t t);
 std::vector<std::string> strSplit(const std::string str, char delim);
 long syscall(long sysno, uintptr_t a0 = 0, uintptr_t a1 = 0, uintptr_t a2 = 0, uintptr_t a3 = 0,
     uintptr_t a4 = 0, uintptr_t a5 = 0);
+long setrlimit(int res, const struct rlimit64& newlim);
+long getrlimit(int res, struct rlimit64* curlim);
 
 }  // namespace util
 
