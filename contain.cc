@@ -206,8 +206,12 @@ static bool containMakeFdsCOENaive(nsjconf_t* nsjconf) {
 	 */
 	for (unsigned fd = 0; fd < 1024; fd++) {
 		int flags = TEMP_FAILURE_RETRY(fcntl(fd, F_GETFD, 0));
-		if (flags == -1) {
+		if (flags == -1 && errno == EBADF) {
 			continue;
+		}
+		if (flags == -1) {
+			PLOG_E("Couldn't get flags for fd=%d", fd)
+			return false;
 		}
 		if (containPassFd(nsjconf, fd)) {
 			LOG_D("fd=%d will be passed to the child process", fd);
