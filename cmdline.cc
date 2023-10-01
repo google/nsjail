@@ -623,6 +623,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char *argv[]) {
 			nsjconf->tlimit = (uint64_t)strtoull(optarg, NULL, 0);
 			break;
 		case 'h': /* help */
+			logs::logFile("", STDOUT_FILENO);
 			cmdlineUsage(argv[0]);
 			exit(0);
 			break;
