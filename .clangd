@@ -1,0 +1,2 @@
+CompileFlags:
+  Add: [-std=c++17, -fno-exceptions, -Wno-unused, -Wno-unused-parameter]
