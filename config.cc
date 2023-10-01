@@ -46,7 +46,7 @@
 
 namespace config {
 
-static uint64_t configRLimit(
+static uint64_t adjustRLimit(
     int res, const nsjail::RLimit& rl, const uint64_t val, unsigned long mul = 1UL) {
 	if (rl == nsjail::RLimit::VALUE) {
 		return (val * mul);
@@ -64,7 +64,7 @@ static uint64_t configRLimit(
 	abort();
 }
 
-static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& njc) {
+static bool parseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& njc) {
 	switch (njc.mode()) {
 	case nsjail::Mode::LISTEN:
 		nsjconf->mode = MODE_LISTEN_TCP;
@@ -147,23 +147,23 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 	nsjconf->disable_no_new_privs = njc.disable_no_new_privs();
 
 	nsjconf->rl_as =
-	    configRLimit(RLIMIT_AS, njc.rlimit_as_type(), njc.rlimit_as(), 1024UL * 1024UL);
+	    adjustRLimit(RLIMIT_AS, njc.rlimit_as_type(), njc.rlimit_as(), 1024UL * 1024UL);
 	nsjconf->rl_core =
-	    configRLimit(RLIMIT_CORE, njc.rlimit_core_type(), njc.rlimit_core(), 1024UL * 1024UL);
-	nsjconf->rl_cpu = configRLimit(RLIMIT_CPU, njc.rlimit_cpu_type(), njc.rlimit_cpu());
-	nsjconf->rl_fsize = configRLimit(
+	    adjustRLimit(RLIMIT_CORE, njc.rlimit_core_type(), njc.rlimit_core(), 1024UL * 1024UL);
+	nsjconf->rl_cpu = adjustRLimit(RLIMIT_CPU, njc.rlimit_cpu_type(), njc.rlimit_cpu());
+	nsjconf->rl_fsize = adjustRLimit(
 	    RLIMIT_FSIZE, njc.rlimit_fsize_type(), njc.rlimit_fsize(), 1024UL * 1024UL);
 	nsjconf->rl_nofile =
-	    configRLimit(RLIMIT_NOFILE, njc.rlimit_nofile_type(), njc.rlimit_nofile());
-	nsjconf->rl_nproc = configRLimit(RLIMIT_NPROC, njc.rlimit_nproc_type(), njc.rlimit_nproc());
-	nsjconf->rl_stack = configRLimit(
+	    adjustRLimit(RLIMIT_NOFILE, njc.rlimit_nofile_type(), njc.rlimit_nofile());
+	nsjconf->rl_nproc = adjustRLimit(RLIMIT_NPROC, njc.rlimit_nproc_type(), njc.rlimit_nproc());
+	nsjconf->rl_stack = adjustRLimit(
 	    RLIMIT_STACK, njc.rlimit_stack_type(), njc.rlimit_stack(), 1024UL * 1024UL);
 	nsjconf->rl_mlock =
-	    configRLimit(RLIMIT_MEMLOCK, njc.rlimit_memlock_type(), njc.rlimit_memlock(), 1024UL);
+	    adjustRLimit(RLIMIT_MEMLOCK, njc.rlimit_memlock_type(), njc.rlimit_memlock(), 1024UL);
 	nsjconf->rl_rtpr =
-	    configRLimit(RLIMIT_RTPRIO, njc.rlimit_rtprio_type(), njc.rlimit_rtprio());
+	    adjustRLimit(RLIMIT_RTPRIO, njc.rlimit_rtprio_type(), njc.rlimit_rtprio());
 	nsjconf->rl_msgq =
-	    configRLimit(RLIMIT_MSGQUEUE, njc.rlimit_msgqueue_type(), njc.rlimit_msgqueue());
+	    adjustRLimit(RLIMIT_MSGQUEUE, njc.rlimit_msgqueue_type(), njc.rlimit_msgqueue());
 
 	nsjconf->disable_rl = njc.disable_rl();
 
@@ -302,7 +302,7 @@ static bool configParseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& 
 	return true;
 }
 
-static void LogHandler(
+static void logHandler(
     google::protobuf::LogLevel level, const char* filename, int line, const std::string& message) {
 	LOG_W("config.cc: '%s'", message.c_str());
 }
@@ -316,7 +316,7 @@ bool parseFile(nsjconf_t* nsjconf, const char* file) {
 		return false;
 	}
 
-	SetLogHandler(LogHandler);
+	SetLogHandler(logHandler);
 	google::protobuf::io::FileInputStream input(fd);
 	input.SetCloseOnDelete(true);
 
@@ -328,7 +328,7 @@ bool parseFile(nsjconf_t* nsjconf, const char* file) {
 		LOG_W("Couldn't parse file '%s' from Text into ProtoBuf", file);
 		return false;
 	}
-	if (!configParseInternal(nsjconf, nsc)) {
+	if (!parseInternal(nsjconf, nsc)) {
 		LOG_W("Couldn't parse the ProtoBuf from '%s'", file);
 		return false;
 	}
