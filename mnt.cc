@@ -132,9 +132,8 @@ static int mountRWIfPossible(mount_t* mpt, const char* src, const char* dst) {
 	int res =
 	    mount(src, dst, mpt->fs_type.c_str(), mpt->flags & ~(MS_RDONLY), mpt->options.c_str());
 	if ((mpt->flags & MS_RDONLY) && res == -1 && errno == EPERM) {
-		LOG_W(
-		    "mount('%s') src: '%s' dstpath: '%s' could not mount read-write, falling back "
-		    "to mounting read-only directly",
+		LOG_W("mount('%s') src: '%s' dstpath: '%s' could not mount read-write, falling "
+		      "back to mounting read-only directly",
 		    describeMountPt(*mpt).c_str(), src, dst);
 		res = mount(src, dst, mpt->fs_type.c_str(), mpt->flags, mpt->options.c_str());
 	}
@@ -222,10 +221,9 @@ static bool mountPt(mount_t* mpt, const char* newroot, const char* tmpdir) {
 			PLOG_W("mount('%s') src:'%s' dstpath:'%s' failed",
 			    describeMountPt(*mpt).c_str(), srcpath, dstpath);
 			if (mpt->fs_type.compare("proc") == 0) {
-				PLOG_W(
-				    "procfs can only be mounted if the original /proc doesn't have "
-				    "any other file-systems mounted on top of it (e.g. /dev/null "
-				    "on top of /proc/kcore)");
+				PLOG_W("procfs can only be mounted if the original /proc doesn't "
+				       "have any other file-systems mounted on top of it (e.g. "
+				       "/dev/null on top of /proc/kcore)");
 			}
 		}
 		return false;
