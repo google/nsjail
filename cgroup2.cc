@@ -41,7 +41,17 @@
 
 namespace cgroup2 {
 
-static bool addPidToProcList(const std::string &cgroup_path, pid_t pid);
+static bool addPidToProcList(const std::string &cgroup_path, pid_t pid) {
+	std::string pid_str = std::to_string(pid);
+
+	LOG_D("Adding pid='%s' to cgroup.procs", pid_str.c_str());
+	if (!util::writeBufToFile((cgroup_path + "/cgroup.procs").c_str(), pid_str.c_str(),
+		pid_str.length(), O_WRONLY)) {
+		LOG_W("Could not update cgroup.procs");
+		return false;
+	}
+	return true;
+}
 
 static std::string getCgroupPath(nsjconf_t *nsjconf, pid_t pid) {
 	return nsjconf->cgroupv2_mount + "/NSJAIL." + std::to_string(pid);
@@ -109,18 +119,6 @@ static bool writeToCgroup(
 	if (!util::writeBufToFile(
 		(cgroup_path + "/" + resource).c_str(), value.c_str(), value.length(), O_WRONLY)) {
 		LOG_W("Could not update %s", resource.c_str());
-		return false;
-	}
-	return true;
-}
-
-static bool addPidToProcList(const std::string &cgroup_path, pid_t pid) {
-	std::string pid_str = std::to_string(pid);
-
-	LOG_D("Adding pid='%s' to cgroup.procs", pid_str.c_str());
-	if (!util::writeBufToFile((cgroup_path + "/cgroup.procs").c_str(), pid_str.c_str(),
-		pid_str.length(), O_WRONLY)) {
-		LOG_W("Could not update cgroup.procs");
 		return false;
 	}
 	return true;
