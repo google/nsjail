@@ -1,2 +1,2 @@
 CompileFlags:
-  Add: [-std=c++17, -fno-exceptions, -Wno-unused, -Wno-unused-parameter]
+  Add: [-std=c++17, -I/usr/include/libnl3, -fno-exceptions, -Wno-unused, -Wno-unused-parameter]
