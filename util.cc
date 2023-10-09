@@ -313,6 +313,44 @@ const std::string sigName(int signo) {
 	return res;
 }
 
+const std::string rLimName(int res) {
+	std::string ret;
+
+	struct {
+		const int res;
+		const char* const name;
+	} static const rLimNames[] = {
+	    NS_VALSTR_STRUCT(RLIMIT_CPU),
+	    NS_VALSTR_STRUCT(RLIMIT_FSIZE),
+	    NS_VALSTR_STRUCT(RLIMIT_DATA),
+	    NS_VALSTR_STRUCT(RLIMIT_STACK),
+	    NS_VALSTR_STRUCT(RLIMIT_CORE),
+	    NS_VALSTR_STRUCT(RLIMIT_RSS),
+	    NS_VALSTR_STRUCT(RLIMIT_NOFILE),
+	    NS_VALSTR_STRUCT(RLIMIT_AS),
+	    NS_VALSTR_STRUCT(RLIMIT_NPROC),
+	    NS_VALSTR_STRUCT(RLIMIT_MEMLOCK),
+	    NS_VALSTR_STRUCT(RLIMIT_LOCKS),
+	    NS_VALSTR_STRUCT(RLIMIT_SIGPENDING),
+	    NS_VALSTR_STRUCT(RLIMIT_MSGQUEUE),
+	    NS_VALSTR_STRUCT(RLIMIT_NICE),
+	    NS_VALSTR_STRUCT(RLIMIT_RTPRIO),
+	    NS_VALSTR_STRUCT(RLIMIT_RTTIME),
+	};
+
+	for (const auto& i : rLimNames) {
+		if (res == i.res) {
+			ret.append(i.name);
+			return ret;
+		}
+	}
+
+	ret.append("RLIMITUNKNOWN(");
+	ret.append(std::to_string(res));
+	ret.append(")");
+	return ret;
+}
+
 const std::string timeToStr(time_t t) {
 	char timestr[128];
 	struct tm utctime;

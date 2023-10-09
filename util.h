@@ -65,6 +65,7 @@ const std::string StrQuote(const std::string& str);
 bool isANumber(const char* s);
 uint64_t rnd64(void);
 const std::string sigName(int signo);
+const std::string rLimName(int res);
 const std::string timeToStr(time_t t);
 std::vector<std::string> strSplit(const std::string str, char delim);
 long syscall(long sysno, uintptr_t a0 = 0, uintptr_t a1 = 0, uintptr_t a2 = 0, uintptr_t a3 = 0,

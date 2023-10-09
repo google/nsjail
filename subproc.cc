@@ -230,7 +230,7 @@ static void newProc(nsjconf_t* nsjconf, int netfd, int fd_in, int fd_out, int fd
 		execv(nsjconf->exec_file.c_str(), (char* const*)argv.data());
 	}
 
-	PLOG_E("execve('%s') failed", nsjconf->exec_file.c_str());
+	PLOG_E("execve(%s) failed", QC(nsjconf->exec_file));
 }
 
 static void addProc(nsjconf_t* nsjconf, pid_t pid, int sock) {

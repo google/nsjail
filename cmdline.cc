@@ -342,11 +342,10 @@ uint64_t parseRLimit(int res, const char *optarg, unsigned long mul) {
 		return cur.rlim_max;
 	}
 	if (!util::isANumber(optarg)) {
-		LOG_F("RLIMIT %d needs a numeric or 'max'/'hard'/'def'/'soft'/'inf' "
-		      "value "
-		      "('%s' "
-		      "provided)",
-		    res, optarg);
+		LOG_F(
+		    "RLIMIT %s (%d) needs a numeric value or 'max'/'hard'/'def'/'soft'/'inf' value "
+		    "(%s provided)",
+		    util::rLimName(res).c_str(), res, QC(optarg));
 	}
 	errno = 0;
 	uint64_t val = strtoull(optarg, NULL, 0);
