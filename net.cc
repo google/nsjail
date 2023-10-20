@@ -57,7 +57,7 @@ namespace net {
 static bool cloneIface(
     nsjconf_t* nsjconf, struct nl_sock* sk, struct nl_cache* link_cache, int pid) {
 	struct rtnl_link* rmv = rtnl_link_macvlan_alloc();
-	if (rmv == NULL) {
+	if (rmv == nullptr) {
 		LOG_E("rtnl_link_macvlan_alloc()");
 		return false;
 	}
@@ -271,7 +271,7 @@ int getRecvSocket(const char* bindhost, int port) {
 		return -1;
 	}
 
-	auto connstr = connToText(sockfd, false /* remote */, NULL);
+	auto connstr = connToText(sockfd, false /* remote */, nullptr);
 	LOG_I("Listening on %s", connstr.c_str());
 
 	return sockfd;
@@ -288,8 +288,8 @@ int acceptConn(int listenfd) {
 		return -1;
 	}
 
-	auto connremotestr = connToText(connfd, true /* remote */, NULL);
-	auto connlocalstr = connToText(connfd, false /* remote */, NULL);
+	auto connremotestr = connToText(connfd, true /* remote */, nullptr);
+	auto connlocalstr = connToText(connfd, false /* remote */, nullptr);
 	LOG_I("New connection from: %s on: %s", connremotestr.c_str(), connlocalstr.c_str());
 
 	return connfd;

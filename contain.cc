@@ -236,7 +236,7 @@ static bool containMakeFdsCOEProc(nsjconf_t* nsjconf) {
 		return false;
 	}
 	DIR* dir = fdopendir(dirfd);
-	if (dir == NULL) {
+	if (dir == nullptr) {
 		PLOG_W("fdopendir(fd=%d)", dirfd);
 		close(dirfd);
 		return false;
@@ -245,12 +245,12 @@ static bool containMakeFdsCOEProc(nsjconf_t* nsjconf) {
 	for (;;) {
 		errno = 0;
 		struct dirent* entry = readdir(dir);
-		if (entry == NULL && errno != 0) {
+		if (entry == nullptr && errno != 0) {
 			PLOG_D("readdir('/proc/self/fd')");
 			closedir(dir);
 			return false;
 		}
-		if (entry == NULL) {
+		if (entry == nullptr) {
 			break;
 		}
 		if (strcmp(".", entry->d_name) == 0) {

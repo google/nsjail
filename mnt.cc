@@ -114,7 +114,7 @@ static bool isDir(const char* path) {
 	/*
 	 *  If the source dir is NULL, we assume it's a dir (for /proc and tmpfs)
 	 */
-	if (path == NULL) {
+	if (path == nullptr) {
 		return true;
 	}
 	struct stat st;
@@ -535,7 +535,7 @@ static bool addMountPt(mount_t* mnt, const std::string& src, const std::string& 
     const std::string& src_content, bool is_symlink) {
 	if (!src_env.empty()) {
 		const char* e = getenv(src_env.c_str());
-		if (e == NULL) {
+		if (e == nullptr) {
 			LOG_W("No such envar:%s", QC(src_env));
 			return false;
 		}
@@ -545,7 +545,7 @@ static bool addMountPt(mount_t* mnt, const std::string& src, const std::string& 
 
 	if (!dst_env.empty()) {
 		const char* e = getenv(dst_env.c_str());
-		if (e == NULL) {
+		if (e == nullptr) {
 			LOG_W("No such envar:%s", QC(dst_env));
 			return false;
 		}

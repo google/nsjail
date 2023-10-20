@@ -319,7 +319,7 @@ static uid_t parseUid(const std::string& id) {
 		return getuid();
 	}
 	struct passwd* pw = getpwnam(id.c_str());
-	if (pw != NULL) {
+	if (pw != nullptr) {
 		return pw->pw_uid;
 	}
 	if (util::isANumber(id.c_str())) {
@@ -333,7 +333,7 @@ static gid_t parseGid(const std::string& id) {
 		return getgid();
 	}
 	struct group* gr = getgrnam(id.c_str());
-	if (gr != NULL) {
+	if (gr != nullptr) {
 		return gr->gr_gid;
 	}
 	if (util::isANumber(id.c_str())) {

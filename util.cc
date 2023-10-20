@@ -139,7 +139,7 @@ bool createDirRecursively(const char* dir) {
 		}
 
 		char* next = strchr(curr, '/');
-		if (next == NULL) {
+		if (next == nullptr) {
 			close(prev_dir_fd);
 			return true;
 		}

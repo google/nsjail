@@ -127,7 +127,7 @@ static cap_user_data_t getCaps() {
 	};
 	if (util::syscall(__NR_capget, (uintptr_t)&cap_hdr, (uintptr_t)&cap_data) == -1) {
 		PLOG_W("capget() failed");
-		return NULL;
+		return nullptr;
 	}
 	return cap_data;
 }
@@ -214,7 +214,7 @@ static bool initNsKeepCaps(cap_user_data_t cap_data) {
 
 bool initNs(nsjconf_t* nsjconf) {
 	cap_user_data_t cap_data = getCaps();
-	if (cap_data == NULL) {
+	if (cap_data == nullptr) {
 		return false;
 	}
 
