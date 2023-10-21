@@ -91,9 +91,8 @@ bool preparePolicy(nsjconf_t* nsjconf) {
 		return true;
 	}
 	if (!nsjconf->kafel_file_path.empty() && !nsjconf->kafel_string.empty()) {
-		LOG_W(
-		    "You specified both kafel seccomp policy, and kafel seccomp file. Specify one "
-		    "only");
+		LOG_W("You specified both kafel seccomp policy, and kafel seccomp file. Specify "
+		      "one only");
 		return false;
 	}
 
