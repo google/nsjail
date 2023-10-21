@@ -99,7 +99,7 @@ struct {
 
 int nameToVal(const char* name) {
 	for (const auto& cap : capNames) {
-		if (strcmp(name, cap.name) == 0) {
+		if (util::StrEq(name, cap.name)) {
 			return cap.val;
 		}
 	}

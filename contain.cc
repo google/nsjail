@@ -253,10 +253,10 @@ static bool containMakeFdsCOEProc(nsjconf_t* nsjconf) {
 		if (entry == nullptr) {
 			break;
 		}
-		if (strcmp(".", entry->d_name) == 0) {
+		if (util::StrEq(".", entry->d_name)) {
 			continue;
 		}
-		if (strcmp("..", entry->d_name) == 0) {
+		if (util::StrEq("..", entry->d_name)) {
 			continue;
 		}
 		errno = 0;

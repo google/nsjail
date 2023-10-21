@@ -62,6 +62,7 @@ std::string* StrAppend(std::string* str, const char* format, ...)
     __attribute__((format(printf, 2, 3)));
 std::string StrPrintf(const char* format, ...) __attribute__((format(printf, 1, 2)));
 const std::string StrQuote(const std::string& str);
+bool StrEq(const std::string_view& s1, const std::string_view& s2);
 bool isANumber(const char* s);
 uint64_t rnd64(void);
 const std::string sigName(int signo);

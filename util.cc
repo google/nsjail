@@ -215,6 +215,10 @@ bool isANumber(const char* s) {
 	return true;
 }
 
+bool StrEq(const std::string_view& s1, const std::string_view& s2) {
+	return (s1 == s2);
+}
+
 static __thread pthread_once_t rndThreadOnce = PTHREAD_ONCE_INIT;
 static __thread uint64_t rndX;
 
