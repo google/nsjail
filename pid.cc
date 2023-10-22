@@ -54,6 +54,7 @@ bool initNs(nsjconf_t* nsjconf) {
 		return false;
 	}
 	if (pid > 0) {
+		LOG_D("Created a dummy 'init' process with PID=%d", pid);
 		return true;
 	}
 
