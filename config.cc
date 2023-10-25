@@ -316,7 +316,7 @@ bool parseFile(nsjconf_t* nsjconf, const char* file) {
 		return false;
 	}
 
-	SetLogHandler(logHandler);
+	google::protobuf::SetLogHandler(logHandler);
 	google::protobuf::io::FileInputStream input(fd);
 	input.SetCloseOnDelete(true);
 
