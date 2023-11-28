@@ -383,7 +383,7 @@ long setrlimit(int res, const struct rlimit64& newlim) {
 	return util::syscall(__NR_prlimit64, 0, res, (uintptr_t)&newlim, (uintptr_t) nullptr);
 }
 
-long getrlimit(int res, struct rlimit64* curlim) 
+long getrlimit(int res, struct rlimit64* curlim)  {
         *curlim = {};
 	return util::syscall(__NR_prlimit64, 0, res, (uintptr_t) nullptr, (uintptr_t)curlim);
 }
