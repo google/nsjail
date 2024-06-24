@@ -307,15 +307,7 @@ static void logHandler(
 	LOG_W("config.cc: '%s'", message.c_str());
 }
 
-bool parseFile(nsjconf_t* nsjconf, const char* file) {
-	LOG_D("Parsing configuration from '%s'", file);
-
-	int fd = TEMP_FAILURE_RETRY(open(file, O_RDONLY | O_CLOEXEC));
-	if (fd == -1) {
-		PLOG_W("Couldn't open config file '%s'", file);
-		return false;
-	}
-
+bool parseConfig(nsjconf_t* nsjconf, const int fd, const char* file) {
 	google::protobuf::SetLogHandler(logHandler);
 	google::protobuf::io::FileInputStream input(fd);
 	input.SetCloseOnDelete(true);
@@ -335,6 +327,26 @@ bool parseFile(nsjconf_t* nsjconf, const char* file) {
 
 	LOG_D("Parsed config from '%s':\n'%s'", file, nsc.DebugString().c_str());
 	return true;
+}
+
+bool parseStdin(nsjconf_t* nsjconf) {
+	LOG_D("Parsing configuration from STDIN");
+	int fd = TEMP_FAILURE_RETRY(dup(STDIN_FILENO));
+	if (fd == -1) {
+		PLOG_W("Couldn't open config from STDIN");
+		return false;
+	}
+	return parseConfig(nsjconf, fd, "STDIN");
+}
+
+bool parseFile(nsjconf_t* nsjconf, const char* file) {
+	LOG_D("Parsing configuration from '%s'", file);
+	int fd = TEMP_FAILURE_RETRY(open(file, O_RDONLY | O_CLOEXEC));
+	if (fd == -1) {
+		PLOG_W("Couldn't open config file '%s'", file);
+		return false;
+	}
+	return parseConfig(nsjconf, fd, file);
 }
 
 }  // namespace config

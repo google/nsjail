@@ -28,6 +28,7 @@
 
 namespace config {
 
+bool parseStdin(nsjconf_t* nsjconf);
 bool parseFile(nsjconf_t* nsjconf, const char* file);
 
 }  // namespace config

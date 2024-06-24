@@ -347,7 +347,7 @@ The command-line options should be self-explanatory, while the proto-buf config 
 	e: Launch a single process on the console using execve [MODE_STANDALONE_EXECVE]
 	r: Launch a single process on the console with clone/execve, keep doing it forever [MODE_STANDALONE_RERUN]
   --config|-C VALUE
- 	Configuration file in the config.proto ProtoBuf format (see configs/ directory for examples)
+ 	Configuration file in the config.proto ProtoBuf format (see configs/ directory for examples). Interprets '-' as stdin
   --exec_file|-x VALUE
  	File to exec (default: argv[0])
   --execute_fd 

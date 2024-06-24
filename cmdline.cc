@@ -74,7 +74,7 @@ static const struct custom_option custom_opts[] = {
         "  o: [MODE_STANDALONE_ONCE]\n\tLaunch a single process on the console using clone/execve\n"
         "  e: [MODE_STANDALONE_EXECVE]\n\tLaunch a single process on the console using execve\n"
         "  r: [MODE_STANDALONE_RERUN]\n\tLaunch a single process on the console with clone/execve, keep doing it forever" },
-    { { "config", required_argument, nullptr, 'C' }, "Configuration file in the config.proto ProtoBuf format (see configs/ directory for examples)" },
+    { { "config", required_argument, nullptr, 'C' }, "Configuration file in the config.proto ProtoBuf format (see configs/ directory for examples). Interprets '-' as stdin" },
     { { "exec_file", required_argument, nullptr, 'x' }, "File to exec (default: argv[0])" },
     { { "execute_fd", no_argument, nullptr, 0x0607 }, "Use execveat() to execute a file-descriptor instead of executing the binary path. In such case argv[0]/exec_file denotes a file path before mount namespacing" },
     { { "chroot", required_argument, nullptr, 'c' }, "Directory containing / of the jail (default: none)" },
@@ -573,7 +573,13 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char *argv[]) {
 			nsjconf->cwd = optarg;
 			break;
 		case 'C':
-			if (!config::parseFile(nsjconf.get(), optarg)) {
+			bool ok;
+			if (strcmp(optarg, "-") == 0) {
+				ok = config::parseStdin(nsjconf.get());
+			} else {
+				ok = config::parseFile(nsjconf.get(), optarg);
+			}
+			if (!ok) {
 				LOG_F("Couldn't parse configuration from %s file", QC(optarg));
 			}
 			break;
