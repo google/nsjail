@@ -315,7 +315,7 @@ static void flushLog() {
 	for (auto message : error_messages) {
 		LOG_W("config.cc: '%s'", message.c_str());
 	}
-        error_messages.clear();
+	error_messages.clear();
 }
 
 bool parseFile(nsjconf_t* nsjconf, const char* file) {
@@ -363,7 +363,8 @@ bool parseFile(nsjconf_t* nsjconf, const char* file) {
 			LOG_W("Couldn't parse the TextProto from '%s'", file);
 			return false;
 		}
-		LOG_D("Parsed TextProto config from '%s':\n'%s'", file, text_nsc.DebugString().c_str());
+		LOG_D("Parsed TextProto config from '%s':\n'%s'", file,
+		    text_nsc.DebugString().c_str());
 		return true;
 	}
 	return false;
