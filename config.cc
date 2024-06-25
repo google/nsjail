@@ -24,6 +24,7 @@
 #include <fcntl.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/text_format.h>
+#include <google/protobuf/util/json_util.h>
 #include <stdio.h>
 #include <sys/mount.h>
 #include <sys/personality.h>
@@ -32,6 +33,7 @@
 #include <sys/types.h>
 
 #include <fstream>
+#include <list>
 #include <string>
 #include <vector>
 
@@ -302,39 +304,69 @@ static bool parseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& njc) {
 	return true;
 }
 
+static std::list<std::string> error_messages;
+
 static void logHandler(
     google::protobuf::LogLevel level, const char* filename, int line, const std::string& message) {
-	LOG_W("config.cc: '%s'", message.c_str());
+	error_messages.push_back(message);
+}
+
+static void flushLog() {
+	for (auto message : error_messages) {
+		LOG_W("config.cc: '%s'", message.c_str());
+	}
+        error_messages.clear();
 }
 
 bool parseFile(nsjconf_t* nsjconf, const char* file) {
 	LOG_D("Parsing configuration from '%s'", file);
 
-	int fd = TEMP_FAILURE_RETRY(open(file, O_RDONLY | O_CLOEXEC));
-	if (fd == -1) {
+	std::ifstream ifs(file);
+	if (!ifs.is_open()) {
 		PLOG_W("Couldn't open config file '%s'", file);
 		return false;
 	}
 
-	google::protobuf::SetLogHandler(logHandler);
-	google::protobuf::io::FileInputStream input(fd);
-	input.SetCloseOnDelete(true);
+	std::string conf((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));
 
 	/* Use static so we can get c_str() pointers, and copy them into the nsjconf struct */
-	static nsjail::NsJailConfig nsc;
+	static nsjail::NsJailConfig json_nsc;
+	static nsjail::NsJailConfig text_nsc;
 
-	auto parser = google::protobuf::TextFormat::Parser();
-	if (!parser.Parse(&input, &nsc)) {
-		LOG_W("Couldn't parse file '%s' from Text into ProtoBuf", file);
+	google::protobuf::SetLogHandler(logHandler);
+	auto json_status = google::protobuf::util::JsonStringToMessage(conf, &json_nsc);
+	bool text_parsed = google::protobuf::TextFormat::ParseFromString(conf, &text_nsc);
+
+	if (json_status.ok() && text_parsed) {
+		LOG_W("Config file '%s' ambiguously parsed as TextProto and ProtoJSON", file);
 		return false;
 	}
-	if (!parseInternal(nsjconf, nsc)) {
-		LOG_W("Couldn't parse the ProtoBuf from '%s'", file);
+
+	if (!json_status.ok() && !text_parsed) {
+		LOG_W("Config file '%s' failed to parse as either TextProto or ProtoJSON", file);
+		flushLog();
+		LOG_W("config.cc: ProtoJSON parse status: '%s'", json_status.ToString().c_str());
 		return false;
 	}
 
-	LOG_D("Parsed config from '%s':\n'%s'", file, nsc.DebugString().c_str());
-	return true;
+	if (json_status.ok() && !text_parsed) {
+		if (!parseInternal(nsjconf, json_nsc)) {
+			LOG_W("Couldn't parse the ProtoJSON from '%s'", file);
+			return false;
+		}
+		LOG_D("Parsed JSON config from '%s':\n'%s'", file, json_nsc.DebugString().c_str());
+		return true;
+	}
+
+	if (text_parsed && !json_status.ok()) {
+		if (!parseInternal(nsjconf, text_nsc)) {
+			LOG_W("Couldn't parse the TextProto from '%s'", file);
+			return false;
+		}
+		LOG_D("Parsed TextProto config from '%s':\n'%s'", file, text_nsc.DebugString().c_str());
+		return true;
+	}
+	return false;
 }
 
 }  // namespace config
