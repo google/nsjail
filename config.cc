@@ -234,8 +234,7 @@ static bool parseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& njc) {
 
 		if (!mnt::addMountPtTail(nsjconf, src, dst, fstype, options, flags, is_dir,
 			is_mandatory, src_env, dst_env, src_content, is_symlink)) {
-			LOG_E("Couldn't add mountpoint for src:'%s' dst:'%s'", src.c_str(),
-			    dst.c_str());
+			LOG_E("Couldn't add mountpoint for src:%s dst:%s", QC(src), QC(dst));
 			return false;
 		}
 	}
@@ -311,21 +310,21 @@ static void logHandler(
 
 static void flushLog() {
 	for (auto message : error_messages) {
-		LOG_W("config.cc: '%s'", message.c_str());
+		LOG_W("ProtoTextFormat: %s", message.c_str());
 	}
 	error_messages.clear();
 }
 
 bool parseFile(nsjconf_t* nsjconf, const char* file) {
-	LOG_D("Parsing configuration from '%s'", file);
+	LOG_D("Parsing configuration from %s", QC(file));
 
 	std::string conf;
 	if (!util::readFromFileToStr(file, &conf)) {
-		LOG_E("Couldn't read config file '%s'", file);
+		LOG_E("Couldn't read config file %s", QC(file));
 		return false;
 	}
 	if (conf.size() == 0) {
-		LOG_E("Config file '%s' is empty", file);
+		LOG_E("Config file %s is empty", QC(file));
 		return false;
 	}
 
@@ -338,32 +337,33 @@ bool parseFile(nsjconf_t* nsjconf, const char* file) {
 	bool text_parsed = google::protobuf::TextFormat::ParseFromString(conf, &text_nsc);
 
 	if (json_status.ok() && text_parsed) {
-		LOG_W("Config file '%s' ambiguously parsed as TextProto and ProtoJSON", file);
+		LOG_W("Config file %s ambiguously parsed as TextProto and ProtoJSON", QC(file));
 		return false;
 	}
 
 	if (!json_status.ok() && !text_parsed) {
-		LOG_W("Config file '%s' failed to parse as either TextProto or ProtoJSON", file);
+		LOG_W("Config file %s failed to parse as either TextProto or ProtoJSON", QC(file));
 		flushLog();
-		LOG_W("config.cc: ProtoJSON parse status: '%s'", json_status.ToString().c_str());
+		LOG_W("ProtoJSON parse status: '%s'", json_status.ToString().c_str());
 		return false;
 	}
 
 	if (json_status.ok() && !text_parsed) {
 		if (!parseInternal(nsjconf, json_nsc)) {
-			LOG_W("Couldn't parse the ProtoJSON from '%s'", file);
+			LOG_W("Couldn't parse the ProtoJSON from %s", QC(file));
 			return false;
 		}
-		LOG_D("Parsed JSON config from '%s':\n'%s'", file, json_nsc.DebugString().c_str());
+		LOG_D(
+		    "Parsed JSON config from %s:\n'%s'", QC(file), json_nsc.DebugString().c_str());
 		return true;
 	}
 
 	if (text_parsed && !json_status.ok()) {
 		if (!parseInternal(nsjconf, text_nsc)) {
-			LOG_W("Couldn't parse the TextProto from '%s'", file);
+			LOG_W("Couldn't parse the TextProto from %s", QC(file));
 			return false;
 		}
-		LOG_D("Parsed TextProto config from '%s':\n'%s'", file,
+		LOG_D("Parsed TextProto config from %s:\n'%s'", QC(file),
 		    text_nsc.DebugString().c_str());
 		return true;
 	}

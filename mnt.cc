@@ -119,7 +119,7 @@ static bool isDir(const char* path) {
 	}
 	struct stat st;
 	if (stat(path, &st) == -1) {
-		PLOG_D("stat('%s')", path);
+		PLOG_D("stat(%s)", QC(path));
 		return false;
 	}
 	if (S_ISDIR(st.st_mode)) {
@@ -132,9 +132,9 @@ static int mountRWIfPossible(mount_t* mpt, const char* src, const char* dst) {
 	int res =
 	    mount(src, dst, mpt->fs_type.c_str(), mpt->flags & ~(MS_RDONLY), mpt->options.c_str());
 	if ((mpt->flags & MS_RDONLY) && res == -1 && errno == EPERM) {
-		LOG_W("mount('%s') src: '%s' dstpath: '%s' could not mount read-write, falling "
+		LOG_W("mount(%s) src:%s dstpath:%s could not mount read-write, falling "
 		      "back to mounting read-only directly",
-		    describeMountPt(*mpt).c_str(), src, dst);
+		    describeMountPt(*mpt).c_str(), QC(src), QC(dst));
 		res = mount(src, dst, mpt->fs_type.c_str(), mpt->flags, mpt->options.c_str());
 	}
 	return res;
@@ -364,7 +364,7 @@ static bool initNoCloneNs(nsjconf_t* nsjconf) {
 		return true;
 	}
 	if (chroot(nsjconf->chroot.c_str()) == -1) {
-		PLOG_E("chroot('%s')", QC(nsjconf->chroot));
+		PLOG_E("chroot(%s)", QC(nsjconf->chroot));
 		return false;
 	}
 	if (chdir("/") == -1) {
@@ -392,7 +392,7 @@ static bool initCloneNs(nsjconf_t* nsjconf) {
 		return false;
 	}
 	if (mount(NULL, destdir->c_str(), "tmpfs", 0, "size=16777216") == -1) {
-		PLOG_E("mount('%s', 'tmpfs')", QC(*destdir));
+		PLOG_E("mount(%s, 'tmpfs')", QC(*destdir));
 		return false;
 	}
 
