@@ -100,7 +100,7 @@ depend: all
 
 .PHONY: indent
 indent:
-	clang-format -i -sort-includes $(SRCS_H) $(SRCS_CXX) $(SRCS_PROTO)
+	clang-format -i -sort-includes $(SRCS_H) $(SRCS_CXX) $(SRCS_PROTO) configs/*.json
 
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 

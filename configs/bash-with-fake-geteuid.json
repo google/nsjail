@@ -1,170 +1,170 @@
 {
-  "name": "bash-with-fake-geteuid",
-  "description": [
-    "An example/demo policy which allows to execute /bin/bash and other commands in ",
-    "a fairly restricted jail containing only some directories from the main ",
-    "system, and with blocked __NR_syslog syscall. Also, __NR_geteuid returns -1337 ",
-    "value, which /usr/bin/id will show as euid=4294965959, and ptrace is blocked ",
-    "but returns success, hence strange behavior of the strace command. ",
-    "This is an example/demo policy, hence it repeats many default values from the ",
-    "https://github.com/google/nsjail/blob/master/config.proto PB schema "
-  ],
-  "mode": "ONCE",
-  "hostname": "JAILED-BASH",
-  "cwd": "/tmp",
-  "port": 31337,
-  "bindhost": "127.0.0.1",
-  "maxConnsPerIp": 10,
-  "timeLimit": 100,
-  "daemon": false,
-  "maxCpus": 1,
-  "keepEnv": false,
-  "envar": [
-    "ENVAR1=VALUE1",
-    "ENVAR2=VALUE2",
-    "TERM=linux",
-    "HOME=/",
-    "PS1=[\\H:\\t:\\s-\\V:\\w]\\$ "
-  ],
-  "keepCaps": true,
-  "cap": [
-    "CAP_NET_ADMIN",
-    "CAP_NET_RAW"
-  ],
-  "silent": false,
-  "skipSetsid": true,
-  "stderrToNull": false,
-  "passFd": [
-    100,
-    3
-  ],
-  "disableNoNewPrivs": false,
-  "rlimitAs": "128",
-  "rlimitCore": "0",
-  "rlimitCpu": "10",
-  "rlimitFsize": "0",
-  "rlimitNofile": "32",
-  "rlimitNprocType": "SOFT",
-  "rlimitStackType": "SOFT",
-  "personaAddrCompatLayout": false,
-  "personaMmapPageZero": false,
-  "personaReadImpliesExec": false,
-  "personaAddrLimit3gb": false,
-  "personaAddrNoRandomize": false,
-  "cloneNewnet": true,
-  "cloneNewuser": true,
-  "cloneNewns": true,
-  "cloneNewpid": true,
-  "cloneNewipc": true,
-  "cloneNewuts": true,
-  "cloneNewcgroup": true,
-  "uidmap": [
-    {
-      "insideId": "0",
-      "outsideId": "",
-      "count": 1
-    }
-  ],
-  "gidmap": [
-    {
-      "insideId": "0",
-      "outsideId": "",
-      "count": 1
-    }
-  ],
-  "mountProc": false,
-  "mount": [
-    {
-      "src": "/lib",
-      "dst": "/lib",
-      "isBind": true,
-      "rw": false
-    },
-    {
-      "src": "/bin",
-      "dst": "/bin",
-      "isBind": true,
-      "rw": false
-    },
-    {
-      "src": "/sbin",
-      "dst": "/sbin",
-      "isBind": true,
-      "rw": false
-    },
-    {
-      "src": "/usr",
-      "dst": "/usr",
-      "isBind": true,
-      "rw": false
-    },
-    {
-      "src": "/lib64",
-      "dst": "/lib64",
-      "isBind": true,
-      "rw": false,
-      "mandatory": false
-    },
-    {
-      "src": "/lib32",
-      "dst": "/lib32",
-      "isBind": true,
-      "rw": false,
-      "mandatory": false
-    },
-    {
-      "dst": "/tmp",
-      "fstype": "tmpfs",
-      "isBind": false,
-      "rw": true,
-      "nosuid": true,
-      "nodev": true,
-      "noexec": true
-    },
-    {
-      "src": "/dev/null",
-      "dst": "/dev/null",
-      "isBind": true,
-      "rw": true
-    },
-    {
-      "dst": "/proc",
-      "fstype": "proc",
-      "rw": false
-    },
-    {
-      "srcContent": "VGhpcyBmaWxlIHdhcyBjcmVhdGVkIGR5bmFtaWNhbGx5",
-      "dst": "/DYNAMIC_FILE"
-    },
-    {
-      "src": "/nonexistent_777",
-      "dst": "/nonexistent_777",
-      "isBind": true,
-      "mandatory": false
-    },
-    {
-      "src": "/proc/self/fd",
-      "dst": "/dev/fd",
-      "isSymlink": true
-    },
-    {
-      "src": "/some/unimportant/target",
-      "dst": "/proc/no/symlinks/can/be/created/in/proc",
-      "mandatory": false,
-      "isSymlink": true
-    }
-  ],
-  "seccompString": [
-    "ERRNO(1337) { geteuid }\t",
-    "ERRNO(1) { ptrace, sched_setaffinity }\t\t",
-    "KILL_PROCESS { syslog }\t\t",
-    "DEFAULT ALLOW\t\t\t"
-  ],
-  "execBin": {
-    "path": "/bin/bash",
-    "arg": [
-      "-i"
-    ],
-    "arg0": "sh"
-  }
+	"name": "bash-with-fake-geteuid",
+	"description": [
+		"An example/demo policy which allows to execute /bin/bash and other commands in ",
+		"a fairly restricted jail containing only some directories from the main ",
+		"system, and with blocked __NR_syslog syscall. Also, __NR_geteuid returns -1337 ",
+		"value, which /usr/bin/id will show as euid=4294965959, and ptrace is blocked ",
+		"but returns success, hence strange behavior of the strace command. ",
+		"This is an example/demo policy, hence it repeats many default values from the ",
+		"https://github.com/google/nsjail/blob/master/config.proto PB schema "
+	],
+	"mode": "ONCE",
+	"hostname": "JAILED-BASH",
+	"cwd": "/tmp",
+	"port": 31337,
+	"bindhost": "127.0.0.1",
+	"maxConnsPerIp": 10,
+	"timeLimit": 100,
+	"daemon": false,
+	"maxCpus": 1,
+	"keepEnv": false,
+	"envar": [
+		"ENVAR1=VALUE1",
+		"ENVAR2=VALUE2",
+		"TERM=linux",
+		"HOME=/",
+		"PS1=[\\H:\\t:\\s-\\V:\\w]\\$ "
+	],
+	"keepCaps": true,
+	"cap": [
+		"CAP_NET_ADMIN",
+		"CAP_NET_RAW"
+	],
+	"silent": false,
+	"skipSetsid": true,
+	"stderrToNull": false,
+	"passFd": [
+		100,
+		3
+	],
+	"disableNoNewPrivs": false,
+	"rlimitAs": "128",
+	"rlimitCore": "0",
+	"rlimitCpu": "10",
+	"rlimitFsize": "0",
+	"rlimitNofile": "32",
+	"rlimitNprocType": "SOFT",
+	"rlimitStackType": "SOFT",
+	"personaAddrCompatLayout": false,
+	"personaMmapPageZero": false,
+	"personaReadImpliesExec": false,
+	"personaAddrLimit3gb": false,
+	"personaAddrNoRandomize": false,
+	"cloneNewnet": true,
+	"cloneNewuser": true,
+	"cloneNewns": true,
+	"cloneNewpid": true,
+	"cloneNewipc": true,
+	"cloneNewuts": true,
+	"cloneNewcgroup": true,
+	"uidmap": [
+		{
+			"insideId": "0",
+			"outsideId": "",
+			"count": 1
+		}
+	],
+	"gidmap": [
+		{
+			"insideId": "0",
+			"outsideId": "",
+			"count": 1
+		}
+	],
+	"mountProc": false,
+	"mount": [
+		{
+			"src": "/lib",
+			"dst": "/lib",
+			"isBind": true,
+			"rw": false
+		},
+		{
+			"src": "/bin",
+			"dst": "/bin",
+			"isBind": true,
+			"rw": false
+		},
+		{
+			"src": "/sbin",
+			"dst": "/sbin",
+			"isBind": true,
+			"rw": false
+		},
+		{
+			"src": "/usr",
+			"dst": "/usr",
+			"isBind": true,
+			"rw": false
+		},
+		{
+			"src": "/lib64",
+			"dst": "/lib64",
+			"isBind": true,
+			"rw": false,
+			"mandatory": false
+		},
+		{
+			"src": "/lib32",
+			"dst": "/lib32",
+			"isBind": true,
+			"rw": false,
+			"mandatory": false
+		},
+		{
+			"dst": "/tmp",
+			"fstype": "tmpfs",
+			"isBind": false,
+			"rw": true,
+			"nosuid": true,
+			"nodev": true,
+			"noexec": true
+		},
+		{
+			"src": "/dev/null",
+			"dst": "/dev/null",
+			"isBind": true,
+			"rw": true
+		},
+		{
+			"dst": "/proc",
+			"fstype": "proc",
+			"rw": false
+		},
+		{
+			"srcContent": "VGhpcyBmaWxlIHdhcyBjcmVhdGVkIGR5bmFtaWNhbGx5",
+			"dst": "/DYNAMIC_FILE"
+		},
+		{
+			"src": "/nonexistent_777",
+			"dst": "/nonexistent_777",
+			"isBind": true,
+			"mandatory": false
+		},
+		{
+			"src": "/proc/self/fd",
+			"dst": "/dev/fd",
+			"isSymlink": true
+		},
+		{
+			"src": "/some/unimportant/target",
+			"dst": "/proc/no/symlinks/can/be/created/in/proc",
+			"mandatory": false,
+			"isSymlink": true
+		}
+	],
+	"seccompString": [
+		"ERRNO(1337) { geteuid }\t",
+		"ERRNO(1) { ptrace, sched_setaffinity }\t\t",
+		"KILL_PROCESS { syslog }\t\t",
+		"DEFAULT ALLOW\t\t\t"
+	],
+	"execBin": {
+		"path": "/bin/bash",
+		"arg": [
+			"-i"
+		],
+		"arg0": "sh"
+	}
 }
