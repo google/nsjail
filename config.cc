@@ -32,11 +32,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include <fstream>
 #include <list>
-#include <sstream>
 #include <string>
-#include <vector>
 
 #include "caps.h"
 #include "cmdline.h"
