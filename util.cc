@@ -40,6 +40,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <fstream>
 #include <iomanip>
 #include <sstream>
 #include <string>
@@ -86,6 +87,34 @@ bool writeToFd(int fd, const void* buf, size_t len) {
 		}
 		writtenSz += sz;
 	}
+	return true;
+}
+
+bool readFromFileToStr(const char* fname, std::string* str) {
+	std::fstream fs(fname, std::ios::in | std::ios::binary);
+	if (!fs.is_open()) {
+		PLOG_W("Couldn't open file '%s'", fname);
+		return false;
+	}
+
+	str->clear();
+
+	while (fs) {
+		char buf[4096];
+		fs.read(buf, sizeof(buf));
+		std::streamsize sz = fs.gcount();
+		if (sz > 0) {
+			str->append(buf, sz);
+		}
+		if (fs.eof()) {
+			return true;
+		}
+		if (fs.bad() || fs.fail()) {
+			PLOG_W("Reading from '%s' failed", fname);
+			return false;
+		}
+	}
+
 	return true;
 }
 

@@ -34,6 +34,7 @@
 
 #include <fstream>
 #include <list>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -321,13 +322,15 @@ static void flushLog() {
 bool parseFile(nsjconf_t* nsjconf, const char* file) {
 	LOG_D("Parsing configuration from '%s'", file);
 
-	std::ifstream ifs(file);
-	if (!ifs.is_open()) {
-		PLOG_W("Couldn't open config file '%s'", file);
+	std::string conf;
+	if (!util::readFromFileToStr(file, &conf)) {
+		LOG_E("Couldn't read config file '%s'", file);
 		return false;
 	}
-
-	std::string conf((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));
+	if (conf.size() == 0) {
+		LOG_E("Config file '%s' is empty", file);
+		return false;
+	}
 
 	/* Use static so we can get c_str() pointers, and copy them into the nsjconf struct */
 	static nsjail::NsJailConfig json_nsc;

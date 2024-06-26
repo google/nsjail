@@ -54,6 +54,7 @@ namespace util {
 
 ssize_t readFromFd(int fd, void* buf, size_t len);
 ssize_t readFromFile(const char* fname, void* buf, size_t len);
+bool readFromFileToStr(const char* fname, std::string* str);
 bool writeToFd(int fd, const void* buf, size_t len);
 bool writeBufToFile(
     const char* filename, const void* buf, size_t len, int open_flags, bool log_errors = true);
