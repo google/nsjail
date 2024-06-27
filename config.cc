@@ -342,7 +342,7 @@ bool parseFile(nsjconf_t* nsjconf, const char* file) {
 	}
 
 	if (!json_status.ok() && !text_parsed) {
-		LOG_W("Config file %s failed to parse as either TextProto or ProtoJSON", QC(file));
+		LOG_E("Config file %s failed to parse as either TextProto or ProtoJSON", QC(file));
 		flushLog();
 		LOG_W("ProtoJSON parse status: '%s'", json_status.ToString().c_str());
 		return false;
