@@ -323,7 +323,7 @@ bool parseFile(nsjconf_t* nsjconf, const char* file) {
 		LOG_E("Couldn't read config file %s", QC(file));
 		return false;
 	}
-	if (conf.size() == 0) {
+	if (conf.empty()) {
 		LOG_E("Config file %s is empty", QC(file));
 		return false;
 	}
