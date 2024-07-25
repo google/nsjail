@@ -558,7 +558,7 @@ To launch nsjail in a docker container clone the repository and build the docker
 docker build -t nsjailcontainer .
 </pre>
 
-This will build up an image containing njsail and kafel.
+This will build up an image containing nsjail and kafel.
 
 From now you can either use it in another Dockerfile (`FROM nsjailcontainer`) or directly:
 <pre>
