@@ -1,6 +1,16 @@
-FROM ubuntu:18.04
+FROM debian:bookworm-slim AS base
 
+# Install run-time dependencies in base image
 RUN apt-get -y update && apt-get install -y \
+    libc6 \
+    libstdc++6 \
+    libprotobuf32 \
+    libnl-route-3-200
+
+FROM base AS build
+
+# Install build dependencies only in builder image
+RUN apt-get install -y \
     autoconf \
     bison \
     flex \
@@ -12,9 +22,14 @@ RUN apt-get -y update && apt-get install -y \
     libtool \
     make \
     pkg-config \
-    protobuf-compiler \
-    && rm -rf /var/lib/apt/lists/*
+    protobuf-compiler
 
 COPY . /nsjail
 
-RUN cd /nsjail && make && mv /nsjail/nsjail /bin && rm -rf -- /nsjail
+RUN cd /nsjail && make clean && make
+
+FROM base AS run
+
+# Copy over build result and trim image
+RUN rm -rf /var/lib/apt/lists/*
+COPY --from=build /nsjail/nsjail /bin
