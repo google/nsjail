@@ -521,8 +521,7 @@ bool initNs(nsjconf_t* nsjconf) {
 	}
 
 	int status;
-	while (wait4(pid, &status, 0, NULL) != pid)
-		;
+	while (wait4(pid, &status, 0, NULL) != pid);
 	if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
 		return true;
 	}

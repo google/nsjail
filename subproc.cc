@@ -219,7 +219,7 @@ static void newProc(nsjconf_t* nsjconf, int netfd, int fd_in, int fd_out, int fd
 
 	if (nsjconf->use_execveat) {
 #if defined(__NR_execveat)
-		util::syscall(__NR_execveat, nsjconf->exec_fd, (uintptr_t) "",
+		util::syscall(__NR_execveat, nsjconf->exec_fd, (uintptr_t)"",
 		    (uintptr_t)argv.data(), (uintptr_t)environ, AT_EMPTY_PATH);
 #else  /* defined(__NR_execveat) */
 		LOG_E("Your system doesn't support execveat() syscall");

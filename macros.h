@@ -38,7 +38,6 @@
 #define ARR_SZ(array) (sizeof(array) / sizeof(*array))
 #endif /* !defined(ARR_SZ) */
 
-#define NS_VALSTR_STRUCT(x)                                                                        \
-	{ (uint64_t) x, #x }
+#define NS_VALSTR_STRUCT(x) {(uint64_t)x, #x}
 
 #endif /* NS_COMMON_H */

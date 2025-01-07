@@ -409,12 +409,12 @@ long syscall(long sysno, uintptr_t a0, uintptr_t a1, uintptr_t a2, uintptr_t a3,
 }
 
 long setrlimit(int res, const struct rlimit64& newlim) {
-	return util::syscall(__NR_prlimit64, 0, res, (uintptr_t)&newlim, (uintptr_t) nullptr);
+	return util::syscall(__NR_prlimit64, 0, res, (uintptr_t)&newlim, (uintptr_t)nullptr);
 }
 
 long getrlimit(int res, struct rlimit64* curlim) {
 	*curlim = {};
-	return util::syscall(__NR_prlimit64, 0, res, (uintptr_t) nullptr, (uintptr_t)curlim);
+	return util::syscall(__NR_prlimit64, 0, res, (uintptr_t)nullptr, (uintptr_t)curlim);
 }
 
 }  // namespace util
