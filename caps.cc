@@ -36,7 +36,7 @@
 #include "util.h"
 
 #if !defined(CAP_AUDIT_READ)
-#define CAP_AUDICAP_AUDIT_READ 37
+#define CAP_AUDIT_READ 37
 #endif /* !defined(CAP_AUDIT_READ) */
 #if !defined(CAP_PERFMON)
 #define CAP_PERFMON 38
