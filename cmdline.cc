@@ -546,7 +546,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char *argv[]) {
 	nsjconf->openfds.push_back(STDERR_FILENO);
 
 	/* Generate options array for getopt_long. */
-	size_t options_length = ARR_SZ(custom_opts) + 1;
+	const size_t options_length = ARR_SZ(custom_opts) + 1;
 	struct option opts[options_length];
 	for (unsigned i = 0; i < ARR_SZ(custom_opts); i++) {
 		opts[i] = custom_opts[i].opt;
