@@ -34,7 +34,6 @@
 
 #include <list>
 #include <string>
-#include <version>
 
 #include "caps.h"
 #include "cmdline.h"
