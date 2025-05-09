@@ -34,6 +34,7 @@
 
 #include <list>
 #include <string>
+#include <version>
 
 #include "caps.h"
 #include "cmdline.h"
@@ -301,12 +302,20 @@ static bool parseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& njc) {
 	return true;
 }
 
+#if defined(GOOGLE_PROTOBUF_VERSION) && GOOGLE_PROTOBUF_VERSION < 4000000
+#define NSJAIL_HAS_PROTOBUF_LOG_HANDLER 1
+#else
+#define NSJAIL_HAS_PROTOBUF_LOG_HANDLER 0
+#endif
+
 static std::list<std::string> error_messages;
 
+#if NSJAIL_HAS_PROTOBUF_LOG_HANDLER
 static void logHandler(
     google::protobuf::LogLevel level, const char* filename, int line, const std::string& message) {
 	error_messages.push_back(message);
 }
+#endif /* NSJAIL_HAS_PROTOBUF_LOG_HANDLER */
 
 static void flushLog() {
 	for (auto message : error_messages) {
@@ -332,7 +341,9 @@ bool parseFile(nsjconf_t* nsjconf, const char* file) {
 	static nsjail::NsJailConfig json_nsc;
 	static nsjail::NsJailConfig text_nsc;
 
+#if NSJAIL_HAS_PROTOBUF_LOG_HANDLER
 	google::protobuf::SetLogHandler(logHandler);
+#endif /* NSJAIL_HAS_PROTOBUF_LOG_HANDLER */
 	auto json_status = google::protobuf::util::JsonStringToMessage(conf, &json_nsc);
 	bool text_parsed = google::protobuf::TextFormat::ParseFromString(conf, &text_nsc);
 
