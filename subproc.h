@@ -37,7 +37,8 @@ namespace subproc {
 pid_t runChild(nsjconf_t* nsjconf, int listen_fd, int fd_in, int fd_out, int fd_err);
 int countProc(nsjconf_t* nsjconf);
 void displayProc(nsjconf_t* nsjconf);
-void killAndReapAll(nsjconf_t* nsjconf, int signal);
+void sendSignalAll(nsjconf_t* nsjconf, int signal);
+void reapAll(nsjconf_t* nsjconf);
 /* Returns the exit code of the first failing subprocess, or 0 if none fail */
 int reapProc(nsjconf_t* nsjconf);
 int systemExe(const std::vector<std::string>& args, char** env);

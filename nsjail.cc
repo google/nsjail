@@ -50,7 +50,7 @@
 
 namespace nsjail {
 
-static __thread std::atomic<int> sigFatal(0);
+static __thread std::atomic<uint64_t> pendingSignals(0);
 static __thread std::atomic<bool> showProc(false);
 
 static void sigHandler(int sig) {
@@ -61,7 +61,7 @@ static void sigHandler(int sig) {
 		showProc = true;
 		return;
 	}
-	sigFatal = sig;
+	pendingSignals.fetch_or(1 << sig);
 }
 
 static bool setSigHandler(int sig) {
@@ -146,7 +146,7 @@ static bool pipeTraffic(nsjconf_t* nsjconf, int listenfd) {
 	});
 	LOG_D("Waiting for fd activity");
 	while (poll(fds.data(), fds.size(), -1) > 0) {
-		if (sigFatal > 0 || showProc) {
+		if (pendingSignals > 0 || showProc) {
 			return false;
 		}
 		if (fds.back().revents != 0) {
@@ -223,12 +223,26 @@ static int listenMode(nsjconf_t* nsjconf) {
 		return EXIT_FAILURE;
 	}
 	for (;;) {
-		if (sigFatal > 0) {
-			subproc::killAndReapAll(
-			    nsjconf, nsjconf->forward_signals ? sigFatal.load() : SIGKILL);
-			logs::logStop(sigFatal);
-			close(listenfd);
-			return EXIT_SUCCESS;
+		if (pendingSignals > 0) {
+			uint64_t sigs = pendingSignals.exchange(0);
+			if (!nsjconf->forward_signals) {
+				subproc::sendSignalAll(nsjconf, SIGKILL);
+				logs::logStop(SIGKILL);
+				close(listenfd);
+				return EXIT_SUCCESS;
+			}
+
+			for (uint64_t i = 0; i < 64; i++) {
+				int signal = (sigs >> i) & 0x1 ? (int)i : -1;
+				if (signal == -1)
+					continue;
+				subproc::sendSignalAll(nsjconf, signal);
+				logs::logStop(signal);
+				if (signal == SIGKILL) {
+					close(listenfd);
+					return EXIT_SUCCESS;
+				}
+			}
 		}
 		if (showProc) {
 			showProc = false;
@@ -287,11 +301,26 @@ static int standaloneMode(nsjconf_t* nsjconf) {
 				showProc = false;
 				subproc::displayProc(nsjconf);
 			}
-			if (sigFatal > 0) {
-				subproc::killAndReapAll(
-				    nsjconf, nsjconf->forward_signals ? sigFatal.load() : SIGKILL);
-				logs::logStop(sigFatal);
-				return (128 + sigFatal);
+			if (pendingSignals > 0) {
+				uint64_t sigs = pendingSignals.exchange(0);
+				if (nsjconf->forward_signals) {
+						for (uint64_t i = 1; i < 64; i++) {
+							int signal = (sigs >> i) & 0x1 ? (int)i : -1;
+							if (signal == -1)
+								continue;
+							subproc::sendSignalAll(nsjconf, signal);
+							logs::logStop(signal);
+							if (signal == SIGKILL) {
+								subproc::reapAll(nsjconf);
+								return (128 + SIGKILL);
+							}
+						}
+				} else {
+						subproc::sendSignalAll(nsjconf, SIGKILL);
+						subproc::reapAll(nsjconf);
+						logs::logStop(SIGKILL);
+						return (128 + SIGKILL);
+				}
 			}
 			pause();
 		}
