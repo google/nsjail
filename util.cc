@@ -25,6 +25,9 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#if __has_include(<linux/close_range.h>)
+#include <linux/close_range.h>
+#endif	// __has_include(<linux/close_range.h>)
 #include <pthread.h>
 #include <signal.h>
 #include <stdarg.h>
@@ -415,6 +418,19 @@ long setrlimit(int res, const struct rlimit64& newlim) {
 long getrlimit(int res, struct rlimit64* curlim) {
 	*curlim = {};
 	return util::syscall(__NR_prlimit64, 0, res, (uintptr_t)nullptr, (uintptr_t)curlim);
+}
+
+bool makeRangeCOE(unsigned int first [[maybe_unused]], unsigned int last [[maybe_unused]]) {
+#if defined(CLOSE_RANGE_CLOEXEC) && defined(__NR_close_range)
+	if (util::syscall(__NR_close_range, first, last, CLOSE_RANGE_CLOEXEC) == -1) {
+		if (errno != ENOSYS) {
+			PLOG_E("close_range(first=%u, last=%u, CLOSE_RANGE_CLOEXEC)", first, last);
+		}
+		return false;
+	}
+	return true;
+#endif	// defined(CLOSE_RANGE_CLOEXEC) && defined(__NR_close_range)
+	return false;
 }
 
 }  // namespace util

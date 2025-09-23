@@ -74,6 +74,7 @@ long syscall(long sysno, uintptr_t a0 = 0, uintptr_t a1 = 0, uintptr_t a2 = 0, u
     uintptr_t a4 = 0, uintptr_t a5 = 0);
 long setrlimit(int res, const struct rlimit64& newlim);
 long getrlimit(int res, struct rlimit64* curlim);
+bool makeRangeCOE(unsigned int first, unsigned int last);
 
 }  // namespace util
 

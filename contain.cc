@@ -198,6 +198,41 @@ static bool containPassFd(nsjconf_t* nsjconf, int fd) {
 		nsjconf->openfds.end());
 }
 
+static bool containMakeFdCOE(int fd, bool pass_fd) {
+	int flags = TEMP_FAILURE_RETRY(fcntl(fd, F_GETFD, 0));
+	if (flags == -1) {
+		if (errno == EBADF) {
+			return true;
+		}
+		PLOG_W("fcntl(fd=%d, F_GETFD, 0)", fd);
+		return false;
+	}
+
+	if (pass_fd) {
+		LOG_D("fd=%d will be passed to the child process", fd);
+		if (TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags & ~(FD_CLOEXEC))) == -1) {
+			PLOG_E("Could not set FD_CLOEXEC for fd=%d", fd);
+			return false;
+		}
+	} else {
+		LOG_D("fd=%d will be closed before execve()", fd);
+		if (TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags | FD_CLOEXEC)) == -1) {
+			PLOG_E("Could not set FD_CLOEXEC for fd=%d", fd);
+			return false;
+		}
+	}
+
+	return true;
+}
+
+static bool containMakeFdsCOECloseRange(nsjconf_t* nsjconf) {
+	RETURN_ON_FAILURE(util::makeRangeCOE(0U, ~0U));
+	for (const auto fd : nsjconf->openfds) {
+		RETURN_ON_FAILURE(containMakeFdCOE(fd, /* pass_fd= */ true));
+	}
+	return true;
+}
+
 static bool containMakeFdsCOENaive(nsjconf_t* nsjconf) {
 	/*
 	 * Don't use getrlimit(RLIMIT_NOFILE) here, as it can return an artifically small value
@@ -205,26 +240,7 @@ static bool containMakeFdsCOENaive(nsjconf_t* nsjconf) {
 	 * in this process. Just use some reasonably sane value (e.g. 1024)
 	 */
 	for (unsigned fd = 0; fd < 1024; fd++) {
-		int flags = TEMP_FAILURE_RETRY(fcntl(fd, F_GETFD, 0));
-		if (flags == -1 && errno == EBADF) {
-			continue;
-		}
-		if (flags == -1) {
-			PLOG_E("Couldn't get flags for fd=%d", fd)
-			return false;
-		}
-		if (containPassFd(nsjconf, fd)) {
-			LOG_D("fd=%d will be passed to the child process", fd);
-			if (TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags & ~(FD_CLOEXEC))) == -1) {
-				PLOG_E("Could not set FD_CLOEXEC for fd=%d", fd);
-				return false;
-			}
-		} else {
-			if (TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags | FD_CLOEXEC)) == -1) {
-				PLOG_E("Could not set FD_CLOEXEC for fd=%d", fd);
-				return false;
-			}
-		}
+		RETURN_ON_FAILURE(containMakeFdCOE(fd, containPassFd(nsjconf, fd)));
 	}
 	return true;
 }
@@ -271,27 +287,16 @@ static bool containMakeFdsCOEProc(nsjconf_t* nsjconf) {
 			closedir(dir);
 			return false;
 		}
-		if (containPassFd(nsjconf, fd)) {
-			LOG_D("fd=%d will be passed to the child process", fd);
-			if (TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags & ~(FD_CLOEXEC))) == -1) {
-				PLOG_E("Could not clear FD_CLOEXEC for fd=%d", fd);
-				closedir(dir);
-				return false;
-			}
-		} else {
-			LOG_D("fd=%d will be closed before execve()", fd);
-			if (TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags | FD_CLOEXEC)) == -1) {
-				PLOG_E("Could not set FD_CLOEXEC for fd=%d", fd);
-				closedir(dir);
-				return false;
-			}
-		}
+		RETURN_ON_FAILURE(containMakeFdCOE(fd, containPassFd(nsjconf, fd)));
 	}
 	closedir(dir);
 	return true;
 }
 
 static bool containMakeFdsCOE(nsjconf_t* nsjconf) {
+	if (containMakeFdsCOECloseRange(nsjconf)) {
+		return true;
+	}
 	if (containMakeFdsCOEProc(nsjconf)) {
 		return true;
 	}
