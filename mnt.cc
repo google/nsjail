@@ -57,7 +57,7 @@ static const std::string flagsToStr(unsigned long flags) {
 	std::string res;
 
 	struct {
-		const unsigned long flag;
+		uint32_t flag;
 		const char* const name;
 	} static const mountFlags[] = {
 	    NS_VALSTR_STRUCT(MS_RDONLY),
@@ -88,7 +88,7 @@ static const std::string flagsToStr(unsigned long flags) {
 	    NS_VALSTR_STRUCT(MS_ACTIVE),
 #endif /* defined(MS_ACTIVE) */
 #if defined(MS_NOUSER)
-	    NS_VALSTR_STRUCT(MS_NOUSER),
+	    NS_VALSTR_STRUCT((uint32_t)MS_NOUSER),  // defined as (1<<31)
 #endif /* defined(MS_NOUSER) */
 	};
 
