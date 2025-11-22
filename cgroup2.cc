@@ -41,7 +41,7 @@
 
 namespace cgroup2 {
 
-static bool addPidToProcList(const std::string &cgroup_path, pid_t pid) {
+static bool addPidToProcList(const std::string& cgroup_path, pid_t pid) {
 	std::string pid_str = std::to_string(pid);
 
 	LOG_D("Adding pid='%s' to cgroup.procs", pid_str.c_str());
@@ -53,14 +53,14 @@ static bool addPidToProcList(const std::string &cgroup_path, pid_t pid) {
 	return true;
 }
 
-static std::string getCgroupPath(nsjconf_t *nsjconf, pid_t pid) {
+static std::string getCgroupPath(nsjconf_t* nsjconf, pid_t pid) {
 	return nsjconf->cgroupv2_mount + "/NSJAIL." + std::to_string(pid);
 }
-static std::string getJailCgroupPath(nsjconf_t *nsjconf) {
+static std::string getJailCgroupPath(nsjconf_t* nsjconf) {
 	return nsjconf->cgroupv2_mount + "/NSJAIL_SELF." + std::to_string(getpid());
 }
 
-static bool createCgroup(const std::string &cgroup_path, pid_t pid) {
+static bool createCgroup(const std::string& cgroup_path, pid_t pid) {
 	LOG_D("Create '%s' for pid=%d", cgroup_path.c_str(), (int)pid);
 	if (mkdir(cgroup_path.c_str(), 0700) == -1 && errno != EEXIST) {
 		PLOG_W("mkdir('%s', 0700) failed", cgroup_path.c_str());
@@ -69,7 +69,7 @@ static bool createCgroup(const std::string &cgroup_path, pid_t pid) {
 	return true;
 }
 
-static bool moveSelfIntoChildCgroup(nsjconf_t *nsjconf) {
+static bool moveSelfIntoChildCgroup(nsjconf_t* nsjconf) {
 	/*
 	 * Move ourselves into another group to avoid the 'No internal processes' rule
 	 * https://unix.stackexchange.com/a/713343
@@ -81,7 +81,7 @@ static bool moveSelfIntoChildCgroup(nsjconf_t *nsjconf) {
 	return true;
 }
 
-static bool enableCgroupSubtree(nsjconf_t *nsjconf, const std::string &controller, pid_t pid) {
+static bool enableCgroupSubtree(nsjconf_t* nsjconf, const std::string& controller, pid_t pid) {
 	std::string cgroup_path = nsjconf->cgroupv2_mount;
 	LOG_D("Enable cgroup.subtree_control +'%s' to '%s' for pid=%d", controller.c_str(),
 	    cgroup_path.c_str(), pid);
@@ -113,7 +113,7 @@ static bool enableCgroupSubtree(nsjconf_t *nsjconf, const std::string &controlle
 }
 
 static bool writeToCgroup(
-    const std::string &cgroup_path, const std::string &resource, const std::string &value) {
+    const std::string& cgroup_path, const std::string& resource, const std::string& value) {
 	LOG_I("Setting '%s' to '%s'", resource.c_str(), value.c_str());
 
 	if (!util::writeBufToFile(
@@ -124,14 +124,14 @@ static bool writeToCgroup(
 	return true;
 }
 
-static void removeCgroup(const std::string &cgroup_path) {
+static void removeCgroup(const std::string& cgroup_path) {
 	LOG_D("Remove '%s'", cgroup_path.c_str());
 	if (rmdir(cgroup_path.c_str()) == -1) {
 		PLOG_W("rmdir('%s') failed", cgroup_path.c_str());
 	}
 }
 
-static bool needMemoryController(nsjconf_t *nsjconf) {
+static bool needMemoryController(nsjconf_t* nsjconf) {
 	/*
 	 * Check if we need 'memory'
 	 * This matches the check in initNsFromParentMem()
@@ -146,11 +146,11 @@ static bool needMemoryController(nsjconf_t *nsjconf) {
 	return true;
 }
 
-static bool needPidsController(nsjconf_t *nsjconf) {
+static bool needPidsController(nsjconf_t* nsjconf) {
 	return nsjconf->cgroup_pids_max != 0;
 }
 
-static bool needCpuController(nsjconf_t *nsjconf) {
+static bool needCpuController(nsjconf_t* nsjconf) {
 	return nsjconf->cgroup_cpu_ms_per_sec != 0U;
 }
 
@@ -160,7 +160,7 @@ static bool needCpuController(nsjconf_t *nsjconf) {
  */
 #define SUBTREE_CONTROL_BUF_LEN 0x40
 
-bool setup(nsjconf_t *nsjconf) {
+bool setup(nsjconf_t* nsjconf) {
 	/*
 	 * Read from cgroup.subtree_control in the root to see if
 	 * the controllers we need are there.
@@ -195,7 +195,7 @@ bool setup(nsjconf_t *nsjconf) {
 	return true;
 }
 
-bool detectCgroupv2(nsjconf_t *nsjconf) {
+bool detectCgroupv2(nsjconf_t* nsjconf) {
 	/*
 	 * Check cgroupv2_mount, if it is a cgroup2 mount, use it.
 	 */
@@ -209,7 +209,7 @@ bool detectCgroupv2(nsjconf_t *nsjconf) {
 	return true;
 }
 
-static bool initNsFromParentMem(nsjconf_t *nsjconf, pid_t pid) {
+static bool initNsFromParentMem(nsjconf_t* nsjconf, pid_t pid) {
 	ssize_t swap_max = nsjconf->cgroup_mem_swap_max;
 	if (nsjconf->cgroup_mem_memsw_max > (size_t)0) {
 		swap_max = nsjconf->cgroup_mem_memsw_max - nsjconf->cgroup_mem_max;
@@ -236,7 +236,7 @@ static bool initNsFromParentMem(nsjconf_t *nsjconf, pid_t pid) {
 	return true;
 }
 
-static bool initNsFromParentPids(nsjconf_t *nsjconf, pid_t pid) {
+static bool initNsFromParentPids(nsjconf_t* nsjconf, pid_t pid) {
 	if (nsjconf->cgroup_pids_max == 0U) {
 		return true;
 	}
@@ -246,7 +246,7 @@ static bool initNsFromParentPids(nsjconf_t *nsjconf, pid_t pid) {
 	return writeToCgroup(cgroup_path, "pids.max", std::to_string(nsjconf->cgroup_pids_max));
 }
 
-static bool initNsFromParentCpu(nsjconf_t *nsjconf, pid_t pid) {
+static bool initNsFromParentCpu(nsjconf_t* nsjconf, pid_t pid) {
 	if (nsjconf->cgroup_cpu_ms_per_sec == 0U) {
 		return true;
 	}
@@ -265,13 +265,13 @@ static bool initNsFromParentCpu(nsjconf_t *nsjconf, pid_t pid) {
 	return writeToCgroup(cgroup_path, "cpu.max", cpu_ms_per_sec_str);
 }
 
-bool initNsFromParent(nsjconf_t *nsjconf, pid_t pid) {
+bool initNsFromParent(nsjconf_t* nsjconf, pid_t pid) {
 	RETURN_ON_FAILURE(initNsFromParentMem(nsjconf, pid));
 	RETURN_ON_FAILURE(initNsFromParentPids(nsjconf, pid));
 	return initNsFromParentCpu(nsjconf, pid);
 }
 
-void finishFromParent(nsjconf_t *nsjconf, pid_t pid) {
+void finishFromParent(nsjconf_t* nsjconf, pid_t pid) {
 	if (nsjconf->cgroup_mem_max != (size_t)0 || nsjconf->cgroup_pids_max != 0U ||
 	    nsjconf->cgroup_cpu_ms_per_sec != 0U) {
 		removeCgroup(getCgroupPath(nsjconf, pid));

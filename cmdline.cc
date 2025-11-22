@@ -62,7 +62,7 @@ namespace cmdline {
 
 struct custom_option {
 	const struct option opt;
-	const char *const descr;
+	const char* const descr;
 };
 
 // clang-format off
@@ -173,11 +173,11 @@ static const struct custom_option custom_opts[] = {
 };
 // clang-format on
 
-static const char *logYesNo(bool yes) {
+static const char* logYesNo(bool yes) {
 	return (yes ? "true" : "false");
 }
 
-size_t GetConsoleLength(const std::string &str) {
+size_t GetConsoleLength(const std::string& str) {
 	int result = 0;
 	for (char c : str) {
 		if (c == '\t') {
@@ -189,13 +189,13 @@ size_t GetConsoleLength(const std::string &str) {
 	return result;
 }
 
-std::string FormatLine(const std::string &line, size_t max_len = 80) {
+std::string FormatLine(const std::string& line, size_t max_len = 80) {
 	std::string indent = line.substr(0, line.find_first_not_of(" \t"));
 	size_t indent_len = GetConsoleLength(indent);
 	size_t cursor = 0;
 	std::string formatted;
 	std::vector<std::string> words = util::strSplit(line.c_str(), ' ');
-	for (const auto &word : words) {
+	for (const auto& word : words) {
 		size_t wlen = GetConsoleLength(word);
 		std::string separator = cursor == 0 ? "" : " ";
 		size_t slen = GetConsoleLength(separator);
@@ -211,17 +211,17 @@ std::string FormatLine(const std::string &line, size_t max_len = 80) {
 	return formatted;
 }
 
-std::string FormatDescription(const char *descr) {
+std::string FormatDescription(const char* descr) {
 	std::string formatted;
 	std::vector<std::string> lines = util::strSplit(descr, '\n');
 
-	for (const auto &line : lines) {
+	for (const auto& line : lines) {
 		util::StrAppend(&formatted, "%s\n", FormatLine(std::string("\t") + line).c_str());
 	}
 	return formatted;
 }
 
-static void cmdlineOptUsage(const struct custom_option *option) {
+static void cmdlineOptUsage(const struct custom_option* option) {
 	if (option->opt.val < 0x80) {
 		LOG_HELP_BOLD(" --%s%s%c %s", option->opt.name, "|-", option->opt.val,
 		    option->opt.has_arg == required_argument ? "VALUE" : "");
@@ -232,7 +232,7 @@ static void cmdlineOptUsage(const struct custom_option *option) {
 	LOG_HELP("%s", FormatDescription(option->descr).c_str());
 }
 
-static void cmdlineUsage(const char *pname) {
+static void cmdlineUsage(const char* pname) {
 	LOG_HELP_BOLD("Usage: %s [options] -- path_to_command [args]", pname);
 	LOG_HELP_BOLD("Options:");
 	for (size_t i = 0; i < ARR_SZ(custom_opts); i++) {
@@ -249,12 +249,12 @@ static void cmdlineUsage(const char *pname) {
 	LOG_HELP_BOLD("  nsjail -Me --chroot / --disable_proc -- /bin/echo \"ABC\"");
 }
 
-void addEnv(nsjconf_t *nsjconf, const std::string &env) {
+void addEnv(nsjconf_t* nsjconf, const std::string& env) {
 	if (env.find('=') != std::string::npos) {
 		nsjconf->envs.push_back(env);
 		return;
 	}
-	char *e = getenv(env.c_str());
+	char* e = getenv(env.c_str());
 	if (!e) {
 		LOG_W("Requested to use the %s envar, but it's not set. It'll be ignored", QC(env));
 		return;
@@ -262,7 +262,7 @@ void addEnv(nsjconf_t *nsjconf, const std::string &env) {
 	nsjconf->envs.push_back(std::string(env).append("=").append(e));
 }
 
-void logParams(nsjconf_t *nsjconf) {
+void logParams(nsjconf_t* nsjconf) {
 	switch (nsjconf->mode) {
 	case MODE_LISTEN_TCP:
 		LOG_I("Mode: LISTEN_TCP");
@@ -301,11 +301,11 @@ void logParams(nsjconf_t *nsjconf) {
 	    logYesNo(nsjconf->keep_caps), logYesNo(nsjconf->disable_no_new_privs),
 	    nsjconf->max_cpus);
 
-	for (const auto &p : nsjconf->mountpts) {
+	for (const auto& p : nsjconf->mountpts) {
 		LOG_I(
 		    "%s: %s", p.is_symlink ? "Symlink" : "Mount", mnt::describeMountPt(p).c_str());
 	}
-	for (const auto &uid : nsjconf->uids) {
+	for (const auto& uid : nsjconf->uids) {
 		LOG_I("Uid map: inside_uid:%lu outside_uid:%lu count:%zu newuidmap:%s",
 		    (unsigned long)uid.inside_id, (unsigned long)uid.outside_id, uid.count,
 		    uid.is_newidmap ? "true" : "false");
@@ -315,7 +315,7 @@ void logParams(nsjconf_t *nsjconf) {
 			      "have user root-level access to files");
 		}
 	}
-	for (const auto &gid : nsjconf->gids) {
+	for (const auto& gid : nsjconf->gids) {
 		LOG_I("Gid map: inside_gid:%lu outside_gid:%lu count:%zu newgidmap:%s",
 		    (unsigned long)gid.inside_id, (unsigned long)gid.outside_id, gid.count,
 		    gid.is_newidmap ? "true" : "false");
@@ -327,7 +327,7 @@ void logParams(nsjconf_t *nsjconf) {
 	}
 }
 
-uint64_t parseRLimit(int res, const char *optarg, unsigned long mul) {
+uint64_t parseRLimit(int res, const char* optarg, unsigned long mul) {
 	if (strcasecmp(optarg, "inf") == 0) {
 		return RLIM64_INFINITY;
 	}
@@ -355,14 +355,14 @@ uint64_t parseRLimit(int res, const char *optarg, unsigned long mul) {
 	return val * mul;
 }
 
-static std::string argFromVec(const std::vector<std::string> &vec, size_t pos) {
+static std::string argFromVec(const std::vector<std::string>& vec, size_t pos) {
 	if (pos >= vec.size()) {
 		return "";
 	}
 	return vec[pos];
 }
 
-static bool setupArgv(nsjconf_t *nsjconf, int argc, char **argv, int optind) {
+static bool setupArgv(nsjconf_t* nsjconf, int argc, char** argv, int optind) {
 	/*
 	 * If user provided cmdline via nsjail [opts] -- [cmdline], then override
 	 * the one from the config file
@@ -399,7 +399,7 @@ static bool setupArgv(nsjconf_t *nsjconf, int argc, char **argv, int optind) {
 	return true;
 }
 
-static bool setupMounts(nsjconf_t *nsjconf) {
+static bool setupMounts(nsjconf_t* nsjconf) {
 	if (!(nsjconf->chroot.empty())) {
 		if (!mnt::addMountPtHead(nsjconf, nsjconf->chroot, "/", /* fstype= */ "",
 			/* options= */ "",
@@ -434,7 +434,7 @@ static bool setupMounts(nsjconf_t *nsjconf) {
 	return true;
 }
 
-void setupUsers(nsjconf_t *nsjconf) {
+void setupUsers(nsjconf_t* nsjconf) {
 	if (nsjconf->uids.empty()) {
 		idmap_t uid;
 		uid.inside_id = getuid();
@@ -453,7 +453,7 @@ void setupUsers(nsjconf_t *nsjconf) {
 	}
 }
 
-std::string parseMACVlanMode(const char *optarg) {
+std::string parseMACVlanMode(const char* optarg) {
 	if (strcasecmp(optarg, "private") != 0 && strcasecmp(optarg, "vepa") != 0 &&
 	    strcasecmp(optarg, "bridge") != 0 && strcasecmp(optarg, "passthru") != 0) {
 		LOG_F("macvlan mode can only be one of the values: "
@@ -464,7 +464,7 @@ std::string parseMACVlanMode(const char *optarg) {
 	return std::string(optarg);
 }
 
-std::unique_ptr<nsjconf_t> parseArgs(int argc, char *argv[]) {
+std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	std::unique_ptr<nsjconf_t> nsjconf(new nsjconf_t);
 
 	nsjconf->use_execveat = false;

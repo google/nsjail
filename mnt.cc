@@ -70,7 +70,7 @@ static const std::string flagsToStr(unsigned long flags) {
 	    NS_VALSTR_STRUCT(MS_DIRSYNC),
 #if defined(MS_NOSYMFOLLOW)
 	    NS_VALSTR_STRUCT(MS_NOSYMFOLLOW),
-#endif  /* defined(MS_NOSYMFOLLOW) */
+#endif /* defined(MS_NOSYMFOLLOW) */
 	    NS_VALSTR_STRUCT(MS_NOATIME),
 	    NS_VALSTR_STRUCT(MS_NODIRATIME),
 	    NS_VALSTR_STRUCT(MS_BIND),
@@ -92,7 +92,7 @@ static const std::string flagsToStr(unsigned long flags) {
 #endif /* defined(MS_ACTIVE) */
 #if defined(MS_NOUSER)
 	    NS_VALSTR_STRUCT((uint32_t)MS_NOUSER),  // defined as (1<<31)
-#endif /* defined(MS_NOUSER) */
+#endif						    /* defined(MS_NOUSER) */
 	};
 
 	unsigned knownFlagMask = 0U;
@@ -268,7 +268,7 @@ static bool remountPt(const mount_t& mpt) {
 	    {MS_RELATIME, ST_RELATIME},
 #if defined(MS_NOSYMFOLLOW) && defined(ST_NOSYMFOLLOW)
 	    {MS_NOSYMFOLLOW, ST_NOSYMFOLLOW},
-#endif  /* defined(MS_NOSYMFOLLOW) && defined(ST_NOSYMFOLLOW) */
+#endif /* defined(MS_NOSYMFOLLOW) && defined(ST_NOSYMFOLLOW) */
 	};
 
 	const unsigned long per_mountpoint_flags =
