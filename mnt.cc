@@ -68,6 +68,9 @@ static const std::string flagsToStr(unsigned long flags) {
 	    NS_VALSTR_STRUCT(MS_REMOUNT),
 	    NS_VALSTR_STRUCT(MS_MANDLOCK),
 	    NS_VALSTR_STRUCT(MS_DIRSYNC),
+#if defined(MS_NOSYMFOLLOW)
+	    NS_VALSTR_STRUCT(MS_NOSYMFOLLOW),
+#endif  /* defined(MS_NOSYMFOLLOW) */
 	    NS_VALSTR_STRUCT(MS_NOATIME),
 	    NS_VALSTR_STRUCT(MS_NODIRATIME),
 	    NS_VALSTR_STRUCT(MS_BIND),
@@ -263,6 +266,9 @@ static bool remountPt(const mount_t& mpt) {
 	    {MS_NOATIME, ST_NOATIME},
 	    {MS_NODIRATIME, ST_NODIRATIME},
 	    {MS_RELATIME, ST_RELATIME},
+#if defined(MS_NOSYMFOLLOW) && defined(ST_NOSYMFOLLOW)
+	    {MS_NOSYMFOLLOW, ST_NOSYMFOLLOW},
+#endif  /* defined(MS_NOSYMFOLLOW) && defined(ST_NOSYMFOLLOW) */
 	};
 
 	const unsigned long per_mountpoint_flags =
