@@ -545,7 +545,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->user_net.nsiface = "eth0";
 	nsjconf->user_net.tcp_ports = "none";
 	nsjconf->user_net.udp_ports = "none";
-	nsjconf->user_net.enable_ipv4_dhcp = false;
+	nsjconf->user_net.enable_ip4_dhcp = false;
 	nsjconf->user_net.enable_dns = false;
 	nsjconf->user_net.dns_forward = "";
 	nsjconf->user_net.enable_tcp = true;
@@ -553,8 +553,8 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->user_net.enable_icmp = true;
 	nsjconf->user_net.enable_icmp = true;
 	nsjconf->user_net.no_map_gw = false;
-	nsjconf->user_net.enable_ipv6_dhcp = false;
-	nsjconf->user_net.enable_ipv6_ra = false;
+	nsjconf->user_net.enable_ip6_dhcp = false;
+	nsjconf->user_net.enable_ip6_ra = false;
 	nsjconf->orig_uid = getuid();
 	nsjconf->orig_euid = geteuid();
 	nsjconf->seccomp_fprog.filter = NULL;

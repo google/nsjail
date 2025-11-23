@@ -188,17 +188,23 @@ static bool spawnPasta(nsjconf_t* nsjconf, int pid) {
 		std::vector<const char*> argv;
 		argv.push_back("pasta");
 
-		if (!nsjconf->user_net.enable_ipv4_dhcp) {
+		bool ip4_enabled =
+		    !nsjconf->user_net.ip.empty() || nsjconf->user_net.enable_ip4_dhcp;
+		bool ip6_enabled = !nsjconf->user_net.ip6.empty() ||
+				   nsjconf->user_net.enable_ip6_dhcp ||
+				   nsjconf->user_net.enable_ip6_ra;
+
+		if (!nsjconf->user_net.enable_ip4_dhcp) {
 			argv.push_back("--no-dhcp");
 		}
-		if (!nsjconf->user_net.enable_ipv6_dhcp) {
+		if (!nsjconf->user_net.enable_ip6_dhcp) {
 			argv.push_back("--no-dhcpv6");
 		}
-		if (!nsjconf->user_net.enable_ipv6_ra) {
+		if (!nsjconf->user_net.enable_ip6_ra) {
 			argv.push_back("--no-ra");
 		}
 
-		if (!nsjconf->user_net.enable_ipv4_dhcp && !nsjconf->user_net.enable_ipv6_dhcp) {
+		if (!nsjconf->user_net.enable_ip4_dhcp && !nsjconf->user_net.enable_ip6_dhcp) {
 			argv.push_back("--config-net");
 		}
 
@@ -258,8 +264,11 @@ static bool spawnPasta(nsjconf_t* nsjconf, int pid) {
 			}
 		}
 
-		if (nsjconf->user_net.ip6.empty()) {
+		if (!ip4_enabled) {
 			argv.push_back("-4");
+		}
+		if (!ip6_enabled) {
+			argv.push_back("-6");
 		}
 
 		if (!nsjconf->user_net.nsiface.empty()) {

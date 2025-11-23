@@ -271,10 +271,6 @@ message NsJailConfig {
 	optional string macvlan_vs_ma = 93 [default = ""];
 	optional string macvlan_vs_mo = 94 [default = "private"];
 
-	/* Binary path (with arguments) to be executed. If not specified here, it
-	   can be specified with cmd-line as "-- /path/to/command arg1 arg2" */
-	optional Exe exec_bin = 95;
-
 	message UserNet {
 		optional bool enable = 1 [default = false];
 		optional string ip = 2 [default = "10.255.255.2"];
@@ -286,15 +282,19 @@ message NsJailConfig {
 		optional string ns_iface = 8 [default = "eth0"];
 		optional string tcp_ports = 9 [default = "none"];
 		optional string udp_ports = 10 [default = "none"];
-		optional bool enable_ipv4_dhcp = 11 [default = false];
+		optional bool enable_ip4_dhcp = 11 [default = false];
 		optional bool enable_dns = 12 [default = false];
 		optional string dns_forward = 13 [default = ""];
 		optional bool enable_tcp = 14 [default = true];
 		optional bool enable_udp = 15 [default = true];
 		optional bool enable_icmp = 16 [default = true];
 		optional bool no_map_gw = 17 [default = false];
-		optional bool enable_ipv6_dhcp = 18 [default = false];
-		optional bool enable_ipv6_ra = 19 [default = false];
+		optional bool enable_ip6_dhcp = 18 [default = false];
+		optional bool enable_ip6_ra = 19 [default = false];
 	}
-	optional UserNet user_net = 96;
+	optional UserNet user_net = 95;
+
+	/* Binary path (with arguments) to be executed. If not specified here, it
+	   can be specified with cmd-line as "-- /path/to/command arg1 arg2" */
+	optional Exe exec_bin = 96;
 }
