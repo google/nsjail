@@ -150,7 +150,6 @@ struct nsjconf_t {
 	bool forward_signals;
 	struct {
 		bool use_pasta;
-		bool inbound;
 		std::string ip;
 		std::string mask;
 		std::string gw;
@@ -158,6 +157,17 @@ struct nsjconf_t {
 		std::string mask6;
 		std::string gw6;
 		std::string nsiface;
+		std::string tcp_ports;
+		std::string udp_ports;
+		bool enable_ipv4_dhcp;
+		bool enable_dns;
+		std::string dns_forward;
+		bool enable_tcp;
+		bool enable_udp;
+		bool enable_icmp;
+		bool no_map_gw;
+		bool enable_ipv6_dhcp;
+		bool enable_ipv6_ra;
 	} user_net;
 	std::string cgroup_mem_mount;
 	std::string cgroup_mem_parent;

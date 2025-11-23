@@ -277,14 +277,24 @@ message NsJailConfig {
 
 	message UserNet {
 		optional bool enable = 1 [default = false];
-		optional bool inbound = 2 [default = false];
-		optional string ip = 3 [default = "10.0.0.2"];
-		optional string mask = 4 [default = "255.255.255.0"];
-		optional string gw = 5 [default = "10.0.0.1"];
-		optional string ip6 = 6 [default = "fc00::2"];
-		optional string mask6 = 7 [default = "64"];
-		optional string gw6 = 8 [default = "fc00::1"];
-		optional string ns_iface = 9 [default = "eth0"];
+		optional string ip = 2 [default = "10.255.255.2"];
+		optional string mask = 3 [default = "255.255.255.0"];
+		optional string gw = 4 [default = "10.255.255.1"];
+		optional string ip6 = 5 [default = "fc00::2"];
+		optional string mask6 = 6 [default = "64"];
+		optional string gw6 = 7 [default = "fc00::1"];
+		optional string ns_iface = 8 [default = "eth0"];
+		optional string tcp_ports = 9 [default = "none"];
+		optional string udp_ports = 10 [default = "none"];
+		optional bool enable_ipv4_dhcp = 11 [default = false];
+		optional bool enable_dns = 12 [default = false];
+		optional string dns_forward = 13 [default = ""];
+		optional bool enable_tcp = 14 [default = true];
+		optional bool enable_udp = 15 [default = true];
+		optional bool enable_icmp = 16 [default = true];
+		optional bool no_map_gw = 17 [default = false];
+		optional bool enable_ipv6_dhcp = 18 [default = false];
+		optional bool enable_ipv6_ra = 19 [default = false];
 	}
 	optional UserNet user_net = 96;
 }

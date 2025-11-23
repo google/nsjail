@@ -187,20 +187,55 @@ static bool spawnPasta(nsjconf_t* nsjconf, int pid) {
 		std::string pid_str = std::to_string(pid);
 		std::vector<const char*> argv;
 		argv.push_back("pasta");
-		argv.push_back("--config-net");
+
+		if (!nsjconf->user_net.enable_ipv4_dhcp) {
+			argv.push_back("--no-dhcp");
+		}
+		if (!nsjconf->user_net.enable_ipv6_dhcp) {
+			argv.push_back("--no-dhcpv6");
+		}
+		if (!nsjconf->user_net.enable_ipv6_ra) {
+			argv.push_back("--no-ra");
+		}
+
+		if (!nsjconf->user_net.enable_ipv4_dhcp && !nsjconf->user_net.enable_ipv6_dhcp) {
+			argv.push_back("--config-net");
+		}
+
 		argv.push_back("-f");
 		argv.push_back("-q");
 
-		argv.push_back("-t");
-		if (nsjconf->user_net.inbound) {
-			argv.push_back("auto");
-		} else {
-			argv.push_back("none");
+		if (!nsjconf->user_net.tcp_ports.empty()) {
+			argv.push_back("-t");
+			argv.push_back(nsjconf->user_net.tcp_ports.c_str());
+		}
+		if (!nsjconf->user_net.udp_ports.empty()) {
+			argv.push_back("-u");
+			argv.push_back(nsjconf->user_net.udp_ports.c_str());
 		}
 
-		if (nsjconf->user_net.ip.empty()) {
-			argv.push_back("-6");
-		} else {
+		if (nsjconf->user_net.enable_dns) {
+			argv.push_back("--dhcp-dns");
+		}
+		if (!nsjconf->user_net.dns_forward.empty()) {
+			argv.push_back("--dns-forward");
+			argv.push_back(nsjconf->user_net.dns_forward.c_str());
+		}
+
+		if (!nsjconf->user_net.enable_tcp) {
+			argv.push_back("--no-tcp");
+		}
+		if (!nsjconf->user_net.enable_udp) {
+			argv.push_back("--no-udp");
+		}
+		if (!nsjconf->user_net.enable_icmp) {
+			argv.push_back("--no-icmp");
+		}
+		if (nsjconf->user_net.no_map_gw) {
+			argv.push_back("--no-map-gw");
+		}
+
+		if (!nsjconf->user_net.ip.empty()) {
 			argv.push_back("-a");
 			argv.push_back(nsjconf->user_net.ip.c_str());
 			if (!nsjconf->user_net.mask.empty()) {
@@ -213,9 +248,7 @@ static bool spawnPasta(nsjconf_t* nsjconf, int pid) {
 			}
 		}
 
-		if (nsjconf->user_net.ip6.empty()) {
-			argv.push_back("-4");
-		} else {
+		if (!nsjconf->user_net.ip6.empty()) {
 			argv.push_back("-a");
 			argv.push_back(nsjconf->user_net.ip6.c_str());
 
@@ -223,6 +256,10 @@ static bool spawnPasta(nsjconf_t* nsjconf, int pid) {
 				argv.push_back("-g");
 				argv.push_back(nsjconf->user_net.gw6.c_str());
 			}
+		}
+
+		if (nsjconf->user_net.ip6.empty()) {
+			argv.push_back("-4");
 		}
 
 		if (!nsjconf->user_net.nsiface.empty()) {

@@ -286,7 +286,6 @@ static bool parseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& njc) {
 
 	if (njc.has_user_net()) {
 		nsjconf->user_net.use_pasta = njc.user_net().enable();
-		nsjconf->user_net.inbound = njc.user_net().inbound();
 		nsjconf->user_net.ip = njc.user_net().ip();
 		nsjconf->user_net.mask = njc.user_net().mask();
 		nsjconf->user_net.gw = njc.user_net().gw();
@@ -294,6 +293,17 @@ static bool parseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& njc) {
 		nsjconf->user_net.mask6 = njc.user_net().mask6();
 		nsjconf->user_net.gw6 = njc.user_net().gw6();
 		nsjconf->user_net.nsiface = njc.user_net().ns_iface();
+		nsjconf->user_net.tcp_ports = njc.user_net().tcp_ports();
+		nsjconf->user_net.udp_ports = njc.user_net().udp_ports();
+		nsjconf->user_net.enable_ipv4_dhcp = njc.user_net().enable_ipv4_dhcp();
+		nsjconf->user_net.enable_dns = njc.user_net().enable_dns();
+		nsjconf->user_net.dns_forward = njc.user_net().dns_forward();
+		nsjconf->user_net.enable_tcp = njc.user_net().enable_tcp();
+		nsjconf->user_net.enable_udp = njc.user_net().enable_udp();
+		nsjconf->user_net.enable_icmp = njc.user_net().enable_icmp();
+		nsjconf->user_net.no_map_gw = njc.user_net().no_map_gw();
+		nsjconf->user_net.enable_ipv6_dhcp = njc.user_net().enable_ipv6_dhcp();
+		nsjconf->user_net.enable_ipv6_ra = njc.user_net().enable_ipv6_ra();
 	}
 
 	if (njc.has_exec_bin()) {
