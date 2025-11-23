@@ -535,7 +535,8 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->iface_vs_mo = "private";
 	nsjconf->disable_tsc = false;
 	nsjconf->forward_signals = false;
-	nsjconf->use_pasta = false;
+	nsjconf->user_net.use_pasta = false;
+	nsjconf->user_net.inbound = false;
 	nsjconf->user_net.ip = "10.0.0.2";
 	nsjconf->user_net.mask = "255.255.255.0";
 	nsjconf->user_net.gw = "10.0.0.1";
@@ -757,7 +758,7 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			addEnv(nsjconf.get(), optarg);
 			break;
 		case 0x709:
-			nsjconf->use_pasta = true;
+			nsjconf->user_net.use_pasta = true;
 			break;
 		case 'u': {
 			std::vector<std::string> subopts = util::strSplit(optarg, ':');

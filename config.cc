@@ -285,7 +285,8 @@ static bool parseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& njc) {
 	nsjconf->forward_signals = njc.forward_signals();
 
 	if (njc.has_user_net()) {
-		nsjconf->use_pasta = njc.user_net().enable();
+		nsjconf->user_net.use_pasta = njc.user_net().enable();
+		nsjconf->user_net.inbound = njc.user_net().inbound();
 		nsjconf->user_net.ip = njc.user_net().ip();
 		nsjconf->user_net.mask = njc.user_net().mask();
 		nsjconf->user_net.gw = njc.user_net().gw();

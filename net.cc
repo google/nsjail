@@ -191,7 +191,14 @@ static bool spawnPasta(nsjconf_t* nsjconf, int pid) {
 		argv.push_back("-f");
 		argv.push_back("-q");
 
-		if (!nsjconf->user_net.ip.empty()) {
+		if (!nsjconf->user_net.inbound) {
+			argv.push_back("-t");
+			argv.push_back("none");
+		}
+
+		if (nsjconf->user_net.ip.empty()) {
+			argv.push_back("-6");
+		} else {
 			argv.push_back("-a");
 			argv.push_back(nsjconf->user_net.ip.c_str());
 			if (!nsjconf->user_net.mask.empty()) {
@@ -204,7 +211,9 @@ static bool spawnPasta(nsjconf_t* nsjconf, int pid) {
 			}
 		}
 
-		if (!nsjconf->user_net.ip6.empty()) {
+		if (nsjconf->user_net.ip6.empty()) {
+			argv.push_back("-4");
+		} else {
 			argv.push_back("-a");
 			argv.push_back(nsjconf->user_net.ip6.c_str());
 
@@ -212,10 +221,6 @@ static bool spawnPasta(nsjconf_t* nsjconf, int pid) {
 				argv.push_back("-g");
 				argv.push_back(nsjconf->user_net.gw6.c_str());
 			}
-		}
-
-		if (nsjconf->user_net.ip6.empty()) {
-			argv.push_back("-4");
 		}
 
 		if (!nsjconf->user_net.nsiface.empty()) {
@@ -253,7 +258,7 @@ static bool spawnPasta(nsjconf_t* nsjconf, int pid) {
 }
 
 bool initNsFromParent(nsjconf_t* nsjconf, int pid) {
-	if (nsjconf->use_pasta) {
+	if (nsjconf->user_net.use_pasta) {
 		if (!nsjconf->clone_newnet) {
 			LOG_E("Support for User-Mode Networking requested (pasta) but CLONE_NEWNET "
 			      "is not enabled");

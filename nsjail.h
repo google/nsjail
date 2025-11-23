@@ -148,8 +148,9 @@ struct nsjconf_t {
 	std::string iface_vs_mo;
 	bool disable_tsc;
 	bool forward_signals;
-	bool use_pasta;
 	struct {
+		bool use_pasta;
+		bool inbound;
 		std::string ip;
 		std::string mask;
 		std::string gw;
