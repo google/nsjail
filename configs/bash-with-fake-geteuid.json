@@ -58,7 +58,7 @@
 	"cloneNewipc": true,
 	"cloneNewuts": true,
 	"cloneNewcgroup": true,
-	"user_net": {
+	"userNet": {
 		"enable": true
 	},
 	"uidmap": [
