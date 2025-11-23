@@ -24,6 +24,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/prctl.h>
 #include <net/if.h>
 #include <net/route.h>
 #include <netinet/in.h>
@@ -35,6 +36,7 @@
 #include <string.h>
 #include <strings.h>
 #include <sys/ioctl.h>
+#include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -155,6 +157,10 @@ static bool spawnPasta(nsjconf_t* nsjconf, int pid) {
 
 	if (ppid == 0) {
 		close(sv[0]);
+
+		if (prctl(PR_SET_PDEATHSIG, SIGKILL) == -1) {
+			PLOG_W("prctl(PR_SET_PDEATHSIG, SIGKILL) failed");
+		}
 
 		int nullfd = TEMP_FAILURE_RETRY(open("/dev/null", O_RDWR | O_CLOEXEC));
 		if (nullfd == -1) {
