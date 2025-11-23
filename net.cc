@@ -191,8 +191,10 @@ static bool spawnPasta(nsjconf_t* nsjconf, int pid) {
 		argv.push_back("-f");
 		argv.push_back("-q");
 
-		if (!nsjconf->user_net.inbound) {
-			argv.push_back("-t");
+		argv.push_back("-t");
+		if (nsjconf->user_net.inbound) {
+			argv.push_back("auto");
+		} else {
 			argv.push_back("none");
 		}
 
