@@ -259,6 +259,11 @@ static void removeProc(nsjconf_t* nsjconf, pid_t pid) {
 	}
 
 	const auto& p = nsjconf->pids[pid];
+	if (p.pasta_pid > 0) {
+		LOG_D("Killing pasta pid=%d", p.pasta_pid);
+		kill(p.pasta_pid, SIGKILL);
+		while (waitpid(p.pasta_pid, nullptr, 0) == -1 && errno == EINTR);
+	}
 	LOG_D("Removed pid=%d from the queue (IP:'%s', start time:'%s')", pid, p.remote_txt.c_str(),
 	    util::timeToStr(p.start).c_str());
 
