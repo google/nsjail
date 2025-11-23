@@ -58,6 +58,9 @@
 	"cloneNewipc": true,
 	"cloneNewuts": true,
 	"cloneNewcgroup": true,
+	"user_net": {
+		"enable": true
+	},
 	"uidmap": [
 		{
 			"insideId": "0",
@@ -131,6 +134,10 @@
 			"dst": "/proc",
 			"fstype": "proc",
 			"rw": false
+		},
+		{
+			"srcContent": "bmFtZXNlcnZlciA4LjguOC44Cg==",
+			"dst": "/etc/resolv.conf"
 		},
 		{
 			"srcContent": "VGhpcyBmaWxlIHdhcyBjcmVhdGVkIGR5bmFtaWNhbGx5",

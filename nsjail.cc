@@ -367,6 +367,7 @@ int main(int argc, char* argv[]) {
 		ret = nsjail::standaloneMode(nsjconf.get());
 	}
 
+	subproc::killAndReapAll(nsjconf.get(), SIGKILL);
 	sandbox::closePolicy(nsjconf.get());
 	/* Try to restore the underlying console's params in case some program has changed it */
 	if (!nsjconf->daemonize) {

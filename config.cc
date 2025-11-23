@@ -284,6 +284,17 @@ static bool parseInternal(nsjconf_t* nsjconf, const nsjail::NsJailConfig& njc) {
 
 	nsjconf->forward_signals = njc.forward_signals();
 
+	if (njc.has_user_net()) {
+		nsjconf->use_pasta = njc.user_net().enable();
+		nsjconf->user_net.ip = njc.user_net().ip();
+		nsjconf->user_net.mask = njc.user_net().mask();
+		nsjconf->user_net.gw = njc.user_net().gw();
+		nsjconf->user_net.ip6 = njc.user_net().ip6();
+		nsjconf->user_net.mask6 = njc.user_net().mask6();
+		nsjconf->user_net.gw6 = njc.user_net().gw6();
+		nsjconf->user_net.nsiface = njc.user_net().ns_iface();
+	}
+
 	if (njc.has_exec_bin()) {
 		if (njc.exec_bin().has_path()) {
 			nsjconf->exec_file = njc.exec_bin().path();

@@ -38,12 +38,14 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include <string>
 
 #include "logs.h"
 #include "subproc.h"
+#include "util.h"
 
 extern char** environ;
 
@@ -134,7 +136,127 @@ static bool moveToNs(
 	return true;
 }
 
+static bool spawnPasta(nsjconf_t* nsjconf, int pid) {
+	LOG_D("Spawning pasta for pid=%d", pid);
+
+	int sv[2];
+	if (pipe2(sv, O_CLOEXEC) == -1) {
+		PLOG_E("pipe2(sv, O_CLOEXEC)");
+		return false;
+	}
+
+	pid_t ppid = fork();
+	if (ppid == -1) {
+		close(sv[0]);
+		close(sv[1]);
+		PLOG_E("fork()");
+		return false;
+	}
+
+	if (ppid == 0) {
+		close(sv[0]);
+
+		int nullfd = TEMP_FAILURE_RETRY(open("/dev/null", O_RDWR | O_CLOEXEC));
+		if (nullfd == -1) {
+			PLOG_E("Cannot open '/dev/null' - O_RDWR");
+			_exit(EXIT_FAILURE);
+		}
+		if (TEMP_FAILURE_RETRY(dup2(nullfd, STDIN_FILENO)) == -1) {
+			PLOG_E("Cannot dup2('/dev/null', fd=%d)", STDIN_FILENO);
+			_exit(EXIT_FAILURE);
+		}
+		if (TEMP_FAILURE_RETRY(dup2(nullfd, STDOUT_FILENO)) == -1) {
+			PLOG_E("Cannot dup2('/dev/null', fd=%d)", STDOUT_FILENO);
+			_exit(EXIT_FAILURE);
+		}
+		if (TEMP_FAILURE_RETRY(dup2(nullfd, STDERR_FILENO)) == -1) {
+			PLOG_E("Cannot dup2('/dev/null', fd=%d)", STDERR_FILENO);
+			_exit(EXIT_FAILURE);
+		}
+
+		if (nullfd > STDERR_FILENO) {
+			close(nullfd);
+		}
+
+		std::string pid_str = std::to_string(pid);
+		std::vector<const char*> argv;
+		argv.push_back("pasta");
+		argv.push_back("--config-net");
+		argv.push_back("-f");
+		argv.push_back("-q");
+
+		if (!nsjconf->user_net.ip.empty()) {
+			argv.push_back("-a");
+			argv.push_back(nsjconf->user_net.ip.c_str());
+			if (!nsjconf->user_net.mask.empty()) {
+				argv.push_back("-n");
+				argv.push_back(nsjconf->user_net.mask.c_str());
+			}
+			if (!nsjconf->user_net.gw.empty()) {
+				argv.push_back("-g");
+				argv.push_back(nsjconf->user_net.gw.c_str());
+			}
+		}
+
+		if (!nsjconf->user_net.ip6.empty()) {
+			argv.push_back("-a");
+			argv.push_back(nsjconf->user_net.ip6.c_str());
+
+			if (!nsjconf->user_net.gw6.empty()) {
+				argv.push_back("-g");
+				argv.push_back(nsjconf->user_net.gw6.c_str());
+			}
+		}
+
+		if (nsjconf->user_net.ip6.empty()) {
+			argv.push_back("-4");
+		}
+
+		if (!nsjconf->user_net.nsiface.empty()) {
+			argv.push_back("-I");
+			argv.push_back(nsjconf->user_net.nsiface.c_str());
+		}
+
+		argv.push_back(pid_str.c_str());
+		argv.push_back(nullptr);
+
+		util::makeRangeCOE(STDERR_FILENO + 1, ~0U);
+		execvp(argv[0], (char* const*)argv.data());
+		int err = errno;
+
+		/* *LOG doesn't use STDERR_FILENO, it's fine if it's /dev/null */
+		PLOG_W("execvp('pasta')");
+
+		util::writeToFd(sv[1], &err, sizeof(err));
+		_exit(EXIT_FAILURE);
+	}
+
+	close(sv[1]);
+	int err;
+	if (util::readFromFd(sv[0], &err, sizeof(err)) > 0) {
+		close(sv[0]);
+		LOG_E("Pasta execution failed, erorr: %s", strerror(err));
+		while (waitpid(ppid, nullptr, 0) == -1 && errno == EINTR);
+		return false;
+	}
+
+	close(sv[0]);
+	nsjconf->pids[pid].pasta_pid = ppid;
+	LOG_I("Spawned pasta, pid=%d", ppid);
+	return true;
+}
+
 bool initNsFromParent(nsjconf_t* nsjconf, int pid) {
+	if (nsjconf->use_pasta) {
+		if (!nsjconf->clone_newnet) {
+			LOG_E("Support for User-Mode Networking requested (pasta) but CLONE_NEWNET "
+			      "is not enabled");
+			return false;
+		}
+		if (!spawnPasta(nsjconf, pid)) {
+			return false;
+		}
+	}
 	if (!nsjconf->clone_newnet) {
 		return true;
 	}

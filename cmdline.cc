@@ -170,6 +170,7 @@ static const struct custom_option custom_opts[] = {
     { { "macvlan_vs_mo", required_argument, nullptr, 0x706 }, "Mode of the 'vs' interface. Can be either 'private', 'vepa', 'bridge' or 'passthru' (default: 'private')" },
     { { "disable_tsc", no_argument, nullptr, 0x707 }, "Disable rdtsc and rdtscp instructions. WARNING: To make it effective, you also need to forbid `prctl(PR_SET_TSC, PR_TSC_ENABLE, ...)` in seccomp rules! (x86 and x86_64 only). Dynamic binaries produced by GCC seem to rely on RDTSC, but static ones should work." },
     { { "forward_signals", no_argument, nullptr, 0x708 }, "Forward fatal signals to the child process instead of always using SIGKILL." },
+    { { "use_pasta", no_argument, nullptr, 0x709 }, "Use pasta (user-mode networking) to provide networking connectivity" },
 };
 // clang-format on
 
@@ -534,6 +535,14 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 	nsjconf->iface_vs_mo = "private";
 	nsjconf->disable_tsc = false;
 	nsjconf->forward_signals = false;
+	nsjconf->use_pasta = false;
+	nsjconf->user_net.ip = "10.0.0.2";
+	nsjconf->user_net.mask = "255.255.255.0";
+	nsjconf->user_net.gw = "10.0.0.1";
+	nsjconf->user_net.ip6 = "fc00::2";
+	nsjconf->user_net.mask6 = "64";
+	nsjconf->user_net.gw6 = "fc00::1";
+	nsjconf->user_net.nsiface = "eth0";
 	nsjconf->orig_uid = getuid();
 	nsjconf->orig_euid = geteuid();
 	nsjconf->seccomp_fprog.filter = NULL;
@@ -746,6 +755,9 @@ std::unique_ptr<nsjconf_t> parseArgs(int argc, char* argv[]) {
 			break;
 		case 'E':
 			addEnv(nsjconf.get(), optarg);
+			break;
+		case 0x709:
+			nsjconf->use_pasta = true;
 			break;
 		case 'u': {
 			std::vector<std::string> subopts = util::strSplit(optarg, ':');

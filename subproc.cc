@@ -237,6 +237,7 @@ static void addProc(nsjconf_t* nsjconf, pid_t pid, int sock) {
 
 	p.start = time(NULL);
 	p.remote_txt = net::connToText(sock, /* remote= */ true, &p.remote_addr);
+	p.pasta_pid = -1;
 
 	char fname[PATH_MAX];
 	snprintf(fname, sizeof(fname), "/proc/%d/syscall", (int)pid);
@@ -341,6 +342,17 @@ static int reapProc(nsjconf_t* nsjconf, pid_t pid, bool should_wait = false) {
 			cgroup::finishFromParent(nsjconf, pid);
 		}
 
+		for (auto& pid_entry : nsjconf->pids) {
+			if (pid_entry.second.pasta_pid > 0 && pid == pid_entry.second.pasta_pid) {
+				LOG_W("Pasta process %d exited unexpectedly with status %d. "
+				      "Killing the jail.",
+				    pid, WEXITSTATUS(status));
+				kill(pid_entry.first, SIGKILL);
+				pid_entry.second.pasta_pid = -1;
+				return WEXITSTATUS(status);
+			}
+		}
+
 		std::string remote_txt = "[UNKNOWN]";
 		const auto& p = nsjconf->pids.find(pid);
 		if (p != nsjconf->pids.end()) {
@@ -408,6 +420,9 @@ int reapProc(nsjconf_t* nsjconf) {
 void killAndReapAll(nsjconf_t* nsjconf, int signal) {
 	while (!nsjconf->pids.empty()) {
 		pid_t pid = nsjconf->pids.begin()->first;
+		if (nsjconf->pids.begin()->second.pasta_pid > 0) {
+			kill(nsjconf->pids.begin()->second.pasta_pid, SIGKILL);
+		}
 		if (kill(pid, signal) == 0) {
 			reapProc(nsjconf, pid, true);
 		} else {

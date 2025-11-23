@@ -53,6 +53,7 @@ struct pids_t {
 	std::string remote_txt;
 	struct sockaddr_in6 remote_addr;
 	int pid_syscall_fd;
+	pid_t pasta_pid;
 };
 
 struct mount_t {
@@ -147,6 +148,16 @@ struct nsjconf_t {
 	std::string iface_vs_mo;
 	bool disable_tsc;
 	bool forward_signals;
+	bool use_pasta;
+	struct {
+		std::string ip;
+		std::string mask;
+		std::string gw;
+		std::string ip6;
+		std::string mask6;
+		std::string gw6;
+		std::string nsiface;
+	} user_net;
 	std::string cgroup_mem_mount;
 	std::string cgroup_mem_parent;
 	size_t cgroup_mem_max;
