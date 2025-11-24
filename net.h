@@ -31,13 +31,13 @@
 
 namespace net {
 
-bool limitConns(nsjconf_t* nsjconf, int connsock);
-int getRecvSocket(const char* bindhost, int port);
+bool limitConns(nsj_t* nsjconf, int connsock);
+int getRecvSocket(const nsj_t* nsj);
 int acceptConn(int listenfd);
 const std::string connToText(int fd, bool remote, struct sockaddr_in6* addr_or_null);
-bool initNsFromParent(nsjconf_t* nsjconf, int pid);
-bool initNsFromChild(nsjconf_t* nsjconf);
+bool initNs(nsj_t* nsj);
+bool initParent(nsj_t* nsj, pid_t pid);
 
 }  // namespace net
 
-#endif /* _NET_H */
+#endif /* NS_NET_H */

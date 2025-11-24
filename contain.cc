@@ -41,6 +41,8 @@
 
 #include "caps.h"
 #include "cgroup.h"
+#include "cgroup2.h"
+#include "config.h"
 #include "cpu.h"
 #include "logs.h"
 #include "macros.h"
@@ -53,74 +55,74 @@
 
 namespace contain {
 
-static bool containUserNs(nsjconf_t* nsjconf) {
-	return user::initNsFromChild(nsjconf);
+static bool containUserNs(nsj_t* nsj) {
+	return user::initNs(nsj);
 }
 
-static bool containInitPidNs(nsjconf_t* nsjconf) {
-	return pid::initNs(nsjconf);
+static bool containInitPidNs(nsj_t* nsj) {
+	return pid::initNs(nsj);
 }
 
-static bool containInitNetNs(nsjconf_t* nsjconf) {
-	return net::initNsFromChild(nsjconf);
+static bool containInitNetNs(nsj_t* nsj) {
+	return net::initNs(nsj);
 }
 
-static bool containInitUtsNs(nsjconf_t* nsjconf) {
-	return uts::initNs(nsjconf);
+static bool containInitUtsNs(nsj_t* nsj) {
+	return uts::initNs(nsj);
 }
 
 static bool containInitCgroupNs(void) {
 	return cgroup::initNs();
 }
 
-static bool containDropPrivs(nsjconf_t* nsjconf) {
+static bool containDropPrivs(nsj_t* nsj) {
 #ifndef PR_SET_NO_NEW_PRIVS
 #define PR_SET_NO_NEW_PRIVS 38
 #endif
-	if (!nsjconf->disable_no_new_privs) {
+	if (!nsj->njc.disable_no_new_privs()) {
 		if (prctl(PR_SET_NO_NEW_PRIVS, 1UL, 0UL, 0UL, 0UL) == -1) {
 			/* Only new kernels support it */
 			PLOG_W("prctl(PR_SET_NO_NEW_PRIVS, 1)");
 		}
 	}
 
-	if (!caps::initNs(nsjconf)) {
+	if (!caps::initNs(nsj)) {
 		return false;
 	}
 
 	return true;
 }
 
-static bool containPrepareEnv(nsjconf_t* nsjconf) {
+static bool containPrepareEnv(nsj_t* nsj) {
 	if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0) == -1) {
 		PLOG_E("prctl(PR_SET_PDEATHSIG, SIGKILL)");
 		return false;
 	}
-	if (nsjconf->personality && personality(nsjconf->personality) == -1) {
-		PLOG_E("personality(%lx)", nsjconf->personality);
+	if (nsj->personality && personality(nsj->personality) == -1) {
+		PLOG_E("personality(%lx)", nsj->personality);
 		return false;
 	}
-	LOG_D("setpriority(%d)", nsjconf->nice_level);
+	LOG_D("setpriority(%d)", nsj->njc.nice_level());
 	errno = 0;
-	if (setpriority(PRIO_PROCESS, 0, nsjconf->nice_level) == -1 && errno != 0) {
-		PLOG_W("setpriority(%d)", nsjconf->nice_level);
+	if (setpriority(PRIO_PROCESS, 0, nsj->njc.nice_level()) == -1 && errno != 0) {
+		PLOG_W("setpriority(%d)", nsj->njc.nice_level());
 	}
-	if (!nsjconf->skip_setsid) {
+	if (!nsj->njc.skip_setsid()) {
 		setsid();
 	}
 	return true;
 }
 
-static bool containInitMountNs(nsjconf_t* nsjconf) {
-	return mnt::initNs(nsjconf);
+static bool containInitMountNs(nsj_t* nsj) {
+	return mnt::initNs(nsj);
 }
 
-static bool containCPU(nsjconf_t* nsjconf) {
-	return cpu::initCpu(nsjconf);
+static bool containCPU(nsj_t* nsj) {
+	return cpu::initCpu(nsj);
 }
 
-static bool containTSC(nsjconf_t* nsjconf) {
-	if (nsjconf->disable_tsc) {
+static bool containTSC(nsj_t* nsj) {
+	if (nsj->njc.disable_tsc()) {
 #if defined(__x86_64__) || defined(__i386__)
 		if (prctl(PR_SET_TSC, PR_TSC_SIGSEGV, 0, 0, 0) == -1) {
 			PLOG_E("prctl(PR_SET_TSC, PR_TSC_SIGSEGV)");
@@ -134,68 +136,77 @@ static bool containTSC(nsjconf_t* nsjconf) {
 	return true;
 }
 
-static bool containSetLimits(nsjconf_t* nsjconf) {
-	if (nsjconf->disable_rl) {
+static bool containSetLimits(nsj_t* nsj) {
+	if (nsj->njc.disable_rl()) {
 		return true;
 	}
 
 	struct rlimit64 rl;
-	rl.rlim_cur = rl.rlim_max = nsjconf->rl_as;
+	rl.rlim_cur = rl.rlim_max = config::adjustRLimit(
+	    RLIMIT_AS, nsj->njc.rlimit_as_type(), nsj->njc.rlimit_as(), 1024UL * 1024UL);
 	if (util::setrlimit(RLIMIT_AS, rl) == -1) {
-		PLOG_E("util::setrlimit(0, RLIMIT_AS, %" PRIu64 ")", nsjconf->rl_as);
+		PLOG_E("util::setrlimit(0, RLIMIT_AS, %" PRIu64 ")", rl.rlim_cur);
 		return false;
 	}
-	rl.rlim_cur = rl.rlim_max = nsjconf->rl_core;
+	rl.rlim_cur = rl.rlim_max = config::adjustRLimit(
+	    RLIMIT_CORE, nsj->njc.rlimit_core_type(), nsj->njc.rlimit_core(), 1024UL * 1024UL);
 	if (util::setrlimit(RLIMIT_CORE, rl) == -1) {
-		PLOG_E("util::setrlimit(0, RLIMIT_CORE, %" PRIu64 ")", nsjconf->rl_core);
+		PLOG_E("util::setrlimit(0, RLIMIT_CORE, %" PRIu64 ")", rl.rlim_cur);
 		return false;
 	}
-	rl.rlim_cur = rl.rlim_max = nsjconf->rl_cpu;
+	rl.rlim_cur = rl.rlim_max =
+	    config::adjustRLimit(RLIMIT_CPU, nsj->njc.rlimit_cpu_type(), nsj->njc.rlimit_cpu());
 	if (util::setrlimit(RLIMIT_CPU, rl) == -1) {
-		PLOG_E("util::setrlimit(0, RLIMIT_CPU, %" PRIu64 ")", nsjconf->rl_cpu);
+		PLOG_E("util::setrlimit(0, RLIMIT_CPU, %" PRIu64 ")", rl.rlim_cur);
 		return false;
 	}
-	rl.rlim_cur = rl.rlim_max = nsjconf->rl_fsize;
+	rl.rlim_cur = rl.rlim_max = config::adjustRLimit(
+	    RLIMIT_FSIZE, nsj->njc.rlimit_fsize_type(), nsj->njc.rlimit_fsize(), 1024UL * 1024UL);
 	if (util::setrlimit(RLIMIT_FSIZE, rl) == -1) {
-		PLOG_E("util::setrlimit(0, RLIMIT_FSIZE, %" PRIu64 ")", nsjconf->rl_fsize);
+		PLOG_E("util::setrlimit(0, RLIMIT_FSIZE, %" PRIu64 ")", rl.rlim_cur);
 		return false;
 	}
-	rl.rlim_cur = rl.rlim_max = nsjconf->rl_nofile;
+	rl.rlim_cur = rl.rlim_max = config::adjustRLimit(
+	    RLIMIT_NOFILE, nsj->njc.rlimit_nofile_type(), nsj->njc.rlimit_nofile());
 	if (util::setrlimit(RLIMIT_NOFILE, rl) == -1) {
-		PLOG_E("util::setrlimit(0, RLIMIT_NOFILE, %" PRIu64 ")", nsjconf->rl_nofile);
+		PLOG_E("util::setrlimit(0, RLIMIT_NOFILE, %" PRIu64 ")", rl.rlim_cur);
 		return false;
 	}
-	rl.rlim_cur = rl.rlim_max = nsjconf->rl_nproc;
+	rl.rlim_cur = rl.rlim_max = config::adjustRLimit(
+	    RLIMIT_NPROC, nsj->njc.rlimit_nproc_type(), nsj->njc.rlimit_nproc());
 	if (util::setrlimit(RLIMIT_NPROC, rl) == -1) {
-		PLOG_E("util::setrlimit(0, RLIMIT_NPROC, %" PRIu64 ")", nsjconf->rl_nproc);
+		PLOG_E("util::setrlimit(0, RLIMIT_NPROC, %" PRIu64 ")", rl.rlim_cur);
 		return false;
 	}
-	rl.rlim_cur = rl.rlim_max = nsjconf->rl_stack;
+	rl.rlim_cur = rl.rlim_max = config::adjustRLimit(
+	    RLIMIT_STACK, nsj->njc.rlimit_stack_type(), nsj->njc.rlimit_stack(), 1024UL * 1024UL);
 	if (util::setrlimit(RLIMIT_STACK, rl) == -1) {
-		PLOG_E("util::setrlimit(0, RLIMIT_STACK, %" PRIu64 ")", nsjconf->rl_stack);
+		PLOG_E("util::setrlimit(0, RLIMIT_STACK, %" PRIu64 ")", rl.rlim_cur);
 		return false;
 	}
-	rl.rlim_cur = rl.rlim_max = nsjconf->rl_mlock;
+	rl.rlim_cur = rl.rlim_max = config::adjustRLimit(
+	    RLIMIT_MEMLOCK, nsj->njc.rlimit_memlock_type(), nsj->njc.rlimit_memlock(), 1024UL);
 	if (util::setrlimit(RLIMIT_MEMLOCK, rl) == -1) {
-		PLOG_E("util::setrlimit(0, RLIMIT_MEMLOCK, %" PRIu64 ")", nsjconf->rl_mlock);
+		PLOG_E("util::setrlimit(0, RLIMIT_MEMLOCK, %" PRIu64 ")", rl.rlim_cur);
 		return false;
 	}
-	rl.rlim_cur = rl.rlim_max = nsjconf->rl_rtpr;
+	rl.rlim_cur = rl.rlim_max = config::adjustRLimit(
+	    RLIMIT_RTPRIO, nsj->njc.rlimit_rtprio_type(), nsj->njc.rlimit_rtprio());
 	if (util::setrlimit(RLIMIT_RTPRIO, rl) == -1) {
-		PLOG_E("util::setrlimit(0, RLIMIT_RTPRIO, %" PRIu64 ")", nsjconf->rl_rtpr);
+		PLOG_E("util::setrlimit(0, RLIMIT_RTPRIO, %" PRIu64 ")", rl.rlim_cur);
 		return false;
 	}
-	rl.rlim_cur = rl.rlim_max = nsjconf->rl_msgq;
+	rl.rlim_cur = rl.rlim_max = config::adjustRLimit(
+	    RLIMIT_MSGQUEUE, nsj->njc.rlimit_msgqueue_type(), nsj->njc.rlimit_msgqueue());
 	if (util::setrlimit(RLIMIT_MSGQUEUE, rl) == -1) {
-		PLOG_E("util::setrlimit(0, RLIMIT_MSGQUEUE , %" PRIu64 ")", nsjconf->rl_msgq);
+		PLOG_E("util::setrlimit(0, RLIMIT_MSGQUEUE , %" PRIu64 ")", rl.rlim_cur);
 		return false;
 	}
 	return true;
 }
 
-static bool containPassFd(nsjconf_t* nsjconf, int fd) {
-	return (std::find(nsjconf->openfds.begin(), nsjconf->openfds.end(), fd) !=
-		nsjconf->openfds.end());
+static bool containPassFd(nsj_t* nsj, int fd) {
+	return (std::find(nsj->openfds.begin(), nsj->openfds.end(), fd) != nsj->openfds.end());
 }
 
 static bool containMakeFdCOE(int fd, bool pass_fd) {
@@ -225,27 +236,27 @@ static bool containMakeFdCOE(int fd, bool pass_fd) {
 	return true;
 }
 
-static bool containMakeFdsCOECloseRange(nsjconf_t* nsjconf) {
+static bool containMakeFdsCOECloseRange(nsj_t* nsj) {
 	RETURN_ON_FAILURE(util::makeRangeCOE(0U, ~0U));
-	for (const auto fd : nsjconf->openfds) {
+	for (const auto fd : nsj->openfds) {
 		RETURN_ON_FAILURE(containMakeFdCOE(fd, /* pass_fd= */ true));
 	}
 	return true;
 }
 
-static bool containMakeFdsCOENaive(nsjconf_t* nsjconf) {
+static bool containMakeFdsCOENaive(nsj_t* nsj) {
 	/*
 	 * Don't use getrlimit(RLIMIT_NOFILE) here, as it can return an artifically small value
 	 * (e.g. 32), which could be smaller than a maximum assigned number to file-descriptors
 	 * in this process. Just use some reasonably sane value (e.g. 1024)
 	 */
 	for (unsigned fd = 0; fd < 1024; fd++) {
-		RETURN_ON_FAILURE(containMakeFdCOE(fd, containPassFd(nsjconf, fd)));
+		RETURN_ON_FAILURE(containMakeFdCOE(fd, containPassFd(nsj, fd)));
 	}
 	return true;
 }
 
-static bool containMakeFdsCOEProc(nsjconf_t* nsjconf) {
+static bool containMakeFdsCOEProc(nsj_t* nsj) {
 	int dirfd = open("/proc/self/fd", O_DIRECTORY | O_RDONLY | O_CLOEXEC);
 	if (dirfd == -1) {
 		PLOG_D("open('/proc/self/fd', O_DIRECTORY|O_RDONLY|O_CLOEXEC)");
@@ -287,35 +298,35 @@ static bool containMakeFdsCOEProc(nsjconf_t* nsjconf) {
 			closedir(dir);
 			return false;
 		}
-		RETURN_ON_FAILURE(containMakeFdCOE(fd, containPassFd(nsjconf, fd)));
+		RETURN_ON_FAILURE(containMakeFdCOE(fd, containPassFd(nsj, fd)));
 	}
 	closedir(dir);
 	return true;
 }
 
-static bool containMakeFdsCOE(nsjconf_t* nsjconf) {
-	if (containMakeFdsCOECloseRange(nsjconf)) {
+static bool containMakeFdsCOE(nsj_t* nsj) {
+	if (containMakeFdsCOECloseRange(nsj)) {
 		return true;
 	}
-	if (containMakeFdsCOEProc(nsjconf)) {
+	if (containMakeFdsCOEProc(nsj)) {
 		return true;
 	}
-	if (containMakeFdsCOENaive(nsjconf)) {
+	if (containMakeFdsCOENaive(nsj)) {
 		return true;
 	}
 	LOG_E("Couldn't mark relevant file-descriptors as close-on-exec with any known method");
 	return false;
 }
 
-bool setupFD(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
-	if (nsjconf->stderr_to_null) {
+bool setupFD(nsj_t* nsj, int fd_in, int fd_out, int fd_err) {
+	if (nsj->njc.stderr_to_null()) {
 		LOG_D("Redirecting fd=2 (STDERR_FILENO) to /dev/null");
 		if ((fd_err = TEMP_FAILURE_RETRY(open("/dev/null", O_RDWR))) == -1) {
 			PLOG_E("open('/dev/null', O_RDWR");
 			return false;
 		}
 	}
-	if (nsjconf->is_silent) {
+	if (nsj->njc.silent()) {
 		LOG_D("Redirecting fd=0-2 (STDIN/OUT/ERR_FILENO) to /dev/null");
 		if (TEMP_FAILURE_RETRY(fd_in = fd_out = fd_err = open("/dev/null", O_RDWR)) == -1) {
 			PLOG_E("open('/dev/null', O_RDWR)");
@@ -338,22 +349,22 @@ bool setupFD(nsjconf_t* nsjconf, int fd_in, int fd_out, int fd_err) {
 	return true;
 }
 
-bool containProc(nsjconf_t* nsjconf) {
-	RETURN_ON_FAILURE(containUserNs(nsjconf));
-	RETURN_ON_FAILURE(containInitPidNs(nsjconf));
-	RETURN_ON_FAILURE(containInitMountNs(nsjconf));
-	RETURN_ON_FAILURE(containInitNetNs(nsjconf));
-	RETURN_ON_FAILURE(containInitUtsNs(nsjconf));
+bool containProc(nsj_t* nsj) {
+	RETURN_ON_FAILURE(containUserNs(nsj));
+	RETURN_ON_FAILURE(containInitPidNs(nsj));
+	RETURN_ON_FAILURE(containInitMountNs(nsj));
+	RETURN_ON_FAILURE(containInitNetNs(nsj));
+	RETURN_ON_FAILURE(containInitUtsNs(nsj));
 	RETURN_ON_FAILURE(containInitCgroupNs());
-	RETURN_ON_FAILURE(containDropPrivs(nsjconf));
+	RETURN_ON_FAILURE(containDropPrivs(nsj));
 	;
 	/* */
 	/* As non-root */
-	RETURN_ON_FAILURE(containCPU(nsjconf));
-	RETURN_ON_FAILURE(containTSC(nsjconf));
-	RETURN_ON_FAILURE(containSetLimits(nsjconf));
-	RETURN_ON_FAILURE(containPrepareEnv(nsjconf));
-	RETURN_ON_FAILURE(containMakeFdsCOE(nsjconf));
+	RETURN_ON_FAILURE(containCPU(nsj));
+	RETURN_ON_FAILURE(containTSC(nsj));
+	RETURN_ON_FAILURE(containSetLimits(nsj));
+	RETURN_ON_FAILURE(containPrepareEnv(nsj));
+	RETURN_ON_FAILURE(containMakeFdsCOE(nsj));
 
 	return true;
 }

@@ -37,12 +37,12 @@ typedef enum {
 	NS_DIR_MAYBE,
 } isDir_t;
 
-bool initNs(nsjconf_t* nsjconf);
-bool addMountPtHead(nsjconf_t* nsjconf, const std::string& src, const std::string& dst,
+bool initNs(nsj_t* nsj);
+bool addMountPtHead(nsj_t* nsj, const std::string& src, const std::string& dst,
     const std::string& fstype, const std::string& options, uintptr_t flags, isDir_t is_dir,
     bool is_mandatory, const std::string& src_env, const std::string& dst_env,
     const std::string& src_content, bool is_symlink);
-bool addMountPtTail(nsjconf_t* nsjconf, const std::string& src, const std::string& dst,
+bool addMountPtTail(nsj_t* nsj, const std::string& src, const std::string& dst,
     const std::string& fstype, const std::string& options, uintptr_t flags, isDir_t is_dir,
     bool is_mandatory, const std::string& src_env, const std::string& dst_env,
     const std::string& src_content, bool is_symlink);

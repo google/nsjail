@@ -30,10 +30,10 @@
 
 namespace user {
 
-bool initNsFromParent(nsjconf_t* nsjconf, pid_t pid);
-bool initNsFromChild(nsjconf_t* nsjconf);
-bool parseId(nsjconf_t* nsjconf, const std::string& i_id, const std::string& o_id, size_t cnt,
-    bool is_gid, bool is_newidmap);
+bool initNsFromParent(nsj_t* nsj, pid_t pid);
+bool initNs(nsj_t* nsj);
+bool parseId(nsj_t* nsj, const std::string& i_id, const std::string& o_id, size_t cnt, bool is_gid,
+    bool is_newidmap);
 
 }  // namespace user
 

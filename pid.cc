@@ -33,11 +33,11 @@
 
 namespace pid {
 
-bool initNs(nsjconf_t* nsjconf) {
-	if (nsjconf->mode != MODE_STANDALONE_EXECVE) {
+bool initNs(nsj_t* nsj) {
+	if (nsj->njc.mode() != nsjail::Mode::EXECVE) {
 		return true;
 	}
-	if (!nsjconf->clone_newpid) {
+	if (!nsj->njc.clone_newpid()) {
 		return true;
 	}
 

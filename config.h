@@ -28,7 +28,9 @@
 
 namespace config {
 
-bool parseFile(nsjconf_t* nsjconf, const char* file);
+bool parseFile(nsj_t* nsj, const char* file);
+uint64_t adjustRLimit(
+    int res, const nsjail::RLimit& rl, const uint64_t val, unsigned long mul = 1UL);
 
 }  // namespace config
 

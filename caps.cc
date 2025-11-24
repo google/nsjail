@@ -212,7 +212,7 @@ static bool initNsKeepCaps(cap_user_data_t cap_data) {
 	return true;
 }
 
-bool initNs(nsjconf_t* nsjconf) {
+bool initNs(nsj_t* nsj) {
 	cap_user_data_t cap_data = getCaps();
 	if (cap_data == nullptr) {
 		return false;
@@ -228,14 +228,14 @@ bool initNs(nsjconf_t* nsjconf) {
 		PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL)");
 	}
 
-	if (nsjconf->keep_caps) {
+	if (nsj->njc.keep_caps()) {
 		return initNsKeepCaps(cap_data);
 	}
 
 	/* Set all requested caps in the inheritable set if these are present in the permitted set
 	 */
 	std::string dbgmsg;
-	for (const auto& cap : nsjconf->caps) {
+	for (const auto& cap : nsj->caps) {
 		if (!getPermitted(cap_data, cap)) {
 			LOG_W("Capability %s is not permitted in the namespace",
 			    capToStr(cap).c_str());
@@ -277,7 +277,7 @@ bool initNs(nsjconf_t* nsjconf) {
 
 	/* Make sure inheritable set is preserved across execve via the modified ambient set */
 	dbgmsg.clear();
-	for (const auto& cap : nsjconf->caps) {
+	for (const auto& cap : nsj->caps) {
 		if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)cap, 0UL, 0UL) ==
 		    -1) {
 			PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s)",

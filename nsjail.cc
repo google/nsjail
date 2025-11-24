@@ -95,8 +95,8 @@ static bool setSigHandlers(void) {
 	return true;
 }
 
-static bool setTimer(nsjconf_t* nsjconf) {
-	if (nsjconf->mode == MODE_STANDALONE_EXECVE) {
+static bool setTimer(nsj_t* nsj) {
+	if (nsj->njc.mode() == nsjail::Mode::EXECVE) {
 		return true;
 	}
 
@@ -119,10 +119,10 @@ static bool setTimer(nsjconf_t* nsjconf) {
 	return true;
 }
 
-static bool pipeTraffic(nsjconf_t* nsjconf, int listenfd) {
+static bool pipeTraffic(nsj_t* nsj, int listenfd) {
 	std::vector<struct pollfd> fds;
-	fds.reserve(nsjconf->pipes.size() * 3 + 1);
-	for (const auto& p : nsjconf->pipes) {
+	fds.reserve(nsj->pipes.size() * 3 + 1);
+	for (const auto& p : nsj->pipes) {
 		fds.push_back({
 		    .fd = p.sock_fd,
 		    .events = POLLIN | POLLOUT,
@@ -199,42 +199,42 @@ static bool pipeTraffic(nsjconf_t* nsjconf, int listenfd) {
 			if (closed) {
 				LOG_D("#%zu connection closed", pipe_no);
 				cleanup = true;
-				close(nsjconf->pipes[pipe_no].sock_fd);
-				close(nsjconf->pipes[pipe_no].pipe_in);
-				close(nsjconf->pipes[pipe_no].pipe_out);
-				if (nsjconf->pipes[pipe_no].pid > 0) {
-					kill(nsjconf->pipes[pipe_no].pid, SIGKILL);
+				close(nsj->pipes[pipe_no].sock_fd);
+				close(nsj->pipes[pipe_no].pipe_in);
+				close(nsj->pipes[pipe_no].pipe_out);
+				if (nsj->pipes[pipe_no].pid > 0) {
+					kill(nsj->pipes[pipe_no].pid, SIGKILL);
 				}
-				nsjconf->pipes[pipe_no] = {};
+				nsj->pipes[pipe_no] = {};
 			}
 		}
 		if (cleanup) {
 			break;
 		}
 	}
-	nsjconf->pipes.erase(std::remove(nsjconf->pipes.begin(), nsjconf->pipes.end(), pipemap_t{}),
-	    nsjconf->pipes.end());
+	nsj->pipes.erase(
+	    std::remove(nsj->pipes.begin(), nsj->pipes.end(), pipemap_t{}), nsj->pipes.end());
 	return false;
 }
 
-static int listenMode(nsjconf_t* nsjconf) {
-	int listenfd = net::getRecvSocket(nsjconf->bindhost.c_str(), nsjconf->port);
+static int listenMode(nsj_t* nsj) {
+	int listenfd = net::getRecvSocket(nsj);
 	if (listenfd == -1) {
 		return EXIT_FAILURE;
 	}
 	for (;;) {
 		if (sigFatal > 0) {
 			subproc::killAndReapAll(
-			    nsjconf, nsjconf->forward_signals ? sigFatal.load() : SIGKILL);
+			    nsj, nsj->njc.forward_signals() ? sigFatal.load() : SIGKILL);
 			logs::logStop(sigFatal);
 			close(listenfd);
 			return EXIT_SUCCESS;
 		}
 		if (showProc) {
 			showProc = false;
-			subproc::displayProc(nsjconf);
+			subproc::displayProc(nsj);
 		}
-		if (pipeTraffic(nsjconf, listenfd)) {
+		if (pipeTraffic(nsj, listenfd)) {
 			int connfd = net::acceptConn(listenfd);
 			if (connfd >= 0) {
 				int in[2];
@@ -244,8 +244,7 @@ static int listenMode(nsjconf_t* nsjconf) {
 					continue;
 				}
 
-				pid_t pid =
-				    subproc::runChild(nsjconf, connfd, in[0], out[1], out[1]);
+				pid_t pid = subproc::runChild(nsj, connfd, in[0], out[1], out[1]);
 
 				close(in[0]);
 				close(out[1]);
@@ -255,7 +254,7 @@ static int listenMode(nsjconf_t* nsjconf) {
 					close(out[0]);
 					close(connfd);
 				} else {
-					nsjconf->pipes.push_back({
+					nsj->pipes.push_back({
 					    .sock_fd = connfd,
 					    .pipe_in = in[1],
 					    .pipe_out = out[0],
@@ -264,32 +263,32 @@ static int listenMode(nsjconf_t* nsjconf) {
 				}
 			}
 		}
-		subproc::reapProc(nsjconf);
+		subproc::reapProc(nsj);
 	}
 }
 
-static int standaloneMode(nsjconf_t* nsjconf) {
+static int standaloneMode(nsj_t* nsj) {
 	for (;;) {
-		if (subproc::runChild(nsjconf, /* netfd= */ -1, STDIN_FILENO, STDOUT_FILENO,
-			STDERR_FILENO) == -1) {
+		if (subproc::runChild(
+			nsj, /* netfd= */ -1, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO) == -1) {
 			LOG_E("Couldn't launch the child process");
 			return 0xff;
 		}
 		for (;;) {
-			int child_status = subproc::reapProc(nsjconf);
-			if (subproc::countProc(nsjconf) == 0) {
-				if (nsjconf->mode == MODE_STANDALONE_ONCE) {
+			int child_status = subproc::reapProc(nsj);
+			if (subproc::countProc(nsj) == 0) {
+				if (nsj->njc.mode() == nsjail::Mode::ONCE) {
 					return child_status;
 				}
 				break;
 			}
 			if (showProc) {
 				showProc = false;
-				subproc::displayProc(nsjconf);
+				subproc::displayProc(nsj);
 			}
 			if (sigFatal > 0) {
 				subproc::killAndReapAll(
-				    nsjconf, nsjconf->forward_signals ? sigFatal.load() : SIGKILL);
+				    nsj, nsj->njc.forward_signals() ? sigFatal.load() : SIGKILL);
 				logs::logStop(sigFatal);
 				return (128 + sigFatal);
 			}
@@ -327,50 +326,50 @@ void setTC(int fd, const struct termios* trm) {
 }  // namespace nsjail
 
 int main(int argc, char* argv[]) {
-	std::unique_ptr<nsjconf_t> nsjconf = cmdline::parseArgs(argc, argv);
+	std::unique_ptr<nsj_t> nsj = cmdline::parseArgs(argc, argv);
 	std::unique_ptr<struct termios> trm = nsjail::getTC(STDIN_FILENO);
 
-	if (!nsjconf) {
+	if (!nsj) {
 		LOG_F("Couldn't parse cmdline options");
 	}
-	if (nsjconf->daemonize && (daemon(/* nochdir= */ 1, /* noclose= */ 0) == -1)) {
+	if (nsj->njc.daemon() && (daemon(/* nochdir= */ 1, /* noclose= */ 0) == -1)) {
 		PLOG_F("daemon");
 	}
-	cmdline::logParams(nsjconf.get());
+	cmdline::logParams(nsj.get());
 	if (!nsjail::setSigHandlers()) {
 		LOG_F("nsjail::setSigHandlers() failed");
 	}
-	if (!nsjail::setTimer(nsjconf.get())) {
+	if (!nsjail::setTimer(nsj.get())) {
 		LOG_F("nsjail::setTimer() failed");
 	}
 
-	if (nsjconf->detect_cgroupv2) {
-		cgroup2::detectCgroupv2(nsjconf.get());
-		LOG_I("Detected cgroups version: %d", nsjconf->use_cgroupv2 ? 2 : 1);
+	if (nsj->njc.detect_cgroupv2()) {
+		cgroup2::detectCgroupv2(nsj.get());
+		LOG_I("Detected cgroups version: %d", nsj->njc.use_cgroupv2() ? 2 : 1);
 	}
 
-	if (nsjconf->use_cgroupv2) {
-		if (!cgroup2::setup(nsjconf.get())) {
+	if (nsj->njc.use_cgroupv2()) {
+		if (!cgroup2::setup(nsj.get())) {
 			LOG_E("Couldn't setup parent cgroup (cgroupv2)");
 			return -1;
 		}
 	}
 
-	if (!sandbox::preparePolicy(nsjconf.get())) {
+	if (!sandbox::preparePolicy(nsj.get())) {
 		LOG_F("Couldn't prepare sandboxing policy");
 	}
 
 	int ret = 0;
-	if (nsjconf->mode == MODE_LISTEN_TCP) {
-		ret = nsjail::listenMode(nsjconf.get());
+	if (nsj->njc.mode() == nsjail::Mode::LISTEN) {
+		ret = nsjail::listenMode(nsj.get());
 	} else {
-		ret = nsjail::standaloneMode(nsjconf.get());
+		ret = nsjail::standaloneMode(nsj.get());
 	}
 
-	subproc::killAndReapAll(nsjconf.get(), SIGKILL);
-	sandbox::closePolicy(nsjconf.get());
+	subproc::killAndReapAll(nsj.get(), SIGKILL);
+	sandbox::closePolicy(nsj.get());
 	/* Try to restore the underlying console's params in case some program has changed it */
-	if (!nsjconf->daemonize) {
+	if (!nsj->njc.daemon()) {
 		nsjail::setTC(STDIN_FILENO, trm.get());
 	}
 

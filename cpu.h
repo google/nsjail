@@ -28,7 +28,7 @@
 
 namespace cpu {
 
-bool initCpu(nsjconf_t* nsjconf);
+bool initCpu(nsj_t* nsj);
 
 }  // namespace cpu
 

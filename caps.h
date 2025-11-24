@@ -30,7 +30,7 @@
 namespace caps {
 
 int nameToVal(const char* name);
-bool initNs(nsjconf_t* nsjconf);
+bool initNs(nsj_t* nsj);
 
 }  // namespace caps
 

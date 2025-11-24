@@ -29,11 +29,12 @@
 
 namespace cgroup2 {
 
-bool initNsFromParent(nsjconf_t* nsjconf, pid_t pid);
+bool initNsFromParent(nsj_t* nsj, pid_t pid);
 bool initNs(void);
-void finishFromParent(nsjconf_t* nsjconf, pid_t pid);
-bool setup(nsjconf_t* nsjconf);
-bool detectCgroupv2(nsjconf_t* nsjconf);
+bool initUser(nsj_t* nsj);
+void finishFromParent(nsj_t* nsj, pid_t pid);
+bool setup(nsj_t* nsj);
+bool detectCgroupv2(nsj_t* nsj);
 
 }  // namespace cgroup2
 

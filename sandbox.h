@@ -28,9 +28,9 @@
 
 namespace sandbox {
 
-bool applyPolicy(nsjconf_t* nsjconf);
-bool preparePolicy(nsjconf_t* nsjconf);
-void closePolicy(nsjconf_t* nsjconf);
+bool applyPolicy(nsj_t* nsj);
+bool preparePolicy(nsj_t* nsj);
+void closePolicy(nsj_t* nsj);
 
 }  // namespace sandbox
 

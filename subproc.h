@@ -34,12 +34,12 @@
 namespace subproc {
 
 /* 0 - network connection limit reached, -1 - error */
-pid_t runChild(nsjconf_t* nsjconf, int listen_fd, int fd_in, int fd_out, int fd_err);
-int countProc(nsjconf_t* nsjconf);
-void displayProc(nsjconf_t* nsjconf);
-void killAndReapAll(nsjconf_t* nsjconf, int signal);
+pid_t runChild(nsj_t* nsj, int listen_fd, int fd_in, int fd_out, int fd_err);
+int countProc(nsj_t* nsj);
+void displayProc(nsj_t* nsj);
+void killAndReapAll(nsj_t* nsj, int signal);
 /* Returns the exit code of the first failing subprocess, or 0 if none fail */
-int reapProc(nsjconf_t* nsjconf);
+int reapProc(nsj_t* nsj);
 int systemExe(const std::vector<std::string>& args, char** env);
 pid_t cloneProc(uint64_t flags, int exit_signal);
 

@@ -46,7 +46,6 @@
 #include <string>
 
 #include "logs.h"
-#include "subproc.h"
 #include "util.h"
 
 extern char** environ;
@@ -58,8 +57,7 @@ namespace net {
 #include <netlink/route/link.h>
 #include <netlink/route/link/macvlan.h>
 
-static bool cloneIface(
-    nsjconf_t* nsjconf, struct nl_sock* sk, struct nl_cache* link_cache, int pid) {
+static bool cloneIface(nsj_t* nsj, struct nl_sock* sk, struct nl_cache* link_cache, int pid) {
 	struct rtnl_link* rmv = rtnl_link_macvlan_alloc();
 	if (rmv == nullptr) {
 		LOG_E("rtnl_link_macvlan_alloc()");
@@ -67,9 +65,10 @@ static bool cloneIface(
 	}
 
 	int err;
-	int master_index = rtnl_link_name2i(link_cache, nsjconf->iface_vs.c_str());
+	int master_index = rtnl_link_name2i(link_cache, nsj->njc.macvlan_iface().c_str());
 	if (!master_index) {
-		LOG_E("rtnl_link_name2i(): Did not find '%s' interface", nsjconf->iface_vs.c_str());
+		LOG_E("rtnl_link_name2i(): Did not find '%s' interface",
+		    nsj->njc.macvlan_iface().c_str());
 		rtnl_link_put(rmv);
 		return false;
 	}
@@ -78,11 +77,11 @@ static bool cloneIface(
 	rtnl_link_set_link(rmv, master_index);
 	rtnl_link_set_ns_pid(rmv, pid);
 
-	if (nsjconf->iface_vs_ma != "") {
+	if (nsj->njc.macvlan_vs_ma() != "") {
 		struct nl_addr* nladdr = nullptr;
-		if ((err = nl_addr_parse(nsjconf->iface_vs_ma.c_str(), AF_LLC, &nladdr)) < 0) {
+		if ((err = nl_addr_parse(nsj->njc.macvlan_vs_ma().c_str(), AF_LLC, &nladdr)) < 0) {
 			LOG_E("nl_addr_parse('%s', AF_LLC) failed: %s",
-			    nsjconf->iface_vs_ma.c_str(), nl_geterror(err));
+			    nsj->njc.macvlan_vs_ma().c_str(), nl_geterror(err));
 			return false;
 		}
 		rtnl_link_set_addr(rmv, nladdr);
@@ -90,14 +89,14 @@ static bool cloneIface(
 	}
 
 	if ((err = rtnl_link_macvlan_set_mode(
-		 rmv, rtnl_link_macvlan_str2mode(nsjconf->iface_vs_mo.c_str()))) < 0) {
+		 rmv, rtnl_link_macvlan_str2mode(nsj->njc.macvlan_vs_mo().c_str()))) < 0) {
 		LOG_E("rtnl_link_macvlan_set_mode(mode:'%s') failed: %s",
-		    nsjconf->iface_vs_mo.c_str(), nl_geterror(err));
+		    nsj->njc.macvlan_vs_mo().c_str(), nl_geterror(err));
 	}
 
 	if ((err = rtnl_link_add(sk, rmv, NLM_F_CREATE)) < 0) {
 		LOG_E("rtnl_link_add(name:'%s' link:'%s'): %s", IFACE_NAME,
-		    nsjconf->iface_vs.c_str(), nl_geterror(err));
+		    nsj->njc.macvlan_iface().c_str(), nl_geterror(err));
 		rtnl_link_put(rmv);
 		return false;
 	}
@@ -138,7 +137,7 @@ static bool moveToNs(
 	return true;
 }
 
-static bool spawnPasta(nsjconf_t* nsjconf, int pid) {
+static bool spawnPasta(nsj_t* nsj, int pid) {
 	LOG_D("Spawning pasta for pid=%d", pid);
 
 	int sv[2];
@@ -162,7 +161,103 @@ static bool spawnPasta(nsjconf_t* nsjconf, int pid) {
 			PLOG_W("prctl(PR_SET_PDEATHSIG, SIGKILL) failed");
 		}
 
-		int nullfd = TEMP_FAILURE_RETRY(open("/dev/null", O_RDWR | O_CLOEXEC));
+		std::string pid_str = std::to_string(pid);
+		std::vector<const char*> argv;
+		argv.push_back("pasta");
+
+		bool ip4_enabled =
+		    !nsj->njc.user_net().ip().empty() || nsj->njc.user_net().enable_ip4_dhcp();
+		bool ip6_enabled = !nsj->njc.user_net().ip6().empty() ||
+				   nsj->njc.user_net().enable_ip6_dhcp() ||
+				   nsj->njc.user_net().enable_ip6_ra();
+
+		if (!nsj->njc.user_net().enable_ip4_dhcp()) {
+			argv.push_back("--no-dhcp");
+		}
+		if (!nsj->njc.user_net().enable_ip6_dhcp()) {
+			argv.push_back("--no-dhcpv6");
+		}
+		if (!nsj->njc.user_net().enable_ip6_ra()) {
+			argv.push_back("--no-ra");
+		}
+
+		if (!nsj->njc.user_net().enable_ip4_dhcp() &&
+		    !nsj->njc.user_net().enable_ip6_dhcp()) {
+			argv.push_back("--config-net");
+		}
+
+		argv.push_back("-f");
+		argv.push_back("-q");
+
+		if (!nsj->njc.user_net().tcp_ports().empty()) {
+			argv.push_back("-t");
+			argv.push_back(nsj->njc.user_net().tcp_ports().c_str());
+		}
+		if (!nsj->njc.user_net().udp_ports().empty()) {
+			argv.push_back("-u");
+			argv.push_back(nsj->njc.user_net().udp_ports().c_str());
+		}
+
+		if (nsj->njc.user_net().enable_dns()) {
+			argv.push_back("--dhcp-dns");
+		}
+		if (!nsj->njc.user_net().dns_forward().empty()) {
+			argv.push_back("--dns-forward");
+			argv.push_back(nsj->njc.user_net().dns_forward().c_str());
+		}
+
+		if (!nsj->njc.user_net().enable_tcp()) {
+			argv.push_back("--no-tcp");
+		}
+		if (!nsj->njc.user_net().enable_udp()) {
+			argv.push_back("--no-udp");
+		}
+		if (!nsj->njc.user_net().enable_icmp()) {
+			argv.push_back("--no-icmp");
+		}
+		if (nsj->njc.user_net().no_map_gw()) {
+			argv.push_back("--no-map-gw");
+		}
+
+		if (!nsj->njc.user_net().ip().empty()) {
+			argv.push_back("-a");
+			argv.push_back(nsj->njc.user_net().ip().c_str());
+			if (!nsj->njc.user_net().mask().empty()) {
+				argv.push_back("-n");
+				argv.push_back(nsj->njc.user_net().mask().c_str());
+			}
+			if (!nsj->njc.user_net().gw().empty()) {
+				argv.push_back("-g");
+				argv.push_back(nsj->njc.user_net().gw().c_str());
+			}
+		}
+
+		if (!nsj->njc.user_net().ip6().empty()) {
+			argv.push_back("-a");
+			argv.push_back(nsj->njc.user_net().ip6().c_str());
+
+			if (!nsj->njc.user_net().gw6().empty()) {
+				argv.push_back("-g");
+				argv.push_back(nsj->njc.user_net().gw6().c_str());
+			}
+		}
+
+		if (!ip4_enabled) {
+			argv.push_back("-4");
+		}
+		if (!ip6_enabled) {
+			argv.push_back("-6");
+		}
+
+		if (!nsj->njc.user_net().ns_iface().empty()) {
+			argv.push_back("-I");
+			argv.push_back(nsj->njc.user_net().ns_iface().c_str());
+		}
+
+		argv.push_back(pid_str.c_str());
+		argv.push_back(nullptr);
+
+		int nullfd = TEMP_FAILURE_RETRY(open("/dev/null", O_RDWR));
 		if (nullfd == -1) {
 			PLOG_E("Cannot open '/dev/null' - O_RDWR");
 			_exit(EXIT_FAILURE);
@@ -179,111 +274,16 @@ static bool spawnPasta(nsjconf_t* nsjconf, int pid) {
 			PLOG_E("Cannot dup2('/dev/null', fd=%d)", STDERR_FILENO);
 			_exit(EXIT_FAILURE);
 		}
-
 		if (nullfd > STDERR_FILENO) {
 			close(nullfd);
 		}
-
-		std::string pid_str = std::to_string(pid);
-		std::vector<const char*> argv;
-		argv.push_back("pasta");
-
-		bool ip4_enabled =
-		    !nsjconf->user_net.ip.empty() || nsjconf->user_net.enable_ip4_dhcp;
-		bool ip6_enabled = !nsjconf->user_net.ip6.empty() ||
-				   nsjconf->user_net.enable_ip6_dhcp ||
-				   nsjconf->user_net.enable_ip6_ra;
-
-		if (!nsjconf->user_net.enable_ip4_dhcp) {
-			argv.push_back("--no-dhcp");
-		}
-		if (!nsjconf->user_net.enable_ip6_dhcp) {
-			argv.push_back("--no-dhcpv6");
-		}
-		if (!nsjconf->user_net.enable_ip6_ra) {
-			argv.push_back("--no-ra");
-		}
-
-		if (!nsjconf->user_net.enable_ip4_dhcp && !nsjconf->user_net.enable_ip6_dhcp) {
-			argv.push_back("--config-net");
-		}
-
-		argv.push_back("-f");
-		argv.push_back("-q");
-
-		if (!nsjconf->user_net.tcp_ports.empty()) {
-			argv.push_back("-t");
-			argv.push_back(nsjconf->user_net.tcp_ports.c_str());
-		}
-		if (!nsjconf->user_net.udp_ports.empty()) {
-			argv.push_back("-u");
-			argv.push_back(nsjconf->user_net.udp_ports.c_str());
-		}
-
-		if (nsjconf->user_net.enable_dns) {
-			argv.push_back("--dhcp-dns");
-		}
-		if (!nsjconf->user_net.dns_forward.empty()) {
-			argv.push_back("--dns-forward");
-			argv.push_back(nsjconf->user_net.dns_forward.c_str());
-		}
-
-		if (!nsjconf->user_net.enable_tcp) {
-			argv.push_back("--no-tcp");
-		}
-		if (!nsjconf->user_net.enable_udp) {
-			argv.push_back("--no-udp");
-		}
-		if (!nsjconf->user_net.enable_icmp) {
-			argv.push_back("--no-icmp");
-		}
-		if (nsjconf->user_net.no_map_gw) {
-			argv.push_back("--no-map-gw");
-		}
-
-		if (!nsjconf->user_net.ip.empty()) {
-			argv.push_back("-a");
-			argv.push_back(nsjconf->user_net.ip.c_str());
-			if (!nsjconf->user_net.mask.empty()) {
-				argv.push_back("-n");
-				argv.push_back(nsjconf->user_net.mask.c_str());
-			}
-			if (!nsjconf->user_net.gw.empty()) {
-				argv.push_back("-g");
-				argv.push_back(nsjconf->user_net.gw.c_str());
-			}
-		}
-
-		if (!nsjconf->user_net.ip6.empty()) {
-			argv.push_back("-a");
-			argv.push_back(nsjconf->user_net.ip6.c_str());
-
-			if (!nsjconf->user_net.gw6.empty()) {
-				argv.push_back("-g");
-				argv.push_back(nsjconf->user_net.gw6.c_str());
-			}
-		}
-
-		if (!ip4_enabled) {
-			argv.push_back("-4");
-		}
-		if (!ip6_enabled) {
-			argv.push_back("-6");
-		}
-
-		if (!nsjconf->user_net.nsiface.empty()) {
-			argv.push_back("-I");
-			argv.push_back(nsjconf->user_net.nsiface.c_str());
-		}
-
-		argv.push_back(pid_str.c_str());
-		argv.push_back(nullptr);
 
 		util::makeRangeCOE(STDERR_FILENO + 1, ~0U);
 		execvp(argv[0], (char* const*)argv.data());
 		int err = errno;
 
-		/* *LOG doesn't use STDERR_FILENO, it's fine if it's /dev/null */
+		/* *LOG doesn't use STDERR_FILENO, so it's fine is STDERR_FILENO is '/dev/null' now
+		 */
 		PLOG_W("execvp('pasta')");
 
 		util::writeToFd(sv[1], &err, sizeof(err));
@@ -294,29 +294,29 @@ static bool spawnPasta(nsjconf_t* nsjconf, int pid) {
 	int err;
 	if (util::readFromFd(sv[0], &err, sizeof(err)) > 0) {
 		close(sv[0]);
-		LOG_E("Pasta execution failed, erorr: %s", strerror(err));
+		LOG_E("Pasta execution failed, error: %s", strerror(err));
 		while (waitpid(ppid, nullptr, 0) == -1 && errno == EINTR);
 		return false;
 	}
 
 	close(sv[0]);
-	nsjconf->pids[pid].pasta_pid = ppid;
-	LOG_I("Spawned pasta, pid=%d", ppid);
+	nsj->pids[pid].pasta_pid = ppid;
+	LOG_I("Spawned pasta for pid=%d, pasta_pid=%d", pid, ppid);
 	return true;
 }
 
-bool initNsFromParent(nsjconf_t* nsjconf, int pid) {
-	if (nsjconf->user_net.use_pasta) {
-		if (!nsjconf->clone_newnet) {
+bool initParent(nsj_t* nsj, int pid) {
+	if (nsj->njc.user_net().enable()) {
+		if (!nsj->njc.clone_newnet()) {
 			LOG_E("Support for User-Mode Networking requested (pasta) but CLONE_NEWNET "
 			      "is not enabled");
 			return false;
 		}
-		if (!spawnPasta(nsjconf, pid)) {
+		if (!spawnPasta(nsj, pid)) {
 			return false;
 		}
 	}
-	if (!nsjconf->clone_newnet) {
+	if (!nsj->njc.clone_newnet()) {
 		return true;
 	}
 	struct nl_sock* sk = nl_socket_alloc();
@@ -339,14 +339,14 @@ bool initNsFromParent(nsjconf_t* nsjconf, int pid) {
 		return false;
 	}
 
-	for (const auto& iface : nsjconf->ifaces) {
+	for (const auto& iface : nsj->njc.iface_own()) {
 		if (!moveToNs(iface, sk, link_cache, pid)) {
 			nl_cache_free(link_cache);
 			nl_socket_free(sk);
 			return false;
 		}
 	}
-	if (!nsjconf->iface_vs.empty() && !cloneIface(nsjconf, sk, link_cache, pid)) {
+	if (!nsj->njc.macvlan_iface().empty() && !cloneIface(nsj, sk, link_cache, pid)) {
 		nl_cache_free(link_cache);
 		nl_socket_free(sk);
 		return false;
@@ -367,15 +367,15 @@ static bool isSocket(int fd) {
 	return true;
 }
 
-bool limitConns(nsjconf_t* nsjconf, int connsock) {
+bool limitConns(nsj_t* nsj, int connsock) {
 	/* 0 means 'unlimited' */
-	if (nsjconf->max_conns != 0 && nsjconf->pids.size() >= nsjconf->max_conns) {
-		LOG_W("Rejecting connection, max_conns limit reached: %u", nsjconf->max_conns);
+	if (nsj->njc.max_conns() != 0 && nsj->pids.size() >= nsj->njc.max_conns()) {
+		LOG_W("Rejecting connection, max_conns limit reached: %u", nsj->njc.max_conns());
 		return false;
 	}
 
 	/* 0 means 'unlimited' */
-	if (nsjconf->max_conns_per_ip == 0) {
+	if (nsj->njc.max_conns_per_ip() == 0) {
 		return true;
 	}
 
@@ -383,22 +383,25 @@ bool limitConns(nsjconf_t* nsjconf, int connsock) {
 	auto connstr = connToText(connsock, true /* remote */, &addr);
 
 	unsigned cnt = 0;
-	for (const auto& pid : nsjconf->pids) {
+	for (const auto& pid : nsj->pids) {
 		if (memcmp(addr.sin6_addr.s6_addr, pid.second.remote_addr.sin6_addr.s6_addr,
 			sizeof(pid.second.remote_addr.sin6_addr.s6_addr)) == 0) {
 			cnt++;
 		}
 	}
-	if (cnt >= nsjconf->max_conns_per_ip) {
+	if (cnt >= nsj->njc.max_conns_per_ip()) {
 		LOG_W("Rejecting connection from '%s', max_conns_per_ip limit reached: %u",
-		    connstr.c_str(), nsjconf->max_conns_per_ip);
+		    connstr.c_str(), nsj->njc.max_conns_per_ip());
 		return false;
 	}
 
 	return true;
 }
 
-int getRecvSocket(const char* bindhost, int port) {
+int getRecvSocket(const nsj_t* nsj) {
+	int port = nsj->njc.port();
+	std::string bindhost = nsj->njc.bindhost();
+
 	if (port < 0 || port > 65535) {
 		LOG_F("TCP port %d out of bounds (0 <= port <= 65535), specify one with --port "
 		      "<port>",
@@ -406,17 +409,17 @@ int getRecvSocket(const char* bindhost, int port) {
 	}
 
 	char bindaddr[128];
-	snprintf(bindaddr, sizeof(bindaddr), "%s", bindhost);
+	snprintf(bindaddr, sizeof(bindaddr), "%s", bindhost.c_str());
 	struct in_addr in4a;
 	if (inet_pton(AF_INET, bindaddr, &in4a) == 1) {
-		snprintf(bindaddr, sizeof(bindaddr), "::ffff:%s", bindhost);
-		LOG_D("Converting bind IPv4:'%s' to IPv6:'%s'", bindhost, bindaddr);
+		snprintf(bindaddr, sizeof(bindaddr), "::ffff:%s", bindhost.c_str());
+		LOG_D("Converting bind IPv4:'%s' to IPv6:'%s'", bindhost.c_str(), bindaddr);
 	}
 
 	struct in6_addr in6a;
 	if (inet_pton(AF_INET6, bindaddr, &in6a) != 1) {
-		PLOG_E(
-		    "Couldn't convert '%s' (orig:'%s') into AF_INET6 address", bindaddr, bindhost);
+		PLOG_E("Couldn't convert '%s' (orig:'%s') into AF_INET6 address", bindaddr,
+		    bindhost.c_str());
 		return -1;
 	}
 
@@ -443,7 +446,7 @@ int getRecvSocket(const char* bindhost, int port) {
 	};
 	if (bind(sockfd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
 		close(sockfd);
-		PLOG_E("bind(host:[%s] (orig:'%s'), port:%d)", bindaddr, bindhost, port);
+		PLOG_E("bind(host:[%s] (orig:'%s'), port:%d)", bindaddr, bindhost.c_str(), port);
 		return -1;
 	}
 	if (listen(sockfd, SOMAXCONN) == -1) {
@@ -628,18 +631,23 @@ static bool ifaceConfig(const std::string& iface, const std::string& ip, const s
 	return true;
 }
 
-bool initNsFromChild(nsjconf_t* nsjconf) {
-	if (!nsjconf->clone_newnet) {
+bool initNsFromChild(nsj_t* nsj) {
+	if (!nsj->njc.clone_newnet()) {
 		return true;
 	}
-	if (nsjconf->iface_lo && !ifaceUp("lo")) {
+	if (!nsj->njc.iface_no_lo() && !ifaceUp("lo")) {
 		return false;
 	}
-	if (!nsjconf->iface_vs.empty() && !ifaceConfig(IFACE_NAME, nsjconf->iface_vs_ip,
-					      nsjconf->iface_vs_nm, nsjconf->iface_vs_gw)) {
+	if (!nsj->njc.macvlan_iface().empty() &&
+	    !ifaceConfig(IFACE_NAME, nsj->njc.macvlan_vs_ip(), nsj->njc.macvlan_vs_nm(),
+		nsj->njc.macvlan_vs_gw())) {
 		return false;
 	}
 	return true;
+}
+
+bool initNs(nsj_t* nsj) {
+	return initNsFromChild(nsj);
 }
 
 }  // namespace net

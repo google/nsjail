@@ -36,6 +36,8 @@
 #include <string>
 #include <vector>
 
+#include "config.pb.h"
+
 static const int nssigs[] = {
     SIGINT,
     SIGQUIT,
@@ -93,104 +95,11 @@ struct pipemap_t {
 	}
 };
 
-struct nsjconf_t {
-	std::string exec_file;
-	bool use_execveat;
+struct nsj_t {
+	nsjail::NsJailConfig njc;
+
 	int exec_fd;
 	std::vector<std::string> argv;
-	std::string hostname;
-	std::string cwd;
-	std::string chroot;
-	int port;
-	std::string bindhost;
-	bool daemonize;
-	uint64_t tlimit;
-	size_t max_cpus;
-	bool keep_env;
-	bool keep_caps;
-	bool disable_no_new_privs;
-	uint64_t rl_as;
-	uint64_t rl_core;
-	uint64_t rl_cpu;
-	uint64_t rl_fsize;
-	uint64_t rl_nofile;
-	uint64_t rl_nproc;
-	uint64_t rl_stack;
-	uint64_t rl_mlock;
-	uint64_t rl_rtpr;
-	uint64_t rl_msgq;
-	bool disable_rl;
-	unsigned long personality;
-	bool clone_newnet;
-	bool clone_newuser;
-	bool clone_newns;
-	bool no_pivotroot;
-	bool clone_newpid;
-	bool clone_newipc;
-	bool clone_newuts;
-	bool clone_newcgroup;
-	bool clone_newtime;
-	enum ns_mode_t mode;
-	bool is_root_rw;
-	bool is_silent;
-	bool stderr_to_null;
-	bool skip_setsid;
-	unsigned int max_conns;
-	unsigned int max_conns_per_ip;
-	std::string proc_path;
-	bool is_proc_rw;
-	bool iface_lo;
-	std::string iface_vs;
-	std::string iface_vs_ip;
-	std::string iface_vs_nm;
-	std::string iface_vs_gw;
-	std::string iface_vs_ma;
-	std::string iface_vs_mo;
-	bool disable_tsc;
-	bool forward_signals;
-	struct {
-		bool use_pasta;
-		std::string ip;
-		std::string mask;
-		std::string gw;
-		std::string ip6;
-		std::string mask6;
-		std::string gw6;
-		std::string nsiface;
-		std::string tcp_ports;
-		std::string udp_ports;
-		bool enable_ip4_dhcp;
-		bool enable_dns;
-		std::string dns_forward;
-		bool enable_tcp;
-		bool enable_udp;
-		bool enable_icmp;
-		bool no_map_gw;
-		bool enable_ip6_dhcp;
-		bool enable_ip6_ra;
-	} user_net;
-	std::string cgroup_mem_mount;
-	std::string cgroup_mem_parent;
-	size_t cgroup_mem_max;
-	size_t cgroup_mem_memsw_max;
-	ssize_t cgroup_mem_swap_max;
-	std::string cgroup_pids_mount;
-	std::string cgroup_pids_parent;
-	unsigned int cgroup_pids_max;
-	std::string cgroup_net_cls_mount;
-	std::string cgroup_net_cls_parent;
-	unsigned int cgroup_net_cls_classid;
-	std::string cgroup_cpu_mount;
-	std::string cgroup_cpu_parent;
-	unsigned int cgroup_cpu_ms_per_sec;
-	std::string cgroupv2_mount;
-	bool use_cgroupv2;
-	bool detect_cgroupv2;
-	std::string kafel_file_path;
-	std::string kafel_string;
-	struct sock_fprog seccomp_fprog;
-	bool seccomp_log;
-	int nice_level;
 	uid_t orig_uid;
 	uid_t orig_euid;
 	std::vector<mount_t> mountpts;
@@ -202,6 +111,12 @@ struct nsjconf_t {
 	std::vector<int> caps;
 	std::vector<std::string> ifaces;
 	std::vector<pipemap_t> pipes;
+	std::string chroot;
+	std::string proc_path;
+	bool is_root_rw;
+	bool is_proc_rw;
+	unsigned long personality;
+	struct sock_fprog seccomp_fprog;
 };
 
 #endif /* _NSJAIL_H */

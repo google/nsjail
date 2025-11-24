@@ -28,7 +28,7 @@
 
 namespace pid {
 
-bool initNs(nsjconf_t* nsjconf);
+bool initNs(nsj_t* nsj);
 
 }  // namespace pid
 

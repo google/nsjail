@@ -21,21 +21,20 @@
 
 #include "uts.h"
 
-#include <string.h>
 #include <unistd.h>
 
 #include "logs.h"
 
 namespace uts {
 
-bool initNs(nsjconf_t* nsjconf) {
-	if (!nsjconf->clone_newuts) {
+bool initNs(nsj_t* nsj) {
+	if (!nsj->njc.clone_newuts()) {
 		return true;
 	}
 
-	LOG_D("Setting hostname to '%s'", nsjconf->hostname.c_str());
-	if (sethostname(nsjconf->hostname.data(), nsjconf->hostname.length()) == -1) {
-		PLOG_E("sethostname('%s')", nsjconf->hostname.c_str());
+	LOG_D("Setting hostname to '%s'", nsj->njc.hostname().c_str());
+	if (sethostname(nsj->njc.hostname().data(), nsj->njc.hostname().length()) == -1) {
+		PLOG_E("sethostname('%s')", nsj->njc.hostname().c_str());
 		return false;
 	}
 	return true;

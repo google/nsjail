@@ -32,10 +32,6 @@
 #include <sys/vfs.h>
 #include <unistd.h>
 
-#include <fstream>
-#include <iostream>
-#include <sstream>
-
 #include "logs.h"
 #include "util.h"
 
@@ -53,11 +49,11 @@ static bool addPidToProcList(const std::string& cgroup_path, pid_t pid) {
 	return true;
 }
 
-static std::string getCgroupPath(nsjconf_t* nsjconf, pid_t pid) {
-	return nsjconf->cgroupv2_mount + "/NSJAIL." + std::to_string(pid);
+static std::string getCgroupPath(nsj_t* nsj, pid_t pid) {
+	return nsj->njc.cgroupv2_mount() + "/NSJAIL." + std::to_string(pid);
 }
-static std::string getJailCgroupPath(nsjconf_t* nsjconf) {
-	return nsjconf->cgroupv2_mount + "/NSJAIL_SELF." + std::to_string(getpid());
+static std::string getJailCgroupPath(nsj_t* nsj) {
+	return nsj->njc.cgroupv2_mount() + "/NSJAIL_SELF." + std::to_string(getpid());
 }
 
 static bool createCgroup(const std::string& cgroup_path, pid_t pid) {
@@ -69,20 +65,20 @@ static bool createCgroup(const std::string& cgroup_path, pid_t pid) {
 	return true;
 }
 
-static bool moveSelfIntoChildCgroup(nsjconf_t* nsjconf) {
+static bool moveSelfIntoChildCgroup(nsj_t* nsj) {
 	/*
 	 * Move ourselves into another group to avoid the 'No internal processes' rule
 	 * https://unix.stackexchange.com/a/713343
 	 */
-	std::string jail_cgroup_path = getJailCgroupPath(nsjconf);
+	std::string jail_cgroup_path = getJailCgroupPath(nsj);
 	LOG_I("nsjail is moving itself to a new child cgroup: %s\n", jail_cgroup_path.c_str());
 	RETURN_ON_FAILURE(createCgroup(jail_cgroup_path, getpid()));
 	RETURN_ON_FAILURE(addPidToProcList(jail_cgroup_path, 0));
 	return true;
 }
 
-static bool enableCgroupSubtree(nsjconf_t* nsjconf, const std::string& controller, pid_t pid) {
-	std::string cgroup_path = nsjconf->cgroupv2_mount;
+static bool enableCgroupSubtree(nsj_t* nsj, const std::string& controller, pid_t pid) {
+	std::string cgroup_path = nsj->njc.cgroupv2_mount();
 	LOG_D("Enable cgroup.subtree_control +'%s' to '%s' for pid=%d", controller.c_str(),
 	    cgroup_path.c_str(), pid);
 	std::string val = "+" + controller;
@@ -96,7 +92,7 @@ static bool enableCgroupSubtree(nsjconf_t* nsjconf, const std::string& controlle
 		return true;
 	}
 	if (errno == EBUSY) {
-		RETURN_ON_FAILURE(moveSelfIntoChildCgroup(nsjconf));
+		RETURN_ON_FAILURE(moveSelfIntoChildCgroup(nsj));
 		if (util::writeBufToFile((cgroup_path + "/cgroup.subtree_control").c_str(),
 			val.c_str(), val.length(), O_WRONLY)) {
 			return true;
@@ -131,27 +127,27 @@ static void removeCgroup(const std::string& cgroup_path) {
 	}
 }
 
-static bool needMemoryController(nsjconf_t* nsjconf) {
+static bool needMemoryController(nsj_t* nsj) {
 	/*
 	 * Check if we need 'memory'
 	 * This matches the check in initNsFromParentMem()
 	 */
-	ssize_t swap_max = nsjconf->cgroup_mem_swap_max;
-	if (nsjconf->cgroup_mem_memsw_max > (size_t)0) {
-		swap_max = nsjconf->cgroup_mem_memsw_max - nsjconf->cgroup_mem_max;
+	ssize_t swap_max = nsj->njc.cgroup_mem_swap_max();
+	if (nsj->njc.cgroup_mem_memsw_max() > (size_t)0) {
+		swap_max = nsj->njc.cgroup_mem_memsw_max() - nsj->njc.cgroup_mem_max();
 	}
-	if (nsjconf->cgroup_mem_max == (size_t)0 && swap_max < (ssize_t)0) {
+	if (nsj->njc.cgroup_mem_max() == (size_t)0 && swap_max < (ssize_t)0) {
 		return false;
 	}
 	return true;
 }
 
-static bool needPidsController(nsjconf_t* nsjconf) {
-	return nsjconf->cgroup_pids_max != 0;
+static bool needPidsController(nsj_t* nsj) {
+	return nsj->njc.cgroup_pids_max() != 0;
 }
 
-static bool needCpuController(nsjconf_t* nsjconf) {
-	return nsjconf->cgroup_cpu_ms_per_sec != 0U;
+static bool needCpuController(nsj_t* nsj) {
+	return nsj->njc.cgroup_cpu_ms_per_sec() != 0U;
 }
 
 /*
@@ -160,12 +156,12 @@ static bool needCpuController(nsjconf_t* nsjconf) {
  */
 #define SUBTREE_CONTROL_BUF_LEN 0x40
 
-bool setup(nsjconf_t* nsjconf) {
+bool setup(nsj_t* nsj) {
 	/*
 	 * Read from cgroup.subtree_control in the root to see if
 	 * the controllers we need are there.
 	 */
-	auto p = nsjconf->cgroupv2_mount + "/cgroup.subtree_control";
+	auto p = nsj->njc.cgroupv2_mount() + "/cgroup.subtree_control";
 	char buf[SUBTREE_CONTROL_BUF_LEN];
 	int read = util::readFromFile(p.c_str(), buf, SUBTREE_CONTROL_BUF_LEN - 1);
 	if (read < 0) {
@@ -175,57 +171,57 @@ bool setup(nsjconf_t* nsjconf) {
 	buf[read] = 0;
 
 	/* Are the controllers we need there? */
-	bool subtree_ok = (!needMemoryController(nsjconf) || strstr(buf, "memory")) &&
-			  (!needPidsController(nsjconf) || strstr(buf, "pids")) &&
-			  (!needCpuController(nsjconf) || strstr(buf, "cpu"));
+	bool subtree_ok = (!needMemoryController(nsj) || strstr(buf, "memory")) &&
+			  (!needPidsController(nsj) || strstr(buf, "pids")) &&
+			  (!needCpuController(nsj) || strstr(buf, "cpu"));
 	if (!subtree_ok) {
 		/* Now we can write to the root cgroup.subtree_control */
-		if (needMemoryController(nsjconf)) {
-			RETURN_ON_FAILURE(enableCgroupSubtree(nsjconf, "memory", getpid()));
+		if (needMemoryController(nsj)) {
+			RETURN_ON_FAILURE(enableCgroupSubtree(nsj, "memory", getpid()));
 		}
 
-		if (needPidsController(nsjconf)) {
-			RETURN_ON_FAILURE(enableCgroupSubtree(nsjconf, "pids", getpid()));
+		if (needPidsController(nsj)) {
+			RETURN_ON_FAILURE(enableCgroupSubtree(nsj, "pids", getpid()));
 		}
 
-		if (needCpuController(nsjconf)) {
-			RETURN_ON_FAILURE(enableCgroupSubtree(nsjconf, "cpu", getpid()));
+		if (needCpuController(nsj)) {
+			RETURN_ON_FAILURE(enableCgroupSubtree(nsj, "cpu", getpid()));
 		}
 	}
 	return true;
 }
 
-bool detectCgroupv2(nsjconf_t* nsjconf) {
+bool detectCgroupv2(nsj_t* nsj) {
 	/*
 	 * Check cgroupv2_mount, if it is a cgroup2 mount, use it.
 	 */
 	struct statfs buf;
-	if (statfs(nsjconf->cgroupv2_mount.c_str(), &buf)) {
-		LOG_D("statfs %s failed with %d", nsjconf->cgroupv2_mount.c_str(), errno);
-		nsjconf->use_cgroupv2 = false;
+	if (statfs(nsj->njc.cgroupv2_mount().c_str(), &buf)) {
+		LOG_D("statfs %s failed with %d", nsj->njc.cgroupv2_mount().c_str(), errno);
+		nsj->njc.set_use_cgroupv2(false);
 		return false;
 	}
-	nsjconf->use_cgroupv2 = (buf.f_type == CGROUP2_SUPER_MAGIC);
+	nsj->njc.set_use_cgroupv2(buf.f_type == CGROUP2_SUPER_MAGIC);
 	return true;
 }
 
-static bool initNsFromParentMem(nsjconf_t* nsjconf, pid_t pid) {
-	ssize_t swap_max = nsjconf->cgroup_mem_swap_max;
-	if (nsjconf->cgroup_mem_memsw_max > (size_t)0) {
-		swap_max = nsjconf->cgroup_mem_memsw_max - nsjconf->cgroup_mem_max;
+static bool initNsFromParentMem(nsj_t* nsj, pid_t pid) {
+	ssize_t swap_max = nsj->njc.cgroup_mem_swap_max();
+	if (nsj->njc.cgroup_mem_memsw_max() > (size_t)0) {
+		swap_max = nsj->njc.cgroup_mem_memsw_max() - nsj->njc.cgroup_mem_max();
 	}
 
-	if (nsjconf->cgroup_mem_max == (size_t)0 && swap_max < (ssize_t)0) {
+	if (nsj->njc.cgroup_mem_max() == (size_t)0 && swap_max < (ssize_t)0) {
 		return true;
 	}
 
-	std::string cgroup_path = getCgroupPath(nsjconf, pid);
+	std::string cgroup_path = getCgroupPath(nsj, pid);
 	RETURN_ON_FAILURE(createCgroup(cgroup_path, pid));
 	RETURN_ON_FAILURE(addPidToProcList(cgroup_path, pid));
 
-	if (nsjconf->cgroup_mem_max > (size_t)0) {
+	if (nsj->njc.cgroup_mem_max() > (size_t)0) {
 		RETURN_ON_FAILURE(writeToCgroup(
-		    cgroup_path, "memory.max", std::to_string(nsjconf->cgroup_mem_max)));
+		    cgroup_path, "memory.max", std::to_string(nsj->njc.cgroup_mem_max())));
 	}
 
 	if (swap_max >= (ssize_t)0) {
@@ -236,22 +232,22 @@ static bool initNsFromParentMem(nsjconf_t* nsjconf, pid_t pid) {
 	return true;
 }
 
-static bool initNsFromParentPids(nsjconf_t* nsjconf, pid_t pid) {
-	if (nsjconf->cgroup_pids_max == 0U) {
+static bool initNsFromParentPids(nsj_t* nsj, pid_t pid) {
+	if (nsj->njc.cgroup_pids_max() == 0U) {
 		return true;
 	}
-	std::string cgroup_path = getCgroupPath(nsjconf, pid);
+	std::string cgroup_path = getCgroupPath(nsj, pid);
 	RETURN_ON_FAILURE(createCgroup(cgroup_path, pid));
 	RETURN_ON_FAILURE(addPidToProcList(cgroup_path, pid));
-	return writeToCgroup(cgroup_path, "pids.max", std::to_string(nsjconf->cgroup_pids_max));
+	return writeToCgroup(cgroup_path, "pids.max", std::to_string(nsj->njc.cgroup_pids_max()));
 }
 
-static bool initNsFromParentCpu(nsjconf_t* nsjconf, pid_t pid) {
-	if (nsjconf->cgroup_cpu_ms_per_sec == 0U) {
+static bool initNsFromParentCpu(nsj_t* nsj, pid_t pid) {
+	if (nsj->njc.cgroup_cpu_ms_per_sec() == 0U) {
 		return true;
 	}
 
-	std::string cgroup_path = getCgroupPath(nsjconf, pid);
+	std::string cgroup_path = getCgroupPath(nsj, pid);
 	RETURN_ON_FAILURE(createCgroup(cgroup_path, pid));
 	RETURN_ON_FAILURE(addPidToProcList(cgroup_path, pid));
 
@@ -260,22 +256,26 @@ static bool initNsFromParentCpu(nsjconf_t* nsjconf, pid_t pid) {
 	 * This indicates that the group may consume up to $MAX in each $PERIOD
 	 * duration.
 	 */
-	std::string cpu_ms_per_sec_str = std::to_string(nsjconf->cgroup_cpu_ms_per_sec * 1000U);
+	std::string cpu_ms_per_sec_str = std::to_string(nsj->njc.cgroup_cpu_ms_per_sec() * 1000U);
 	cpu_ms_per_sec_str += " 1000000";
 	return writeToCgroup(cgroup_path, "cpu.max", cpu_ms_per_sec_str);
 }
 
-bool initNsFromParent(nsjconf_t* nsjconf, pid_t pid) {
-	RETURN_ON_FAILURE(initNsFromParentMem(nsjconf, pid));
-	RETURN_ON_FAILURE(initNsFromParentPids(nsjconf, pid));
-	return initNsFromParentCpu(nsjconf, pid);
+bool initNsFromParent(nsj_t* nsj, pid_t pid) {
+	RETURN_ON_FAILURE(initNsFromParentMem(nsj, pid));
+	RETURN_ON_FAILURE(initNsFromParentPids(nsj, pid));
+	return initNsFromParentCpu(nsj, pid);
 }
 
-void finishFromParent(nsjconf_t* nsjconf, pid_t pid) {
-	if (nsjconf->cgroup_mem_max != (size_t)0 || nsjconf->cgroup_pids_max != 0U ||
-	    nsjconf->cgroup_cpu_ms_per_sec != 0U) {
-		removeCgroup(getCgroupPath(nsjconf, pid));
+void finishFromParent(nsj_t* nsj, pid_t pid) {
+	if (nsj->njc.cgroup_mem_max() != (size_t)0 || nsj->njc.cgroup_pids_max() != 0U ||
+	    nsj->njc.cgroup_cpu_ms_per_sec() != 0U) {
+		removeCgroup(getCgroupPath(nsj, pid));
 	}
+}
+
+bool initUser(nsj_t* nsj) {
+	return true;
 }
 
 }  // namespace cgroup2

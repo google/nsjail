@@ -28,7 +28,7 @@
 
 namespace uts {
 
-bool initNs(nsjconf_t* nsjconf);
+bool initNs(nsj_t* nsj);
 
 }  // namespace uts
 

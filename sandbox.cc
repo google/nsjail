@@ -49,8 +49,8 @@ namespace sandbox {
 #define SECCOMP_FILTER_FLAG_LOG (1UL << 1)
 #endif /* SECCOMP_FILTER_FLAG_LOG */
 
-static bool prepareAndCommit(nsjconf_t* nsjconf) {
-	if (nsjconf->kafel_file_path.empty() && nsjconf->kafel_string.empty()) {
+static bool prepareAndCommit(nsj_t* nsj) {
+	if (nsj->njc.seccomp_policy_file().empty() && nsj->njc.seccomp_string().empty()) {
 		return true;
 	}
 
@@ -58,7 +58,7 @@ static bool prepareAndCommit(nsjconf_t* nsjconf) {
 		PLOG_W("prctl(PR_SET_NO_NEW_PRIVS, 1) failed");
 		return false;
 	}
-	if (nsjconf->seccomp_log) {
+	if (nsj->njc.seccomp_log()) {
 #ifndef __NR_seccomp
 		LOG_E("The __NR_seccomp is not defined with this kernel's header files (kernel "
 		      "headers too old?)");
@@ -66,7 +66,7 @@ static bool prepareAndCommit(nsjconf_t* nsjconf) {
 #else
 		if (util::syscall(__NR_seccomp, (uintptr_t)SECCOMP_SET_MODE_FILTER,
 			(uintptr_t)(SECCOMP_FILTER_FLAG_TSYNC | SECCOMP_FILTER_FLAG_LOG),
-			(uintptr_t)&nsjconf->seccomp_fprog) == -1) {
+			(uintptr_t)&nsj->seccomp_fprog) == -1) {
 			PLOG_E("seccomp(SECCOMP_SET_MODE_FILTER, SECCOMP_FILTER_FLAG_TSYNC | "
 			       "SECCOMP_FILTER_FLAG_LOG) failed");
 			return false;
@@ -75,22 +75,22 @@ static bool prepareAndCommit(nsjconf_t* nsjconf) {
 #endif /* __NR_seccomp */
 	}
 
-	if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &nsjconf->seccomp_fprog, 0UL, 0UL)) {
+	if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &nsj->seccomp_fprog, 0UL, 0UL)) {
 		PLOG_W("prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER) failed");
 		return false;
 	}
 	return true;
 }
 
-bool applyPolicy(nsjconf_t* nsjconf) {
-	return prepareAndCommit(nsjconf);
+bool applyPolicy(nsj_t* nsj) {
+	return prepareAndCommit(nsj);
 }
 
-bool preparePolicy(nsjconf_t* nsjconf) {
-	if (nsjconf->kafel_file_path.empty() && nsjconf->kafel_string.empty()) {
+bool preparePolicy(nsj_t* nsj) {
+	if (nsj->njc.seccomp_policy_file().empty() && nsj->njc.seccomp_string().empty()) {
 		return true;
 	}
-	if (!nsjconf->kafel_file_path.empty() && !nsjconf->kafel_string.empty()) {
+	if (!nsj->njc.seccomp_policy_file().empty() && !nsj->njc.seccomp_string().empty()) {
 		LOG_W("You specified both kafel seccomp policy, and kafel seccomp file. Specify "
 		      "one only");
 		return false;
@@ -98,23 +98,24 @@ bool preparePolicy(nsjconf_t* nsjconf) {
 
 	kafel_ctxt_t ctxt = kafel_ctxt_create();
 
-	if (!nsjconf->kafel_file_path.empty()) {
-		FILE* f = fopen(nsjconf->kafel_file_path.c_str(), "r");
+	if (!nsj->njc.seccomp_policy_file().empty()) {
+		FILE* f = fopen(nsj->njc.seccomp_policy_file().c_str(), "r");
 		if (!f) {
 			PLOG_W("Couldn't open the kafel seccomp policy file '%s'",
-			    nsjconf->kafel_file_path.c_str());
+			    nsj->njc.seccomp_policy_file().c_str());
 			kafel_ctxt_destroy(&ctxt);
 			return false;
 		}
-		LOG_D("Compiling seccomp policy from file: '%s'", nsjconf->kafel_file_path.c_str());
+		LOG_D("Compiling seccomp policy from file: '%s'",
+		    nsj->njc.seccomp_policy_file().c_str());
 		kafel_set_input_file(ctxt, f);
 	}
-	if (!nsjconf->kafel_string.empty()) {
-		LOG_D("Compiling seccomp policy from string: '%s'", nsjconf->kafel_string.c_str());
-		kafel_set_input_string(ctxt, nsjconf->kafel_string.c_str());
+	for (const auto& s : nsj->njc.seccomp_string()) {
+		LOG_D("Compiling seccomp policy from string: '%s'", s.c_str());
+		kafel_set_input_string(ctxt, s.c_str());
 	}
 
-	if (kafel_compile(ctxt, &nsjconf->seccomp_fprog) != 0) {
+	if (kafel_compile(ctxt, &nsj->seccomp_fprog) != 0) {
 		LOG_W("Could not compile policy: %s", kafel_error_msg(ctxt));
 		kafel_ctxt_destroy(&ctxt);
 		return false;
@@ -123,13 +124,13 @@ bool preparePolicy(nsjconf_t* nsjconf) {
 	return true;
 }
 
-void closePolicy(nsjconf_t* nsjconf) {
-	if (!nsjconf->seccomp_fprog.filter) {
+void closePolicy(nsj_t* nsj) {
+	if (!nsj->seccomp_fprog.filter) {
 		return;
 	}
-	free(nsjconf->seccomp_fprog.filter);
-	nsjconf->seccomp_fprog.filter = nullptr;
-	nsjconf->seccomp_fprog.len = 0;
+	free(nsj->seccomp_fprog.filter);
+	nsj->seccomp_fprog.filter = nullptr;
+	nsj->seccomp_fprog.len = 0;
 }
 
 }  // namespace sandbox

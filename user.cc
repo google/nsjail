@@ -93,8 +93,8 @@ static bool setResUid(uid_t uid) {
 	return true;
 }
 
-static bool hasGidMapSelf(nsjconf_t* nsjconf) {
-	for (const auto& gid : nsjconf->gids) {
+static bool hasGidMapSelf(nsj_t* nsj) {
+	for (const auto& gid : nsj->gids) {
 		if (!gid.is_newidmap) {
 			return true;
 		}
@@ -102,12 +102,12 @@ static bool hasGidMapSelf(nsjconf_t* nsjconf) {
 	return false;
 }
 
-static bool setGroupsDeny(nsjconf_t* nsjconf, pid_t pid) {
+static bool setGroupsDeny(nsj_t* nsj, pid_t pid) {
 	/*
 	 * No need to write 'deny' to /proc/pid/setgroups if our euid==0, as writing to
 	 * uid_map/gid_map will succeed anyway
 	 */
-	if (!nsjconf->clone_newuser || nsjconf->orig_euid == 0 || !hasGidMapSelf(nsjconf)) {
+	if (!nsj->njc.clone_newuser() || nsj->orig_euid == 0 || !hasGidMapSelf(nsj)) {
 		return true;
 	}
 
@@ -121,9 +121,9 @@ static bool setGroupsDeny(nsjconf_t* nsjconf, pid_t pid) {
 	return true;
 }
 
-static bool uidMapSelf(nsjconf_t* nsjconf, pid_t pid) {
+static bool uidMapSelf(nsj_t* nsj, pid_t pid) {
 	std::string map;
-	for (const auto& uid : nsjconf->uids) {
+	for (const auto& uid : nsj->uids) {
 		if (uid.is_newidmap) {
 			continue;
 		}
@@ -149,9 +149,9 @@ static bool uidMapSelf(nsjconf_t* nsjconf, pid_t pid) {
 	return true;
 }
 
-static bool gidMapSelf(nsjconf_t* nsjconf, pid_t pid) {
+static bool gidMapSelf(nsj_t* nsj, pid_t pid) {
 	std::string map;
-	for (const auto& gid : nsjconf->gids) {
+	for (const auto& gid : nsj->gids) {
 		if (gid.is_newidmap) {
 			continue;
 		}
@@ -178,11 +178,11 @@ static bool gidMapSelf(nsjconf_t* nsjconf, pid_t pid) {
 }
 
 /* Use newgidmap for writing the gid map */
-static bool gidMapExternal(nsjconf_t* nsjconf, pid_t pid) {
+static bool gidMapExternal(nsj_t* nsj, pid_t pid) {
 	bool use = false;
 
 	std::vector<std::string> argv = {kNewGidPath, std::to_string(pid)};
-	for (const auto& gid : nsjconf->gids) {
+	for (const auto& gid : nsj->gids) {
 		if (!gid.is_newidmap) {
 			continue;
 		}
@@ -204,11 +204,11 @@ static bool gidMapExternal(nsjconf_t* nsjconf, pid_t pid) {
 }
 
 /* Use newuidmap for writing the uid map */
-static bool uidMapExternal(nsjconf_t* nsjconf, pid_t pid) {
+static bool uidMapExternal(nsj_t* nsj, pid_t pid) {
 	bool use = false;
 
 	std::vector<std::string> argv = {kNewUidPath, std::to_string(pid)};
-	for (const auto& uid : nsjconf->uids) {
+	for (const auto& uid : nsj->uids) {
 		if (!uid.is_newidmap) {
 			continue;
 		}
@@ -229,30 +229,30 @@ static bool uidMapExternal(nsjconf_t* nsjconf, pid_t pid) {
 	return true;
 }
 
-static bool uidGidMap(nsjconf_t* nsjconf, pid_t pid) {
-	RETURN_ON_FAILURE(gidMapSelf(nsjconf, pid));
-	RETURN_ON_FAILURE(gidMapExternal(nsjconf, pid));
-	RETURN_ON_FAILURE(uidMapSelf(nsjconf, pid));
-	RETURN_ON_FAILURE(uidMapExternal(nsjconf, pid));
+static bool uidGidMap(nsj_t* nsj, pid_t pid) {
+	RETURN_ON_FAILURE(gidMapSelf(nsj, pid));
+	RETURN_ON_FAILURE(gidMapExternal(nsj, pid));
+	RETURN_ON_FAILURE(uidMapSelf(nsj, pid));
+	RETURN_ON_FAILURE(uidMapExternal(nsj, pid));
 
 	return true;
 }
 
-bool initNsFromParent(nsjconf_t* nsjconf, pid_t pid) {
-	if (!setGroupsDeny(nsjconf, pid)) {
+bool initNsFromParent(nsj_t* nsj, pid_t pid) {
+	if (!setGroupsDeny(nsj, pid)) {
 		return false;
 	}
-	if (!nsjconf->clone_newuser) {
+	if (!nsj->njc.clone_newuser()) {
 		return true;
 	}
-	if (!uidGidMap(nsjconf, pid)) {
+	if (!uidGidMap(nsj, pid)) {
 		return false;
 	}
 	return true;
 }
 
-bool initNsFromChild(nsjconf_t* nsjconf) {
-	if (!nsjconf->clone_newuser && nsjconf->orig_euid != 0) {
+bool initNsFromChild(nsj_t* nsj) {
+	if (!nsj->njc.clone_newuser() && nsj->orig_euid != 0) {
 		return true;
 	}
 
@@ -272,17 +272,17 @@ bool initNsFromChild(nsjconf_t* nsjconf) {
 	 */
 	std::vector<gid_t> groups;
 	std::string groupsString = "[";
-	if (!nsjconf->clone_newuser && nsjconf->gids.size() > 1) {
-		for (auto it = nsjconf->gids.begin() + 1; it != nsjconf->gids.end(); it++) {
+	if (!nsj->njc.clone_newuser() && nsj->gids.size() > 1) {
+		for (auto it = nsj->gids.begin() + 1; it != nsj->gids.end(); it++) {
 			groups.push_back(it->inside_id);
 			groupsString += std::to_string(it->inside_id);
-			if (it < nsjconf->gids.end() - 1) groupsString += ", ";
+			if (it < nsj->gids.end() - 1) groupsString += ", ";
 		}
 	}
 	groupsString += "]";
 
-	if (!setResGid(nsjconf->gids[0].inside_id)) {
-		PLOG_E("setresgid(%lu)", (unsigned long)nsjconf->gids[0].inside_id);
+	if (!setResGid(nsj->gids[0].inside_id)) {
+		PLOG_E("setresgid(%lu)", (unsigned long)nsj->gids[0].inside_id);
 		return false;
 	}
 
@@ -296,8 +296,8 @@ bool initNsFromChild(nsjconf_t* nsjconf) {
 		PLOG_D("setgroups(%zu, %s) failed", groups.size(), groupsString.c_str());
 	}
 
-	if (!setResUid(nsjconf->uids[0].inside_id)) {
-		PLOG_E("setresuid(%lu)", (unsigned long)nsjconf->uids[0].inside_id);
+	if (!setResUid(nsj->uids[0].inside_id)) {
+		PLOG_E("setresuid(%lu)", (unsigned long)nsj->uids[0].inside_id);
 		return false;
 	}
 
@@ -342,8 +342,8 @@ static gid_t parseGid(const std::string& id) {
 	return (gid_t)-1;
 }
 
-bool parseId(nsjconf_t* nsjconf, const std::string& i_id, const std::string& o_id, size_t cnt,
-    bool is_gid, bool is_newidmap) {
+bool parseId(nsj_t* nsj, const std::string& i_id, const std::string& o_id, size_t cnt, bool is_gid,
+    bool is_newidmap) {
 	if (cnt < 1) {
 		cnt = 1;
 	}
@@ -382,12 +382,16 @@ bool parseId(nsjconf_t* nsjconf, const std::string& i_id, const std::string& o_i
 	id.is_newidmap = is_newidmap;
 
 	if (is_gid) {
-		nsjconf->gids.push_back(id);
+		nsj->gids.push_back(id);
 	} else {
-		nsjconf->uids.push_back(id);
+		nsj->uids.push_back(id);
 	}
 
 	return true;
+}
+
+bool initNs(nsj_t* nsj) {
+	return initNsFromChild(nsj);
 }
 
 }  // namespace user

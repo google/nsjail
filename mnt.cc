@@ -303,10 +303,10 @@ static bool mkdirAndTest(const std::string& dir) {
 	return true;
 }
 
-static std::unique_ptr<std::string> getDir(nsjconf_t* nsjconf, const char* name) {
+static std::unique_ptr<std::string> getDir(nsj_t* nsj, const char* name) {
 	std::unique_ptr<std::string> dir(new std::string);
 
-	dir->assign("/run/user/").append(std::to_string(nsjconf->orig_uid)).append("/nsjail");
+	dir->assign("/run/user/").append(std::to_string(nsj->orig_uid)).append("/nsjail");
 	if (mkdirAndTest(*dir)) {
 		dir->append("/").append(name);
 		if (mkdirAndTest(*dir)) {
@@ -315,16 +315,13 @@ static std::unique_ptr<std::string> getDir(nsjconf_t* nsjconf, const char* name)
 	}
 	dir->assign("/run/user/")
 	    .append("/nsjail.")
-	    .append(std::to_string(nsjconf->orig_uid))
+	    .append(std::to_string(nsj->orig_uid))
 	    .append(".")
 	    .append(name);
 	if (mkdirAndTest(*dir)) {
 		return dir;
 	}
-	dir->assign("/tmp/nsjail.")
-	    .append(std::to_string(nsjconf->orig_uid))
-	    .append(".")
-	    .append(name);
+	dir->assign("/tmp/nsjail.").append(std::to_string(nsj->orig_uid)).append(".").append(name);
 	if (mkdirAndTest(*dir)) {
 		return dir;
 	}
@@ -333,7 +330,7 @@ static std::unique_ptr<std::string> getDir(nsjconf_t* nsjconf, const char* name)
 		dir->assign(tmp)
 		    .append("/")
 		    .append("nsjail.")
-		    .append(std::to_string(nsjconf->orig_uid))
+		    .append(std::to_string(nsj->orig_uid))
 		    .append(".")
 		    .append(name);
 		if (mkdirAndTest(*dir)) {
@@ -341,14 +338,14 @@ static std::unique_ptr<std::string> getDir(nsjconf_t* nsjconf, const char* name)
 		}
 	}
 	dir->assign("/dev/shm/nsjail.")
-	    .append(std::to_string(nsjconf->orig_uid))
+	    .append(std::to_string(nsj->orig_uid))
 	    .append(".")
 	    .append(name);
 	if (mkdirAndTest(*dir)) {
 		return dir;
 	}
 	dir->assign("/tmp/nsjail.")
-	    .append(std::to_string(nsjconf->orig_uid))
+	    .append(std::to_string(nsj->orig_uid))
 	    .append(".")
 	    .append(name)
 	    .append(".")
@@ -361,16 +358,16 @@ static std::unique_ptr<std::string> getDir(nsjconf_t* nsjconf, const char* name)
 	return nullptr;
 }
 
-static bool initNoCloneNs(nsjconf_t* nsjconf) {
+static bool initNoCloneNs(nsj_t* nsj) {
 	/*
 	 * If CLONE_NEWNS is not used, we would be changing the global mount namespace, so simply
 	 * use --chroot in this case
 	 */
-	if (nsjconf->chroot.empty()) {
+	if (nsj->chroot.empty()) {
 		return true;
 	}
-	if (chroot(nsjconf->chroot.c_str()) == -1) {
-		PLOG_E("chroot(%s)", QC(nsjconf->chroot));
+	if (chroot(nsj->chroot.c_str()) == -1) {
+		PLOG_E("chroot(%s)", QC(nsj->chroot));
 		return false;
 	}
 	if (chdir("/") == -1) {
@@ -380,13 +377,13 @@ static bool initNoCloneNs(nsjconf_t* nsjconf) {
 	return true;
 }
 
-static bool initCloneNs(nsjconf_t* nsjconf) {
+static bool initCloneNs(nsj_t* nsj) {
 	if (chdir("/") == -1) {
 		PLOG_E("chdir('/')");
 		return false;
 	}
 
-	std::unique_ptr<std::string> destdir = getDir(nsjconf, "root");
+	std::unique_ptr<std::string> destdir = getDir(nsj, "root");
 	if (!destdir) {
 		LOG_E("Couldn't obtain root mount directories");
 		return false;
@@ -402,7 +399,7 @@ static bool initCloneNs(nsjconf_t* nsjconf) {
 		return false;
 	}
 
-	std::unique_ptr<std::string> tmpdir = getDir(nsjconf, "tmp");
+	std::unique_ptr<std::string> tmpdir = getDir(nsj, "tmp");
 	if (!tmpdir) {
 		LOG_E("Couldn't obtain temporary mount directories");
 		return false;
@@ -412,7 +409,7 @@ static bool initCloneNs(nsjconf_t* nsjconf) {
 		return false;
 	}
 
-	for (auto& p : nsjconf->mountpts) {
+	for (auto& p : nsj->mountpts) {
 		if (!mountPt(&p, destdir->c_str(), tmpdir->c_str()) && p.is_mandatory) {
 			LOG_E("Couldn't mount %s", QC(p.dst));
 			return false;
@@ -424,7 +421,7 @@ static bool initCloneNs(nsjconf_t* nsjconf) {
 		return false;
 	}
 
-	if (!nsjconf->no_pivotroot) {
+	if (!nsj->njc.no_pivotroot()) {
 		/*
 		 * This requires some explanation: It's actually possible to pivot_root('/', '/').
 		 * After this operation has been completed, the old root is mounted over the new
@@ -481,7 +478,7 @@ static bool initCloneNs(nsjconf_t* nsjconf) {
 		}
 	}
 
-	for (const auto& p : nsjconf->mountpts) {
+	for (const auto& p : nsj->mountpts) {
 		if (!remountPt(p) && p.is_mandatory) {
 			return false;
 		}
@@ -490,19 +487,19 @@ static bool initCloneNs(nsjconf_t* nsjconf) {
 	return true;
 }
 
-static bool initNsInternal(nsjconf_t* nsjconf) {
-	if (nsjconf->clone_newns) {
-		if (!initCloneNs(nsjconf)) {
+static bool initNsInternal(nsj_t* nsj) {
+	if (nsj->njc.clone_newns()) {
+		if (!initCloneNs(nsj)) {
 			return false;
 		}
 	} else {
-		if (!initNoCloneNs(nsjconf)) {
+		if (!initNoCloneNs(nsj)) {
 			return false;
 		}
 	}
 
-	if (chdir(nsjconf->cwd.c_str()) == -1) {
-		PLOG_E("chdir(%s)", QC(nsjconf->cwd));
+	if (chdir(nsj->njc.cwd().c_str()) == -1) {
+		PLOG_E("chdir(%s)", QC(nsj->njc.cwd()));
 		return false;
 	}
 	return true;
@@ -512,9 +509,9 @@ static bool initNsInternal(nsjconf_t* nsjconf) {
  * With mode MODE_STANDALONE_EXECVE it's required to mount /proc inside a new process,
  * as the current process is still in the original PID namespace (man pid_namespaces)
  */
-bool initNs(nsjconf_t* nsjconf) {
-	if (nsjconf->mode != MODE_STANDALONE_EXECVE) {
-		return initNsInternal(nsjconf);
+bool initNs(nsj_t* nsj) {
+	if (nsj->njc.mode() != nsjail::Mode::EXECVE) {
+		return initNsInternal(nsj);
 	}
 
 	pid_t pid = subproc::cloneProc(CLONE_FS, SIGCHLD);
@@ -523,7 +520,7 @@ bool initNs(nsjconf_t* nsjconf) {
 	}
 
 	if (pid == 0) {
-		exit(initNsInternal(nsjconf) ? 0 : 0xff);
+		exit(initNsInternal(nsj) ? 0 : 0xff);
 	}
 
 	int status;
@@ -592,7 +589,7 @@ static bool addMountPt(mount_t* mnt, const std::string& src, const std::string& 
 	return true;
 }
 
-bool addMountPtHead(nsjconf_t* nsjconf, const std::string& src, const std::string& dst,
+bool addMountPtHead(nsj_t* nsj, const std::string& src, const std::string& dst,
     const std::string& fstype, const std::string& options, uintptr_t flags, isDir_t is_dir,
     bool is_mandatory, const std::string& src_env, const std::string& dst_env,
     const std::string& src_content, bool is_symlink) {
@@ -601,11 +598,11 @@ bool addMountPtHead(nsjconf_t* nsjconf, const std::string& src, const std::strin
 		dst_env, src_content, is_symlink)) {
 		return false;
 	}
-	nsjconf->mountpts.insert(nsjconf->mountpts.begin(), mnt);
+	nsj->mountpts.insert(nsj->mountpts.begin(), mnt);
 	return true;
 }
 
-bool addMountPtTail(nsjconf_t* nsjconf, const std::string& src, const std::string& dst,
+bool addMountPtTail(nsj_t* nsj, const std::string& src, const std::string& dst,
     const std::string& fstype, const std::string& options, uintptr_t flags, isDir_t is_dir,
     bool is_mandatory, const std::string& src_env, const std::string& dst_env,
     const std::string& src_content, bool is_symlink) {
@@ -614,7 +611,7 @@ bool addMountPtTail(nsjconf_t* nsjconf, const std::string& src, const std::strin
 		dst_env, src_content, is_symlink)) {
 		return false;
 	}
-	nsjconf->mountpts.push_back(mnt);
+	nsj->mountpts.push_back(mnt);
 	return true;
 }
 

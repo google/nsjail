@@ -77,8 +77,8 @@ static void setRandomCpu(cpu_set_t* orig_mask, cpu_set_t* new_mask, size_t avail
 	CPU_CLR(n, orig_mask);
 }
 
-bool initCpu(nsjconf_t* nsjconf) {
-	if (nsjconf->max_cpus == 0) {
+bool initCpu(nsj_t* nsj) {
+	if (nsj->njc.max_cpus() == 0) {
 		LOG_D("No max_cpus limit set");
 		return true;
 	}
@@ -97,14 +97,15 @@ bool initCpu(nsjconf_t* nsjconf) {
 	LOG_D("Original CPU set: [%s], with %zu allowed CPUs",
 	    listCpusInSet(orig_mask.get()).c_str(), available_cpus);
 
-	if (nsjconf->max_cpus > available_cpus) {
+	if (nsj->njc.max_cpus() > available_cpus) {
 		LOG_W(
 		    "Number of requested CPUs is bigger than number of available CPUs (%zu > %zu)",
-		    nsjconf->max_cpus, available_cpus);
+		    (size_t)nsj->njc.max_cpus(), available_cpus);
 		return true;
 	}
-	if (nsjconf->max_cpus == available_cpus) {
-		LOG_D("All CPUs requested (%zu of %zu)", nsjconf->max_cpus, available_cpus);
+	if (nsj->njc.max_cpus() == available_cpus) {
+		LOG_D(
+		    "All CPUs requested (%zu of %zu)", (size_t)nsj->njc.max_cpus(), available_cpus);
 		return true;
 	}
 
@@ -115,21 +116,21 @@ bool initCpu(nsjconf_t* nsjconf) {
 	}
 	CPU_ZERO(new_mask.get());
 
-	for (size_t i = 0; i < nsjconf->max_cpus; i++) {
+	for (size_t i = 0; i < nsj->njc.max_cpus(); i++) {
 		setRandomCpu(orig_mask.get(), new_mask.get(), available_cpus);
 		available_cpus--;
 	}
 
 	LOG_D("Setting new CPU mask=[%s] with %zu allowed CPUs (max_cpus=%zu), %zu CPUs "
 	      "(CPU_COUNT=%zu) left mask=[%s]",
-	    listCpusInSet(new_mask.get()).c_str(), nsjconf->max_cpus,
+	    listCpusInSet(new_mask.get()).c_str(), (size_t)nsj->njc.max_cpus(),
 	    (size_t)CPU_COUNT(new_mask.get()), available_cpus, (size_t)CPU_COUNT(orig_mask.get()),
 	    listCpusInSet(orig_mask.get()).c_str());
 
 	if (sched_setaffinity(0, CPU_ALLOC_SIZE(CPU_SETSIZE), new_mask.get()) == -1) {
 		PLOG_W("sched_setaffinity(mask=%s size=%zu max_cpus=%zu (CPU_COUNT=%zu)) failed",
 		    listCpusInSet(new_mask.get()).c_str(), (size_t)CPU_ALLOC_SIZE(CPU_SETSIZE),
-		    nsjconf->max_cpus, (size_t)CPU_COUNT(new_mask.get()));
+		    (size_t)nsj->njc.max_cpus(), (size_t)CPU_COUNT(new_mask.get()));
 		return false;
 	}
 

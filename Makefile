@@ -127,3 +127,6 @@ uts.o: uts.h nsjail.h logs.h
 user.o: user.h nsjail.h logs.h macros.h subproc.h util.h
 util.o: util.h nsjail.h logs.h macros.h
 config.pb.o: config.pb.h
+
+# Ensure protobuf header is generated before any object compilation
+$(OBJS): $(SRCS_PB_H)
