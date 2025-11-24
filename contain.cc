@@ -98,8 +98,24 @@ static bool containPrepareEnv(nsj_t* nsj) {
 		PLOG_E("prctl(PR_SET_PDEATHSIG, SIGKILL)");
 		return false;
 	}
-	if (nsj->personality && personality(nsj->personality) == -1) {
-		PLOG_E("personality(%lx)", nsj->personality);
+	unsigned long personality = 0;
+	if (nsj->njc.persona_addr_compat_layout()) {
+		personality |= ADDR_COMPAT_LAYOUT;
+	}
+	if (nsj->njc.persona_mmap_page_zero()) {
+		personality |= MMAP_PAGE_ZERO;
+	}
+	if (nsj->njc.persona_read_implies_exec()) {
+		personality |= READ_IMPLIES_EXEC;
+	}
+	if (nsj->njc.persona_addr_limit_3gb()) {
+		personality |= ADDR_LIMIT_3GB;
+	}
+	if (nsj->njc.persona_addr_no_randomize()) {
+		personality |= ADDR_NO_RANDOMIZE;
+	}
+	if (personality && ::personality(personality) == -1) {
+		PLOG_E("personality(%lx)", personality);
 		return false;
 	}
 	LOG_D("setpriority(%d)", nsj->njc.nice_level());

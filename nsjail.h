@@ -58,19 +58,6 @@ struct pids_t {
 	pid_t pasta_pid;
 };
 
-struct mount_t {
-	std::string src;
-	std::string src_content;
-	std::string dst;
-	std::string fs_type;
-	std::string options;
-	uintptr_t flags;
-	bool is_dir;
-	bool is_symlink;
-	bool is_mandatory;
-	bool mounted;
-};
-
 struct idmap_t {
 	uid_t inside_id;
 	uid_t outside_id;
@@ -102,20 +89,16 @@ struct nsj_t {
 	std::vector<std::string> argv;
 	uid_t orig_uid;
 	uid_t orig_euid;
-	std::vector<mount_t> mountpts;
 	std::map<pid_t, pids_t> pids;
 	std::vector<idmap_t> uids;
 	std::vector<idmap_t> gids;
-	std::vector<std::string> envs;
 	std::vector<int> openfds;
-	std::vector<int> caps;
-	std::vector<std::string> ifaces;
+
 	std::vector<pipemap_t> pipes;
 	std::string chroot;
 	std::string proc_path;
 	bool is_root_rw;
 	bool is_proc_rw;
-	unsigned long personality;
 	struct sock_fprog seccomp_fprog;
 };
 

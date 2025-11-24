@@ -197,8 +197,8 @@ static void newProc(nsj_t* nsj, int netfd, int fd_in, int fd_out, int fd_err, in
 	if (!nsj->njc.keep_env()) {
 		clearenv();
 	}
-	for (const auto& env : nsj->envs) {
-		putenv(const_cast<char*>(env.c_str()));
+	for (ssize_t i = 0; i < nsj->njc.envar_size(); i++) {
+		putenv(const_cast<char*>(nsj->njc.envar(i).c_str()));
 	}
 
 	auto connstr = net::connToText(netfd, /* remote= */ true, NULL);

@@ -49,9 +49,35 @@
 
 namespace mnt {
 
+struct mount_t {
+	std::string src;
+	std::string src_content;
+	std::string dst;
+	std::string fs_type;
+	std::string options;
+	uintptr_t flags;
+	bool is_dir;
+	bool is_symlink;
+	bool is_mandatory;
+	bool mounted;
+};
+
+#if !defined(MS_NOSYMFOLLOW)
+#define MS_NOSYMFOLLOW 256
+#endif /* if !defined(MS_NOSYMFOLLOW) */
 #if !defined(MS_LAZYTIME)
 #define MS_LAZYTIME (1 << 25)
 #endif /* if !defined(MS_LAZYTIME) */
+#if !defined(MS_ACTIVE)
+#define MS_ACTIVE (1 << 30)
+#endif /* if !defined(MS_ACTIVE) */
+#if !defined(MS_NOUSER)
+#define MS_NOUSER (1 << 31)
+#endif /* if !defined(MS_NOUSER) */
+
+#if !defined(ST_NOSYMFOLLOW)
+#define ST_NOSYMFOLLOW 8192
+#endif /* if !defined(ST_NOSYMFOLLOW) */
 
 static const std::string flagsToStr(unsigned long flags) {
 	std::string res;
@@ -68,9 +94,7 @@ static const std::string flagsToStr(unsigned long flags) {
 	    NS_VALSTR_STRUCT(MS_REMOUNT),
 	    NS_VALSTR_STRUCT(MS_MANDLOCK),
 	    NS_VALSTR_STRUCT(MS_DIRSYNC),
-#if defined(MS_NOSYMFOLLOW)
 	    NS_VALSTR_STRUCT(MS_NOSYMFOLLOW),
-#endif /* defined(MS_NOSYMFOLLOW) */
 	    NS_VALSTR_STRUCT(MS_NOATIME),
 	    NS_VALSTR_STRUCT(MS_NODIRATIME),
 	    NS_VALSTR_STRUCT(MS_BIND),
@@ -87,12 +111,8 @@ static const std::string flagsToStr(unsigned long flags) {
 	    NS_VALSTR_STRUCT(MS_I_VERSION),
 	    NS_VALSTR_STRUCT(MS_STRICTATIME),
 	    NS_VALSTR_STRUCT(MS_LAZYTIME),
-#if defined(MS_ACTIVE)
 	    NS_VALSTR_STRUCT(MS_ACTIVE),
-#endif /* defined(MS_ACTIVE) */
-#if defined(MS_NOUSER)
 	    NS_VALSTR_STRUCT((uint32_t)MS_NOUSER),  // defined as (1<<31)
-#endif						    /* defined(MS_NOUSER) */
 	};
 
 	unsigned knownFlagMask = 0U;
@@ -111,6 +131,66 @@ static const std::string flagsToStr(unsigned long flags) {
 	}
 
 	return res;
+}
+
+const std::string describeMountPt(const nsjail::MountPt& mpt) {
+	std::string descr;
+
+	descr.append(mpt.src().empty() ? "" : QC(mpt.src()))
+	    .append(mpt.src().empty() ? "" : " -> ")
+	    .append(QC(mpt.dst()))
+	    .append(" type:")
+	    .append(QC(mpt.fstype()))
+	    .append(" options:")
+	    .append(QC(mpt.options()));
+
+	if (mpt.has_is_dir()) {
+		descr.append(mpt.is_dir() ? " dir:true" : " dir:false");
+	}
+	if (!mpt.mandatory()) {
+		descr.append(" mandatory:false");
+	}
+	if (!mpt.src_content().empty()) {
+		descr.append(" src_content_len:")
+		    .append(std::to_string(mpt.src_content().length()));
+	}
+	if (mpt.is_symlink()) {
+		descr.append(" symlink:true");
+	}
+
+	return descr;
+}
+
+/* Helper for internal use with mount_t */
+static const std::string describeMountPt(const mount_t& mpt) {
+	std::string descr;
+
+	descr.append(mpt.src.empty() ? "" : QC(mpt.src))
+	    .append(mpt.src.empty() ? "" : " -> ")
+	    .append(QC(mpt.dst))
+	    .append(" flags:")
+	    .append(flagsToStr(mpt.flags))
+	    .append(" type:")
+	    .append(QC(mpt.fs_type))
+	    .append(" options:")
+	    .append(QC(mpt.options));
+
+	if (mpt.is_dir) {
+		descr.append(" dir:true");
+	} else {
+		descr.append(" dir:false");
+	}
+	if (!mpt.is_mandatory) {
+		descr.append(" mandatory:false");
+	}
+	if (!mpt.src_content.empty()) {
+		descr.append(" src_content_len:").append(std::to_string(mpt.src_content.length()));
+	}
+	if (mpt.is_symlink) {
+		descr.append(" symlink:true");
+	}
+
+	return descr;
 }
 
 static bool isDir(const char* path) {
@@ -266,14 +346,12 @@ static bool remountPt(const mount_t& mpt) {
 	    {MS_NOATIME, ST_NOATIME},
 	    {MS_NODIRATIME, ST_NODIRATIME},
 	    {MS_RELATIME, ST_RELATIME},
-#if defined(MS_NOSYMFOLLOW) && defined(ST_NOSYMFOLLOW)
 	    {MS_NOSYMFOLLOW, ST_NOSYMFOLLOW},
-#endif /* defined(MS_NOSYMFOLLOW) && defined(ST_NOSYMFOLLOW) */
 	};
 
 	const unsigned long per_mountpoint_flags =
 	    MS_LAZYTIME | MS_MANDLOCK | MS_NOATIME | MS_NODEV | MS_NODIRATIME | MS_NOEXEC |
-	    MS_NOSUID | MS_RELATIME | MS_RDONLY | MS_SYNCHRONOUS;
+	    MS_NOSUID | MS_RELATIME | MS_RDONLY | MS_SYNCHRONOUS | MS_NOSYMFOLLOW;
 	unsigned long new_flags = MS_REMOUNT | MS_BIND | (mpt.flags & per_mountpoint_flags);
 	for (const auto& i : mountPairs) {
 		if (vfs.f_flag & i.vfs_flag) {
@@ -358,6 +436,64 @@ static std::unique_ptr<std::string> getDir(nsj_t* nsj, const char* name) {
 	return nullptr;
 }
 
+static bool addMountPt(mount_t* mnt, const std::string& src, const std::string& dst,
+    const std::string& fstype, const std::string& options, uintptr_t flags, isDir_t is_dir,
+    bool is_mandatory, const std::string& src_env, const std::string& dst_env,
+    const std::string& src_content, bool is_symlink) {
+	if (!src_env.empty()) {
+		const char* e = getenv(src_env.c_str());
+		if (e == nullptr) {
+			LOG_W("No such envar:%s", QC(src_env));
+			return false;
+		}
+		mnt->src = e;
+	}
+	mnt->src.append(src);
+
+	if (!dst_env.empty()) {
+		const char* e = getenv(dst_env.c_str());
+		if (e == nullptr) {
+			LOG_W("No such envar:%s", QC(dst_env));
+			return false;
+		}
+		mnt->dst = e;
+	}
+	mnt->dst.append(dst);
+
+	mnt->fs_type = fstype;
+	mnt->options = options;
+	mnt->flags = flags;
+	mnt->is_symlink = is_symlink;
+	mnt->is_mandatory = is_mandatory;
+	mnt->mounted = false;
+	mnt->src_content = src_content;
+
+	switch (is_dir) {
+	case NS_DIR_YES:
+		mnt->is_dir = true;
+		break;
+	case NS_DIR_NO:
+		mnt->is_dir = false;
+		break;
+	case NS_DIR_MAYBE: {
+		if (!src_content.empty()) {
+			mnt->is_dir = false;
+		} else if (mnt->src.empty()) {
+			mnt->is_dir = true;
+		} else if (mnt->flags & MS_BIND) {
+			mnt->is_dir = mnt::isDir(mnt->src.c_str());
+		} else {
+			mnt->is_dir = true;
+		}
+	} break;
+	default:
+		LOG_E("Unknown is_dir value: %d", is_dir);
+		return false;
+	}
+
+	return true;
+}
+
 static bool initNoCloneNs(nsj_t* nsj) {
 	/*
 	 * If CLONE_NEWNS is not used, we would be changing the global mount namespace, so simply
@@ -409,9 +545,31 @@ static bool initCloneNs(nsj_t* nsj) {
 		return false;
 	}
 
-	for (auto& p : nsj->mountpts) {
-		if (!mountPt(&p, destdir->c_str(), tmpdir->c_str()) && p.is_mandatory) {
-			LOG_E("Couldn't mount %s", QC(p.dst));
+	for (const auto& p : nsj->njc.mount()) {
+		uintptr_t flags = (p.rw() ? 0 : MS_RDONLY);
+		if (p.is_bind()) {
+			flags |= (MS_BIND | MS_REC | MS_PRIVATE);
+		}
+		if (p.nosuid()) {
+			flags |= MS_NOSUID;
+		}
+		if (p.nodev()) {
+			flags |= MS_NODEV;
+		}
+		if (p.noexec()) {
+			flags |= MS_NOEXEC;
+		}
+
+		mount_t mpt;
+		if (!addMountPt(&mpt, p.src(), p.dst(), p.fstype(), p.options(), flags,
+			p.has_is_dir() ? (p.is_dir() ? NS_DIR_YES : NS_DIR_NO) : NS_DIR_MAYBE,
+			p.mandatory(), p.prefix_src_env(), p.prefix_dst_env(), p.src_content(),
+			p.is_symlink())) {
+			continue;
+		}
+
+		if (!mountPt(&mpt, destdir->c_str(), tmpdir->c_str()) && mpt.is_mandatory) {
+			LOG_E("Couldn't mount %s", QC(mpt.dst));
 			return false;
 		}
 	}
@@ -478,8 +636,34 @@ static bool initCloneNs(nsj_t* nsj) {
 		}
 	}
 
-	for (const auto& p : nsj->mountpts) {
-		if (!remountPt(p) && p.is_mandatory) {
+	/* Remounting R/O, if needed */
+	for (const auto& p : nsj->njc.mount()) {
+		uintptr_t flags = (p.rw() ? 0 : MS_RDONLY);
+		if (p.is_bind()) {
+			flags |= (MS_BIND | MS_REC | MS_PRIVATE);
+		}
+		if (p.nosuid()) {
+			flags |= MS_NOSUID;
+		}
+		if (p.nodev()) {
+			flags |= MS_NODEV;
+		}
+		if (p.noexec()) {
+			flags |= MS_NOEXEC;
+		}
+
+		mount_t mpt;
+		if (!addMountPt(&mpt, p.src(), p.dst(), p.fstype(), p.options(), flags,
+			p.has_is_dir() ? (p.is_dir() ? NS_DIR_YES : NS_DIR_NO) : NS_DIR_MAYBE,
+			p.mandatory(), p.prefix_src_env(), p.prefix_dst_env(), p.src_content(),
+			p.is_symlink())) {
+			continue;
+		}
+
+		/* We need to set mounted=true to allow remountPt to work, assuming it was mounted
+		 */
+		mpt.mounted = true;
+		if (!remountPt(mpt) && mpt.is_mandatory) {
 			return false;
 		}
 	}
@@ -529,121 +713,6 @@ bool initNs(nsj_t* nsj) {
 		return true;
 	}
 	return false;
-}
-
-static bool addMountPt(mount_t* mnt, const std::string& src, const std::string& dst,
-    const std::string& fstype, const std::string& options, uintptr_t flags, isDir_t is_dir,
-    bool is_mandatory, const std::string& src_env, const std::string& dst_env,
-    const std::string& src_content, bool is_symlink) {
-	if (!src_env.empty()) {
-		const char* e = getenv(src_env.c_str());
-		if (e == nullptr) {
-			LOG_W("No such envar:%s", QC(src_env));
-			return false;
-		}
-		mnt->src = e;
-	}
-	mnt->src.append(src);
-
-	if (!dst_env.empty()) {
-		const char* e = getenv(dst_env.c_str());
-		if (e == nullptr) {
-			LOG_W("No such envar:%s", QC(dst_env));
-			return false;
-		}
-		mnt->dst = e;
-	}
-	mnt->dst.append(dst);
-
-	mnt->fs_type = fstype;
-	mnt->options = options;
-	mnt->flags = flags;
-	mnt->is_symlink = is_symlink;
-	mnt->is_mandatory = is_mandatory;
-	mnt->mounted = false;
-	mnt->src_content = src_content;
-
-	switch (is_dir) {
-	case NS_DIR_YES:
-		mnt->is_dir = true;
-		break;
-	case NS_DIR_NO:
-		mnt->is_dir = false;
-		break;
-	case NS_DIR_MAYBE: {
-		if (!src_content.empty()) {
-			mnt->is_dir = false;
-		} else if (mnt->src.empty()) {
-			mnt->is_dir = true;
-		} else if (mnt->flags & MS_BIND) {
-			mnt->is_dir = mnt::isDir(mnt->src.c_str());
-		} else {
-			mnt->is_dir = true;
-		}
-	} break;
-	default:
-		LOG_E("Unknown is_dir value: %d", is_dir);
-		return false;
-	}
-
-	return true;
-}
-
-bool addMountPtHead(nsj_t* nsj, const std::string& src, const std::string& dst,
-    const std::string& fstype, const std::string& options, uintptr_t flags, isDir_t is_dir,
-    bool is_mandatory, const std::string& src_env, const std::string& dst_env,
-    const std::string& src_content, bool is_symlink) {
-	mount_t mnt;
-	if (!addMountPt(&mnt, src, dst, fstype, options, flags, is_dir, is_mandatory, src_env,
-		dst_env, src_content, is_symlink)) {
-		return false;
-	}
-	nsj->mountpts.insert(nsj->mountpts.begin(), mnt);
-	return true;
-}
-
-bool addMountPtTail(nsj_t* nsj, const std::string& src, const std::string& dst,
-    const std::string& fstype, const std::string& options, uintptr_t flags, isDir_t is_dir,
-    bool is_mandatory, const std::string& src_env, const std::string& dst_env,
-    const std::string& src_content, bool is_symlink) {
-	mount_t mnt;
-	if (!addMountPt(&mnt, src, dst, fstype, options, flags, is_dir, is_mandatory, src_env,
-		dst_env, src_content, is_symlink)) {
-		return false;
-	}
-	nsj->mountpts.push_back(mnt);
-	return true;
-}
-
-const std::string describeMountPt(const mount_t& mpt) {
-	std::string descr;
-
-	descr.append(mpt.src.empty() ? "" : QC(mpt.src))
-	    .append(mpt.src.empty() ? "" : " -> ")
-	    .append(QC(mpt.dst))
-	    .append(" flags:")
-	    .append(flagsToStr(mpt.flags))
-	    .append(" type:")
-	    .append(QC(mpt.fs_type))
-	    .append(" options:")
-	    .append(QC(mpt.options));
-
-	if (mpt.is_dir) {
-		descr.append(" dir:true");
-	} else {
-		descr.append(" dir:false");
-	}
-	if (!mpt.is_mandatory) {
-		descr.append(" mandatory:false");
-	}
-	if (!mpt.src_content.empty()) {
-		descr.append(" src_content_len:").append(std::to_string(mpt.src_content.length()));
-	}
-	if (mpt.is_symlink) {
-		descr.append(" symlink:true");
-	}
-
-	return descr;
 }
 
 }  // namespace mnt

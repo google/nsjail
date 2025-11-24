@@ -27,7 +27,6 @@
 #include <google/protobuf/util/json_util.h>
 #include <stdio.h>
 #include <sys/mount.h>
-#include <sys/personality.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -102,35 +101,9 @@ static bool parseInternal(nsj_t* nsj, const nsjail::NsJailConfig& njc) {
 	for (ssize_t i = 0; i < njc.envar_size(); i++) {
 		cmdline::addEnv(nsj, njc.envar(i));
 	}
-
-	for (ssize_t i = 0; i < njc.cap_size(); i++) {
-		int cap = caps::nameToVal(njc.cap(i).c_str());
-		if (cap == -1) {
-			return false;
-		}
-		nsj->caps.push_back(cap);
-	}
-
 	for (ssize_t i = 0; i < njc.pass_fd_size(); i++) {
 		nsj->openfds.push_back(njc.pass_fd(i));
 	}
-
-	if (njc.persona_addr_compat_layout()) {
-		nsj->personality |= ADDR_COMPAT_LAYOUT;
-	}
-	if (njc.persona_mmap_page_zero()) {
-		nsj->personality |= MMAP_PAGE_ZERO;
-	}
-	if (njc.persona_read_implies_exec()) {
-		nsj->personality |= READ_IMPLIES_EXEC;
-	}
-	if (njc.persona_addr_limit_3gb()) {
-		nsj->personality |= ADDR_LIMIT_3GB;
-	}
-	if (njc.persona_addr_no_randomize()) {
-		nsj->personality |= ADDR_NO_RANDOMIZE;
-	}
-
 	for (ssize_t i = 0; i < njc.uidmap_size(); i++) {
 		if (!user::parseId(nsj, njc.uidmap(i).inside_id(), njc.uidmap(i).outside_id(),
 			njc.uidmap(i).count(), false /* is_gid */, njc.uidmap(i).use_newidmap())) {
@@ -147,42 +120,8 @@ static bool parseInternal(nsj_t* nsj, const nsjail::NsJailConfig& njc) {
 	if (!njc.mount_proc()) {
 		nsj->proc_path.clear();
 	}
-	for (ssize_t i = 0; i < njc.mount_size(); i++) {
-		std::string src = njc.mount(i).src();
-		std::string src_env = njc.mount(i).prefix_src_env();
-		std::string dst = njc.mount(i).dst();
-		std::string dst_env = njc.mount(i).prefix_dst_env();
-		std::string fstype = njc.mount(i).fstype();
-		std::string options = njc.mount(i).options();
-
-		uintptr_t flags = (!njc.mount(i).rw()) ? MS_RDONLY : 0;
-		flags |= njc.mount(i).is_bind() ? (MS_BIND | MS_REC | MS_PRIVATE) : 0;
-		flags |= njc.mount(i).nosuid() ? MS_NOSUID : 0;
-		flags |= njc.mount(i).nodev() ? MS_NODEV : 0;
-		flags |= njc.mount(i).noexec() ? MS_NOEXEC : 0;
-		bool is_mandatory = njc.mount(i).mandatory();
-		bool is_symlink = njc.mount(i).is_symlink();
-		std::string src_content = njc.mount(i).src_content();
-
-		mnt::isDir_t is_dir = mnt::NS_DIR_MAYBE;
-		if (njc.mount(i).has_is_dir()) {
-			is_dir = njc.mount(i).is_dir() ? mnt::NS_DIR_YES : mnt::NS_DIR_NO;
-		}
-
-		if (!mnt::addMountPtTail(nsj, src, dst, fstype, options, flags, is_dir,
-			is_mandatory, src_env, dst_env, src_content, is_symlink)) {
-			LOG_E("Couldn't add mountpoint for src:%s dst:%s", QC(src), QC(dst));
-			return false;
-		}
-	}
-
 	if (njc.has_seccomp_policy_file()) {
 		nsj->njc.set_seccomp_policy_file(njc.seccomp_policy_file());
-	}
-	/* seccomp_string is handled via nsj->njc.CopyFrom(njc) above */
-
-	for (ssize_t i = 0; i < njc.iface_own().size(); i++) {
-		nsj->ifaces.push_back(njc.iface_own(i));
 	}
 
 	if (njc.has_exec_bin()) {

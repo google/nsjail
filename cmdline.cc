@@ -252,7 +252,7 @@ static void cmdlineUsage(const char* pname) {
 
 void addEnv(nsj_t* nsj, const std::string& env) {
 	if (env.find('=') != std::string::npos) {
-		nsj->envs.push_back(env);
+		nsj->njc.add_envar(env);
 		return;
 	}
 	char* e = getenv(env.c_str());
@@ -260,7 +260,7 @@ void addEnv(nsj_t* nsj, const std::string& env) {
 		LOG_W("Requested to use the %s envar, but it's not set. It'll be ignored", QC(env));
 		return;
 	}
-	nsj->envs.push_back(std::string(env).append("=").append(e));
+	nsj->njc.add_envar(std::string(env).append("=").append(e));
 }
 
 void logParams(nsj_t* nsj) {
@@ -284,28 +284,24 @@ void logParams(nsj_t* nsj) {
 
 	LOG_I("Jail parameters: hostname:'%s', chroot:%s, process:'%s', "
 	      "bind:[%s]:%d, "
-	      "max_conns:%u, max_conns_per_ip:%u, time_limit:%u"
-	      ", personality:%#lx, daemonize:%s, clone_newnet:%s, "
+	      "max_conns:%u, max_conns_per_ip:%u, time_limit:%u, daemonize:%s, clone_newnet:%s, "
 	      "clone_newuser:%s, clone_newns:%s, clone_newpid:%s, clone_newipc:%s, "
-	      "clone_newuts:%s, "
-	      "clone_newcgroup:%s, clone_newtime:%s, keep_caps:%s, "
-	      "disable_no_new_privs:%s, "
-	      "max_cpus:%u",
+	      "clone_newuts:%s, cgroupv2:%s, keep_caps:%s, "
+	      "disable_no_new_privs:%s, max_cpus:%u",
 	    nsj->njc.hostname().c_str(), QC(nsj->chroot),
 	    nsj->njc.exec_bin().path().empty() ? nsj->argv[0].c_str()
 					       : nsj->njc.exec_bin().path().c_str(),
 	    nsj->njc.bindhost().c_str(), nsj->njc.port(), nsj->njc.max_conns(),
-	    nsj->njc.max_conns_per_ip(), nsj->njc.time_limit(), nsj->personality,
-	    logYesNo(nsj->njc.daemon()), logYesNo(nsj->njc.clone_newnet()),
-	    logYesNo(nsj->njc.clone_newuser()), logYesNo(nsj->njc.clone_newns()),
-	    logYesNo(nsj->njc.clone_newpid()), logYesNo(nsj->njc.clone_newipc()),
-	    logYesNo(nsj->njc.clone_newuts()), logYesNo(nsj->njc.clone_newcgroup()),
-	    logYesNo(nsj->njc.clone_newtime()), logYesNo(nsj->njc.keep_caps()),
+	    nsj->njc.max_conns_per_ip(), nsj->njc.time_limit(), logYesNo(nsj->njc.daemon()),
+	    logYesNo(nsj->njc.clone_newnet()), logYesNo(nsj->njc.clone_newuser()),
+	    logYesNo(nsj->njc.clone_newns()), logYesNo(nsj->njc.clone_newpid()),
+	    logYesNo(nsj->njc.clone_newipc()), logYesNo(nsj->njc.clone_newuts()),
+	    logYesNo(nsj->njc.use_cgroupv2()), logYesNo(nsj->njc.keep_caps()),
 	    logYesNo(nsj->njc.disable_no_new_privs()), nsj->njc.max_cpus());
 
-	for (const auto& p : nsj->mountpts) {
-		LOG_I(
-		    "%s: %s", p.is_symlink ? "Symlink" : "Mount", mnt::describeMountPt(p).c_str());
+	for (const auto& p : nsj->njc.mount()) {
+		LOG_I("%s: %s", p.is_symlink() ? "Symlink" : "Mount",
+		    mnt::describeMountPt(p).c_str());
 	}
 	for (const auto& uid : nsj->uids) {
 		LOG_I("Uid map: inside_uid:%lu outside_uid:%lu count:%zu newuidmap:%s",
@@ -344,9 +340,8 @@ uint64_t parseRLimit(int res, const char* optarg, unsigned long mul) {
 		return cur.rlim_max;
 	}
 	if (!util::isANumber(optarg)) {
-		LOG_F(
-		    "RLIMIT %s (%d) needs a numeric value or 'max'/'hard'/'def'/'soft'/'inf' value "
-		    "(%s provided)",
+		LOG_F("RLIMIT %s (%d) needs a numeric value or 'max'/'hard'/'def'/'soft'/'inf' "
+		      "value (%s provided)",
 		    util::rLimName(res).c_str(), res, QC(optarg));
 	}
 	errno = 0;
@@ -403,34 +398,33 @@ static bool setupArgv(nsj_t* nsj, int argc, char** argv, int optind) {
 
 static bool setupMounts(nsj_t* nsj) {
 	if (!(nsj->chroot.empty())) {
-		if (!mnt::addMountPtHead(nsj, nsj->chroot, "/", /* fstype= */ "",
-			/* options= */ "",
-			nsj->is_root_rw ? (MS_BIND | MS_REC | MS_PRIVATE)
-					: (MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY),
-			/* is_dir= */ mnt::NS_DIR_YES,
-			/* is_mandatory= */ true, /* src_env= */ "",
-			/* dst_env= */ "", /* src_content= */ "",
-			/* is_symlink= */ false)) {
-			return false;
+		nsjail::MountPt* p = nsj->njc.add_mount();
+		p->set_src(nsj->chroot);
+		p->set_dst("/");
+		p->set_is_bind(true);
+		p->set_rw(nsj->is_root_rw);
+		p->set_is_dir(true);
+		/* Insert at the beginning */
+		for (int i = nsj->njc.mount_size() - 1; i > 0; i--) {
+			nsj->njc.mutable_mount()->SwapElements(i, i - 1);
 		}
 	} else {
-		if (!mnt::addMountPtHead(nsj, /* src= */ "", "/", "tmpfs",
-			/* options= */ "", nsj->is_root_rw ? 0 : MS_RDONLY,
-			/* is_dir= */ mnt::NS_DIR_YES,
-			/* is_mandatory= */ true, /* src_env= */ "", /* dst_env= */ "",
-			/* src_content= */ "", /* is_symlink= */ false)) {
-			return false;
+		nsjail::MountPt* p = nsj->njc.add_mount();
+		p->set_dst("/");
+		p->set_fstype("tmpfs");
+		p->set_rw(nsj->is_root_rw);
+		p->set_is_dir(true);
+		/* Insert at the beginning */
+		for (int i = nsj->njc.mount_size() - 1; i > 0; i--) {
+			nsj->njc.mutable_mount()->SwapElements(i, i - 1);
 		}
 	}
 	if (!nsj->proc_path.empty()) {
-		if (!mnt::addMountPtTail(nsj, /* src= */ "", nsj->proc_path, "proc",
-			/* options= */ "", nsj->njc.mount_proc() ? 0 : MS_RDONLY,
-			/* is_dir= */ mnt::NS_DIR_YES,
-			/* is_mandatory= */ true, /* src_env= */ "",
-			/* dst_env= */ "", /* src_content= */ "",
-			/* is_symlink= */ false)) {
-			return false;
-		}
+		nsjail::MountPt* p = nsj->njc.add_mount();
+		p->set_dst(nsj->proc_path);
+		p->set_fstype("proc");
+		p->set_rw(nsj->njc.mount_proc());
+		p->set_is_dir(true);
 	}
 
 	return true;
@@ -606,19 +600,19 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 			nsj->njc.set_disable_rl(true);
 			break;
 		case 0x0301:
-			nsj->personality |= ADDR_COMPAT_LAYOUT;
+			nsj->njc.set_persona_addr_compat_layout(true);
 			break;
 		case 0x0302:
-			nsj->personality |= MMAP_PAGE_ZERO;
+			nsj->njc.set_persona_mmap_page_zero(true);
 			break;
 		case 0x0303:
-			nsj->personality |= READ_IMPLIES_EXEC;
+			nsj->njc.set_persona_read_implies_exec(true);
 			break;
 		case 0x0304:
-			nsj->personality |= ADDR_LIMIT_3GB;
+			nsj->njc.set_persona_addr_limit_3gb(true);
 			break;
 		case 0x0305:
-			nsj->personality |= ADDR_NO_RANDOMIZE;
+			nsj->njc.set_persona_addr_no_randomize(true);
 			break;
 		case 'N':
 			nsj->njc.set_clone_newnet(false);
@@ -670,7 +664,8 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 			if (cap == -1) {
 				return nullptr;
 			}
-			nsj->caps.push_back(cap);
+
+			nsj->njc.add_cap(optarg);
 		} break;
 		case 0x0600:
 			nsj->njc.set_no_pivotroot(true);
@@ -685,7 +680,7 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 		case 0x0605:
 			nsj->njc.set_mount_proc(true);
 			nsj->proc_path = optarg;
-			nsj->proc_path = optarg;
+
 			break;
 		case 0x0606:
 			nsj->is_proc_rw = true;
@@ -754,14 +749,12 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 			if (dst.empty()) {
 				dst = src;
 			}
-			if (!mnt::addMountPtTail(nsj.get(), src, dst, /* fstype= */ "",
-				/* options= */ "", MS_BIND | MS_REC | MS_PRIVATE | MS_RDONLY,
-				/* is_dir= */ mnt::NS_DIR_MAYBE, /* is_mandatory= */ true,
-				/* src_env= */ "", /* dst_env= */ "", /* src_content= */ "",
-				/* is_symlink= */ false)) {
-				return nullptr;
-			}
-		}; break;
+			nsjail::MountPt* p = nsj->njc.add_mount();
+			p->set_src(src);
+			p->set_dst(dst);
+			p->set_rw(false);
+			p->set_is_bind(true);
+		} break;
 		case 'B': {
 			std::vector<std::string> subopts = util::strSplit(optarg, ':');
 			std::string src = argFromVec(subopts, 0);
@@ -769,23 +762,22 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 			if (dst.empty()) {
 				dst = src;
 			}
-			if (!mnt::addMountPtTail(nsj.get(), src, dst, /* fstype= */ "",
-				/* options= */ "", MS_BIND | MS_REC | MS_PRIVATE,
-				/* is_dir= */ mnt::NS_DIR_MAYBE, /* is_mandatory= */ true,
-				/* src_env= */ "", /* dst_env= */ "", /* src_content= */ "",
-				/* is_symlink= */ false)) {
-				return nullptr;
-			}
-		}; break;
+			std::string options = argFromVec(subopts, 2);
+			nsjail::MountPt* p = nsj->njc.add_mount();
+			p->set_src(src);
+			p->set_dst(dst);
+			p->set_options(options);
+			p->set_rw(true);
+			p->set_is_bind(true);
+		} break;
 		case 'T': {
-			if (!mnt::addMountPtTail(nsj.get(), "", optarg, /* fstype= */ "tmpfs",
-				/* options= */ "size=4194304", 0,
-				/* is_dir= */ mnt::NS_DIR_YES, /* is_mandatory= */ true,
-				/* src_env= */ "", /* dst_env= */ "", /* src_content= */ "",
-				/* is_symlink= */ false)) {
-				return nullptr;
-			}
-		}; break;
+			nsjail::MountPt* p = nsj->njc.add_mount();
+			p->set_dst(optarg);
+			p->set_fstype("tmpfs");
+			p->set_options("size=4194304");
+			p->set_rw(true);
+			p->set_is_dir(true);
+		} break;
 		case 'm': {
 			std::vector<std::string> subopts = util::strSplit(optarg, ':');
 			std::string src = argFromVec(subopts, 0);
@@ -800,26 +792,26 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 				optionsStream << ":" << subopts[i];
 			}
 			std::string options = optionsStream.str();
-			if (!mnt::addMountPtTail(nsj.get(), src, dst, /* fstype= */ fs_type,
-				/* options= */ options, /* flags= */ 0,
-				/* is_dir= */ mnt::NS_DIR_MAYBE, /* is_mandatory= */ true,
-				/* src_env= */ "", /* dst_env= */ "", /* src_content= */ "",
-				/* is_symlink= */ false)) {
-				return nullptr;
-			}
-		}; break;
+			nsjail::MountPt* p = nsj->njc.add_mount();
+			p->set_src(src);
+			p->set_dst(dst);
+			p->set_fstype(fs_type);
+			p->set_options(options);
+			p->set_rw(true);
+		} break;
 		case 's': {
 			std::vector<std::string> subopts = util::strSplit(optarg, ':');
 			std::string src = argFromVec(subopts, 0);
 			std::string dst = argFromVec(subopts, 1);
-			if (!mnt::addMountPtTail(nsj.get(), src, dst, /* fstype= */ "",
-				/* options= */ "", /* flags= */ 0,
-				/* is_dir= */ mnt::NS_DIR_NO, /* is_mandatory= */ true,
-				/* src_env= */ "", /* dst_env= */ "", /* src_content= */ "",
-				/* is_symlink= */ true)) {
-				return nullptr;
+			if (dst.empty()) {
+				dst = src;
 			}
-		}; break;
+			nsjail::MountPt* p = nsj->njc.add_mount();
+			p->set_src(src);
+			p->set_dst(dst);
+			p->set_is_symlink(true);
+			p->set_rw(true);
+		} break;
 		case 'M':
 			switch (optarg[0]) {
 			case 'l':

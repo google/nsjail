@@ -235,7 +235,12 @@ bool initNs(nsj_t* nsj) {
 	/* Set all requested caps in the inheritable set if these are present in the permitted set
 	 */
 	std::string dbgmsg;
-	for (const auto& cap : nsj->caps) {
+	for (ssize_t i = 0; i < nsj->njc.cap_size(); i++) {
+		int cap = nameToVal(nsj->njc.cap(i).c_str());
+		if (cap == -1) {
+			LOG_W("Unknown capability: %s", nsj->njc.cap(i).c_str());
+			continue;
+		}
 		if (!getPermitted(cap_data, cap)) {
 			LOG_W("Capability %s is not permitted in the namespace",
 			    capToStr(cap).c_str());
@@ -277,7 +282,11 @@ bool initNs(nsj_t* nsj) {
 
 	/* Make sure inheritable set is preserved across execve via the modified ambient set */
 	dbgmsg.clear();
-	for (const auto& cap : nsj->caps) {
+	for (ssize_t i = 0; i < nsj->njc.cap_size(); i++) {
+		int cap = nameToVal(nsj->njc.cap(i).c_str());
+		if (cap == -1) {
+			continue;
+		}
 		if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)cap, 0UL, 0UL) ==
 		    -1) {
 			PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s)",
