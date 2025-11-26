@@ -9,8 +9,16 @@ endif
 CC ?= gcc
 CXX ?= g++
 
+# pkg-config for protobuf can be expensive/slow
+# Skip pkg-config for: clean, indent, kafel_init, and kafel-only builds
+ifneq ($(filter-out clean indent kafel_init kafel/libkafel.a,$(MAKECMDGOALS)),)
 PROTOBUF_CFLAGS := $(shell pkg-config --cflags protobuf)
 PROTOBUF_LIBS   := $(shell pkg-config --libs protobuf)
+else ifeq ($(MAKECMDGOALS),)
+# Default target (all) requires protobuf
+PROTOBUF_CFLAGS := $(shell pkg-config --cflags protobuf)
+PROTOBUF_LIBS   := $(shell pkg-config --libs protobuf)
+endif
 
 NL3_EXISTS := $(shell pkg-config --exists libnl-route-3.0 && echo yes)
 
