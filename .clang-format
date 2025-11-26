@@ -12,3 +12,9 @@ AlwaysBreakBeforeMultilineStrings: false
 IndentCaseLabels: false
 ---
 Language: Proto
+---
+Language: TextProto
+BasedOnStyle: Google
+IndentWidth: 8
+UseTab: Always
+ColumnLimit: 0
