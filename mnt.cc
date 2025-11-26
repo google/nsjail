@@ -545,6 +545,7 @@ static bool initCloneNs(nsj_t* nsj) {
 		return false;
 	}
 
+	std::vector<mount_t> mounted_mpts;
 	for (const auto& p : nsj->njc.mount()) {
 		uintptr_t flags = (p.rw() ? 0 : MS_RDONLY);
 		if (p.is_bind()) {
@@ -572,6 +573,8 @@ static bool initCloneNs(nsj_t* nsj) {
 			LOG_E("Couldn't mount %s", QC(mpt.dst));
 			return false;
 		}
+
+		mounted_mpts.push_back(mpt);
 	}
 
 	if (umount2(tmpdir->c_str(), MNT_DETACH) == -1) {
@@ -624,7 +627,8 @@ static bool initCloneNs(nsj_t* nsj) {
 		}
 
 		/* mount moving the new root on top of '/'. This operation is atomic and doesn't
-		involve un-mounting '/' at any stage */
+		 *  involve un-mounting '/' at any stage
+		 */
 		if (mount(".", "/", NULL, MS_MOVE, NULL) == -1) {
 			PLOG_E("mount('/', %s, NULL, MS_MOVE, NULL)", QC(*destdir));
 			return false;
@@ -636,33 +640,8 @@ static bool initCloneNs(nsj_t* nsj) {
 		}
 	}
 
-	/* Remounting R/O, if needed */
-	for (const auto& p : nsj->njc.mount()) {
-		uintptr_t flags = (p.rw() ? 0 : MS_RDONLY);
-		if (p.is_bind()) {
-			flags |= (MS_BIND | MS_REC | MS_PRIVATE);
-		}
-		if (p.nosuid()) {
-			flags |= MS_NOSUID;
-		}
-		if (p.nodev()) {
-			flags |= MS_NODEV;
-		}
-		if (p.noexec()) {
-			flags |= MS_NOEXEC;
-		}
-
-		mount_t mpt;
-		if (!addMountPt(&mpt, p.src(), p.dst(), p.fstype(), p.options(), flags,
-			p.has_is_dir() ? (p.is_dir() ? NS_DIR_YES : NS_DIR_NO) : NS_DIR_MAYBE,
-			p.mandatory(), p.prefix_src_env(), p.prefix_dst_env(), p.src_content(),
-			p.is_symlink())) {
-			continue;
-		}
-
-		/* We need to set mounted=true to allow remountPt to work, assuming it was mounted
-		 */
-		mpt.mounted = true;
+	/* Remounting R/O, if needed. Only for mount points that were actually mounted */
+	for (const auto& mpt : mounted_mpts) {
 		if (!remountPt(mpt) && mpt.is_mandatory) {
 			return false;
 		}
