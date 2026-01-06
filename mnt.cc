@@ -547,7 +547,7 @@ static bool initCloneNs(nsj_t* nsj) {
 
 	std::vector<mount_t> mounted_mpts;
 	for (const auto& p : nsj->njc.mount()) {
-		uintptr_t flags = (p.rw() ? 0 : MS_RDONLY);
+		uintptr_t flags = (p.rw() ? 0 : (uintptr_t)MS_RDONLY);
 		if (p.is_bind()) {
 			flags |= (MS_BIND | MS_REC | MS_PRIVATE);
 		}
