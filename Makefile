@@ -131,3 +131,15 @@ uts.o: uts.h nsjail.h config.pb.h logs.h
 user.o: user.h nsjail.h config.pb.h logs.h macros.h subproc.h util.h
 util.o: util.h nsjail.h config.pb.h logs.h macros.h
 config.pb.o: config.pb.h
+
+# Install
+PREFIX ?= /usr
+BINDIR ?= $(PREFIX)/bin
+MANDIR ?= $(PREFIX)/share/man/man1
+
+.PHONY: install
+install: $(BIN)
+	install -m 755 -d $(DESTDIR)$(BINDIR)
+	install -m 755 $(BIN) $(DESTDIR)$(BINDIR)
+	install -m 755 -d $(DESTDIR)$(MANDIR)
+	install -m 644 nsjail.1 $(DESTDIR)$(MANDIR)

@@ -1,0 +1,5 @@
+nsjail (3.0-1) unstable; urgency=medium
+
+  * Initial release. (Closes: #210)
+
+ -- Ishan Patel <ishan.patel1998@gmail.com>  Fri, 30 Jan 2026 23:45:00 +0530
