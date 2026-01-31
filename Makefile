@@ -46,7 +46,7 @@ endif
 BIN = nsjail
 LIBS = kafel/libkafel.a
 
-SRCS_CXX = caps.cc cgroup.cc cgroup2.cc cmdline.cc config.cc contain.cc cpu.cc logs.cc mnt.cc net.cc nsjail.cc pid.cc sandbox.cc subproc.cc uts.cc user.cc util.cc
+SRCS_CXX = caps.cc cgroup.cc cgroup2.cc cmdline.cc config.cc contain.cc cpu.cc logs.cc mnt.cc mnt_legacy.cc mnt_newapi.cc net.cc nsjail.cc pid.cc sandbox.cc subproc.cc uts.cc user.cc util.cc
 SRCS_PROTO = config.proto
 
 SRCS_PB_CXX = $(SRCS_PROTO:.proto=.pb.cc)
@@ -112,14 +112,17 @@ caps.o: caps.h nsjail.h config.pb.h logs.h macros.h util.h
 cgroup.o: cgroup.h nsjail.h config.pb.h logs.h util.h
 cgroup2.o: cgroup2.h nsjail.h config.pb.h logs.h util.h
 cmdline.o: cmdline.h nsjail.h config.pb.h caps.h config.h logs.h macros.h
-cmdline.o: mnt.h user.h util.h
+cmdline.o: mnt.h mnt_newapi.h user.h util.h
 config.o: config.h nsjail.h config.pb.h caps.h cmdline.h logs.h macros.h
 config.o: mnt.h user.h util.h
 contain.o: contain.h nsjail.h config.pb.h caps.h cgroup.h cgroup2.h config.h
 contain.o: cpu.h logs.h macros.h mnt.h net.h pid.h user.h util.h uts.h
 cpu.o: cpu.h nsjail.h config.pb.h logs.h util.h
 logs.o: logs.h macros.h util.h nsjail.h config.pb.h
-mnt.o: mnt.h nsjail.h config.pb.h logs.h macros.h subproc.h util.h
+mnt.o: mnt.h nsjail.h config.pb.h logs.h macros.h mnt_legacy.h mnt_newapi.h
+mnt.o: subproc.h util.h
+mnt_legacy.o: mnt_legacy.h mnt.h nsjail.h config.pb.h logs.h macros.h util.h
+mnt_newapi.o: mnt_newapi.h mnt.h nsjail.h config.pb.h logs.h util.h
 net.o: net.h nsjail.h config.pb.h logs.h util.h
 nsjail.o: nsjail.h config.pb.h cgroup2.h cmdline.h logs.h macros.h net.h
 nsjail.o: sandbox.h subproc.h util.h

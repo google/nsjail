@@ -37,8 +37,20 @@ typedef enum {
 	NS_DIR_MAYBE,
 } isDir_t;
 
+/* Shared mount point structure used by both legacy and new API */
+struct mount_t {
+	const nsjail::MountPt* mpt;
+	std::string src;
+	std::string dst;
+	uintptr_t flags;
+	bool is_dir;
+	bool mounted;
+	int fd; /* Used by new API for deferred remount */
+};
+
 bool initNs(nsj_t* nsj);
 const std::string describeMountPt(const nsjail::MountPt& mpt);
+const std::string flagsToStr(unsigned long flags);
 
 }  // namespace mnt
 

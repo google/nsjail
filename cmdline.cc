@@ -53,6 +53,7 @@
 #include "logs.h"
 #include "macros.h"
 #include "mnt.h"
+#include "mnt_newapi.h"
 #include "user.h"
 #include "util.h"
 
@@ -139,6 +140,7 @@ static const struct custom_option custom_opts[] = {
     { { "disable_proc", no_argument, nullptr, 0x0603 }, "Disable mounting procfs in the jail" },
     { { "proc_path", required_argument, nullptr, 0x0605 }, "Path used to mount procfs (default: '/proc')" },
     { { "proc_rw", no_argument, nullptr, 0x0606 }, "Is procfs mounted as R/W (default: R/O)" },
+    { { "experimental_mnt", required_argument, nullptr, 0x0609 }, "Mount API to use: 'new' (fsopen/fsmount), 'old' (mount syscall), or 'default' (auto-detect based on kernel version)" },
     { { "seccomp_policy", required_argument, nullptr, 'P' }, "Path to file containing seccomp-bpf policy (see kafel/)" },
     { { "seccomp_string", required_argument, nullptr, 0x0901 }, "String with kafel seccomp-bpf policy (see kafel/)" },
     { { "seccomp_log", no_argument, nullptr, 0x0902 }, "Use SECCOMP_FILTER_FLAG_LOG. Log all actions except SECCOMP_RET_ALLOW). Supported since kernel version 4.14" },
@@ -408,22 +410,12 @@ static bool setupMounts(nsj_t* nsj) {
 		for (int i = nsj->njc.mount_size() - 1; i > 0; i--) {
 			nsj->njc.mutable_mount()->SwapElements(i, i - 1);
 		}
-	} else {
-		nsjail::MountPt* p = nsj->njc.add_mount();
-		p->set_dst("/");
-		p->set_fstype("tmpfs");
-		p->set_rw(nsj->is_root_rw);
-		p->set_is_dir(true);
-		/* Insert at the beginning */
-		for (int i = nsj->njc.mount_size() - 1; i > 0; i--) {
-			nsj->njc.mutable_mount()->SwapElements(i, i - 1);
-		}
 	}
 	if (!nsj->proc_path.empty()) {
 		nsjail::MountPt* p = nsj->njc.add_mount();
 		p->set_dst(nsj->proc_path);
 		p->set_fstype("proc");
-		p->set_rw(nsj->njc.mount_proc());
+		p->set_rw(nsj->is_proc_rw);
 		p->set_is_dir(true);
 	}
 
@@ -470,6 +462,7 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 	nsj->orig_euid = geteuid();
 	nsj->seccomp_fprog.filter = NULL;
 	nsj->seccomp_fprog.len = 0;
+	nsj->mnt_newapi = mnt::newapi::isAvailable();
 
 	nsj->openfds.push_back(STDIN_FILENO);
 	nsj->openfds.push_back(STDOUT_FILENO);
@@ -684,6 +677,16 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 			break;
 		case 0x0606:
 			nsj->is_proc_rw = true;
+			break;
+		case 0x0609:
+			if (strcasecmp(optarg, "new") == 0) {
+				nsj->mnt_newapi = true;
+			} else if (strcasecmp(optarg, "old") == 0) {
+				nsj->mnt_newapi = false;
+			} else if (strcasecmp(optarg, "default") != 0) {
+				LOG_E("--experimental_mnt must be 'new', 'old', or 'default'");
+				return nullptr;
+			}
 			break;
 		case 0x0607:
 			nsj->njc.mutable_exec_bin()->set_exec_fd(true);

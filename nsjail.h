@@ -98,6 +98,7 @@ struct nsj_t {
 	std::string chroot;
 	std::string proc_path;
 	bool is_root_rw;
+	bool mnt_newapi;
 	bool is_proc_rw;
 	struct sock_fprog seccomp_fprog;
 };

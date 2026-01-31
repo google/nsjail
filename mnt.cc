@@ -21,6 +21,7 @@
 
 #include "mnt.h"
 
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
@@ -41,26 +42,16 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "logs.h"
 #include "macros.h"
+#include "mnt_legacy.h"
+#include "mnt_newapi.h"
 #include "subproc.h"
 #include "util.h"
 
 namespace mnt {
-
-struct mount_t {
-	std::string src;
-	std::string src_content;
-	std::string dst;
-	std::string fs_type;
-	std::string options;
-	uintptr_t flags;
-	bool is_dir;
-	bool is_symlink;
-	bool is_mandatory;
-	bool mounted;
-};
 
 #if !defined(MS_NOSYMFOLLOW)
 #define MS_NOSYMFOLLOW 256
@@ -75,11 +66,7 @@ struct mount_t {
 #define MS_NOUSER (1 << 31)
 #endif /* if !defined(MS_NOUSER) */
 
-#if !defined(ST_NOSYMFOLLOW)
-#define ST_NOSYMFOLLOW 8192
-#endif /* if !defined(ST_NOSYMFOLLOW) */
-
-static const std::string flagsToStr(unsigned long flags) {
+const std::string flagsToStr(unsigned long flags) {
 	std::string res;
 
 	struct {
@@ -161,339 +148,6 @@ const std::string describeMountPt(const nsjail::MountPt& mpt) {
 	return descr;
 }
 
-/* Helper for internal use with mount_t */
-static const std::string describeMountPt(const mount_t& mpt) {
-	std::string descr;
-
-	descr.append(mpt.src.empty() ? "" : QC(mpt.src))
-	    .append(mpt.src.empty() ? "" : " -> ")
-	    .append(QC(mpt.dst))
-	    .append(" flags:")
-	    .append(flagsToStr(mpt.flags))
-	    .append(" type:")
-	    .append(QC(mpt.fs_type))
-	    .append(" options:")
-	    .append(QC(mpt.options));
-
-	if (mpt.is_dir) {
-		descr.append(" dir:true");
-	} else {
-		descr.append(" dir:false");
-	}
-	if (!mpt.is_mandatory) {
-		descr.append(" mandatory:false");
-	}
-	if (!mpt.src_content.empty()) {
-		descr.append(" src_content_len:").append(std::to_string(mpt.src_content.length()));
-	}
-	if (mpt.is_symlink) {
-		descr.append(" symlink:true");
-	}
-
-	return descr;
-}
-
-static bool isDir(const char* path) {
-	/*
-	 *  If the source dir is NULL, we assume it's a dir (for /proc and tmpfs)
-	 */
-	if (path == nullptr) {
-		return true;
-	}
-	struct stat st;
-	if (stat(path, &st) == -1) {
-		PLOG_D("stat(%s)", QC(path));
-		return false;
-	}
-	if (S_ISDIR(st.st_mode)) {
-		return true;
-	}
-	return false;
-}
-
-static int mountRWIfPossible(mount_t* mpt, const char* src, const char* dst) {
-	int res =
-	    mount(src, dst, mpt->fs_type.c_str(), mpt->flags & ~(MS_RDONLY), mpt->options.c_str());
-	if ((mpt->flags & MS_RDONLY) && res == -1 && errno == EPERM) {
-		LOG_W("mount(%s) src:%s dstpath:%s could not mount read-write, falling "
-		      "back to mounting read-only directly",
-		    describeMountPt(*mpt).c_str(), QC(src), QC(dst));
-		res = mount(src, dst, mpt->fs_type.c_str(), mpt->flags, mpt->options.c_str());
-	}
-	return res;
-}
-
-static bool mountPt(mount_t* mpt, const char* newroot, const char* tmpdir) {
-	LOG_D("Mounting %s", describeMountPt(*mpt).c_str());
-
-	char dstpath[PATH_MAX];
-	snprintf(dstpath, sizeof(dstpath), "%s/%s", newroot, mpt->dst.c_str());
-
-	char srcpath[PATH_MAX];
-	if (!mpt->src.empty()) {
-		snprintf(srcpath, sizeof(srcpath), "%s", mpt->src.c_str());
-	} else {
-		snprintf(srcpath, sizeof(srcpath), "none");
-	}
-
-	if (!util::createDirRecursively(dstpath)) {
-		LOG_W("Couldn't create upper directories for '%s'", dstpath);
-		return false;
-	}
-
-	if (mpt->is_symlink) {
-		LOG_D("symlink(%s, %s)", util::StrQuote(srcpath).c_str(),
-		    util::StrQuote(dstpath).c_str());
-		if (symlink(srcpath, dstpath) == -1) {
-			if (mpt->is_mandatory) {
-				PLOG_E("symlink('%s', '%s')", util::StrQuote(srcpath).c_str(),
-				    util::StrQuote(dstpath).c_str());
-				return false;
-			} else {
-				PLOG_W("symlink('%s', '%s'), but it's not mandatory, continuing",
-				    util::StrQuote(srcpath).c_str(),
-				    util::StrQuote(dstpath).c_str());
-			}
-		}
-		return true;
-	}
-
-	if (mpt->is_dir) {
-		if (mkdir(dstpath, 0711) == -1 && errno != EEXIST) {
-			PLOG_W("mkdir(%s)", QC(dstpath));
-		}
-	} else {
-		int fd = TEMP_FAILURE_RETRY(open(dstpath, O_CREAT | O_RDONLY | O_CLOEXEC, 0644));
-		if (fd >= 0) {
-			close(fd);
-		} else {
-			PLOG_W("open(%s, O_CREAT|O_RDONLY|O_CLOEXEC, 0644)", QC(dstpath));
-		}
-	}
-
-	if (!mpt->src_content.empty()) {
-		static uint64_t df_counter = 0;
-		snprintf(
-		    srcpath, sizeof(srcpath), "%s/dynamic_file.%" PRIu64, tmpdir, ++df_counter);
-		int fd = TEMP_FAILURE_RETRY(
-		    open(srcpath, O_CREAT | O_EXCL | O_CLOEXEC | O_WRONLY, 0644));
-		if (fd < 0) {
-			PLOG_W("open(srcpath, O_CREAT|O_EXCL|O_CLOEXEC|O_WRONLY, 0644) failed");
-			return false;
-		}
-		if (!util::writeToFd(fd, mpt->src_content.data(), mpt->src_content.length())) {
-			LOG_W(
-			    "Writing %zu bytes to '%s' failed", mpt->src_content.length(), srcpath);
-			close(fd);
-			return false;
-		}
-		close(fd);
-		mpt->flags |= (MS_BIND | MS_REC | MS_PRIVATE);
-	}
-
-	/*
-	 * Initially mount it as RW, it will be remounted later on if needed
-	 */
-	if (mountRWIfPossible(mpt, srcpath, dstpath) == -1) {
-		if (errno == EACCES) {
-			PLOG_W("mount('%s') src:'%s' dstpath:'%s' failed. "
-			       "Try fixing this problem by applying 'chmod o+x' to the '%s' "
-			       "directory and its ancestors",
-			    describeMountPt(*mpt).c_str(), srcpath, dstpath, srcpath);
-		} else {
-			PLOG_W("mount('%s') src:'%s' dstpath:'%s' failed",
-			    describeMountPt(*mpt).c_str(), srcpath, dstpath);
-			if (mpt->fs_type.compare("proc") == 0) {
-				PLOG_W("procfs can only be mounted if the original /proc doesn't "
-				       "have any other file-systems mounted on top of it (e.g. "
-				       "/dev/null on top of /proc/kcore)");
-			}
-		}
-		return false;
-	} else {
-		mpt->mounted = true;
-	}
-
-	if (!mpt->src_content.empty() && unlink(srcpath) == -1) {
-		PLOG_W("unlink('%s')", srcpath);
-	}
-	return true;
-}
-
-static bool remountPt(const mount_t& mpt) {
-	if (!mpt.mounted) {
-		return true;
-	}
-	if (mpt.is_symlink) {
-		return true;
-	}
-
-	struct statvfs vfs;
-	if (TEMP_FAILURE_RETRY(statvfs(mpt.dst.c_str(), &vfs)) == -1) {
-		PLOG_W("statvfs('%s')", mpt.dst.c_str());
-		return false;
-	}
-
-	struct {
-		const unsigned long mount_flag;
-		const unsigned long vfs_flag;
-	} static const mountPairs[] = {
-	    {MS_NOSUID, ST_NOSUID},
-	    {MS_NODEV, ST_NODEV},
-	    {MS_NOEXEC, ST_NOEXEC},
-	    {MS_SYNCHRONOUS, ST_SYNCHRONOUS},
-	    {MS_MANDLOCK, ST_MANDLOCK},
-	    {MS_NOATIME, ST_NOATIME},
-	    {MS_NODIRATIME, ST_NODIRATIME},
-	    {MS_RELATIME, ST_RELATIME},
-	    {MS_NOSYMFOLLOW, ST_NOSYMFOLLOW},
-	};
-
-	const unsigned long per_mountpoint_flags =
-	    MS_LAZYTIME | MS_MANDLOCK | MS_NOATIME | MS_NODEV | MS_NODIRATIME | MS_NOEXEC |
-	    MS_NOSUID | MS_RELATIME | MS_RDONLY | MS_SYNCHRONOUS | MS_NOSYMFOLLOW;
-	unsigned long new_flags = MS_REMOUNT | MS_BIND | (mpt.flags & per_mountpoint_flags);
-	for (const auto& i : mountPairs) {
-		if (vfs.f_flag & i.vfs_flag) {
-			new_flags |= i.mount_flag;
-		}
-	}
-
-	LOG_D("Re-mounting '%s' (flags:%s)", mpt.dst.c_str(), flagsToStr(new_flags).c_str());
-	if (mount(mpt.dst.c_str(), mpt.dst.c_str(), NULL, new_flags, 0) == -1) {
-		PLOG_W("mount('%s', flags:%s)", mpt.dst.c_str(), flagsToStr(new_flags).c_str());
-		return false;
-	}
-
-	return true;
-}
-
-static bool mkdirAndTest(const std::string& dir) {
-	if (mkdir(dir.c_str(), 0755) == -1 && errno != EEXIST) {
-		PLOG_D("Couldn't create '%s' directory", dir.c_str());
-		return false;
-	}
-	if (access(dir.c_str(), R_OK) == -1) {
-		PLOG_W("access('%s', R_OK)", dir.c_str());
-		return false;
-	}
-	LOG_D("Created accessible directory in '%s'", dir.c_str());
-	return true;
-}
-
-static std::unique_ptr<std::string> getDir(nsj_t* nsj, const char* name) {
-	std::unique_ptr<std::string> dir(new std::string);
-
-	dir->assign("/run/user/").append(std::to_string(nsj->orig_uid)).append("/nsjail");
-	if (mkdirAndTest(*dir)) {
-		dir->append("/").append(name);
-		if (mkdirAndTest(*dir)) {
-			return dir;
-		}
-	}
-	dir->assign("/run/user/")
-	    .append("/nsjail.")
-	    .append(std::to_string(nsj->orig_uid))
-	    .append(".")
-	    .append(name);
-	if (mkdirAndTest(*dir)) {
-		return dir;
-	}
-	dir->assign("/tmp/nsjail.").append(std::to_string(nsj->orig_uid)).append(".").append(name);
-	if (mkdirAndTest(*dir)) {
-		return dir;
-	}
-	const char* tmp = getenv("TMPDIR");
-	if (tmp) {
-		dir->assign(tmp)
-		    .append("/")
-		    .append("nsjail.")
-		    .append(std::to_string(nsj->orig_uid))
-		    .append(".")
-		    .append(name);
-		if (mkdirAndTest(*dir)) {
-			return dir;
-		}
-	}
-	dir->assign("/dev/shm/nsjail.")
-	    .append(std::to_string(nsj->orig_uid))
-	    .append(".")
-	    .append(name);
-	if (mkdirAndTest(*dir)) {
-		return dir;
-	}
-	dir->assign("/tmp/nsjail.")
-	    .append(std::to_string(nsj->orig_uid))
-	    .append(".")
-	    .append(name)
-	    .append(".")
-	    .append(std::to_string(util::rnd64()));
-	if (mkdirAndTest(*dir)) {
-		return dir;
-	}
-
-	LOG_E("Couldn't create tmp directory of type '%s'", QC(name));
-	return nullptr;
-}
-
-static bool addMountPt(mount_t* mnt, const std::string& src, const std::string& dst,
-    const std::string& fstype, const std::string& options, uintptr_t flags, isDir_t is_dir,
-    bool is_mandatory, const std::string& src_env, const std::string& dst_env,
-    const std::string& src_content, bool is_symlink) {
-	if (!src_env.empty()) {
-		const char* e = getenv(src_env.c_str());
-		if (e == nullptr) {
-			LOG_W("No such envar:%s", QC(src_env));
-			return false;
-		}
-		mnt->src = e;
-	}
-	mnt->src.append(src);
-
-	if (!dst_env.empty()) {
-		const char* e = getenv(dst_env.c_str());
-		if (e == nullptr) {
-			LOG_W("No such envar:%s", QC(dst_env));
-			return false;
-		}
-		mnt->dst = e;
-	}
-	mnt->dst.append(dst);
-
-	mnt->fs_type = fstype;
-	mnt->options = options;
-	mnt->flags = flags;
-	mnt->is_symlink = is_symlink;
-	mnt->is_mandatory = is_mandatory;
-	mnt->mounted = false;
-	mnt->src_content = src_content;
-
-	switch (is_dir) {
-	case NS_DIR_YES:
-		mnt->is_dir = true;
-		break;
-	case NS_DIR_NO:
-		mnt->is_dir = false;
-		break;
-	case NS_DIR_MAYBE: {
-		if (!src_content.empty()) {
-			mnt->is_dir = false;
-		} else if (mnt->src.empty()) {
-			mnt->is_dir = true;
-		} else if (mnt->flags & MS_BIND) {
-			mnt->is_dir = mnt::isDir(mnt->src.c_str());
-		} else {
-			mnt->is_dir = true;
-		}
-	} break;
-	default:
-		LOG_E("Unknown is_dir value: %d", is_dir);
-		return false;
-	}
-
-	return true;
-}
-
 static bool initNoCloneNs(nsj_t* nsj) {
 	/*
 	 * If CLONE_NEWNS is not used, we would be changing the global mount namespace, so simply
@@ -514,71 +168,26 @@ static bool initNoCloneNs(nsj_t* nsj) {
 }
 
 static bool initCloneNs(nsj_t* nsj) {
-	if (chdir("/") == -1) {
-		PLOG_E("chdir('/')");
-		return false;
-	}
-
-	std::unique_ptr<std::string> destdir = getDir(nsj, "root");
-	if (!destdir) {
-		LOG_E("Couldn't obtain root mount directories");
-		return false;
-	}
-
-	/* Make changes to / (recursively) private, to avoid changing the global mount ns */
-	if (mount("/", "/", NULL, MS_REC | MS_PRIVATE, NULL) == -1) {
-		PLOG_E("mount('/', '/', NULL, MS_REC|MS_PRIVATE, NULL)");
-		return false;
-	}
-	if (mount(NULL, destdir->c_str(), "tmpfs", 0, "size=16777216") == -1) {
-		PLOG_E("mount(%s, 'tmpfs')", QC(*destdir));
-		return false;
-	}
-
-	std::unique_ptr<std::string> tmpdir = getDir(nsj, "tmp");
-	if (!tmpdir) {
-		LOG_E("Couldn't obtain temporary mount directories");
-		return false;
-	}
-	if (mount(NULL, tmpdir->c_str(), "tmpfs", 0, "size=16777216") == -1) {
-		PLOG_E("mount(%s, 'tmpfs')", QC(*tmpdir));
-		return false;
-	}
-
 	std::vector<mount_t> mounted_mpts;
-	for (const auto& p : nsj->njc.mount()) {
-		uintptr_t flags = (p.rw() ? 0 : (uintptr_t)MS_RDONLY);
-		if (p.is_bind()) {
-			flags |= (MS_BIND | MS_REC | MS_PRIVATE);
+	defer {
+		for (auto& p : mounted_mpts) {
+			if (p.fd >= 0) {
+				close(p.fd);
+				p.fd = -1;
+			}
 		}
-		if (p.nosuid()) {
-			flags |= MS_NOSUID;
-		}
-		if (p.nodev()) {
-			flags |= MS_NODEV;
-		}
-		if (p.noexec()) {
-			flags |= MS_NOEXEC;
-		}
+	};
 
-		mount_t mpt;
-		if (!addMountPt(&mpt, p.src(), p.dst(), p.fstype(), p.options(), flags,
-			p.has_is_dir() ? (p.is_dir() ? NS_DIR_YES : NS_DIR_NO) : NS_DIR_MAYBE,
-			p.mandatory(), p.prefix_src_env(), p.prefix_dst_env(), p.src_content(),
-			p.is_symlink())) {
-			continue;
-		}
+	std::unique_ptr<std::string> destdir;
 
-		if (!mountPt(&mpt, destdir->c_str(), tmpdir->c_str()) && mpt.is_mandatory) {
-			LOG_E("Couldn't mount %s", QC(mpt.dst));
-			return false;
-		}
-
-		mounted_mpts.push_back(mpt);
+	if (nsj->mnt_newapi) {
+		destdir = newapi::buildMountTree(nsj, &mounted_mpts);
+	} else {
+		destdir = legacy::buildMountTree(nsj, &mounted_mpts);
 	}
 
-	if (umount2(tmpdir->c_str(), MNT_DETACH) == -1) {
-		PLOG_E("umount2(%s, MNT_DETACH)", QC(*tmpdir));
+	if (!destdir) {
+		LOG_E("Failed to build mount tree");
 		return false;
 	}
 
@@ -601,6 +210,7 @@ static bool initCloneNs(nsj_t* nsj) {
 			PLOG_E("umount2('/', MNT_DETACH)");
 			return false;
 		}
+
 	} else {
 		/*
 		 * pivot_root would normally un-mount the old root, however in certain cases this
@@ -641,8 +251,14 @@ static bool initCloneNs(nsj_t* nsj) {
 	}
 
 	/* Remounting R/O, if needed. Only for mount points that were actually mounted */
-	for (const auto& mpt : mounted_mpts) {
-		if (!remountPt(mpt) && mpt.is_mandatory) {
+	for (auto& mpt : mounted_mpts) {
+		bool success;
+		if (nsj->mnt_newapi) {
+			success = newapi::remountPt(mpt);
+		} else {
+			success = legacy::remountPt(mpt);
+		}
+		if (!success && mpt.mpt->mandatory()) {
 			return false;
 		}
 	}

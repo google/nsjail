@@ -75,6 +75,8 @@ long syscall(long sysno, uintptr_t a0 = 0, uintptr_t a1 = 0, uintptr_t a2 = 0, u
 long setrlimit(int res, const struct rlimit64& newlim);
 long getrlimit(int res, struct rlimit64* curlim);
 bool makeRangeCOE(unsigned int first, unsigned int last);
+const char* stripLeadingSlashes(const char* path);
+bool kernelVersionAtLeast(int major, int minor, int patch);
 
 }  // namespace util
 

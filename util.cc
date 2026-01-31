@@ -40,6 +40,7 @@
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <sys/utsname.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -431,6 +432,35 @@ bool makeRangeCOE(unsigned int first [[maybe_unused]], unsigned int last [[maybe
 	return true;
 #endif	// defined(CLOSE_RANGE_CLOEXEC) && defined(__NR_close_range)
 	return false;
+}
+
+const char* stripLeadingSlashes(const char* path) {
+	while (*path == '/') {
+		path++;
+	}
+	return path;
+}
+
+bool kernelVersionAtLeast(int major, int minor, int patch) {
+	struct utsname uts;
+	if (uname(&uts) == -1) {
+		PLOG_W("uname()");
+		return false;
+	}
+
+	int kmajor = 0, kminor = 0, kpatch = 0;
+	if (sscanf(uts.release, "%d.%d.%d", &kmajor, &kminor, &kpatch) < 2) {
+		LOG_W("Couldn't parse kernel version from '%s'", uts.release);
+		return false;
+	}
+
+	if (kmajor != major) {
+		return kmajor > major;
+	}
+	if (kminor != minor) {
+		return kminor > minor;
+	}
+	return kpatch >= patch;
 }
 
 }  // namespace util

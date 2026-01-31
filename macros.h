@@ -24,6 +24,8 @@
 
 #include <unistd.h>
 
+#include <utility>
+
 #if !defined(TEMP_FAILURE_RETRY)
 #define TEMP_FAILURE_RETRY(expression)                                                             \
 	(__extension__({                                                                           \
@@ -39,5 +41,26 @@
 #endif /* !defined(ARR_SZ) */
 
 #define NS_VALSTR_STRUCT(x) {(uint64_t)x, #x}
+
+/* go-style defer */
+template <typename F>
+struct Defer {
+	F f;
+	Defer(F f) : f(std::move(f)) {
+	}
+	~Defer() noexcept {
+		f();
+	}
+
+	Defer(const Defer&) = delete;
+	Defer& operator=(const Defer&) = delete;
+	Defer(Defer&&) = default;
+	Defer& operator=(Defer&&) = default;
+};
+
+#define _DEFER_1(x, y) x##y
+#define _DEFER_2(x, y) _DEFER_1(x, y)
+#define _DEFER_3(x) _DEFER_2(x, __COUNTER__)
+#define defer [[maybe_unused]] Defer _DEFER_3(_defer_) = [&]()
 
 #endif /* NS_COMMON_H */
