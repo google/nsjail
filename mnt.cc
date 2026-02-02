@@ -40,6 +40,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <vector>
@@ -146,6 +147,85 @@ const std::string describeMountPt(const nsjail::MountPt& mpt) {
 	}
 
 	return descr;
+}
+
+namespace fs = std::filesystem;
+
+static bool tryCreateDir(const std::string& path, bool log_errors = true) {
+	if (mkdir(path.c_str(), 0755) == -1 && errno != EEXIST) {
+		if (log_errors) {
+			PLOG_D("mkdir('%s')", path.c_str());
+		}
+		return false;
+	}
+	if (access(path.c_str(), R_OK) == -1) {
+		if (log_errors) {
+			PLOG_W("access('%s', R_OK)", path.c_str());
+		}
+		return false;
+	}
+	LOG_D("Created directory '%s'", path.c_str());
+	return true;
+}
+
+static std::string findWritableDirUnderRoot() {
+	std::error_code ec;
+	for (const auto& entry : fs::directory_iterator("/", ec)) {
+		auto name = entry.path().filename().string();
+		if (name == "." || name == "..") {
+			continue;
+		}
+		if (!entry.is_directory(ec)) {
+			continue;
+		}
+		if (access(entry.path().c_str(), W_OK | X_OK) == 0) {
+			return entry.path().string();
+		}
+	}
+	return "";
+}
+
+std::unique_ptr<std::string> findWorkDir(nsj_t* nsj, const char* purpose) {
+	const std::string uid = std::to_string(nsj->orig_uid);
+	const std::string suffix = "nsjail." + uid + "." + purpose;
+
+	/* Try standard locations */
+	std::vector<std::string> candidates = {
+	    "/run/user/" + uid + "/nsjail/" + purpose,
+	    "/run/user/" + suffix,
+	    "/tmp/" + suffix,
+	    "/dev/shm/" + suffix,
+	};
+
+	if (const char* tmpdir = getenv("TMPDIR")) {
+		candidates.insert(candidates.begin() + 3, std::string(tmpdir) + "/" + suffix);
+	}
+
+	for (const auto& path : candidates) {
+		size_t last_slash = path.rfind('/');
+		if (last_slash != std::string::npos && last_slash > 0) {
+			tryCreateDir(path.substr(0, last_slash), false);
+		}
+		if (tryCreateDir(path, true)) {
+			return std::make_unique<std::string>(path);
+		}
+	}
+
+	std::string root_dir = findWritableDirUnderRoot();
+	if (!root_dir.empty()) {
+		std::string candidate = root_dir + "/" + suffix;
+		if (tryCreateDir(candidate, false)) {
+			return std::make_unique<std::string>(candidate);
+		}
+	}
+
+	std::string fallback = "/tmp/" + suffix + "." + std::to_string(util::rnd64());
+	if (tryCreateDir(fallback, true)) {
+		return std::make_unique<std::string>(fallback);
+	}
+
+	LOG_E("Failed to create work directory for '%s'", purpose);
+	return nullptr;
 }
 
 static bool initNoCloneNs(nsj_t* nsj) {

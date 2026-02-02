@@ -71,7 +71,6 @@ std::unique_ptr<std::string> buildMountTree(nsj_t*, std::vector<mnt::mount_t>*) 
 #include <unistd.h>
 
 #include <cstdint>
-#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -80,8 +79,6 @@ std::unique_ptr<std::string> buildMountTree(nsj_t*, std::vector<mnt::mount_t>*) 
 
 namespace mnt {
 namespace newapi {
-
-namespace fs = std::filesystem;
 
 static bool applyMountFlags(int fd, uintptr_t flags) {
 	struct mount_attr attr = {};
@@ -105,20 +102,6 @@ static bool applyMountFlags(int fd, uintptr_t flags) {
 		return false;
 	}
 	return true;
-}
-
-static std::string findFirstDirUnderRoot() {
-	std::error_code ec;
-	for (const auto& entry : fs::directory_iterator("/", ec)) {
-		auto name = entry.path().filename().string();
-		if (name == "." || name == "..") {
-			continue;
-		}
-		if (entry.is_directory(ec) && !entry.is_symlink(ec)) {
-			return entry.path().string();
-		}
-	}
-	return "";
 }
 
 static bool createDirAt(int dir_fd, const char* path, mode_t mode) {
@@ -496,25 +479,29 @@ std::unique_ptr<std::string> buildMountTree(nsj_t* nsj, std::vector<mnt::mount_t
 		LOG_W("mount_setattr(root_mfd, 0) failed");
 	}
 
-	std::string attachdir = findFirstDirUnderRoot();
-	if (attachdir.empty()) {
-		LOG_E("No directory found under / to mount new root");
+	auto destdir = mnt::findWorkDir(nsj, "root");
+	if (!destdir) {
 		close(root_mfd);
 		return nullptr;
 	}
 
+	/*
+	 * Attach the new root to the filesystem *before* populating it.
+	 * Attempting to populate a detached mount tree via move_mount() can fail with EINVAL
+	 * on some kernels (e.g. 6.12) if the target is not yet attached.
+	 */
 	if (util::syscall(__NR_move_mount, (uintptr_t)root_mfd, (uintptr_t)"", (uintptr_t)AT_FDCWD,
-		(uintptr_t)attachdir.c_str(), (uintptr_t)MOVE_MOUNT_F_EMPTY_PATH) < 0) {
-		PLOG_E("move_mount(root_fd -> '%s')", attachdir.c_str());
+		(uintptr_t)destdir->c_str(), (uintptr_t)MOVE_MOUNT_F_EMPTY_PATH) < 0) {
+		PLOG_E("move_mount(root_mfd -> '%s')", destdir->c_str());
 		close(root_mfd);
 		return nullptr;
 	}
 	close(root_mfd);
 
 	int root_fd =
-	    openat(AT_FDCWD, attachdir.c_str(), O_RDONLY | O_CLOEXEC | O_PATH | O_DIRECTORY);
+	    openat(AT_FDCWD, destdir->c_str(), O_RDONLY | O_CLOEXEC | O_PATH | O_DIRECTORY);
 	if (root_fd < 0) {
-		PLOG_E("openat('%s')", attachdir.c_str());
+		PLOG_E("openat('%s')", destdir->c_str());
 		return nullptr;
 	}
 	defer {
@@ -545,11 +532,10 @@ std::unique_ptr<std::string> buildMountTree(nsj_t* nsj, std::vector<mnt::mount_t
 		}
 	}
 
-	return std::make_unique<std::string>(attachdir);
+	return destdir;
 }
 
 }  // namespace newapi
-
 }  // namespace mnt
 
 #endif /* MNT_NEWAPI_SUPPORTED */
