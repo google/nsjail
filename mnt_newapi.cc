@@ -184,11 +184,24 @@ static int createFilesystemMount(const mount_t& mpt) {
 			if (opt.empty()) {
 				continue;
 			}
-			if (util::syscall(__NR_fsconfig, (uintptr_t)fs_fd,
-				(uintptr_t)FSCONFIG_SET_FLAG, (uintptr_t)opt.c_str(),
-				(uintptr_t)nullptr, (uintptr_t)0) < 0) {
-				PLOG_W("fsconfig(flag='%s')", opt.c_str());
-				return -1;
+			auto eq = opt.find('=');
+			if (eq != std::string::npos) {
+				std::string key = opt.substr(0, eq);
+				std::string val = opt.substr(eq + 1);
+				if (util::syscall(__NR_fsconfig, (uintptr_t)fs_fd,
+					(uintptr_t)FSCONFIG_SET_STRING, (uintptr_t)key.c_str(),
+					(uintptr_t)val.c_str(), (uintptr_t)0) < 0) {
+					PLOG_W("fsconfig(key='%s', value='%s')", key.c_str(),
+					    val.c_str());
+					return -1;
+				}
+			} else {
+				if (util::syscall(__NR_fsconfig, (uintptr_t)fs_fd,
+					(uintptr_t)FSCONFIG_SET_FLAG, (uintptr_t)opt.c_str(),
+					(uintptr_t)nullptr, (uintptr_t)0) < 0) {
+					PLOG_W("fsconfig(flag='%s')", opt.c_str());
+					return -1;
+				}
 			}
 		}
 	}
