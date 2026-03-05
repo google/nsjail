@@ -22,6 +22,10 @@
 #include "mnt_newapi.h"
 
 #include <fcntl.h>
+// clang-format off
+/* https://github.com/google/nsjail/issues/250 */
+#include <sys/mount.h>
+// clang-format on
 #include <linux/mount.h>
 #include <sys/syscall.h>
 
@@ -66,7 +70,6 @@ std::unique_ptr<std::string> buildMountTree(nsj_t*, std::vector<mnt::mount_t>*) 
 #include <dirent.h>
 #include <errno.h>
 #include <inttypes.h>
-#include <sys/mount.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
