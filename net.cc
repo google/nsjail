@@ -36,8 +36,11 @@
 #include <string.h>
 #include <strings.h>
 #include <sys/ioctl.h>
+#include <sys/mman.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/syscall.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -47,6 +50,57 @@
 
 #include "logs.h"
 #include "util.h"
+
+/* Embed pasta inside this binary */
+__asm__("\n"
+	"   .section .rodata\n"
+	"   .local pasta_start\n"
+	"   .local pasta_end\n"
+	"pasta_start:\n"
+#if defined(PASTA_BIN_PATH)
+	"   .incbin \"" PASTA_BIN_PATH "\"\n"
+#endif	// defined(PASTA_BIN_PATH)
+	"pasta_end:\n"
+	"\n");
+
+static int getPastaFd() {
+#ifndef MFD_EXEC
+#define MFD_EXEC 0x0010U
+#endif
+	extern uint8_t* pasta_start;
+	extern uint8_t* pasta_end;
+	ptrdiff_t len = (uintptr_t)&pasta_end - (uintptr_t)&pasta_start;
+	if (len <= 8) { /* Some reasonably safe value accounting for alignment */
+		LOG_D("'pasta' is not embedded in this file");
+		return -1;
+	}
+
+	int fd = util::syscall(__NR_memfd_create, (uintptr_t)"nsjail_pasta",
+	    MFD_CLOEXEC | MFD_ALLOW_SEALING | MFD_EXEC);
+	if (fd == -1) {
+		fd = util::syscall(
+		    __NR_memfd_create, (uintptr_t)"nsjail_pasta", MFD_CLOEXEC | MFD_ALLOW_SEALING);
+	}
+	if (fd == -1) {
+		PLOG_W("Couldn't memfd_create() a file");
+		return -1;
+	}
+
+	if (!util::writeToFd(fd, &pasta_start, len)) {
+		close(fd);
+		return -1;
+	}
+	if (fchmod(fd, 0555) == -1) {
+		PLOG_W("fchmod(fd=%d, 0555)", fd);
+	}
+	if (fcntl(fd, F_ADD_SEALS, F_SEAL_SEAL | F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE) ==
+	    -1) {
+		PLOG_W("fcntl(fd=%d F_ADD_SEALS, F_SEAL_SEAL | F_SEAL_SHRINK | F_SEAL_GROW | "
+		       "F_SEAL_WRITE)",
+		    fd);
+	}
+	return fd;
+}
 
 extern char** environ;
 
@@ -163,6 +217,7 @@ static bool spawnPasta(nsj_t* nsj, int pid) {
 
 		std::string pid_str = std::to_string(pid);
 		std::vector<const char*> argv;
+
 		argv.push_back("pasta");
 
 		bool ip4_enabled =
@@ -278,13 +333,21 @@ static bool spawnPasta(nsj_t* nsj, int pid) {
 			close(nullfd);
 		}
 
+		int pasta_fd = getPastaFd();
 		util::makeRangeCOE(STDERR_FILENO + 1, ~0U);
-		execvp(argv[0], (char* const*)argv.data());
-		int err = errno;
 
-		/* *LOG doesn't use STDERR_FILENO, so it's fine is STDERR_FILENO is '/dev/null' now
-		 */
-		PLOG_W("execvp('pasta')");
+		/* LOG doesn't use STDERR_FILENO so it's fine to use it */
+		int err = 0;
+		if (pasta_fd != -1) {
+			util::syscall(__NR_execveat, pasta_fd, (uintptr_t)"",
+			    (uintptr_t)argv.data(), (uintptr_t)environ, AT_EMPTY_PATH);
+			err = errno;
+			PLOG_W("execveat(pasta_fd=%d, AT_EMPTY_PATH)", pasta_fd);
+		} else {
+			execvpe(argv[0], (char* const*)argv.data(), environ);
+			err = errno;
+			PLOG_W("execvp('pasta')");
+		}
 
 		util::writeToFd(sv[1], &err, sizeof(err));
 		_exit(EXIT_FAILURE);

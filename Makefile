@@ -46,6 +46,21 @@ endif
 BIN = nsjail
 LIBS = kafel/libkafel.a
 
+# If PASTA_BIN_PATH is not provided in env, dynamically search for it if EMBED_PASTA is requested
+# or fallback to it naturally.
+ifdef EMBED_PASTA
+	ifeq ($(PASTA_BIN_PATH),)
+		PASTA_BIN_PATH := $(shell which pasta)
+	endif
+ifeq ($(PASTA_BIN_PATH),)
+$(error "'pasta' binary not found. Provide location with PASTA_BIN_PATH")
+endif
+endif
+
+ifneq ($(PASTA_BIN_PATH),)
+	CXXFLAGS += -DPASTA_BIN_PATH='"$(PASTA_BIN_PATH)"'
+endif
+
 SRCS_CXX = caps.cc cgroup.cc cgroup2.cc cmdline.cc config.cc contain.cc cpu.cc logs.cc mnt.cc mnt_legacy.cc mnt_newapi.cc net.cc nsjail.cc pid.cc sandbox.cc subproc.cc uts.cc user.cc util.cc
 SRCS_PROTO = config.proto
 
