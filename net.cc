@@ -48,6 +48,7 @@
 
 #include <string>
 
+#include "macros.h"
 #include "logs.h"
 #include "util.h"
 
