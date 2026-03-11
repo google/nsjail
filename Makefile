@@ -172,7 +172,7 @@ mnt.o: mnt.h nsjail.h config.pb.h logs.h macros.h mnt_legacy.h mnt_newapi.h
 mnt.o: subproc.h util.h
 mnt_legacy.o: mnt_legacy.h mnt.h nsjail.h config.pb.h logs.h macros.h util.h
 mnt_newapi.o: mnt_newapi.h mnt.h nsjail.h config.pb.h logs.h util.h
-net.o: net.h nsjail.h config.pb.h logs.h util.h
+net.o: net.h nsjail.h config.pb.h logs.h macros.h util.h
 nsjail.o: nsjail.h config.pb.h cgroup2.h cmdline.h logs.h macros.h net.h
 nsjail.o: sandbox.h subproc.h util.h
 pid.o: pid.h nsjail.h config.pb.h logs.h subproc.h
