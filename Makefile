@@ -144,12 +144,13 @@ define run_test
 endef
 
 .PHONY: test
-test:
+test: $(BIN)
 	$(call run_test, ./nsjail -q -Mo --rw --chroot / --user 99999 --group 99999 -- /bin/bash -c 'touch $(HOME)/nsjail_test && exit 77', 77)
 	$(call run_test, ./nsjail -q -Mo --chroot / --user 99999 --group 99999 -- /bin/bash -c 'touch $(HOME)/nsjail_test || exit 77', 77)
 	$(call run_test, rm -f $(HOME)/nsjail_test, 0)
 	$(call run_test, ./nsjail --config configs/bash-with-fake-geteuid.cfg -q -t 1, 137)
 	$(call run_test, ./nsjail --config configs/bash-with-fake-geteuid.json -q -t 1, 137)
+	$(call run_test, ./nsjail --config configs/static-busybox-with-execveat.cfg -q -t 1, 137)
 	$(call run_test, ./nsjail --config configs/home-documents-with-xorg-no-net.cfg -q -- /bin/true, 0)
 	$(call run_test, ./nsjail --config configs/home-documents-with-xorg-no-net.cfg -q -- /bin/false, 1)
 	$(call run_test, ./nsjail --config configs/firefox-with-net-wayland.cfg -q -t 4, 137)
