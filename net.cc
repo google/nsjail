@@ -24,7 +24,6 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <linux/prctl.h>
 #include <net/if.h>
 #include <net/route.h>
 #include <netinet/in.h>
