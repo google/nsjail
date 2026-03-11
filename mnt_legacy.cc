@@ -333,9 +333,9 @@ std::unique_ptr<std::string> buildMountTree(nsj_t* nsj, std::vector<mnt::mount_t
 	}
 
 	if (!nsj->is_root_rw) {
-		if (mount(destdir->c_str(), destdir->c_str(), nullptr, MS_REMOUNT | MS_RDONLY,
-			nullptr) == -1) {
-			PLOG_E("mount('%s', MS_REMOUNT|MS_RDONLY)", destdir->c_str());
+		if (mount(destdir->c_str(), destdir->c_str(), nullptr,
+			MS_REMOUNT | MS_BIND | MS_RDONLY, nullptr) == -1) {
+			PLOG_E("mount('%s', MS_REMOUNT|MS_BIND|MS_RDONLY)", destdir->c_str());
 			return nullptr;
 		}
 	}
