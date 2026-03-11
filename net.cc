@@ -47,9 +47,12 @@
 
 #include <string>
 
-#include "macros.h"
 #include "logs.h"
+#include "macros.h"
 #include "util.h"
+
+#define STR_(x) #x
+#define STR(x) STR_(x)
 
 /* Embed pasta inside this binary */
 __asm__("\n"
@@ -58,7 +61,7 @@ __asm__("\n"
 	"   .local pasta_end\n"
 	"pasta_start:\n"
 #if defined(PASTA_BIN_PATH)
-	"   .incbin \"" PASTA_BIN_PATH "\"\n"
+	"   .incbin " STR(PASTA_BIN_PATH) "\n"
 #endif	// defined(PASTA_BIN_PATH)
 	"pasta_end:\n"
 	"\n");
