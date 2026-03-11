@@ -73,8 +73,8 @@ static int getPastaFd() {
 	extern uint8_t* pasta_start;
 	extern uint8_t* pasta_end;
 	ptrdiff_t len = (uintptr_t)&pasta_end - (uintptr_t)&pasta_start;
-	if (len <= 8) { /* Some reasonably safe value accounting for alignment */
-		LOG_D("'pasta' is not embedded in this file");
+	if (len <= 16) { /* Some reasonably safe value accounting for alignment */
+		LOG_D("'pasta' is not embedded in this file, len=%td (<=16)", len);
 		return -1;
 	}
 
