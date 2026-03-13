@@ -140,7 +140,7 @@ static const struct custom_option custom_opts[] = {
     { { "disable_proc", no_argument, nullptr, 0x0603 }, "Disable mounting procfs in the jail" },
     { { "proc_path", required_argument, nullptr, 0x0605 }, "Path used to mount procfs (default: '/proc')" },
     { { "proc_rw", no_argument, nullptr, 0x0606 }, "Is procfs mounted as R/W (default: R/O)" },
-    { { "experimental_mnt", required_argument, nullptr, 0x0609 }, "Mount API to use: 'new' (fsopen/fsmount), 'old' (mount syscall), or 'default' (auto-detect based on kernel version). Default: 'old'" },
+    { { "experimental_mnt", required_argument, nullptr, 0x0609 }, "Mount API to use: 'new' (fsopen/fsmount), 'old' (mount syscall), or 'auto' (auto-detect based on kernel version). Default: 'old'" },
     { { "seccomp_policy", required_argument, nullptr, 'P' }, "Path to file containing seccomp-bpf policy (see kafel/)" },
     { { "seccomp_string", required_argument, nullptr, 0x0901 }, "String with kafel seccomp-bpf policy (see kafel/)" },
     { { "seccomp_log", no_argument, nullptr, 0x0902 }, "Use SECCOMP_FILTER_FLAG_LOG. Log all actions except SECCOMP_RET_ALLOW). Supported since kernel version 4.14" },
@@ -683,10 +683,10 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 				nsj->mnt_newapi = true;
 			} else if (strcasecmp(optarg, "old") == 0) {
 				nsj->mnt_newapi = false;
-			} else if (strcasecmp(optarg, "default") == 0) {
+			} else if (strcasecmp(optarg, "auto") == 0) {
 				nsj->mnt_newapi = mnt::newapi::isAvailable();
 			} else {
-				LOG_E("--experimental_mnt must be 'new', 'old', or 'default'");
+				LOG_E("--experimental_mnt must be 'new', 'auto', or 'default'");
 				return nullptr;
 			}
 			break;
