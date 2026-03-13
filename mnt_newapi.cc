@@ -107,6 +107,17 @@ static bool applyMountFlags(int fd, uintptr_t flags) {
 	return true;
 }
 
+static bool openMountForRemount(mount_t* mpt, int root_fd, const char* rel_dst) {
+	mpt->fd = util::syscall(__NR_open_tree, (uintptr_t)root_fd, (uintptr_t)rel_dst,
+	    (uintptr_t)OPEN_TREE_CLOEXEC);
+	if (mpt->fd < 0) {
+		PLOG_W("open_tree(root_fd, '%s')", rel_dst);
+		return false;
+	}
+	mpt->mounted = true;
+	return true;
+}
+
 static bool createDirAt(int dir_fd, const char* path, mode_t mode) {
 	path = util::stripLeadingSlashes(path);
 	if (!path[0]) {
@@ -316,10 +327,7 @@ static bool doBindMountAt(mount_t* mpt, int root_fd, const char* rel_dst) {
 	}
 	close(mnt_fd);
 
-	/* Re-acquire fd for later remount (kernel 6.13+ requires this) */
-	mpt->fd = syscall(__NR_open_tree, root_fd, rel_dst, (unsigned int)OPEN_TREE_CLOEXEC);
-	mpt->mounted = true;
-	return true;
+	return openMountForRemount(mpt, root_fd, rel_dst);
 }
 
 static bool mountSinglePointAt(mount_t* mpt, int root_fd) {
@@ -382,9 +390,7 @@ static bool mountSinglePointAt(mount_t* mpt, int root_fd) {
 	}
 	close(mnt_fd);
 
-	mpt->fd = syscall(__NR_open_tree, root_fd, rel_dst, (unsigned int)OPEN_TREE_CLOEXEC);
-	mpt->mounted = true;
-	return true;
+	return openMountForRemount(mpt, root_fd, rel_dst);
 }
 
 static mount_t prepareMountPoint(const nsjail::MountPt& proto) {
@@ -537,14 +543,13 @@ std::unique_ptr<std::string> buildMountTree(nsj_t* nsj, std::vector<mnt::mount_t
 		mounted_mpts->push_back(mpt);
 	}
 
-	/* Apply RO to root if needed */
 	if (!nsj->is_root_rw) {
 		struct mount_attr ro_attr = {};
 		ro_attr.attr_set = MOUNT_ATTR_RDONLY;
 		if (util::syscall(__NR_mount_setattr, (uintptr_t)root_fd, (uintptr_t)"",
 			(uintptr_t)AT_EMPTY_PATH, (uintptr_t)&ro_attr, sizeof(ro_attr)) < 0) {
-			PLOG_W("mount_setattr(root_fd, MOUNT_ATTR_RDONLY)");
-			LOG_W("Root filesystem may still be writable");
+			PLOG_E("mount_setattr(root_fd, MOUNT_ATTR_RDONLY)");
+			return nullptr;
 		}
 	}
 
