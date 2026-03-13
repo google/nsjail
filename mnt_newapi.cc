@@ -71,7 +71,12 @@ std::unique_ptr<std::string> buildMountTree(nsj_t*, std::vector<mnt::mount_t>*) 
 #include <errno.h>
 #include <inttypes.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <unistd.h>
+
+#if !defined(ST_NOSYMFOLLOW)
+#define ST_NOSYMFOLLOW 0x2000
+#endif /* if !defined(ST_NOSYMFOLLOW) */
 
 #include <cstdint>
 #include <string>
@@ -83,7 +88,7 @@ std::unique_ptr<std::string> buildMountTree(nsj_t*, std::vector<mnt::mount_t>*) 
 namespace mnt {
 namespace newapi {
 
-static bool applyMountFlags(int fd, uintptr_t flags) {
+static bool applyMountFlags(int fd, uintptr_t flags, bool log_error = true) {
 	struct mount_attr attr = {};
 
 	if (flags & MS_RDONLY) {
@@ -101,15 +106,90 @@ static bool applyMountFlags(int fd, uintptr_t flags) {
 
 	if (util::syscall(__NR_mount_setattr, (uintptr_t)fd, (uintptr_t)"",
 		(uintptr_t)AT_EMPTY_PATH, (uintptr_t)&attr, sizeof(attr)) < 0) {
-		PLOG_W("mount_setattr(fd=%d, flags=0x%" PRIx64 ")", fd, (uint64_t)attr.attr_set);
+		if (log_error) {
+			PLOG_W("mount_setattr(fd=%d, flags=0x%" PRIx64 ")", fd,
+			    (uint64_t)attr.attr_set);
+		}
+		return false;
+	}
+	return true;
+}
+
+static bool isGenericMountOption(const std::string& opt) {
+	return opt == "ro" || opt == "rw" || opt == "nosuid" || opt == "suid" || opt == "nodev" ||
+	       opt == "dev" || opt == "noexec" || opt == "exec";
+}
+
+static void applyGenericMountOption(const std::string& opt, uintptr_t* flags) {
+	if (opt == "ro") {
+		*flags |= MS_RDONLY;
+	} else if (opt == "rw") {
+		*flags &= ~MS_RDONLY;
+	} else if (opt == "nosuid") {
+		*flags |= MS_NOSUID;
+	} else if (opt == "suid") {
+		*flags &= ~MS_NOSUID;
+	} else if (opt == "nodev") {
+		*flags |= MS_NODEV;
+	} else if (opt == "dev") {
+		*flags &= ~MS_NODEV;
+	} else if (opt == "noexec") {
+		*flags |= MS_NOEXEC;
+	} else if (opt == "exec") {
+		*flags &= ~MS_NOEXEC;
+	}
+}
+
+static unsigned long computeLegacyRemountFlags(const mount_t& mpt, const struct statvfs& vfs) {
+	struct {
+		const unsigned long mount_flag;
+		const unsigned long vfs_flag;
+	} static const mountPairs[] = {
+	    {MS_NOSUID, ST_NOSUID},
+	    {MS_NODEV, ST_NODEV},
+	    {MS_NOEXEC, ST_NOEXEC},
+	    {MS_SYNCHRONOUS, ST_SYNCHRONOUS},
+	    {MS_MANDLOCK, ST_MANDLOCK},
+	    {MS_NOATIME, ST_NOATIME},
+	    {MS_NODIRATIME, ST_NODIRATIME},
+	    {MS_RELATIME, ST_RELATIME},
+	    {MS_NOSYMFOLLOW, ST_NOSYMFOLLOW},
+	};
+
+	const unsigned long per_mountpoint_flags =
+	    MS_LAZYTIME | MS_MANDLOCK | MS_NOATIME | MS_NODEV | MS_NODIRATIME | MS_NOEXEC |
+	    MS_NOSUID | MS_RELATIME | MS_RDONLY | MS_SYNCHRONOUS | MS_NOSYMFOLLOW;
+
+	unsigned long flags = MS_REMOUNT | MS_BIND | (mpt.flags & per_mountpoint_flags);
+	for (const auto& i : mountPairs) {
+		if (vfs.f_flag & i.vfs_flag) {
+			flags |= i.mount_flag;
+		}
+	}
+	return flags;
+}
+
+static bool remountWithLegacyMount(const mount_t& mpt) {
+	struct statvfs vfs;
+	if (TEMP_FAILURE_RETRY(statvfs(mpt.dst.c_str(), &vfs)) == -1) {
+		PLOG_W("statvfs('%s')", mpt.dst.c_str());
+		return false;
+	}
+
+	unsigned long flags = computeLegacyRemountFlags(mpt, vfs);
+	LOG_D("Falling back to legacy remount for '%s' with flags: %s", mpt.dst.c_str(),
+	    mnt::flagsToStr(flags).c_str());
+
+	if (mount(mpt.dst.c_str(), mpt.dst.c_str(), nullptr, flags, nullptr) == -1) {
+		PLOG_W("mount('%s', flags=%s)", mpt.dst.c_str(), mnt::flagsToStr(flags).c_str());
 		return false;
 	}
 	return true;
 }
 
 static bool openMountForRemount(mount_t* mpt, int root_fd, const char* rel_dst) {
-	mpt->fd = util::syscall(__NR_open_tree, (uintptr_t)root_fd, (uintptr_t)rel_dst,
-	    (uintptr_t)OPEN_TREE_CLOEXEC);
+	mpt->fd = util::syscall(
+	    __NR_open_tree, (uintptr_t)root_fd, (uintptr_t)rel_dst, (uintptr_t)OPEN_TREE_CLOEXEC);
 	if (mpt->fd < 0) {
 		PLOG_W("open_tree(root_fd, '%s')", rel_dst);
 		return false;
@@ -195,7 +275,7 @@ static int createFilesystemMount(const mount_t& mpt) {
 
 	if (mpt.mpt->has_options()) {
 		for (const auto& opt : util::strSplit(mpt.mpt->options(), ',')) {
-			if (opt.empty()) {
+			if (opt.empty() || isGenericMountOption(opt)) {
 				continue;
 			}
 			auto eq = opt.find('=');
@@ -437,6 +517,11 @@ static mount_t prepareMountPoint(const nsjail::MountPt& proto) {
 	if (proto.noexec()) {
 		mpt.flags |= MS_NOEXEC;
 	}
+	if (proto.has_options()) {
+		for (const auto& opt : util::strSplit(proto.options(), ',')) {
+			applyGenericMountOption(opt, &mpt.flags);
+		}
+	}
 
 	if (proto.has_is_dir()) {
 		mpt.is_dir = proto.is_dir();
@@ -468,13 +553,13 @@ bool remountPt(mnt::mount_t& mpt) {
 		return true;
 	}
 
-	if (!applyMountFlags(mpt.fd, mpt.flags)) {
+	close(mpt.fd);
+	mpt.fd = -1;
+
+	if (!remountWithLegacyMount(mpt)) {
 		LOG_W("Failed to apply final flags to '%s'", mpt.dst.c_str());
 		return false;
 	}
-
-	close(mpt.fd);
-	mpt.fd = -1;
 	return true;
 }
 
@@ -547,7 +632,8 @@ std::unique_ptr<std::string> buildMountTree(nsj_t* nsj, std::vector<mnt::mount_t
 		struct mount_attr ro_attr = {};
 		ro_attr.attr_set = MOUNT_ATTR_RDONLY;
 		if (util::syscall(__NR_mount_setattr, (uintptr_t)root_fd, (uintptr_t)"",
-			(uintptr_t)AT_EMPTY_PATH, (uintptr_t)&ro_attr, sizeof(ro_attr)) < 0) {
+			(uintptr_t)(AT_EMPTY_PATH | AT_RECURSIVE), (uintptr_t)&ro_attr,
+			sizeof(ro_attr)) < 0) {
 			PLOG_E("mount_setattr(root_fd, MOUNT_ATTR_RDONLY)");
 			return nullptr;
 		}
