@@ -55,6 +55,7 @@
 #define STR(x) STR_(x)
 
 /* Embed pasta inside this binary */
+// clang-format off
 __asm__("\n"
 	"   .section .rodata\n"
 	"   .local pasta_start\n"
@@ -65,6 +66,7 @@ __asm__("\n"
 #endif	// defined(PASTA_BIN_PATH)
 	"pasta_end:\n"
 	"\n");
+// clang-format off
 
 static int getPastaFd() {
 #ifndef MFD_EXEC
@@ -96,10 +98,11 @@ static int getPastaFd() {
 	if (fchmod(fd, 0555) == -1) {
 		PLOG_W("fchmod(fd=%d, 0555)", fd);
 	}
-	if (fcntl(fd, F_ADD_SEALS, F_SEAL_SEAL | F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE) ==
+	if (fcntl(fd, F_ADD_SEALS,
+		F_SEAL_SEAL | F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE | F_SEAL_FUTURE_WRITE) ==
 	    -1) {
 		PLOG_W("fcntl(fd=%d F_ADD_SEALS, F_SEAL_SEAL | F_SEAL_SHRINK | F_SEAL_GROW | "
-		       "F_SEAL_WRITE)",
+		       "F_SEAL_WRITE | F_SEAL_FUTURE_WRITE)",
 		    fd);
 	}
 	return fd;
