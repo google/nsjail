@@ -112,11 +112,12 @@ bool preparePolicy(nsj_t* nsj) {
 	}
 	std::string combined_seccomp_policy;
 	for (const auto& s : nsj->njc.seccomp_string()) {
-		LOG_D("Compiling seccomp policy from string: '%s'", s.c_str());
 		combined_seccomp_policy += s;
 		combined_seccomp_policy += '\n';
 	}
 	if (!combined_seccomp_policy.empty()) {
+		LOG_D(
+		    "Compiling seccomp policy from string: '%s'", combined_seccomp_policy.c_str());
 		kafel_set_input_string(ctxt, combined_seccomp_policy.c_str());
 	}
 
