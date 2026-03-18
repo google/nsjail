@@ -110,9 +110,14 @@ bool preparePolicy(nsj_t* nsj) {
 		    nsj->njc.seccomp_policy_file().c_str());
 		kafel_set_input_file(ctxt, f);
 	}
+	std::string combined_seccomp_policy;
 	for (const auto& s : nsj->njc.seccomp_string()) {
 		LOG_D("Compiling seccomp policy from string: '%s'", s.c_str());
-		kafel_set_input_string(ctxt, s.c_str());
+		combined_seccomp_policy += s;
+		combined_seccomp_policy += '\n';
+	}
+	if (!combined_seccomp_policy.empty()) {
+		kafel_set_input_string(ctxt, combined_seccomp_policy.c_str());
 	}
 
 	if (kafel_compile(ctxt, &nsj->seccomp_fprog) != 0) {
