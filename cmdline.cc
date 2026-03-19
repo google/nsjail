@@ -327,6 +327,25 @@ void logParams(nsj_t* nsj) {
 	}
 }
 
+nsjail::RLimit parseRLimitType(int res, const char* optarg) {
+	if (strcasecmp(optarg, "def") == 0 || strcasecmp(optarg, "soft") == 0) {
+		return nsjail::RLimit::SOFT;
+	}
+	if (strcasecmp(optarg, "max") == 0 || strcasecmp(optarg, "hard") == 0) {
+		return nsjail::RLimit::HARD;
+	}
+	if (strcasecmp(optarg, "inf") == 0) {
+		return nsjail::RLimit::INF;
+	}
+	if (util::isANumber(optarg)) {
+		return nsjail::RLimit::VALUE;
+	}
+	LOG_F("RLIMIT %s (%d) needs a numeric value or 'max'/'hard'/'def'/'soft'/'inf' "
+	      "value (%s provided)",
+	    util::rLimName(res).c_str(), res, QC(optarg));
+	abort();
+}
+
 uint64_t parseRLimit(int res, const char* optarg, unsigned long mul) {
 	if (strcasecmp(optarg, "inf") == 0) {
 		return RLIM64_INFINITY;
@@ -550,44 +569,64 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 			exit(0);
 			break;
 		case 0x0201:
-			nsj->njc.set_rlimit_as(parseRLimit(RLIMIT_AS, optarg, 1));
-			nsj->njc.set_rlimit_as_type(nsjail::RLimit::VALUE);
+			nsj->njc.set_rlimit_as_type(parseRLimitType(RLIMIT_AS, optarg));
+			if (nsj->njc.rlimit_as_type() == nsjail::RLimit::VALUE) {
+				nsj->njc.set_rlimit_as(parseRLimit(RLIMIT_AS, optarg, 1));
+			}
 			break;
 		case 0x0202:
-			nsj->njc.set_rlimit_core(parseRLimit(RLIMIT_CORE, optarg, 1));
-			nsj->njc.set_rlimit_core_type(nsjail::RLimit::VALUE);
+			nsj->njc.set_rlimit_core_type(parseRLimitType(RLIMIT_CORE, optarg));
+			if (nsj->njc.rlimit_core_type() == nsjail::RLimit::VALUE) {
+				nsj->njc.set_rlimit_core(parseRLimit(RLIMIT_CORE, optarg, 1));
+			}
 			break;
 		case 0x0203:
-			nsj->njc.set_rlimit_cpu(parseRLimit(RLIMIT_CPU, optarg, 1));
-			nsj->njc.set_rlimit_cpu_type(nsjail::RLimit::VALUE);
+			nsj->njc.set_rlimit_cpu_type(parseRLimitType(RLIMIT_CPU, optarg));
+			if (nsj->njc.rlimit_cpu_type() == nsjail::RLimit::VALUE) {
+				nsj->njc.set_rlimit_cpu(parseRLimit(RLIMIT_CPU, optarg, 1));
+			}
 			break;
 		case 0x0204:
-			nsj->njc.set_rlimit_fsize(parseRLimit(RLIMIT_FSIZE, optarg, 1));
-			nsj->njc.set_rlimit_fsize_type(nsjail::RLimit::VALUE);
+			nsj->njc.set_rlimit_fsize_type(parseRLimitType(RLIMIT_FSIZE, optarg));
+			if (nsj->njc.rlimit_fsize_type() == nsjail::RLimit::VALUE) {
+				nsj->njc.set_rlimit_fsize(parseRLimit(RLIMIT_FSIZE, optarg, 1));
+			}
 			break;
 		case 0x0205:
-			nsj->njc.set_rlimit_nofile(parseRLimit(RLIMIT_NOFILE, optarg, 1));
-			nsj->njc.set_rlimit_nofile_type(nsjail::RLimit::VALUE);
+			nsj->njc.set_rlimit_nofile_type(parseRLimitType(RLIMIT_NOFILE, optarg));
+			if (nsj->njc.rlimit_nofile_type() == nsjail::RLimit::VALUE) {
+				nsj->njc.set_rlimit_nofile(parseRLimit(RLIMIT_NOFILE, optarg, 1));
+			}
 			break;
 		case 0x0206:
-			nsj->njc.set_rlimit_nproc(parseRLimit(RLIMIT_NPROC, optarg, 1));
-			nsj->njc.set_rlimit_nproc_type(nsjail::RLimit::VALUE);
+			nsj->njc.set_rlimit_nproc_type(parseRLimitType(RLIMIT_NPROC, optarg));
+			if (nsj->njc.rlimit_nproc_type() == nsjail::RLimit::VALUE) {
+				nsj->njc.set_rlimit_nproc(parseRLimit(RLIMIT_NPROC, optarg, 1));
+			}
 			break;
 		case 0x0207:
-			nsj->njc.set_rlimit_stack(parseRLimit(RLIMIT_STACK, optarg, 1));
-			nsj->njc.set_rlimit_stack_type(nsjail::RLimit::VALUE);
+			nsj->njc.set_rlimit_stack_type(parseRLimitType(RLIMIT_STACK, optarg));
+			if (nsj->njc.rlimit_stack_type() == nsjail::RLimit::VALUE) {
+				nsj->njc.set_rlimit_stack(parseRLimit(RLIMIT_STACK, optarg, 1));
+			}
 			break;
 		case 0x0209:
-			nsj->njc.set_rlimit_memlock(parseRLimit(RLIMIT_MEMLOCK, optarg, 1));
-			nsj->njc.set_rlimit_memlock_type(nsjail::RLimit::VALUE);
+			nsj->njc.set_rlimit_memlock_type(parseRLimitType(RLIMIT_MEMLOCK, optarg));
+			if (nsj->njc.rlimit_memlock_type() == nsjail::RLimit::VALUE) {
+				nsj->njc.set_rlimit_memlock(parseRLimit(RLIMIT_MEMLOCK, optarg, 1));
+			}
 			break;
 		case 0x0210:
-			nsj->njc.set_rlimit_rtprio(parseRLimit(RLIMIT_RTPRIO, optarg, 1));
-			nsj->njc.set_rlimit_rtprio_type(nsjail::RLimit::VALUE);
+			nsj->njc.set_rlimit_rtprio_type(parseRLimitType(RLIMIT_RTPRIO, optarg));
+			if (nsj->njc.rlimit_rtprio_type() == nsjail::RLimit::VALUE) {
+				nsj->njc.set_rlimit_rtprio(parseRLimit(RLIMIT_RTPRIO, optarg, 1));
+			}
 			break;
 		case 0x0211:
-			nsj->njc.set_rlimit_msgqueue(parseRLimit(RLIMIT_MSGQUEUE, optarg, 1));
-			nsj->njc.set_rlimit_msgqueue_type(nsjail::RLimit::VALUE);
+			nsj->njc.set_rlimit_msgqueue_type(parseRLimitType(RLIMIT_MSGQUEUE, optarg));
+			if (nsj->njc.rlimit_msgqueue_type() == nsjail::RLimit::VALUE) {
+				nsj->njc.set_rlimit_msgqueue(parseRLimit(RLIMIT_MSGQUEUE, optarg, 1));
+			}
 			break;
 		case 0x0208:
 			nsj->njc.set_disable_rl(true);
