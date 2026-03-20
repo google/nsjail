@@ -31,6 +31,7 @@
 
 namespace cmdline {
 
+nsjail::RLimit parseRLimitType(int res, const char* optarg);
 uint64_t parseRLimit(int res, const char* optarg, unsigned long mul);
 void logParams(nsj_t* nsj);
 void addEnv(nsj_t* nsj, const std::string& env);
