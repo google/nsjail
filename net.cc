@@ -592,25 +592,28 @@ static bool ifaceUp(const char* ifacename) {
 		PLOG_E("socket(AF_INET, SOCK_STREAM, IPPROTO_IP)");
 		return false;
 	}
+	defer {
+		close(sock);
+	};
 
 	struct ifreq ifr = {};
 	snprintf(ifr.ifr_name, IF_NAMESIZE, "%s", ifacename);
 
 	if (ioctl(sock, SIOCGIFFLAGS, &ifr) == -1) {
 		PLOG_E("ioctl(iface='%s', SIOCGIFFLAGS, IFF_UP)", ifacename);
-		close(sock);
 		return false;
+	}
+	if ((ifr.ifr_flags & (IFF_UP | IFF_RUNNING)) == (IFF_UP | IFF_RUNNING)) {
+		return true;
 	}
 
 	ifr.ifr_flags |= (IFF_UP | IFF_RUNNING);
 
 	if (ioctl(sock, SIOCSIFFLAGS, &ifr) == -1) {
 		PLOG_E("ioctl(iface='%s', SIOCSIFFLAGS, IFF_UP|IFF_RUNNING)", ifacename);
-		close(sock);
 		return false;
 	}
 
-	close(sock);
 	return true;
 }
 

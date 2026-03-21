@@ -625,7 +625,8 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 		case 0x0211:
 			nsj->njc.set_rlimit_msgqueue_type(parseRLimitType(RLIMIT_MSGQUEUE, optarg));
 			if (nsj->njc.rlimit_msgqueue_type() == nsjail::RLimit::VALUE) {
-				nsj->njc.set_rlimit_msgqueue(parseRLimit(RLIMIT_MSGQUEUE, optarg, 1));
+				nsj->njc.set_rlimit_msgqueue(
+				    parseRLimit(RLIMIT_MSGQUEUE, optarg, 1));
 			}
 			break;
 		case 0x0208:
