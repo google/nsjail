@@ -273,24 +273,27 @@ message NsJailConfig {
 
 	message UserNet {
 		optional bool enable = 1 [default = false];
-		optional string ip = 2 [default = "10.255.255.2"];
-		optional string mask = 3 [default = "255.255.255.0"];
-		optional string gw = 4 [default = "10.255.255.1"];
-		optional string ip6 = 5 [default = "fc00::2"];
-		optional string mask6 = 6 [default = "64"];
-		optional string gw6 = 7 [default = "fc00::1"];
-		optional string ns_iface = 8 [default = "eth0"];
-		optional string tcp_ports = 9 [default = "none"];
-		optional string udp_ports = 10 [default = "none"];
-		optional bool enable_ip4_dhcp = 11 [default = false];
-		optional bool enable_dns = 12 [default = false];
-		optional string dns_forward = 13 [default = ""];
-		optional bool enable_tcp = 14 [default = true];
-		optional bool enable_udp = 15 [default = true];
-		optional bool enable_icmp = 16 [default = true];
-		optional bool no_map_gw = 17 [default = false];
-		optional bool enable_ip6_dhcp = 18 [default = false];
-		optional bool enable_ip6_ra = 19 [default = false];
+		optional bool ports_map_only = 2 [default = false];
+		optional string ip = 3 [default = "10.255.255.2"];
+		optional string mask = 4 [default = "255.255.255.0"];
+		optional string gw = 5 [default = "10.255.255.1"];
+		optional string ip6 = 6 [default = "fc00::2"];
+		optional string mask6 = 7 [default = "64"];
+		optional string gw6 = 8 [default = "fc00::1"];
+		optional string ns_iface = 9 [default = "eth0"];
+		optional string tcp_map_in = 10 [default = "none"];
+		optional string udp_map_in = 11 [default = "none"];
+		optional string tcp_map_out = 12 [default = "none"];
+		optional string udp_map_out = 13 [default = "none"];
+		optional bool enable_ip4_dhcp = 14 [default = false];
+		optional bool enable_dns = 15 [default = false];
+		optional string dns_forward = 16 [default = ""];
+		optional bool enable_tcp = 17 [default = true];
+		optional bool enable_udp = 18 [default = true];
+		optional bool enable_icmp = 19 [default = true];
+		optional bool no_map_gw = 20 [default = false];
+		optional bool enable_ip6_dhcp = 21 [default = false];
+		optional bool enable_ip6_ra = 22 [default = false];
 	}
 	optional UserNet user_net = 95;
 
