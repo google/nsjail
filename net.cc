@@ -305,7 +305,7 @@ static void pastaProcess(nsj_t* nsj, int pid, int err_pipe) {
 		argv.push_back(nsj->njc.user_net().udp_map_out().c_str());
 	}
 
-	if (nsj->njc.user_net().port_map() && !(nsj->njc.user_net().nat())) {
+	if (!(nsj->njc.user_net().nat())) {
 		argv.push_back("--splice-only");
 	}
 
@@ -397,7 +397,7 @@ static bool spawnPasta(nsj_t* nsj, int pid) {
 }
 
 bool initParent(nsj_t* nsj, int pid) {
-	if (nsj->njc.user_net().nat() || nsj->njc.user_net().port_map()) {
+	if (nsj->njc.has_user_net()) {
 		if (!nsj->njc.clone_newnet()) {
 			LOG_E("Support for User-Mode Networking requested (pasta) but CLONE_NEWNET "
 			      "is not enabled");

@@ -173,6 +173,7 @@ static const struct custom_option custom_opts[] = {
     { { "disable_tsc", no_argument, nullptr, 0x707 }, "Disable rdtsc and rdtscp instructions. WARNING: To make it effective, you also need to forbid `prctl(PR_SET_TSC, PR_TSC_ENABLE, ...)` in seccomp rules! (x86 and x86_64 only). Dynamic binaries produced by GCC seem to rely on RDTSC, but static ones should work." },
     { { "forward_signals", no_argument, nullptr, 0x708 }, "Forward fatal signals to the child process instead of always using SIGKILL." },
     { { "use_pasta", no_argument, nullptr, 0x709 }, "Use pasta (user-mode networking) to provide networking connectivity" },
+    { { "oom_score_adj", required_argument, nullptr, 0x800 }, "OOM score adjustment for the sandbox (-1000 to 1000) (default: not set)" },
 };
 // clang-format on
 
@@ -973,6 +974,9 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 			break;
 		case 0x903:
 			nsj->njc.set_nice_level((int)strtol(optarg, NULL, 0));
+			break;
+		case 0x800:
+			nsj->njc.set_oom_score_adj((int32_t)strtol(optarg, NULL, 0));
 			break;
 		default:
 			cmdlineUsage(argv[0]);

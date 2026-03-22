@@ -161,6 +161,14 @@ static const std::string concatArgs(const std::vector<const char*>& argv) {
 }
 
 static void newProc(nsj_t* nsj, int netfd, int fd_in, int fd_out, int fd_err, int pipefd) {
+	if (nsj->njc.has_oom_score_adj()) {
+		std::string score = std::to_string(nsj->njc.oom_score_adj());
+		if (!util::writeBufToFile(
+			"/proc/self/oom_score_adj", score.c_str(), score.length(), O_WRONLY)) {
+			LOG_W("Couldn't set /proc/self/oom_score_adj to '%s'", score.c_str());
+		}
+	}
+
 	if (!contain::setupFD(nsj, fd_in, fd_out, fd_err)) {
 		return;
 	}

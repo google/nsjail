@@ -59,8 +59,7 @@
 	"cloneNewuts": true,
 	"cloneNewcgroup": true,
 	"userNet": {
-		"nat": true,
-		"portMap": true
+		"nat": true
 	},
 	"uidmap": [
 		{
