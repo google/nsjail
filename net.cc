@@ -228,9 +228,7 @@ static bool spawnPasta(nsj_t* nsj, int pid) {
 		argv.push_back("-f");
 		argv.push_back("-q");
 
-		if (nsj->njc.user_net().ports_map_only()) {
-			argv.push_back("--splice-only");
-		} else {
+		if (nsj->njc.user_net().nat()) {
 			bool ip4_enabled = !nsj->njc.user_net().ip().empty() ||
 					   nsj->njc.user_net().enable_ip4_dhcp();
 			bool ip6_enabled = !nsj->njc.user_net().ip6().empty() ||
@@ -269,7 +267,7 @@ static bool spawnPasta(nsj_t* nsj, int pid) {
 			if (!nsj->njc.user_net().enable_icmp()) {
 				argv.push_back("--no-icmp");
 			}
-			if (nsj->njc.user_net().no_map_gw()) {
+			if (!nsj->njc.user_net().map_gw()) {
 				argv.push_back("--no-map-gw");
 			}
 
@@ -324,6 +322,10 @@ static bool spawnPasta(nsj_t* nsj, int pid) {
 		if (!nsj->njc.user_net().udp_map_out().empty()) {
 			argv.push_back("-U");
 			argv.push_back(nsj->njc.user_net().udp_map_out().c_str());
+		}
+
+		if (nsj->njc.user_net().port_map() && !(nsj->njc.user_net().nat())) {
+			argv.push_back("--splice-only");
 		}
 
 		argv.push_back(pid_str.c_str());
@@ -392,7 +394,7 @@ static bool spawnPasta(nsj_t* nsj, int pid) {
 }
 
 bool initParent(nsj_t* nsj, int pid) {
-	if (nsj->njc.user_net().enable()) {
+	if (nsj->njc.user_net().nat() || nsj->njc.user_net().port_map()) {
 		if (!nsj->njc.clone_newnet()) {
 			LOG_E("Support for User-Mode Networking requested (pasta) but CLONE_NEWNET "
 			      "is not enabled");

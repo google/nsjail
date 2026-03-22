@@ -272,28 +272,51 @@ message NsJailConfig {
 	optional string macvlan_vs_mo = 94 [default = "private"];
 
 	message UserNet {
-		optional bool enable = 1 [default = false];
-		optional bool ports_map_only = 2 [default = false];
-		optional string ip = 3 [default = "10.255.255.2"];
-		optional string mask = 4 [default = "255.255.255.0"];
-		optional string gw = 5 [default = "10.255.255.1"];
-		optional string ip6 = 6 [default = "fc00::2"];
-		optional string mask6 = 7 [default = "64"];
-		optional string gw6 = 8 [default = "fc00::1"];
-		optional string ns_iface = 9 [default = "eth0"];
-		optional string tcp_map_in = 10 [default = "none"];
-		optional string udp_map_in = 11 [default = "none"];
-		optional string tcp_map_out = 12 [default = "none"];
-		optional string udp_map_out = 13 [default = "none"];
-		optional bool enable_ip4_dhcp = 14 [default = false];
-		optional bool enable_dns = 15 [default = false];
-		optional string dns_forward = 16 [default = ""];
-		optional bool enable_tcp = 17 [default = true];
-		optional bool enable_udp = 18 [default = true];
-		optional bool enable_icmp = 19 [default = true];
-		optional bool no_map_gw = 20 [default = false];
-		optional bool enable_ip6_dhcp = 21 [default = false];
-		optional bool enable_ip6_ra = 22 [default = false];
+		/* Enable User-Mode NAT (via pasta) */
+		optional bool nat = 1 [default = false];
+		/* IP address for the container */
+		optional string ip = 2 [default = "10.255.255.2"];
+		/* Netmask for the container */
+		optional string mask = 3 [default = "255.255.255.0"];
+		/* Gateway address for the container */
+		optional string gw = 4 [default = "10.255.255.1"];
+		/* IPv6 address for the container */
+		optional string ip6 = 5 [default = "fc00::2"];
+		/* IPv6 mask for the container */
+		optional string mask6 = 6 [default = "64"];
+		/* IPv6 gateway for the container */
+		optional string gw6 = 7 [default = "fc00::1"];
+		/* Name of the interface inside the namespace */
+		optional string ns_iface = 8 [default = "eth0"];
+		/* Enable IPv4 DHCP server in pasta */
+		optional bool enable_ip4_dhcp = 9 [default = false];
+		/* Announce DNS server to container via DHCP/NDP */
+		optional bool enable_dns = 10 [default = false];
+		/* Map IP address as seen from container to the host nameserver */
+		optional string dns_forward = 11 [default = ""];
+		/* Enable TCP traffic forwarding */
+		optional bool enable_tcp = 12 [default = true];
+		/* Enable UDP traffic forwarding */
+		optional bool enable_udp = 13 [default = true];
+		/* Enable ICMP traffic forwarding */
+		optional bool enable_icmp = 14 [default = true];
+		/* Remap connections to the gateway address to the host */
+		optional bool map_gw = 15 [default = true];
+		/* Enable IPv6 DHCP server in pasta */
+		optional bool enable_ip6_dhcp = 16 [default = false];
+		/* Enable IPv6 Router Advertisements in pasta */
+		optional bool enable_ip6_ra = 17 [default = false];
+
+		/* Port mapping, doesn't require network interfaces/NAT */
+		optional bool port_map = 20 [default = false];
+		/* Configure TCP port forwarding from host to namespace */
+		optional string tcp_map_in = 21 [default = "none"];
+		/* Configure UDP port forwarding from host to namespace */
+		optional string udp_map_in = 22 [default = "none"];
+		/* Configure TCP port forwarding from namespace to host */
+		optional string tcp_map_out = 23 [default = "none"];
+		/* Configure UDP port forwarding from namespace to host */
+		optional string udp_map_out = 24 [default = "none"];
 	}
 	optional UserNet user_net = 95;
 

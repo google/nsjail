@@ -737,7 +737,7 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 			addEnv(nsj.get(), optarg);
 			break;
 		case 0x709:
-			nsj->njc.mutable_user_net()->set_enable(true);
+			nsj->njc.mutable_user_net()->set_nat(true);
 			break;
 		case 'u': {
 			std::vector<std::string> subopts = util::strSplit(optarg, ':');
