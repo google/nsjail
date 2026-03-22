@@ -60,11 +60,7 @@
 	"cloneNewcgroup": true,
 	"userNet": {
 		"nat": true,
-		"portMap": true,
-		"tcpMapIn": "9999",
-		"udpMapIn": "8888",
-		"tcpMapOut": "22",
-		"udpMapOut": "53"
+		"portMap": true
 	},
 	"uidmap": [
 		{
