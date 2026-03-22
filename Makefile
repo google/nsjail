@@ -149,8 +149,10 @@ UID := $(shell id -u)
 
 .PHONY: test
 test: $(BIN)
-	$(call run_test, ./nsjail --config tests/seccomp.cfg -q -t 2 -- /bin/bash -c '/usr/bin/strace -o /dev/null /bin/true || exit 77', 77)
-	$(call run_test, ./nsjail --config tests/basic.cfg -q -t 2 -- /bin/bash -c '/usr/bin/strace -o /dev/null /bin/true && exit 77', 77)
+	$(call run_test, ./nsjail --config tests/seccomp.cfg -q -t 2 -- /bin/bash -c 'strace -o /dev/null /bin/true || exit 77', 77)
+	$(call run_test, ./nsjail --config tests/basic.cfg -q -t 2 -- /bin/bash -c 'strace -o /dev/null /bin/true && exit 77', 77)
+	$(call run_test, ./nsjail --config tests/nat.cfg -q -t 3 -- /bin/bash -c 'sleep 0.2; ping -W 1 -c 1 8.8.8.8 && exit 77', 77)
+	$(call run_test, ./nsjail --config tests/port-mappings.cfg -q -t 3 -- /bin/bash -c 'sleep 0.2; { netstat -tan | grep LISTEN; } && exit 77', 77)
 
 	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --rw --chroot / --user 99999 --group 99999 -- /bin/bash -c 'touch $(HOME)/nsjail_test && exit 77', 77)
 	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --chroot / --user 99999 --group 99999 -- /bin/bash -c 'touch $(HOME)/nsjail_test || exit 77', 77)
