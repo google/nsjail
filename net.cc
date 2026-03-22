@@ -352,6 +352,11 @@ static bool spawnPasta(nsj_t* nsj, int pid) {
 		}
 
 		int pasta_fd = getPastaFd();
+		const char* pasta_path = getenv("NSJAIL_PASTA_PATH");
+		if (pasta_path == NULL) {
+			pasta_path = argv[0];
+		}
+
 		util::makeRangeCOE(STDERR_FILENO + 1, ~0U);
 
 		/* LOG doesn't use STDERR_FILENO so it's fine to use it */
@@ -361,8 +366,9 @@ static bool spawnPasta(nsj_t* nsj, int pid) {
 			    (uintptr_t)argv.data(), (uintptr_t)environ, AT_EMPTY_PATH);
 			err = errno;
 			PLOG_W("execveat(pasta_fd=%d, AT_EMPTY_PATH)", pasta_fd);
+
 		} else {
-			execvpe(argv[0], (char* const*)argv.data(), environ);
+			execvpe(pasta_path, (char* const*)argv.data(), environ);
 			err = errno;
 			PLOG_W("execvp('pasta')");
 		}
