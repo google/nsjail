@@ -252,15 +252,6 @@ static bool spawnPasta(nsj_t* nsj, int pid) {
 				argv.push_back("--config-net");
 			}
 
-			if (!nsj->njc.user_net().tcp_map_in().empty()) {
-				argv.push_back("-t");
-				argv.push_back(nsj->njc.user_net().tcp_map_in().c_str());
-			}
-			if (!nsj->njc.user_net().udp_map_in().empty()) {
-				argv.push_back("-u");
-				argv.push_back(nsj->njc.user_net().udp_map_in().c_str());
-			}
-
 			if (nsj->njc.user_net().enable_dns()) {
 				argv.push_back("--dhcp-dns");
 			}
@@ -318,6 +309,14 @@ static bool spawnPasta(nsj_t* nsj, int pid) {
 			}
 		}
 
+		if (!nsj->njc.user_net().tcp_map_in().empty()) {
+			argv.push_back("-t");
+			argv.push_back(nsj->njc.user_net().tcp_map_in().c_str());
+		}
+		if (!nsj->njc.user_net().udp_map_in().empty()) {
+			argv.push_back("-u");
+			argv.push_back(nsj->njc.user_net().udp_map_in().c_str());
+		}
 		if (!nsj->njc.user_net().tcp_map_out().empty()) {
 			argv.push_back("-T");
 			argv.push_back(nsj->njc.user_net().tcp_map_out().c_str());
