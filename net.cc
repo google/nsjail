@@ -369,7 +369,7 @@ static bool spawnPasta(nsj_t* nsj, int pid) {
 		} else {
 			execvpe(pasta_path, (char* const*)argv.data(), environ);
 			err = errno;
-			PLOG_W("execvp('pasta')");
+			PLOG_W("execvpe('%s')", pasta_path);
 		}
 
 		util::writeToFd(sv[1], &err, sizeof(err));
