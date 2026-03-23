@@ -91,6 +91,7 @@ docker run --privileged --rm -it nsjail nsjail --user 99999 --group 99999 --chro
 --rlimit_as MB            Address space limit in MB
 --rlimit_cpu SEC          CPU time limit in seconds
 --rlimit_nofile N         Max open files
+--oom_score_adj VALUE     OOM score adjustment for the sandbox (-1000 to 1000)
 
 # Security
 -P, --seccomp_policy FILE Seccomp-bpf policy file (Kafel syntax)

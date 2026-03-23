@@ -285,6 +285,21 @@ Default GW for the 'vs' interface (e.g. "192.168.0.1")
 .TP
 \fB\-\-macvlan_vs_ma\fR VALUE
 MAC-address of the 'vs' interface (e.g. "ba:ad:ba:be:45:00")
+.TP
+\fB\-\-macvlan_vs_mo\fR VALUE
+Mode of the 'vs' interface. Can be either 'private', 'vepa', 'bridge' or 'passthru' (default: 'private')
+.TP
+\fB\-\-disable_tsc\fR
+Disable rdtsc and rdtscp instructions. WARNING: To make it effective, you also need to forbid `prctl(PR_SET_TSC, PR_TSC_ENABLE, ...)` in seccomp rules! (x86 and x86_64 only). Dynamic binaries produced by GCC seem to rely on RDTSC, but static ones should work.
+.TP
+\fB\-\-forward_signals\fR
+Forward fatal signals to the child process instead of always using SIGKILL.
+.TP
+\fB\-\-use_pasta\fR
+Use pasta (user-mode networking) to provide networking connectivity
+.TP
+\fB\-\-oom_score_adj\fR VALUE
+OOM score adjustment for the sandbox (\-1000 to 1000) (default: not set)
 \"
 .SH Examples
 .PP
