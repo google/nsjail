@@ -210,12 +210,6 @@ static void pastaProcess(nsj_t* nsj, int pid, int err_pipe) {
 	argv.push_back("-q");
 
 	if (nsj->njc.user_net().nat()) {
-		bool ip4_enabled =
-		    !nsj->njc.user_net().ip().empty() || nsj->njc.user_net().enable_ip4_dhcp();
-		bool ip6_enabled = !nsj->njc.user_net().ip6().empty() ||
-				   nsj->njc.user_net().enable_ip6_dhcp() ||
-				   nsj->njc.user_net().enable_ip6_ra();
-
 		if (!nsj->njc.user_net().enable_ip4_dhcp()) {
 			argv.push_back("--no-dhcp");
 		}
@@ -275,10 +269,14 @@ static void pastaProcess(nsj_t* nsj, int pid, int err_pipe) {
 			}
 		}
 
-		if (!ip4_enabled) {
+		if (!nsj->njc.user_net().ip4_enabled() && !nsj->njc.user_net().ip6_enabled()) {
+			LOG_E("Both IPv4 and IPv6 disabled for user networking");
+			_exit(EXIT_FAILURE);
+		}
+		if (!nsj->njc.user_net().ip4_enabled()) {
 			argv.push_back("-6");
 		}
-		if (!ip6_enabled) {
+		if (!nsj->njc.user_net().ip6_enabled()) {
 			argv.push_back("-4");
 		}
 
