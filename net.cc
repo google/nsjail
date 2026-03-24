@@ -276,10 +276,10 @@ static void pastaProcess(nsj_t* nsj, int pid, int err_pipe) {
 		}
 
 		if (!ip4_enabled) {
-			argv.push_back("-4");
+			argv.push_back("-6");
 		}
 		if (!ip6_enabled) {
-			argv.push_back("-6");
+			argv.push_back("-4");
 		}
 
 		if (!nsj->njc.user_net().ns_iface().empty()) {
