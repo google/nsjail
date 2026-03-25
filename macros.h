@@ -58,6 +58,10 @@ struct Defer {
 	Defer& operator=(Defer&&) = default;
 };
 
+/* -Wctad-maybe-unsupported */
+template <typename F>
+Defer(F) -> Defer<F>;
+
 #define _DEFER_1(x, y) x##y
 #define _DEFER_2(x, y) _DEFER_1(x, y)
 #define _DEFER_3(x) _DEFER_2(x, __COUNTER__)
