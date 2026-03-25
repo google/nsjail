@@ -54,6 +54,10 @@
 #define STR_(x) #x
 #define STR(x) STR_(x)
 
+#if !defined(F_SEAL_FUTURE_WRITE)
+#define F_SEAL_FUTURE_WRITE 0x0010
+#endif /* !defined(F_SEAL_FUTURE_WRITE) */
+
 /* Embed pasta inside this binary */
 // clang-format off
 __asm__("\n"
