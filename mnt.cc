@@ -54,19 +54,6 @@
 
 namespace mnt {
 
-#if !defined(MS_NOSYMFOLLOW)
-#define MS_NOSYMFOLLOW 256
-#endif /* if !defined(MS_NOSYMFOLLOW) */
-#if !defined(MS_LAZYTIME)
-#define MS_LAZYTIME (1 << 25)
-#endif /* if !defined(MS_LAZYTIME) */
-#if !defined(MS_ACTIVE)
-#define MS_ACTIVE (1 << 30)
-#endif /* if !defined(MS_ACTIVE) */
-#if !defined(MS_NOUSER)
-#define MS_NOUSER (1 << 31)
-#endif /* if !defined(MS_NOUSER) */
-
 const std::string flagsToStr(unsigned long flags) {
 	std::string res;
 

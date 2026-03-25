@@ -74,10 +74,6 @@ std::unique_ptr<std::string> buildMountTree(nsj_t*, std::vector<mnt::mount_t>*) 
 #include <sys/statvfs.h>
 #include <unistd.h>
 
-#if !defined(ST_NOSYMFOLLOW)
-#define ST_NOSYMFOLLOW 0x2000
-#endif /* if !defined(ST_NOSYMFOLLOW) */
-
 #include <cstdint>
 #include <string>
 #include <vector>

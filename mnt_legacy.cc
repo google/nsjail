@@ -42,12 +42,6 @@
 
 namespace mnt {
 namespace legacy {
-#if !defined(MS_LAZYTIME)
-#define MS_LAZYTIME (1 << 25)
-#endif
-#if !defined(ST_NOSYMFOLLOW)
-#define ST_NOSYMFOLLOW 8192
-#endif
 
 static bool isDirectory(const char* path) {
 	if (!path) {
