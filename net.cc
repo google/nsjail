@@ -24,11 +24,15 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/fib_rules.h>
 #include <net/if.h>
 #include <net/route.h>
 #include <netinet/in.h>
 #include <netinet/ip6.h>
 #include <netinet/tcp.h>
+#include <netlink/route/nexthop.h>
+#include <netlink/route/route.h>
+#include <netlink/route/rule.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -45,7 +49,9 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <sstream>
 #include <string>
+#include <vector>
 
 #include "logs.h"
 #include "macros.h"
@@ -118,6 +124,8 @@ namespace net {
 
 #define IFACE_NAME "vs"
 
+#include <linux/if_ether.h>
+#include <linux/rtnetlink.h>
 #include <netlink/route/link.h>
 #include <netlink/route/link/macvlan.h>
 
@@ -417,36 +425,36 @@ bool initParent(nsj_t* nsj, int pid) {
 		LOG_E("Could not allocate socket with nl_socket_alloc()");
 		return false;
 	}
+	defer {
+		nl_socket_free(sk);
+	};
 
 	int err;
 	if ((err = nl_connect(sk, NETLINK_ROUTE)) < 0) {
 		LOG_E("Unable to connect socket: %s", nl_geterror(err));
-		nl_socket_free(sk);
 		return false;
 	}
 
 	struct nl_cache* link_cache;
 	if ((err = rtnl_link_alloc_cache(sk, AF_UNSPEC, &link_cache)) < 0) {
 		LOG_E("rtnl_link_alloc_cache(): %s", nl_geterror(err));
-		nl_socket_free(sk);
 		return false;
 	}
+	defer {
+		nl_cache_free(link_cache);
+	};
 
 	for (const auto& iface : nsj->njc.iface_own()) {
 		if (!moveToNs(iface, sk, link_cache, pid)) {
 			nl_cache_free(link_cache);
-			nl_socket_free(sk);
 			return false;
 		}
 	}
 	if (!nsj->njc.macvlan_iface().empty() && !cloneIface(nsj, sk, link_cache, pid)) {
 		nl_cache_free(link_cache);
-		nl_socket_free(sk);
 		return false;
 	}
 
-	nl_cache_free(link_cache);
-	nl_socket_free(sk);
 	return true;
 }
 
@@ -727,6 +735,213 @@ static bool ifaceConfig(const std::string& iface, const std::string& ip, const s
 	return true;
 }
 
+static bool parseIp(const std::string& ip_str, struct in_addr* addr, int* mask) {
+	size_t slash = ip_str.find('/');
+	std::string ip = ip_str;
+	*mask = 32;
+	if (slash != std::string::npos) {
+		ip = ip_str.substr(0, slash);
+		*mask = std::stoi(ip_str.substr(slash + 1));
+	}
+	return inet_pton(AF_INET, ip.c_str(), addr) == 1;
+}
+
+static bool parseIp6(const std::string& ip_str, struct in6_addr* addr, int* mask) {
+	size_t slash = ip_str.find('/');
+	std::string ip = ip_str;
+	*mask = 128;
+	if (slash != std::string::npos) {
+		ip = ip_str.substr(0, slash);
+		*mask = std::stoi(ip_str.substr(slash + 1));
+	}
+	return inet_pton(AF_INET6, ip.c_str(), addr) == 1;
+}
+
+static bool applyEncapRoute(struct nl_sock* sk, const nsjail::NsJailConfig_TrafficRule& rule,
+    int family, uint32_t table_id) {
+	struct rtnl_route* route = rtnl_route_alloc();
+	if (!route) {
+		LOG_E("rtnl_route_alloc() failed");
+		return false;
+	}
+
+	rtnl_route_set_table(route, table_id);
+	rtnl_route_set_family(route, family);
+	rtnl_route_set_scope(route, RT_SCOPE_UNIVERSE);
+	rtnl_route_set_type(route, RTN_UNICAST);
+
+	struct nl_addr* dst = nl_addr_alloc(family == AF_INET ? 4 : 16);
+	nl_addr_set_family(dst, family);
+	nl_addr_set_prefixlen(dst, 0);
+	rtnl_route_set_dst(route, dst);
+	nl_addr_put(dst);
+
+	struct rtnl_nexthop* nh = rtnl_route_nh_alloc();
+	if (!nh) {
+		rtnl_route_put(route);
+		return false;
+	}
+
+	unsigned int ifindex =
+	    if_nametoindex(rule.has_oif() && !rule.oif().empty() ? rule.oif().c_str() : "lo");
+	if (ifindex > 0) rtnl_route_nh_set_ifindex(nh, ifindex);
+
+	if (rule.has_encap_type()) {
+		struct rtnl_nh_encap* encap = rtnl_nh_encap_alloc();
+		if (!encap) {
+			rtnl_route_nh_free(nh);
+			rtnl_route_put(route);
+			return false;
+		}
+
+		if (rule.encap_type() == nsjail::NsJailConfig_TrafficRule::ENCAP_IP) {
+			struct nl_addr* encap_dst;
+			if (rule.has_encap_dst() &&
+			    nl_addr_parse(rule.encap_dst().c_str(), AF_INET, &encap_dst) == 0) {
+				rtnl_nh_encap_ip(encap, encap_dst);
+				if (rule.has_encap_id())
+					rtnl_nh_set_encap_ip_id(encap, rule.encap_id());
+				rtnl_route_nh_set_encap(nh, encap);
+				nl_addr_put(encap_dst);
+			}
+		} else if (rule.encap_type() == nsjail::NsJailConfig_TrafficRule::ENCAP_IP6) {
+			struct nl_addr* encap_dst;
+			if (rule.has_encap_dst() &&
+			    nl_addr_parse(rule.encap_dst().c_str(), AF_INET6, &encap_dst) == 0) {
+				rtnl_nh_encap_ip6(encap, encap_dst);
+				if (rule.has_encap_id())
+					rtnl_nh_set_encap_ip6_id(encap, rule.encap_id());
+				rtnl_route_nh_set_encap(nh, encap);
+				nl_addr_put(encap_dst);
+			}
+		} else if (rule.encap_type() == nsjail::NsJailConfig_TrafficRule::ENCAP_MPLS) {
+			struct nl_addr* encap_dst;
+			if (rule.has_encap_dst() &&
+			    nl_addr_parse(rule.encap_dst().c_str(), AF_MPLS, &encap_dst) == 0) {
+				uint8_t ttl = rule.has_encap_id() ? rule.encap_id() : 255;
+				rtnl_nh_encap_mpls(encap, encap_dst, ttl);
+				rtnl_route_nh_set_encap(nh, encap);
+				nl_addr_put(encap_dst);
+			}
+		} else if (rule.encap_type() == nsjail::NsJailConfig_TrafficRule::ENCAP_ILA) {
+			if (rule.has_encap_ila_locator()) {
+				rtnl_nh_encap_ila(encap, rule.encap_ila_locator());
+				rtnl_route_nh_set_encap(nh, encap);
+			}
+		}
+	}
+
+	rtnl_route_add_nexthop(route, nh);
+
+	int err = rtnl_route_add(sk, route, NLM_F_CREATE);
+	if (err < 0) {
+		LOG_E("rtnl_route_add() failed: %s", nl_geterror(err));
+		rtnl_route_put(route);
+		return false;
+	}
+
+	rtnl_route_put(route);
+	return true;
+}
+
+static bool applyTrafficRule(
+    struct nl_sock* sk, const nsjail::NsJailConfig_TrafficRule& rule, int family) {
+	struct rtnl_rule* rtnl_rule = rtnl_rule_alloc();
+	if (!rtnl_rule) {
+		LOG_E("rtnl_rule_alloc() failed");
+		return false;
+	}
+
+	rtnl_rule_set_family(rtnl_rule, family);
+
+	if (rule.has_src_ip() && !rule.src_ip().empty()) {
+		struct nl_addr* addr;
+		if (nl_addr_parse(rule.src_ip().c_str(), family, &addr) < 0) {
+			LOG_E("nl_addr_parse(src_ip, %s) failed", rule.src_ip().c_str());
+			rtnl_rule_put(rtnl_rule);
+			return false;
+		}
+		rtnl_rule_set_src(rtnl_rule, addr);
+		nl_addr_put(addr);
+	}
+	if (rule.has_dst_ip() && !rule.dst_ip().empty()) {
+		struct nl_addr* addr;
+		if (nl_addr_parse(rule.dst_ip().c_str(), family, &addr) < 0) {
+			LOG_E("nl_addr_parse(dst_ip, %s) failed", rule.dst_ip().c_str());
+			rtnl_rule_put(rtnl_rule);
+			return false;
+		}
+		rtnl_rule_set_dst(rtnl_rule, addr);
+		nl_addr_put(addr);
+	}
+	if (rule.has_iif() && !rule.iif().empty()) rtnl_rule_set_iif(rtnl_rule, rule.iif().c_str());
+	if (rule.has_oif() && !rule.oif().empty()) rtnl_rule_set_oif(rtnl_rule, rule.oif().c_str());
+	if (rule.has_proto() && rule.proto() != nsjail::NsJailConfig_TrafficRule::UNKNOWN_PROTO) {
+		switch (rule.proto()) {
+		case nsjail::NsJailConfig_TrafficRule::TCP:
+			rtnl_rule_set_ipproto(rtnl_rule, IPPROTO_TCP);
+			break;
+		case nsjail::NsJailConfig_TrafficRule::UDP:
+			rtnl_rule_set_ipproto(rtnl_rule, IPPROTO_UDP);
+			break;
+		case nsjail::NsJailConfig_TrafficRule::ICMP:
+			rtnl_rule_set_ipproto(rtnl_rule, IPPROTO_ICMP);
+			break;
+		case nsjail::NsJailConfig_TrafficRule::ICMPV6:
+			rtnl_rule_set_ipproto(rtnl_rule, IPPROTO_ICMPV6);
+			break;
+		default:
+			break;
+		}
+	}
+	if (rule.has_sport()) {
+		if (rule.has_sport_end())
+			rtnl_rule_set_sport_range(rtnl_rule, rule.sport(), rule.sport_end());
+		else
+			rtnl_rule_set_sport(rtnl_rule, rule.sport());
+	}
+	if (rule.has_dport()) {
+		if (rule.has_dport_end())
+			rtnl_rule_set_dport_range(rtnl_rule, rule.dport(), rule.dport_end());
+		else
+			rtnl_rule_set_dport(rtnl_rule, rule.dport());
+	}
+
+	if (rule.has_action()) {
+		if (rule.action() == nsjail::NsJailConfig_TrafficRule::DROP) {
+			rtnl_rule_set_action(rtnl_rule, FR_ACT_BLACKHOLE);
+		} else if (rule.action() == nsjail::NsJailConfig_TrafficRule::REJECT) {
+			rtnl_rule_set_action(rtnl_rule, FR_ACT_UNREACHABLE);
+
+		} else if (rule.action() == nsjail::NsJailConfig_TrafficRule::ENCAP) {
+			static uint32_t current_table = 1000;
+			uint32_t table_id = current_table++;
+			rtnl_rule_set_action(rtnl_rule, FR_ACT_TO_TBL);
+			rtnl_rule_set_table(rtnl_rule, table_id);
+			if (!applyEncapRoute(sk, rule, family, table_id)) {
+				rtnl_rule_put(rtnl_rule);
+				return false;
+			}
+
+		} else if (rule.action() == nsjail::NsJailConfig_TrafficRule::ALLOW) {
+			rtnl_rule_set_action(rtnl_rule, FR_ACT_TO_TBL);
+			rtnl_rule_set_table(rtnl_rule, RT_TABLE_MAIN);	// Just pass to main routing
+		}
+	} else {
+		rtnl_rule_set_action(rtnl_rule, FR_ACT_BLACKHOLE);
+	}
+
+	int err = rtnl_rule_add(sk, rtnl_rule, NLM_F_CREATE);
+	if (err < 0) {
+		LOG_E("rtnl_rule_add() failed: %s", nl_geterror(err));
+		rtnl_rule_put(rtnl_rule);
+		return false;
+	}
+
+	rtnl_rule_put(rtnl_rule);
+	return true;
+}
+
 bool initNsFromChild(nsj_t* nsj) {
 	if (!nsj->njc.clone_newnet()) {
 		return true;
@@ -739,6 +954,30 @@ bool initNsFromChild(nsj_t* nsj) {
 		nsj->njc.macvlan_vs_gw())) {
 		return false;
 	}
+
+	if (nsj->njc.traffic_rule_size() > 0) {
+		struct nl_sock* sk = nl_socket_alloc();
+		if (!sk) {
+			LOG_E("nl_socket_alloc() failed");
+			return false;
+		}
+		defer {
+			nl_socket_free(sk);
+		};
+		if (nl_connect(sk, NETLINK_ROUTE) < 0) {
+			LOG_E("nl_connect() failed");
+			return false;
+		}
+		for (const auto& rule : nsj->njc.traffic_rule()) {
+			int family = (rule.ip_family() == nsjail::NsJailConfig_TrafficRule::IPV6)
+					 ? AF_INET6
+					 : AF_INET;
+			if (!applyTrafficRule(sk, rule, family)) {
+				return false;
+			}
+		}
+	}
+
 	return true;
 }
 

@@ -388,6 +388,7 @@ static bool setupArgv(nsj_t* nsj, int argc, char** argv, int optind) {
 	 */
 	if (optind < argc) {
 		nsj->argv.clear();
+		nsj->njc.mutable_exec_bin()->set_path(argv[optind]);
 		for (int i = optind; i < argc; i++) {
 			nsj->argv.push_back(argv[i]);
 		}

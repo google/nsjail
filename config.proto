@@ -273,6 +273,60 @@ message NsJailConfig {
 	optional string macvlan_vs_ma = 94 [default = ""];
 	optional string macvlan_vs_mo = 95 [default = "private"];
 
+	message TrafficRule {
+		enum TrafficAction {
+			UNKNOWN_ACTION = 0;
+			DROP = 1;   /* Block the traffic silently */
+			REJECT = 2; /* Block and send ICMP unreachable / TCP RST */
+			ALLOW = 3;  /* Explicitly allow */
+			ENCAP = 4;  /* Encapsulate and route (LWT) */
+		}
+
+		enum EncapType {
+			ENCAP_IP = 0;
+			ENCAP_IP6 = 1;
+			ENCAP_MPLS = 2;
+			ENCAP_ILA = 3;
+		}
+
+		enum IpFamily {
+			IPV4 = 0;
+			IPV6 = 1;
+		}
+
+		enum Protocol {
+			UNKNOWN_PROTO = 0; /* No protocol filter */
+			TCP = 1;
+			UDP = 2;
+			ICMP = 3;
+			ICMPV6 = 4;
+		}
+
+		/* Match parameters (Selectors) */
+		optional string src_ip = 1; /* Source IP or CIDR */
+		optional string dst_ip = 2; /* Dest IP or CIDR */
+		optional string iif = 3;    /* Input interface */
+		optional string oif = 4;    /* Output interface */
+		optional Protocol proto = 5 [default = UNKNOWN_PROTO];
+		optional uint32 sport = 6;     /* Source port */
+		optional uint32 dport = 7;     /* Dest port */
+		optional uint32 sport_end = 8; /* For port ranges */
+		optional uint32 dport_end = 9; /* For port ranges */
+
+		/* Action parameters */
+		optional TrafficAction action = 10 [default = DROP];
+
+		/* Encap parameters */
+		optional EncapType encap_type = 11 [default = ENCAP_IP];
+		optional string encap_dst = 12; /* Destination IP (for IP/IP6) or MPLS label */
+		optional uint32 encap_id = 13;	/* Tunnel ID (VNI/Key) or MPLS TTL */
+		optional uint64 encap_ila_locator = 14; /* ILA Locator */
+
+		/* Address family: IPV4 (default) or IPV6 */
+		optional IpFamily ip_family = 15 [default = IPV4];
+	}
+	repeated TrafficRule traffic_rule = 100;
+
 	message UserNet {
 		/* Enable User-Mode NAT (via pasta) */
 		optional bool nat = 1 [default = false];
