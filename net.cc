@@ -409,12 +409,14 @@ static bool spawnPasta(nsj_t* nsj, int pid) {
 bool initParent(nsj_t* nsj, int pid) {
 	if (nsj->njc.has_user_net()) {
 		if (!nsj->njc.clone_newnet()) {
-			LOG_E("Support for User-Mode Networking requested (pasta) but CLONE_NEWNET "
+			LOG_E("Support for User-Mode Networking requested but CLONE_NEWNET "
 			      "is not enabled");
 			return false;
 		}
-		if (!spawnPasta(nsj, pid)) {
-			return false;
+		if (!nsj->njc.user_net().use_nstun()) {
+			if (!spawnPasta(nsj, pid)) {
+				return false;
+			}
 		}
 	}
 	if (!nsj->njc.clone_newnet()) {

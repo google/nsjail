@@ -94,6 +94,52 @@ bool writeToFd(int fd, const void* buf, size_t len) {
 	return true;
 }
 
+bool sendFd(int sock, int fd) {
+	struct msghdr msg = {};
+	char buf[CMSG_SPACE(sizeof(fd))] = {};
+	struct iovec io = {.iov_base = (void*)"", .iov_len = 1};
+
+	msg.msg_iov = &io;
+	msg.msg_iovlen = 1;
+	msg.msg_control = buf;
+	msg.msg_controllen = sizeof(buf);
+
+	struct cmsghdr* cmsg = CMSG_FIRSTHDR(&msg);
+	cmsg->cmsg_level = SOL_SOCKET;
+	cmsg->cmsg_type = SCM_RIGHTS;
+	cmsg->cmsg_len = CMSG_LEN(sizeof(fd));
+	*((int*)CMSG_DATA(cmsg)) = fd;
+
+	msg.msg_controllen = cmsg->cmsg_len;
+
+	return (TEMP_FAILURE_RETRY(sendmsg(sock, &msg, 0)) >= 0);
+}
+
+int recvFd(int sock) {
+	struct msghdr msg = {};
+	char m_buffer[256] = {};
+	struct iovec io = {.iov_base = m_buffer, .iov_len = sizeof(m_buffer)};
+	char c_buffer[256] = {};
+
+	msg.msg_iov = &io;
+	msg.msg_iovlen = 1;
+	msg.msg_control = c_buffer;
+	msg.msg_controllen = sizeof(c_buffer);
+
+	if (TEMP_FAILURE_RETRY(recvmsg(sock, &msg, 0)) < 0) {
+		return -1;
+	}
+
+	struct cmsghdr* cmsg = CMSG_FIRSTHDR(&msg);
+	if (cmsg && cmsg->cmsg_len == CMSG_LEN(sizeof(int))) {
+		if (cmsg->cmsg_level != SOL_SOCKET || cmsg->cmsg_type != SCM_RIGHTS) {
+			return -1;
+		}
+		return *((int*)CMSG_DATA(cmsg));
+	}
+	return -1;
+}
+
 bool readFromFileToStr(const char* fname, std::string* str) {
 	std::fstream fs(fname, std::ios::in | std::ios::binary);
 	if (!fs.is_open()) {

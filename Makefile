@@ -29,7 +29,7 @@ COMMON_FLAGS += -O2 -c \
 	-Wall -Wextra -Werror \
 	-Ikafel/include
 
-CXXFLAGS += $(USER_DEFINES) $(COMMON_FLAGS) $(PROTOBUF_CFLAGS) \
+CXXFLAGS += $(USER_DEFINES) $(COMMON_FLAGS) $(PROTOBUF_CFLAGS) -I. \
 	-std=c++20 -fno-exceptions -Wno-unused -Wno-unused-parameter
 
 LDFLAGS += -pie -Wl,-z,noexecstack -lpthread $(PROTOBUF_LIBS)
@@ -61,7 +61,7 @@ ifneq ($(PASTA_BIN_PATH),)
 	CXXFLAGS += -DPASTA_BIN_PATH='"$(PASTA_BIN_PATH)"'
 endif
 
-SRCS_CXX = caps.cc cgroup.cc cgroup2.cc cmdline.cc config.cc contain.cc cpu.cc logs.cc mnt.cc mnt_legacy.cc mnt_newapi.cc net.cc nsjail.cc pid.cc sandbox.cc subproc.cc uts.cc user.cc util.cc
+SRCS_CXX = caps.cc cgroup.cc cgroup2.cc cmdline.cc config.cc contain.cc cpu.cc logs.cc mnt.cc mnt_legacy.cc mnt_newapi.cc net.cc nsjail.cc pid.cc sandbox.cc subproc.cc uts.cc user.cc util.cc nstun/nstun.cc nstun/iface.cc nstun/tun.cc nstun/ip.cc nstun/icmp.cc nstun/udp.cc nstun/tcp.cc
 SRCS_PROTO = config.proto
 
 SRCS_PB_CXX = $(SRCS_PROTO:.proto=.pb.cc)
@@ -241,8 +241,18 @@ nsjail.o: sandbox.h subproc.h util.h
 pid.o: pid.h nsjail.h config.pb.h logs.h subproc.h
 sandbox.o: sandbox.h nsjail.h config.pb.h kafel/include/kafel.h logs.h util.h
 subproc.o: subproc.h nsjail.h config.pb.h cgroup.h cgroup2.h contain.h logs.h
-subproc.o: macros.h net.h sandbox.h user.h util.h
+subproc.o: macros.h net.h nstun/nstun.h sandbox.h user.h util.h
 uts.o: uts.h nsjail.h config.pb.h logs.h
 user.o: user.h nsjail.h config.pb.h logs.h macros.h subproc.h util.h
 util.o: util.h nsjail.h config.pb.h logs.h macros.h
+nstun/nstun.o: nstun/nstun.h nstun/core.h nstun/net_defs.h logs.h macros.h
+nstun/nstun.o: nstun/tcp.h util.h nsjail.h config.pb.h
+nstun/iface.o: logs.h nsjail.h config.pb.h nstun/nstun.h
+nstun/tun.o: nstun/core.h nstun/net_defs.h nstun/nstun.h logs.h
+nstun/ip.o: nstun/core.h nstun/net_defs.h nstun/nstun.h logs.h
+nstun/icmp.o: nstun/core.h nstun/net_defs.h nstun/nstun.h logs.h macros.h
+nstun/udp.o: nstun/core.h nstun/net_defs.h nstun/nstun.h logs.h macros.h
+nstun/udp.o: nstun/socks5.h
+nstun/tcp.o: nstun/tcp.h nstun/core.h nstun/net_defs.h nstun/nstun.h logs.h
+nstun/tcp.o: macros.h nstun/socks5.h
 config.pb.o: config.pb.h

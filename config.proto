@@ -330,12 +330,51 @@ message NsJailConfig {
 	message UserNet {
 		/* Enable User-Mode NAT (via pasta) */
 		optional bool nat = 1 [default = false];
+		/* Use experimental nstun instead of pasta */
+		optional bool use_nstun = 25 [default = false];
+
+		message NstunRule {
+			enum Action {
+				DROP = 0;
+				REJECT = 1;
+				ALLOW = 2;
+				REDIRECT = 3;
+				ENCAP_SOCKS5 = 4;
+			}
+			enum Protocol {
+				ANY = 0;
+				TCP = 1;
+				UDP = 2;
+				ICMP = 3;
+			}
+			optional Action action = 1 [default = ALLOW];
+			optional Protocol proto = 2 [default = ANY];
+
+			/* Match source IP network in "x.x.x.x/yy" or "x.x.x.x" format */
+			optional string src_ip = 3;
+			/* Match source port range */
+			optional uint32 sport = 4;
+			optional uint32 sport_end = 5;
+
+			/* Match destination IP network */
+			optional string dst_ip = 6;
+			/* Match destination port range */
+			optional uint32 dport = 7;
+			optional uint32 dport_end = 8;
+
+			/* Action parameters */
+			optional string redirect_ip = 9;
+			optional uint32 redirect_port = 10;
+		}
+
+		/* nstun firewall/NAT rules */
+		repeated NstunRule nstun_rule = 27;
 
 		/* IPv4 is enabled */
 		optional bool ip4_enabled = 2 [default = true];
 		/* IP address for the container */
 		optional string ip = 3 [default = "10.255.255.2"];
-		/* Netmask for the container */
+		/* IPv4 mask for the container */
 		optional string mask = 4 [default = "255.255.255.0"];
 		/* Gateway address for the container */
 		optional string gw = 5 [default = "10.255.255.1"];
