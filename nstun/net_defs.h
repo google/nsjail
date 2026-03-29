@@ -132,7 +132,7 @@ inline uint16_t compute_checksum(const void* buf, size_t len, uint32_t sum = 0) 
 
 }  // namespace nstun
 
-inline constexpr bool is_loopback_addr(uint32_t addr_net) {
+inline bool is_loopback_addr(uint32_t addr_net) {
 	return (ntohl(addr_net) & 0xFF000000) == 0x7F000000;
 }
 
