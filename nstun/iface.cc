@@ -86,11 +86,10 @@ bool configIface(nsj_t* nsj) {
 		return false;
 	}
 
-	/* Set MTU */
+	/* Set MTU - not critical */
 	ifr.ifr_mtu = NSTUN_MTU;
 	if (ioctl(sock, SIOCSIFMTU, &ifr) == -1) {
-		PLOG_E("ioctl(SIOCSIFMTU, %zu)", NSTUN_MTU);
-		return false;
+		PLOG_W("ioctl(SIOCSIFMTU, %zu)", NSTUN_MTU);
 	}
 
 	/* Add default route out of interface */

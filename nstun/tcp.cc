@@ -23,7 +23,7 @@ void tcp_send_packet(Context* ctx, TcpFlow* flow, uint8_t flags, const uint8_t* 
 		return;
 	}
 	size_t frame_len = sizeof(ip4_hdr) + sizeof(tcp_hdr) + len;
-	uint8_t frame_buf[sizeof(ip4_hdr) + sizeof(tcp_hdr) + NSTUN_MTU] = {};
+	uint8_t frame_buf[sizeof(ip4_hdr) + sizeof(tcp_hdr) + NSTUN_MTU];
 
 	ip4_hdr* r_ip = reinterpret_cast<ip4_hdr*>(frame_buf);
 	tcp_hdr* r_tcp = reinterpret_cast<tcp_hdr*>(frame_buf + sizeof(ip4_hdr));

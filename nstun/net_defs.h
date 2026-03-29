@@ -9,7 +9,7 @@
 namespace nstun {
 
 #pragma pack(push, 1)
-constexpr size_t NSTUN_MTU = 1500;
+constexpr size_t NSTUN_MTU = (1024 * 32);
 
 struct eth_hdr {
 	uint8_t dst[6];
