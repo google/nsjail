@@ -1,3 +1,5 @@
+#include "iface.h"
+
 #include <arpa/inet.h>
 #include <errno.h>
 #include <linux/if.h>
@@ -10,6 +12,8 @@
 #include <unistd.h>
 
 #include "logs.h"
+#include "macros.h"
+#include "net_defs.h"
 #include "nsjail.h"
 #include "nstun.h"
 
@@ -21,6 +25,9 @@ bool configIface(nsj_t* nsj) {
 		PLOG_E("socket(AF_INET, SOCK_STREAM, IPPROTO_IP)");
 		return false;
 	}
+	defer {
+		close(sock);
+	};
 
 	struct ifreq ifr = {};
 	snprintf(ifr.ifr_name, IFNAMSIZ, "%s", nsj->njc.user_net().ns_iface().c_str());
@@ -33,14 +40,12 @@ bool configIface(nsj_t* nsj) {
 		if (inet_pton(AF_INET, nsj->njc.user_net().ip().c_str(), &addr) != 1) {
 			LOG_E("Cannot convert '%s' into an IPv4 address",
 			    nsj->njc.user_net().ip().c_str());
-			close(sock);
 			return false;
 		}
 		sa->sin_family = AF_INET;
 		sa->sin_addr = addr;
 		if (ioctl(sock, SIOCSIFADDR, &ifr) == -1) {
 			PLOG_E("ioctl(SIOCSIFADDR, '%s')", nsj->njc.user_net().ip().c_str());
-			close(sock);
 			return false;
 		}
 	}
@@ -51,14 +56,12 @@ bool configIface(nsj_t* nsj) {
 		if (inet_pton(AF_INET, nsj->njc.user_net().gw().c_str(), &addr) != 1) {
 			LOG_E("Cannot convert '%s' into an IPv4 GW address",
 			    nsj->njc.user_net().gw().c_str());
-			close(sock);
 			return false;
 		}
 		dst->sin_family = AF_INET;
 		dst->sin_addr = addr;
 		if (ioctl(sock, SIOCSIFDSTADDR, &ifr) == -1) {
 			PLOG_E("ioctl(SIOCSIFDSTADDR, '%s')", nsj->njc.user_net().gw().c_str());
-			close(sock);
 			return false;
 		}
 	}
@@ -69,20 +72,24 @@ bool configIface(nsj_t* nsj) {
 	netmask->sin_addr.s_addr = 0xFFFFFFFF;	// 255.255.255.255
 	if (ioctl(sock, SIOCSIFNETMASK, &ifr) == -1) {
 		PLOG_E("ioctl(SIOCSIFNETMASK, 255.255.255.255)");
-		close(sock);
 		return false;
 	}
 
 	/* Bring interface UP */
 	if (ioctl(sock, SIOCGIFFLAGS, &ifr) == -1) {
 		PLOG_E("ioctl(SIOCGIFFLAGS)");
-		close(sock);
 		return false;
 	}
 	ifr.ifr_flags |= (IFF_UP | IFF_RUNNING | IFF_POINTOPOINT);
 	if (ioctl(sock, SIOCSIFFLAGS, &ifr) == -1) {
 		PLOG_E("ioctl(SIOCSIFFLAGS)");
-		close(sock);
+		return false;
+	}
+
+	/* Set MTU */
+	ifr.ifr_mtu = NSTUN_MTU;
+	if (ioctl(sock, SIOCSIFMTU, &ifr) == -1) {
+		PLOG_E("ioctl(SIOCSIFMTU, %zu)", NSTUN_MTU);
 		return false;
 	}
 
@@ -104,12 +111,10 @@ bool configIface(nsj_t* nsj) {
 	if (ioctl(sock, SIOCADDRT, &rt) == -1) {
 		if (errno != EEXIST && errno != ENETUNREACH) {
 			PLOG_E("ioctl(SIOCADDRT, dev %s)", nsj->njc.user_net().ns_iface().c_str());
-			close(sock);
 			return false;
 		}
 	}
 
-	close(sock);
 	return true;
 }
 

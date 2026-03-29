@@ -4,10 +4,12 @@
 #include <arpa/inet.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 namespace nstun {
 
 #pragma pack(push, 1)
+constexpr size_t NSTUN_MTU = 1500;
 
 struct eth_hdr {
 	uint8_t dst[6];
@@ -104,23 +106,34 @@ constexpr uint8_t NSTUN_TCP_FLAG_PSH = 0x08;
 constexpr uint8_t NSTUN_TCP_FLAG_ACK = 0x10;
 
 /* Computes standard internet checksum */
-inline uint16_t compute_checksum(const void* buf, size_t len, uint32_t sum = 0) {
-	const uint16_t* ptr = reinterpret_cast<const uint16_t*>(buf);
-	while (len > 1) {
-		sum += *ptr++;
-		len -= 2;
+inline uint32_t compute_checksum_part(const void* buf, size_t len, uint32_t sum = 0) {
+	const uint8_t* p = static_cast<const uint8_t*>(buf);
+	for (size_t i = 0; i < (len & ~1U); i += 2) {
+		uint16_t word;
+		memcpy(&word, &p[i], 2);
+		sum += word;
 	}
-	if (len == 1) {
-		sum += *reinterpret_cast<const uint8_t*>(ptr);
+	if (len & 1) {
+		sum += static_cast<uint8_t>(p[len - 1]);
 	}
+	return sum;
+}
+
+inline uint16_t finalize_checksum(uint32_t sum) {
 	while (sum >> 16) {
 		sum = (sum & 0xFFFF) + (sum >> 16);
 	}
 	return static_cast<uint16_t>(~sum);
 }
 
+inline uint16_t compute_checksum(const void* buf, size_t len, uint32_t sum = 0) {
+	return finalize_checksum(compute_checksum_part(buf, len, sum));
+}
+
 }  // namespace nstun
 
-#define IN4_IS_ADDR_LOOPBACK(a) ((((uint32_t)(ntohl(a))) & 0xff000000) == 0x7f000000)
+inline constexpr bool is_loopback_addr(uint32_t addr_net) {
+	return (ntohl(addr_net) & 0xFF000000) == 0x7F000000;
+}
 
-#endif	// NSTUN_NET_DEFS_H_
+#endif /* NSTUN_NET_DEFS_H_ */

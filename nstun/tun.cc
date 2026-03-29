@@ -1,9 +1,13 @@
+#include "tun.h"
+
 #include <errno.h>
 #include <netinet/in.h>
 #include <string.h>
 #include <unistd.h>
 
 #include "core.h"
+#include "icmp.h"
+#include "ip.h"
 #include "logs.h"
 
 namespace nstun {

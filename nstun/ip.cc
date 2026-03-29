@@ -1,13 +1,15 @@
+#include "ip.h"
+
 #include <netinet/in.h>
 #include <string.h>
 
 #include "core.h"
+#include "icmp.h"
 #include "logs.h"
+#include "tcp.h"
+#include "udp.h"
 
 namespace nstun {
-
-extern void handle_icmp(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t len);
-
 void handle_ip4(Context* ctx, const uint8_t* payload, size_t len) {
 	if (len < sizeof(ip4_hdr)) {
 		return;
@@ -35,7 +37,7 @@ void handle_ip4(Context* ctx, const uint8_t* payload, size_t len) {
 		return;
 	}
 
-	if (IN4_IS_ADDR_LOOPBACK(ip->daddr) || ip->daddr == htonl(INADDR_ANY) ||
+	if (is_loopback_addr(ip->daddr) || ip->daddr == htonl(INADDR_ANY) ||
 	    ip->daddr == htonl(INADDR_BROADCAST)) {
 		LOG_W("Dropping packet destined to loopback, ANY, or broadcast");
 		return;

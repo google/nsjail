@@ -1,3 +1,5 @@
+#include "icmp.h"
+
 #include <netinet/in.h>
 #include <string.h>
 #include <sys/epoll.h>
@@ -7,6 +9,7 @@
 #include "core.h"
 #include "logs.h"
 #include "macros.h"
+#include "tun.h"
 
 namespace nstun {
 
@@ -32,10 +35,8 @@ void send_icmp_error(Context* ctx, const ip4_hdr* req_ip, uint8_t type, uint8_t 
 	size_t icmp_data_len = req_ihl + 8; /* IP header + 8 bytes of original datagram */
 
 	size_t reply_len = sizeof(ip4_hdr) + sizeof(icmp_hdr) + icmp_data_len;
-	uint8_t* reply_buf = new uint8_t[reply_len]();
-	defer {
-		delete[] reply_buf;
-	};
+	if (reply_len > 128) return;
+	uint8_t reply_buf[128] = {};
 
 	ip4_hdr* r_ip = reinterpret_cast<ip4_hdr*>(reply_buf);
 	icmp_hdr* r_icmp = reinterpret_cast<icmp_hdr*>(reply_buf + sizeof(ip4_hdr));
@@ -75,21 +76,18 @@ void handle_icmp(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t
 
 	/* We only handle Echo Request (Type 8, Code 0) */
 	if (icmp->type == 8 && icmp->code == 0) {
-		uint32_t redirect_ip = 0;
-		uint16_t redirect_port = 0;
-		nstun_action_t act = evaluate_rules(ctx, NSTUN_PROTO_ICMP, ip->saddr, ip->daddr, 0,
-		    0, &redirect_ip, &redirect_port);
+		RuleResult rule = evaluate_rules(ctx, NSTUN_PROTO_ICMP, ip->saddr, ip->daddr, 0, 0);
 
-		if (act == NSTUN_ACTION_DROP) {
+		if (rule.action == NSTUN_ACTION_DROP) {
 			LOG_D("ICMP dropped by policy");
 			return;
-		} else if (act == NSTUN_ACTION_REJECT) {
+		} else if (rule.action == NSTUN_ACTION_REJECT) {
 			LOG_D("ICMP rejected by policy");
 			send_icmp_error(ctx, ip, 3, 3); /* Dest unreach, port unreach */
 			return;
 		}
 
-		if (ip->daddr == ctx->host_ip) {
+		if (ip->daddr == ctx->host_ip && rule.action != NSTUN_ACTION_REDIRECT) {
 			/* Construct reply (Type 0, Code 0) */
 			size_t reply_len = sizeof(ip4_hdr) + len;
 			uint8_t* reply_buf = new uint8_t[reply_len];
@@ -171,18 +169,27 @@ void handle_icmp(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t
 				flow->host_fd = fd;
 				flow->key = key;
 				flow->last_active = time(NULL);
-				flow->is_redirected = (redirect_ip != 0);
+				flow->is_redirected = (rule.redirect_ip != 0);
 				flow->orig_dest_ip = ip->daddr;
 
 				ctx->icmp_flows_by_key[key] = flow;
 				ctx->icmp_flows_by_host_fd[fd] = flow;
 
-				LOG_D("Created ICMP flow for ID %u (fd=%d)%s", ntohs(key.id), fd,
-			    flow->is_redirected ? " [redirected]" : "");
+				if (flow->is_redirected) {
+					const uint8_t* rip =
+					    reinterpret_cast<const uint8_t*>(&rule.redirect_ip);
+					LOG_D("Created ICMP flow for ID %u (fd=%d) [redirected to "
+					      "%u.%u.%u.%u]",
+					    ntohs(key.id), fd, rip[0], rip[1], rip[2], rip[3]);
+				} else {
+					LOG_D("Created ICMP flow for ID %u (fd=%d)", ntohs(key.id),
+					    fd);
+				}
 			}
 			struct sockaddr_in dest_addr = {};
 			dest_addr.sin_family = AF_INET;
-			dest_addr.sin_addr.s_addr = (redirect_ip != 0) ? redirect_ip : ip->daddr;
+			dest_addr.sin_addr.s_addr =
+			    (rule.redirect_ip != 0) ? rule.redirect_ip : ip->daddr;
 
 			ssize_t sent = sendto(flow->host_fd, payload, len, 0,
 			    (struct sockaddr*)&dest_addr, sizeof(dest_addr));
@@ -216,10 +223,11 @@ void handle_host_icmp(Context* ctx, int fd) {
 	}
 
 	size_t frame_len = sizeof(ip4_hdr) + recv_len;
-	uint8_t* frame_buf = new uint8_t[frame_len]();
+	uint8_t* frame_buf = new uint8_t[frame_len];
 	defer {
 		delete[] frame_buf;
 	};
+	memset(frame_buf, 0, frame_len);
 
 	ip4_hdr* r_ip = reinterpret_cast<ip4_hdr*>(frame_buf);
 	uint8_t* r_data = frame_buf + sizeof(ip4_hdr);
@@ -238,6 +246,7 @@ void handle_host_icmp(Context* ctx, int fd) {
 		r_ip->saddr = src_addr.sin_addr.s_addr;
 	}
 	r_ip->daddr = flow->key.saddr;
+	r_ip->check = 0;
 	r_ip->check = compute_checksum(r_ip, sizeof(ip4_hdr));
 
 	memcpy(r_data, buf, recv_len);

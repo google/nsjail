@@ -1,6 +1,7 @@
 #include "tcp.h"
 
 #include <arpa/inet.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <stdlib.h>
@@ -12,12 +13,17 @@
 #include "logs.h"
 #include "macros.h"
 #include "socks5.h"
+#include "tun.h"
 
 namespace nstun {
 
 void tcp_send_packet(Context* ctx, TcpFlow* flow, uint8_t flags, const uint8_t* data, size_t len) {
+	if (len > NSTUN_MTU) {
+		LOG_W("tcp_send_packet: data length too large (%zu)", len);
+		return;
+	}
 	size_t frame_len = sizeof(ip4_hdr) + sizeof(tcp_hdr) + len;
-	uint8_t* frame_buf = new uint8_t[frame_len]();
+	uint8_t frame_buf[sizeof(ip4_hdr) + sizeof(tcp_hdr) + NSTUN_MTU] = {};
 
 	ip4_hdr* r_ip = reinterpret_cast<ip4_hdr*>(frame_buf);
 	tcp_hdr* r_tcp = reinterpret_cast<tcp_hdr*>(frame_buf + sizeof(ip4_hdr));
@@ -59,34 +65,14 @@ void tcp_send_packet(Context* ctx, TcpFlow* flow, uint8_t flags, const uint8_t* 
 	uint16_t tlen = htons(sizeof(tcp_hdr) + len);
 	memcpy(pbuf + 10, &tlen, 2);
 
-	uint32_t psum = 0;
-	const uint16_t* p = reinterpret_cast<const uint16_t*>(pbuf);
-	for (size_t i = 0; i < 6; ++i) psum += p[i];
-
-	uint32_t tsum = 0;
-	p = reinterpret_cast<const uint16_t*>(r_tcp);
-	for (size_t i = 0; i < 10; ++i) tsum += p[i];
-
-	uint32_t sum = psum + tsum;
-	if (len > 0 && data) {
-		const uint16_t* d = reinterpret_cast<const uint16_t*>(data);
-		size_t dlen = len;
-		while (dlen > 1) {
-			sum += *d++;
-			dlen -= 2;
-		}
-		if (dlen == 1) {
-			sum += *reinterpret_cast<const uint8_t*>(d);
-		}
+	uint32_t sum = compute_checksum_part(pbuf, sizeof(pbuf), 0);
+	sum = compute_checksum_part(r_tcp, sizeof(tcp_hdr), sum);
+	if (data && len > 0) {
+		sum = compute_checksum_part(data, len, sum);
 	}
-
-	while (sum >> 16) {
-		sum = (sum & 0xFFFF) + (sum >> 16);
-	}
-	r_tcp->check = static_cast<uint16_t>(~sum);
+	r_tcp->check = finalize_checksum(sum);
 
 	send_to_guest(ctx, frame_buf, frame_len);
-	delete[] frame_buf;
 }
 
 void tcp_destroy_flow(Context* ctx, TcpFlow* flow) {
@@ -169,21 +155,19 @@ void handle_tcp(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t 
 		}
 
 		/* SYN: evaluate policies */
-		uint32_t redirect_ip = 0;
-		uint16_t redirect_port = 0;
 		uint16_t guest_port = ntohs(tcp->source);
 		uint16_t dest_port = ntohs(tcp->dest);
 
-		nstun_action_t act = evaluate_rules(ctx, NSTUN_PROTO_TCP, ip->saddr, ip->daddr,
-		    guest_port, dest_port, &redirect_ip, &redirect_port);
+		RuleResult rule = evaluate_rules(
+		    ctx, NSTUN_PROTO_TCP, ip->saddr, ip->daddr, guest_port, dest_port);
 
-		if (act == NSTUN_ACTION_DROP) {
+		if (rule.action == NSTUN_ACTION_DROP) {
 			char dst_str[INET_ADDRSTRLEN];
 			inet_ntop(AF_INET, &ip->daddr, dst_str, sizeof(dst_str));
 			LOG_D("TCP flow %u -> %s:%u dropped by policy", guest_port, dst_str,
 			    dest_port);
 			return;
-		} else if (act == NSTUN_ACTION_REJECT) {
+		} else if (rule.action == NSTUN_ACTION_REJECT) {
 			char rej_str[INET_ADDRSTRLEN];
 			inet_ntop(AF_INET, &ip->daddr, rej_str, sizeof(rej_str));
 			LOG_D("TCP flow %u -> %s:%u rejected by policy", guest_port, rej_str,
@@ -213,13 +197,13 @@ void handle_tcp(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t 
 		struct sockaddr_in dest_addr = {};
 		dest_addr.sin_family = AF_INET;
 
-		if (redirect_ip && redirect_port) {
-			dest_addr.sin_addr.s_addr = redirect_ip;
-			dest_addr.sin_port = htons(redirect_port);
+		if (rule.redirect_ip && rule.redirect_port) {
+			dest_addr.sin_addr.s_addr = rule.redirect_ip;
+			dest_addr.sin_port = htons(rule.redirect_port);
 			char redir_str[INET_ADDRSTRLEN];
 			inet_ntop(AF_INET, &dest_addr.sin_addr, redir_str, sizeof(redir_str));
 			LOG_D("Redirecting TCP flow guest %u to host %s:%u via policy (fd=%d)",
-			    guest_port, redir_str, redirect_port, fd);
+			    guest_port, redir_str, rule.redirect_port, fd);
 		} else {
 			uint32_t real_dest_ip = key.daddr;
 			if (real_dest_ip == ctx->host_ip) {
@@ -242,8 +226,8 @@ void handle_tcp(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t 
 			dest_addr.sin_port = tcp->dest;
 			char flow_str[INET_ADDRSTRLEN];
 			inet_ntop(AF_INET, &dest_addr.sin_addr, flow_str, sizeof(flow_str));
-			LOG_D("New TCP flow guest %u -> host %s:%u (fd=%d)", guest_port,
-			    flow_str, dest_port, fd);
+			LOG_D("New TCP flow guest %u -> host %s:%u (fd=%d)", guest_port, flow_str,
+			    dest_port, fd);
 		}
 
 		struct epoll_event ev = {};
@@ -267,7 +251,7 @@ void handle_tcp(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t 
 		flow->fin_sent = false;
 		flow->syn_acked = false;
 		flow->fin_acked = false;
-		flow->use_socks5 = (act == NSTUN_ACTION_ENCAP_SOCKS5);
+		flow->use_socks5 = (rule.action == NSTUN_ACTION_ENCAP_SOCKS5);
 		flow->last_active = time(NULL);
 
 		flow->seq_from_guest = seq + 1;

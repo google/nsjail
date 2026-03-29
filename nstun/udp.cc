@@ -1,3 +1,5 @@
+#include "udp.h"
+
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <string.h>
@@ -6,9 +8,11 @@
 #include <unistd.h>
 
 #include "core.h"
+#include "icmp.h"
 #include "logs.h"
 #include "macros.h"
 #include "socks5.h"
+#include "tun.h"
 
 namespace nstun {
 
@@ -189,17 +193,15 @@ void handle_udp(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t 
 
 	FlowKey key = {ip->saddr, ip->daddr, udp->source, udp->dest};
 
-	uint32_t redirect_ip = 0;
-	uint16_t redirect_port = 0;
-	nstun_action_t act = evaluate_rules(ctx, NSTUN_PROTO_UDP, ip->saddr, ip->daddr, guest_port,
-	    dest_port, &redirect_ip, &redirect_port);
+	RuleResult rule =
+	    evaluate_rules(ctx, NSTUN_PROTO_UDP, ip->saddr, ip->daddr, guest_port, dest_port);
 
-	if (act == NSTUN_ACTION_DROP) {
+	if (rule.action == NSTUN_ACTION_DROP) {
 		char dst_str[INET_ADDRSTRLEN];
 		inet_ntop(AF_INET, &ip->daddr, dst_str, sizeof(dst_str));
 		LOG_D("UDP flow %u -> %s:%u dropped by policy", guest_port, dst_str, dest_port);
 		return;
-	} else if (act == NSTUN_ACTION_REJECT) {
+	} else if (rule.action == NSTUN_ACTION_REJECT) {
 		char rej_str[INET_ADDRSTRLEN];
 		inet_ntop(AF_INET, &ip->daddr, rej_str, sizeof(rej_str));
 		LOG_D("UDP flow %u -> %s:%u rejected by policy", guest_port, rej_str, dest_port);
@@ -225,10 +227,10 @@ void handle_udp(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t 
 		flow->tcp_fd = -1;
 		flow->key = key;
 		flow->last_active = time(NULL);
-		flow->is_redirected = (redirect_ip != 0 || redirect_port != 0);
+		flow->is_redirected = (rule.redirect_ip != 0 || rule.redirect_port != 0);
 		flow->orig_dest_ip = ip->daddr;
 		flow->orig_dest_port = dest_port;
-		flow->use_socks5 = (act == NSTUN_ACTION_ENCAP_SOCKS5);
+		flow->use_socks5 = (rule.action == NSTUN_ACTION_ENCAP_SOCKS5);
 
 		if (flow->use_socks5) {
 			int tcp_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
@@ -249,8 +251,8 @@ void handle_udp(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t 
 			}
 			struct sockaddr_in dest_addr = {};
 			dest_addr.sin_family = AF_INET;
-			dest_addr.sin_addr.s_addr = redirect_ip;
-			dest_addr.sin_port = htons(redirect_port);
+			dest_addr.sin_addr.s_addr = rule.redirect_ip;
+			dest_addr.sin_port = htons(rule.redirect_port);
 			connect(tcp_fd, (struct sockaddr*)&dest_addr, sizeof(dest_addr));
 			success = true;
 			flow->tcp_fd = tcp_fd;
@@ -330,9 +332,9 @@ void handle_udp(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t 
 		sendto(flow->host_fd, s5_pkt.data(), s5_pkt.size(), 0, (struct sockaddr*)&dest_addr,
 		    sizeof(dest_addr));
 	} else {
-		if (redirect_ip && redirect_port) {
-			dest_addr.sin_addr.s_addr = redirect_ip;
-			dest_addr.sin_port = htons(redirect_port);
+		if (rule.redirect_ip && rule.redirect_port) {
+			dest_addr.sin_addr.s_addr = rule.redirect_ip;
+			dest_addr.sin_port = htons(rule.redirect_port);
 		} else {
 			uint32_t real_dest_ip = ip->daddr;
 			if (real_dest_ip == ctx->host_ip) {
@@ -443,31 +445,13 @@ void handle_host_udp(Context* ctx, int fd) {
 	uint16_t tlen = htons(sizeof(udp_hdr) + data_len);
 	memcpy(pbuf + 10, &tlen, 2);
 
-	uint32_t psum = 0;
-	const uint16_t* p = reinterpret_cast<const uint16_t*>(pbuf);
-	for (size_t i = 0; i < 6; ++i) psum += p[i];
-
-	uint32_t usum = 0;
-	p = reinterpret_cast<const uint16_t*>(r_udp);
-	for (size_t i = 0; i < 4; ++i) usum += p[i];
-
-	uint32_t sum = psum + usum;
+	uint32_t sum = compute_checksum_part(pbuf, sizeof(pbuf), 0);
+	sum = compute_checksum_part(r_udp, sizeof(udp_hdr), sum);
 	if (data_len > 0) {
-		const uint16_t* d = reinterpret_cast<const uint16_t*>(data_ptr);
-		size_t dlen = data_len;
-		while (dlen > 1) {
-			sum += *d++;
-			dlen -= 2;
-		}
-		if (dlen == 1) {
-			sum += *reinterpret_cast<const uint8_t*>(d);
-		}
+		sum = compute_checksum_part(data_ptr, data_len, sum);
 	}
 
-	while (sum >> 16) {
-		sum = (sum & 0xFFFF) + (sum >> 16);
-	}
-	r_udp->check = static_cast<uint16_t>(~sum);
+	r_udp->check = finalize_checksum(sum);
 	if (r_udp->check == 0) {
 		r_udp->check = 0xFFFF; /* UDP checksum 0 means no checksum, send 0xFFFF instead */
 	}

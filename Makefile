@@ -245,14 +245,19 @@ subproc.o: macros.h net.h nstun/nstun.h sandbox.h user.h util.h
 uts.o: uts.h nsjail.h config.pb.h logs.h
 user.o: user.h nsjail.h config.pb.h logs.h macros.h subproc.h util.h
 util.o: util.h nsjail.h config.pb.h logs.h macros.h
-nstun/nstun.o: nstun/nstun.h nstun/core.h nstun/net_defs.h logs.h macros.h
-nstun/nstun.o: nstun/tcp.h util.h nsjail.h config.pb.h
-nstun/iface.o: logs.h nsjail.h config.pb.h nstun/nstun.h
-nstun/tun.o: nstun/core.h nstun/net_defs.h nstun/nstun.h logs.h
-nstun/ip.o: nstun/core.h nstun/net_defs.h nstun/nstun.h logs.h
-nstun/icmp.o: nstun/core.h nstun/net_defs.h nstun/nstun.h logs.h macros.h
-nstun/udp.o: nstun/core.h nstun/net_defs.h nstun/nstun.h logs.h macros.h
-nstun/udp.o: nstun/socks5.h
+nstun/nstun.o: nstun/nstun.h nstun/core.h nstun/net_defs.h nstun/icmp.h
+nstun/nstun.o: nstun/iface.h nstun/ip.h logs.h macros.h nstun/tcp.h
+nstun/nstun.o: nstun/tun.h nstun/udp.h util.h nsjail.h config.pb.h
+nstun/iface.o: nstun/iface.h logs.h macros.h nstun/net_defs.h nsjail.h
+nstun/iface.o: config.pb.h nstun/nstun.h
+nstun/tun.o: nstun/tun.h nstun/core.h nstun/net_defs.h nstun/nstun.h
+nstun/tun.o: nstun/icmp.h nstun/ip.h logs.h
+nstun/ip.o: nstun/ip.h nstun/core.h nstun/net_defs.h nstun/nstun.h
+nstun/ip.o: nstun/icmp.h logs.h nstun/tcp.h nstun/udp.h
+nstun/icmp.o: nstun/icmp.h nstun/core.h nstun/net_defs.h nstun/nstun.h logs.h
+nstun/icmp.o: macros.h nstun/tun.h
+nstun/udp.o: nstun/udp.h nstun/core.h nstun/net_defs.h nstun/nstun.h
+nstun/udp.o: nstun/icmp.h logs.h macros.h nstun/socks5.h nstun/tun.h
 nstun/tcp.o: nstun/tcp.h nstun/core.h nstun/net_defs.h nstun/nstun.h logs.h
-nstun/tcp.o: macros.h nstun/socks5.h
+nstun/tcp.o: macros.h nstun/socks5.h nstun/tun.h
 config.pb.o: config.pb.h

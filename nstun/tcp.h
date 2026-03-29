@@ -57,6 +57,9 @@ void tcp_send_packet(
 void tcp_destroy_flow(Context* ctx, TcpFlow* flow);
 void push_to_guest(Context* ctx, TcpFlow* flow);
 
+void handle_tcp(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t len);
+void handle_host_tcp(Context* ctx, int fd, uint32_t events);
+
 } /* namespace nstun */
 
 #endif /* NSTUN_TCP_H_ */

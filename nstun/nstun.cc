@@ -19,14 +19,17 @@
 #include <thread>
 
 #include "core.h"
+#include "icmp.h"
+#include "iface.h"
+#include "ip.h"
 #include "logs.h"
 #include "macros.h"
 #include "tcp.h"
+#include "tun.h"
+#include "udp.h"
 #include "util.h"
 
 namespace nstun {
-
-extern bool configIface(nsj_t* nsj);
 
 Context::~Context() {
 	for (auto& pair : udp_flows_by_key) {
@@ -44,8 +47,8 @@ Context::~Context() {
 	}
 }
 
-nstun_action_t evaluate_rules(Context* ctx, nstun_proto_t proto, uint32_t src_ip, uint32_t dst_ip,
-    uint16_t sport, uint16_t dport, uint32_t* redirect_ip, uint16_t* redirect_port) {
+RuleResult evaluate_rules(Context* ctx, nstun_proto_t proto, uint32_t src_ip, uint32_t dst_ip,
+    uint16_t sport, uint16_t dport) {
 	for (const auto& r : ctx->rules) {
 		if (r.proto != NSTUN_PROTO_ANY && r.proto != proto) continue;
 
@@ -55,14 +58,14 @@ nstun_action_t evaluate_rules(Context* ctx, nstun_proto_t proto, uint32_t src_ip
 		if (r.sport_start != 0 && (sport < r.sport_start || sport > r.sport_end)) continue;
 		if (r.dport_start != 0 && (dport < r.dport_start || dport > r.dport_end)) continue;
 
+		RuleResult res = {r.action, 0, 0};
 		if (r.action == NSTUN_ACTION_REDIRECT || r.action == NSTUN_ACTION_ENCAP_SOCKS5) {
-			if (redirect_ip && r.redirect_ip != 0) *redirect_ip = r.redirect_ip;
-			if (redirect_port && r.redirect_port != 0) *redirect_port = r.redirect_port;
+			res.redirect_ip = r.redirect_ip;
+			res.redirect_port = r.redirect_port;
 		}
-
-		return r.action;
+		return res;
 	}
-	return NSTUN_ACTION_ALLOW; /* Default allow */
+	return {NSTUN_ACTION_ALLOW, 0, 0}; /* Default allow */
 }
 
 static void garbage_collect(Context* ctx) {

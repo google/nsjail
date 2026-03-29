@@ -99,24 +99,16 @@ struct Context {
 	~Context();
 };
 
-bool send_to_guest(Context* ctx, const void* data, size_t len);
 
-void handle_tun_frame(Context* ctx, const uint8_t* buf, size_t len);
-void handle_ip4(Context* ctx, const uint8_t* payload, size_t len);
-void handle_udp(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t len);
-void handle_tcp(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t len);
 
-void handle_host_udp(Context* ctx, int fd);
-void handle_host_udp_control(Context* ctx, int fd, uint32_t events);
-void handle_host_tcp(Context* ctx, int fd, uint32_t events);
-void handle_host_icmp(Context* ctx, int fd);
+struct RuleResult {
+	nstun_action_t action;
+	uint32_t redirect_ip;
+	uint16_t redirect_port;
+};
 
-void udp_destroy_flow(Context* ctx, UdpFlow* flow);
-void icmp_destroy_flow(Context* ctx, IcmpFlow* flow);
-
-nstun_action_t evaluate_rules(Context* ctx, nstun_proto_t proto, uint32_t src_ip, uint32_t dst_ip,
-    uint16_t sport, uint16_t dport, uint32_t* redirect_ip, uint16_t* redirect_port);
-void send_icmp_error(Context* ctx, const ip4_hdr* req_ip, uint8_t type, uint8_t code);
+RuleResult evaluate_rules(Context* ctx, nstun_proto_t proto, uint32_t src_ip, uint32_t dst_ip,
+    uint16_t sport, uint16_t dport);
 
 } /* namespace nstun */
 
