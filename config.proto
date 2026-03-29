@@ -325,13 +325,59 @@ message NsJailConfig {
 		/* Address family: IPV4 (default) or IPV6 */
 		optional IpFamily ip_family = 15 [default = IPV4];
 	}
-	repeated TrafficRule traffic_rule = 100;
+	repeated TrafficRule traffic_rule = 96;
 
 	message UserNet {
-		/* Enable User-Mode NAT (via pasta) */
-		optional bool nat = 1 [default = false];
-		/* Use experimental nstun instead of pasta */
-		optional bool use_nstun = 25 [default = false];
+		/* Backend to use */
+		enum Backend {
+			NSTUN = 0;
+			PASTA = 1;
+		}
+		optional Backend backend = 1 [default = NSTUN];
+
+		message Pasta {
+			/* Enable User-Mode NAT */
+			optional bool nat = 1 [default = true];
+			/* Enable TCP traffic forwarding */
+			optional bool enable_tcp = 2 [default = true];
+			/* Enable UDP traffic forwarding */
+			optional bool enable_udp = 3 [default = true];
+			/* Enable ICMP traffic forwarding */
+			optional bool enable_icmp = 4 [default = true];
+
+			/* IPv4 is enabled */
+			optional bool ip4_enabled = 5 [default = true];
+			/* IPv4 mask for the container */
+			optional string mask4 = 6 [default = "255.255.255.0"];
+			/* Enable IPv4 DHCP server in pasta */
+			optional bool enable_ip4_dhcp = 7 [default = false];
+
+			/* IPv6 enabled */
+			optional bool ip6_enabled = 8 [default = true];
+			/* IPv6 mask for the container */
+			optional string mask6 = 9 [default = "64"];
+			/* Enable IPv6 DHCP server in pasta */
+			optional bool enable_ip6_dhcp = 10 [default = false];
+			/* Enable IPv6 Router Advertisements in pasta */
+			optional bool enable_ip6_ra = 11 [default = false];
+
+			/* Announce DNS server to container via DHCP/NDP */
+			optional bool enable_dns = 12 [default = false];
+			/* Map IP address as seen from container to the host nameserver */
+			optional string dns_forward = 13 [default = ""];
+			/* Remap connections to the gateway address to the host */
+			optional bool map_gw = 14 [default = true];
+
+			/* Configure TCP port forwarding from host to namespace */
+			optional string tcp_map_in = 15 [default = "none"];
+			/* Configure UDP port forwarding from host to namespace */
+			optional string udp_map_in = 16 [default = "none"];
+			/* Configure TCP port forwarding from namespace to host */
+			optional string tcp_map_out = 17 [default = "none"];
+			/* Configure UDP port forwarding from namespace to host */
+			optional string udp_map_out = 18 [default = "none"];
+		}
+		optional Pasta pasta = 2;
 
 		message NstunRule {
 			enum Action {
@@ -367,60 +413,27 @@ message NsJailConfig {
 			optional uint32 redirect_port = 10;
 		}
 
-		/* nstun firewall/NAT rules */
-		repeated NstunRule nstun_rule = 27;
+		/* backend firewall/NAT rules */
+		repeated NstunRule rule4 = 3;
 
-		/* IPv4 is enabled */
-		optional bool ip4_enabled = 2 [default = true];
 		/* IP address for the container */
-		optional string ip = 3 [default = "10.255.255.2"];
-		/* IPv4 mask for the container */
-		optional string mask = 4 [default = "255.255.255.0"];
+		optional string ip4 = 4 [default = "10.255.255.2"];
 		/* Gateway address for the container */
-		optional string gw = 5 [default = "10.255.255.1"];
-		/* Enable IPv4 DHCP server in pasta */
-		optional bool enable_ip4_dhcp = 6 [default = false];
+		optional string gw4 = 5 [default = "10.255.255.1"];
 
-		/* IPv6 enabled */
-		optional bool ip6_enabled = 7 [default = true];
 		/* IPv6 address for the container */
-		optional string ip6 = 8 [default = "fc00::2"];
-		/* IPv6 mask for the container */
-		optional string mask6 = 9 [default = "64"];
+		optional string ip6 = 6 [default = "fc00::2"];
 		/* IPv6 gateway for the container */
-		optional string gw6 = 10 [default = "fc00::1"];
-		/* Enable IPv6 DHCP server in pasta */
-		optional bool enable_ip6_dhcp = 11 [default = false];
-		/* Enable IPv6 Router Advertisements in pasta */
-		optional bool enable_ip6_ra = 12 [default = false];
+		optional string gw6 = 7 [default = "fc00::1"];
 
 		/* Name of the interface inside the namespace */
-		optional string ns_iface = 13 [default = "eth0"];
-		/* Announce DNS server to container via DHCP/NDP */
-		optional bool enable_dns = 14 [default = false];
-		/* Map IP address as seen from container to the host nameserver */
-		optional string dns_forward = 15 [default = ""];
-		/* Enable TCP traffic forwarding */
-		optional bool enable_tcp = 16 [default = true];
-		/* Enable UDP traffic forwarding */
-		optional bool enable_udp = 17 [default = true];
-		/* Enable ICMP traffic forwarding */
-		optional bool enable_icmp = 18 [default = true];
-		/* Remap connections to the gateway address to the host */
-		optional bool map_gw = 19 [default = true];
-
-		/* Configure TCP port forwarding from host to namespace */
-		optional string tcp_map_in = 20 [default = "none"];
-		/* Configure UDP port forwarding from host to namespace */
-		optional string udp_map_in = 21 [default = "none"];
-		/* Configure TCP port forwarding from namespace to host */
-		optional string tcp_map_out = 22 [default = "none"];
-		/* Configure UDP port forwarding from namespace to host */
-		optional string udp_map_out = 23 [default = "none"];
+		optional string ns_iface = 8 [default = "eth0"];
 	}
-	optional UserNet user_net = 96;
+	optional UserNet user_net = 97;
 
 	/* Binary path (with arguments) to be executed. If not specified here, it
 	   can be specified with cmd-line as "-- /path/to/command arg1 arg2" */
-	optional Exe exec_bin = 97;
+	optional Exe exec_bin = 98;
 }
+
+// vim: set noexpandtab ts=4 sw=4:

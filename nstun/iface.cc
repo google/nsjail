@@ -36,32 +36,32 @@ bool configIface(nsj_t* nsj) {
 	struct sockaddr_in* sa = (struct sockaddr_in*)(&ifr.ifr_addr);
 
 	/* Set IP Address */
-	if (!nsj->njc.user_net().ip().empty()) {
-		if (inet_pton(AF_INET, nsj->njc.user_net().ip().c_str(), &addr) != 1) {
+	if (!nsj->njc.user_net().ip4().empty()) {
+		if (inet_pton(AF_INET, nsj->njc.user_net().ip4().c_str(), &addr) != 1) {
 			LOG_E("Cannot convert '%s' into an IPv4 address",
-			    nsj->njc.user_net().ip().c_str());
+			    nsj->njc.user_net().ip4().c_str());
 			return false;
 		}
 		sa->sin_family = AF_INET;
 		sa->sin_addr = addr;
 		if (ioctl(sock, SIOCSIFADDR, &ifr) == -1) {
-			PLOG_E("ioctl(SIOCSIFADDR, '%s')", nsj->njc.user_net().ip().c_str());
+			PLOG_E("ioctl(SIOCSIFADDR, '%s')", nsj->njc.user_net().ip4().c_str());
 			return false;
 		}
 	}
 
 	/* Set Point-to-Point Destination Address (Host/GW) */
-	if (!nsj->njc.user_net().gw().empty()) {
+	if (!nsj->njc.user_net().gw4().empty()) {
 		struct sockaddr_in* dst = (struct sockaddr_in*)(&ifr.ifr_dstaddr);
-		if (inet_pton(AF_INET, nsj->njc.user_net().gw().c_str(), &addr) != 1) {
+		if (inet_pton(AF_INET, nsj->njc.user_net().gw4().c_str(), &addr) != 1) {
 			LOG_E("Cannot convert '%s' into an IPv4 GW address",
-			    nsj->njc.user_net().gw().c_str());
+			    nsj->njc.user_net().gw4().c_str());
 			return false;
 		}
 		dst->sin_family = AF_INET;
 		dst->sin_addr = addr;
 		if (ioctl(sock, SIOCSIFDSTADDR, &ifr) == -1) {
-			PLOG_E("ioctl(SIOCSIFDSTADDR, '%s')", nsj->njc.user_net().gw().c_str());
+			PLOG_E("ioctl(SIOCSIFDSTADDR, '%s')", nsj->njc.user_net().gw4().c_str());
 			return false;
 		}
 	}

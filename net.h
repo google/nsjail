@@ -36,7 +36,8 @@ int getRecvSocket(const nsj_t* nsj);
 int acceptConn(int listenfd);
 const std::string connToText(int fd, bool remote, struct sockaddr_in6* addr_or_null);
 bool initNs(nsj_t* nsj);
-bool initParent(nsj_t* nsj, pid_t pid);
+bool initChildPreSync(nsj_t* nsj, int pipefd);
+bool initParent(nsj_t* nsj, pid_t pid, int pipefd);
 
 }  // namespace net
 

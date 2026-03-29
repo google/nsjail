@@ -269,11 +269,11 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 		}
 	};
 
-	if (!nsj->njc.user_net().ip().empty()) {
-		assign_ip(nsj->njc.user_net().ip(), &ctx->guest_ip);
+	if (!nsj->njc.user_net().ip4().empty()) {
+		assign_ip(nsj->njc.user_net().ip4(), &ctx->guest_ip);
 	}
-	if (!nsj->njc.user_net().gw().empty()) {
-		assign_ip(nsj->njc.user_net().gw(), &ctx->host_ip);
+	if (!nsj->njc.user_net().gw4().empty()) {
+		assign_ip(nsj->njc.user_net().gw4(), &ctx->host_ip);
 	}
 
 	auto parse_ip = [](const std::string& str, uint32_t* ip, uint32_t* mask) {
@@ -290,8 +290,8 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 		}
 	};
 
-	for (int i = 0; i < nsj->njc.user_net().nstun_rule_size(); i++) {
-		const auto& r = nsj->njc.user_net().nstun_rule(i);
+	for (int i = 0; i < nsj->njc.user_net().rule4_size(); i++) {
+		const auto& r = nsj->njc.user_net().rule4(i);
 
 		if (r.action() == nsjail::NsJailConfig_UserNet_NstunRule_Action_ENCAP_SOCKS5 &&
 		    r.proto() == nsjail::NsJailConfig_UserNet_NstunRule_Protocol_ICMP) {

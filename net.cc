@@ -55,6 +55,7 @@
 
 #include "logs.h"
 #include "macros.h"
+#include "nstun/nstun.h"
 #include "util.h"
 
 #define STR_(x) #x
@@ -221,53 +222,53 @@ static void pastaProcess(nsj_t* nsj, int pid, int err_pipe) {
 	argv.push_back("-f");
 	argv.push_back("-q");
 
-	if (nsj->njc.user_net().nat()) {
-		if (!nsj->njc.user_net().enable_ip4_dhcp()) {
+	if (nsj->njc.user_net().pasta().nat()) {
+		if (!nsj->njc.user_net().pasta().enable_ip4_dhcp()) {
 			argv.push_back("--no-dhcp");
 		}
-		if (!nsj->njc.user_net().enable_ip6_dhcp()) {
+		if (!nsj->njc.user_net().pasta().enable_ip6_dhcp()) {
 			argv.push_back("--no-dhcpv6");
 		}
-		if (!nsj->njc.user_net().enable_ip6_ra()) {
+		if (!nsj->njc.user_net().pasta().enable_ip6_ra()) {
 			argv.push_back("--no-ra");
 		}
 
-		if (!nsj->njc.user_net().enable_ip4_dhcp() &&
-		    !nsj->njc.user_net().enable_ip6_dhcp()) {
+		if (!nsj->njc.user_net().pasta().enable_ip4_dhcp() &&
+		    !nsj->njc.user_net().pasta().enable_ip6_dhcp()) {
 			argv.push_back("--config-net");
 		}
 
-		if (nsj->njc.user_net().enable_dns()) {
+		if (nsj->njc.user_net().pasta().enable_dns()) {
 			argv.push_back("--dhcp-dns");
 		}
-		if (!nsj->njc.user_net().dns_forward().empty()) {
+		if (!nsj->njc.user_net().pasta().dns_forward().empty()) {
 			argv.push_back("--dns-forward");
-			argv.push_back(nsj->njc.user_net().dns_forward().c_str());
+			argv.push_back(nsj->njc.user_net().pasta().dns_forward().c_str());
 		}
 
-		if (!nsj->njc.user_net().enable_tcp()) {
+		if (!nsj->njc.user_net().pasta().enable_tcp()) {
 			argv.push_back("--no-tcp");
 		}
-		if (!nsj->njc.user_net().enable_udp()) {
+		if (!nsj->njc.user_net().pasta().enable_udp()) {
 			argv.push_back("--no-udp");
 		}
-		if (!nsj->njc.user_net().enable_icmp()) {
+		if (!nsj->njc.user_net().pasta().enable_icmp()) {
 			argv.push_back("--no-icmp");
 		}
-		if (!nsj->njc.user_net().map_gw()) {
+		if (!nsj->njc.user_net().pasta().map_gw()) {
 			argv.push_back("--no-map-gw");
 		}
 
-		if (!nsj->njc.user_net().ip().empty()) {
+		if (!nsj->njc.user_net().ip4().empty()) {
 			argv.push_back("-a");
-			argv.push_back(nsj->njc.user_net().ip().c_str());
-			if (!nsj->njc.user_net().mask().empty()) {
+			argv.push_back(nsj->njc.user_net().ip4().c_str());
+			if (!nsj->njc.user_net().pasta().mask4().empty()) {
 				argv.push_back("-n");
-				argv.push_back(nsj->njc.user_net().mask().c_str());
+				argv.push_back(nsj->njc.user_net().pasta().mask4().c_str());
 			}
-			if (!nsj->njc.user_net().gw().empty()) {
+			if (!nsj->njc.user_net().gw4().empty()) {
 				argv.push_back("-g");
-				argv.push_back(nsj->njc.user_net().gw().c_str());
+				argv.push_back(nsj->njc.user_net().gw4().c_str());
 			}
 		}
 
@@ -281,14 +282,15 @@ static void pastaProcess(nsj_t* nsj, int pid, int err_pipe) {
 			}
 		}
 
-		if (!nsj->njc.user_net().ip4_enabled() && !nsj->njc.user_net().ip6_enabled()) {
+		if (!nsj->njc.user_net().pasta().ip4_enabled() &&
+		    !nsj->njc.user_net().pasta().ip6_enabled()) {
 			LOG_E("Both IPv4 and IPv6 disabled for user networking");
 			_exit(EXIT_FAILURE);
 		}
-		if (!nsj->njc.user_net().ip4_enabled()) {
+		if (!nsj->njc.user_net().pasta().ip4_enabled()) {
 			argv.push_back("-6");
 		}
-		if (!nsj->njc.user_net().ip6_enabled()) {
+		if (!nsj->njc.user_net().pasta().ip6_enabled()) {
 			argv.push_back("-4");
 		}
 
@@ -298,24 +300,24 @@ static void pastaProcess(nsj_t* nsj, int pid, int err_pipe) {
 		}
 	}
 
-	if (!nsj->njc.user_net().tcp_map_in().empty()) {
+	if (!nsj->njc.user_net().pasta().tcp_map_in().empty()) {
 		argv.push_back("-t");
-		argv.push_back(nsj->njc.user_net().tcp_map_in().c_str());
+		argv.push_back(nsj->njc.user_net().pasta().tcp_map_in().c_str());
 	}
-	if (!nsj->njc.user_net().udp_map_in().empty()) {
+	if (!nsj->njc.user_net().pasta().udp_map_in().empty()) {
 		argv.push_back("-u");
-		argv.push_back(nsj->njc.user_net().udp_map_in().c_str());
+		argv.push_back(nsj->njc.user_net().pasta().udp_map_in().c_str());
 	}
-	if (!nsj->njc.user_net().tcp_map_out().empty()) {
+	if (!nsj->njc.user_net().pasta().tcp_map_out().empty()) {
 		argv.push_back("-T");
-		argv.push_back(nsj->njc.user_net().tcp_map_out().c_str());
+		argv.push_back(nsj->njc.user_net().pasta().tcp_map_out().c_str());
 	}
-	if (!nsj->njc.user_net().udp_map_out().empty()) {
+	if (!nsj->njc.user_net().pasta().udp_map_out().empty()) {
 		argv.push_back("-U");
-		argv.push_back(nsj->njc.user_net().udp_map_out().c_str());
+		argv.push_back(nsj->njc.user_net().pasta().udp_map_out().c_str());
 	}
 
-	if (!(nsj->njc.user_net().nat())) {
+	if (!(nsj->njc.user_net().pasta().nat())) {
 		argv.push_back("--splice-only");
 	}
 
@@ -406,14 +408,21 @@ static bool spawnPasta(nsj_t* nsj, int pid) {
 	return true;
 }
 
-bool initParent(nsj_t* nsj, int pid) {
+bool initParent(nsj_t* nsj, pid_t pid, int pipefd) {
 	if (nsj->njc.has_user_net()) {
 		if (!nsj->njc.clone_newnet()) {
 			LOG_E("Support for User-Mode Networking requested but CLONE_NEWNET "
 			      "is not enabled");
 			return false;
 		}
-		if (!nsj->njc.user_net().use_nstun()) {
+		if (nsj->njc.user_net().backend() == nsjail::NsJailConfig_UserNet_Backend_NSTUN) {
+			if (!nstun_init_parent(pipefd, nsj)) {
+				LOG_E("nstun_init_parent() failed");
+				return false;
+			}
+		} else if (nsj->njc.user_net().backend() ==
+			       nsjail::NsJailConfig_UserNet_Backend_PASTA &&
+			   nsj->njc.user_net().has_pasta()) {
 			if (!spawnPasta(nsj, pid)) {
 				return false;
 			}
@@ -980,6 +989,18 @@ bool initNsFromChild(nsj_t* nsj) {
 		}
 	}
 
+	return true;
+}
+
+bool initChildPreSync(nsj_t* nsj, int pipefd) {
+	if (nsj->njc.has_user_net()) {
+		if (nsj->njc.user_net().backend() == nsjail::NsJailConfig_UserNet_Backend_NSTUN) {
+			if (!nstun_init_child(pipefd, nsj)) {
+				LOG_E("nstun_init_child() failed");
+				return false;
+			}
+		}
+	}
 	return true;
 }
 

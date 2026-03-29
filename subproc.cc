@@ -192,12 +192,9 @@ static void newProc(nsj_t* nsj, int netfd, int fd_in, int fd_out, int fd_err, in
 			return;
 		}
 	} else {
-		if (nsj->njc.has_user_net()) {
-			if (nsj->njc.user_net().use_nstun()) {
-				if (!nstun_init_child(pipefd, nsj)) {
-					LOG_E("nstun_init_child() failed");
-					return;
-				}
+		if (pipefd != -1) {
+			if (!net::initChildPreSync(nsj, pipefd)) {
+				return;
 			}
 		}
 
@@ -456,7 +453,7 @@ void killAndReapAll(nsj_t* nsj, int signal) {
 }
 
 static bool initParent(nsj_t* nsj, pid_t pid, int pipefd) {
-	if (!net::initParent(nsj, pid)) {
+	if (!net::initParent(nsj, pid, pipefd)) {
 		LOG_E("Couldn't initialize net namespace for pid=%d", pid);
 		return false;
 	}
@@ -474,15 +471,6 @@ static bool initParent(nsj_t* nsj, pid_t pid, int pipefd) {
 	if (!user::initNsFromParent(nsj, pid)) {
 		LOG_E("Couldn't initialize user namespace for pid=%d", pid);
 		return false;
-	}
-
-	if (nsj->njc.has_user_net()) {
-		if (nsj->njc.user_net().use_nstun()) {
-			if (!nstun_init_parent(pipefd, nsj)) {
-				LOG_E("nstun_init_parent() failed");
-				return false;
-			}
-		}
 	}
 
 	if (!util::writeToFd(pipefd, &kSubprocDoneChar, sizeof(kSubprocDoneChar))) {
