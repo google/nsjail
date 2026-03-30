@@ -58,14 +58,12 @@ void tcp_send_packet(Context* ctx, TcpFlow* flow, uint8_t flags, const uint8_t* 
 		options[opt_len++] = 8;
 	}
 
-	size_t frame_len = sizeof(ip4_hdr) + sizeof(tcp_hdr) + opt_len + len;
-	/* Single-threaded network loop: use static buffer to avoid 63KB stack allocation */
-	static thread_local uint8_t frame_buf[sizeof(ip4_hdr) + sizeof(tcp_hdr) + 40 + NSTUN_MTU];
+	/* Single-threaded network loop: use static buffer for header only */
+	static thread_local uint8_t frame_buf[sizeof(ip4_hdr) + sizeof(tcp_hdr) + 40];
 
 	ip4_hdr* r_ip = reinterpret_cast<ip4_hdr*>(frame_buf);
 	tcp_hdr* r_tcp = reinterpret_cast<tcp_hdr*>(frame_buf + sizeof(ip4_hdr));
 	uint8_t* r_opt = frame_buf + sizeof(ip4_hdr) + sizeof(tcp_hdr);
-	uint8_t* r_data = r_opt + opt_len;
 
 	/* IPv4 */
 	r_ip->ihl_version = (4 << 4) | (sizeof(ip4_hdr) / 4);
@@ -95,10 +93,6 @@ void tcp_send_packet(Context* ctx, TcpFlow* flow, uint8_t flags, const uint8_t* 
 		memcpy(r_opt, options, opt_len);
 	}
 
-	if (data && len > 0) {
-		memcpy(r_data, data, len);
-	}
-
 	uint8_t pbuf[12];
 	memcpy(pbuf, &flow->key.daddr, 4);
 	memcpy(pbuf + 4, &flow->key.saddr, 4);
@@ -114,7 +108,7 @@ void tcp_send_packet(Context* ctx, TcpFlow* flow, uint8_t flags, const uint8_t* 
 	}
 	r_tcp->check = finalize_checksum(sum);
 
-	send_to_guest(ctx, frame_buf, frame_len);
+	send_to_guest_v(ctx, frame_buf, sizeof(ip4_hdr) + sizeof(tcp_hdr) + opt_len, data, len);
 }
 
 void tcp_destroy_flow(Context* ctx, TcpFlow* flow) {

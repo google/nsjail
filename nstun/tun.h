@@ -9,6 +9,8 @@
 namespace nstun {
 
 bool send_to_guest(Context* ctx, const void* data, size_t len);
+bool send_to_guest_v(
+    Context* ctx, const void* header, size_t header_len, const void* payload, size_t payload_len);
 void handle_tun_frame(Context* ctx, const uint8_t* buf, size_t len);
 
 }  // namespace nstun

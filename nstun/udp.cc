@@ -38,15 +38,10 @@ void udp_destroy_flow(Context* ctx, UdpFlow* flow) {
 
 static void udp_send_packet(Context* ctx, uint32_t saddr, uint32_t daddr, uint16_t sport,
     uint16_t dport, const uint8_t* data, size_t len) {
-	size_t frame_len = sizeof(ip4_hdr) + sizeof(udp_hdr) + len;
-	uint8_t* frame_buf = new uint8_t[frame_len]();
-	defer {
-		delete[] frame_buf;
-	};
+	static thread_local uint8_t header_buf[sizeof(ip4_hdr) + sizeof(udp_hdr)];
 
-	ip4_hdr* r_ip = reinterpret_cast<ip4_hdr*>(frame_buf);
-	udp_hdr* r_udp = reinterpret_cast<udp_hdr*>(frame_buf + sizeof(ip4_hdr));
-	uint8_t* r_data = frame_buf + sizeof(ip4_hdr) + sizeof(udp_hdr);
+	ip4_hdr* r_ip = reinterpret_cast<ip4_hdr*>(header_buf);
+	udp_hdr* r_udp = reinterpret_cast<udp_hdr*>(header_buf + sizeof(ip4_hdr));
 
 	/* IPv4 */
 	r_ip->ihl_version = (4 << 4) | (sizeof(ip4_hdr) / 4);
@@ -67,9 +62,6 @@ static void udp_send_packet(Context* ctx, uint32_t saddr, uint32_t daddr, uint16
 	r_udp->len = htons(sizeof(udp_hdr) + len);
 	r_udp->check = 0;
 
-	/* Copy data */
-	memcpy(r_data, data, len);
-
 	uint8_t pbuf[12];
 	memcpy(pbuf, &r_ip->saddr, 4);
 	memcpy(pbuf + 4, &r_ip->daddr, 4);
@@ -80,8 +72,8 @@ static void udp_send_packet(Context* ctx, uint32_t saddr, uint32_t daddr, uint16
 
 	uint32_t sum = compute_checksum_part(pbuf, sizeof(pbuf), 0);
 	sum = compute_checksum_part(r_udp, sizeof(udp_hdr), sum);
-	if (len > 0) {
-		sum = compute_checksum_part(r_data, len, sum);
+	if (data && len > 0) {
+		sum = compute_checksum_part(data, len, sum);
 	}
 
 	r_udp->check = finalize_checksum(sum);
@@ -89,7 +81,7 @@ static void udp_send_packet(Context* ctx, uint32_t saddr, uint32_t daddr, uint16
 		r_udp->check = 0xFFFF;
 	}
 
-	send_to_guest(ctx, frame_buf, frame_len);
+	send_to_guest_v(ctx, header_buf, sizeof(header_buf), data, len);
 }
 
 void handle_host_udp_control(Context* ctx, int fd, uint32_t events) {
