@@ -8,25 +8,7 @@
 
 namespace nstun {
 
-constexpr size_t NSTUN_MTU = (1024 * 32);
-
-struct __attribute__((packed)) eth_hdr {
-	uint8_t dst[6];
-	uint8_t src[6];
-	uint16_t ethertype;
-};
-
-struct __attribute__((packed)) arp_hdr {
-	uint16_t htype;
-	uint16_t ptype;
-	uint8_t hlen;
-	uint8_t plen;
-	uint16_t oper;
-	uint8_t sha[6];
-	uint32_t spa;
-	uint8_t tha[6];
-	uint32_t tpa;
-};
+constexpr size_t NSTUN_MTU = ((1024 * 64) - 1024);
 
 struct __attribute__((packed)) ip4_hdr {
 	uint8_t ihl_version; /* version << 4 | ihl */
@@ -84,13 +66,6 @@ inline uint8_t tcp_doff(const tcp_hdr* h) {
 inline void tcp_set_doff(tcp_hdr* h, uint8_t doff) {
 	h->res1_doff = (doff << 4);
 }
-
-constexpr uint16_t NSTUN_ETH_P_IP = 0x0800;
-constexpr uint16_t NSTUN_ETH_P_ARP = 0x0806;
-constexpr uint16_t NSTUN_ETH_P_IPV6 = 0x86DD;
-
-constexpr uint16_t NSTUN_ARP_OP_REQUEST = 1;
-constexpr uint16_t NSTUN_ARP_OP_REPLY = 2;
 
 constexpr uint8_t NSTUN_IPPROTO_ICMP = 1;
 constexpr uint8_t NSTUN_IPPROTO_TCP = 6;

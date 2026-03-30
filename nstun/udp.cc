@@ -396,10 +396,6 @@ void handle_udp(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t 
 			uint32_t real_dest_ip = ip->daddr;
 			if (real_dest_ip == ctx->host_ip) {
 				real_dest_ip = htonl(INADDR_LOOPBACK);
-			} else if ((ntohl(real_dest_ip) & 0xFF000000) == 0x7F000000) {
-				LOG_W("UDP SSRF blocked: Guest forged loopback destination");
-				send_icmp_error(ctx, ip, 3, 3); /* Port unreachable */
-				return;
 			}
 			dest_addr.sin_addr.s_addr = real_dest_ip;
 			dest_addr.sin_port = htons(dest_port);

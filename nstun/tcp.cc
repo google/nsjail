@@ -15,6 +15,7 @@
 #include "macros.h"
 #include "socks5.h"
 #include "tun.h"
+#include "util.h"
 
 namespace nstun {
 
@@ -289,14 +290,6 @@ void handle_tcp(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t 
 			uint32_t real_dest_ip = key.daddr;
 			if (real_dest_ip == ctx->host_ip) {
 				real_dest_ip = htonl(INADDR_LOOPBACK);
-			} else if ((ntohl(real_dest_ip) & 0xFF000000) == 0x7F000000) {
-				/* SSRF Protection: Guest forged a 127.x.x.x packet over TUN */
-				char ssrf_str[INET_ADDRSTRLEN];
-				inet_ntop(AF_INET, &real_dest_ip, ssrf_str, sizeof(ssrf_str));
-				LOG_W("TCP SSRF blocked: Guest forged loopback destination %s",
-				    ssrf_str);
-				tcp_send_rst(ctx, key, 0, seq + 1);
-				return;
 			}
 			dest_addr.sin_addr.s_addr = real_dest_ip;
 			dest_addr.sin_port = tcp->dest;
@@ -331,7 +324,7 @@ void handle_tcp(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t 
 
 		flow->seq_from_guest = seq + 1;
 		flow->ack_to_guest = flow->seq_from_guest;
-		flow->seq_to_guest = (uint32_t)random(); /* random ISN */
+		flow->seq_to_guest = (uint32_t)util::rnd64(); /* random ISN */
 		flow->ack_from_guest = flow->seq_to_guest;
 		flow->tx_acked_offset = 0;
 
@@ -400,6 +393,16 @@ void handle_tcp(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t 
 				uint32_t overlap = flow->ack_to_guest - seq;
 				const uint8_t* new_data = data + overlap;
 				size_t new_data_len = data_len - overlap;
+
+				if (flow->rx_buffer.size() + new_data_len > (1024 * 1024 * 8)) {
+					char guest_str[INET_ADDRSTRLEN];
+					inet_ntop(
+					    AF_INET, &ip->saddr, guest_str, sizeof(guest_str));
+					LOG_D("TCP rx_buffer reached 8MB limit for guest %s:%u "
+					      "(DoS protection), dropping",
+					    guest_str, ntohs(key.sport));
+					return;
+				}
 
 				flow->rx_buffer.insert(
 				    flow->rx_buffer.end(), new_data, new_data + new_data_len);
@@ -803,7 +806,7 @@ void handle_host_tcp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 
 	flow->seq_from_guest = 0;
 	flow->ack_to_guest = 0;
-	flow->seq_to_guest = (uint32_t)random();
+	flow->seq_to_guest = (uint32_t)util::rnd64();
 	flow->ack_from_guest = flow->seq_to_guest;
 	flow->tx_acked_offset = 0;
 

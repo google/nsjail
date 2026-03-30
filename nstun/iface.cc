@@ -2,8 +2,6 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
-#include <linux/if.h>
-#include <linux/if_arp.h>
 #include <linux/route.h>
 #include <stdio.h>
 #include <string.h>
