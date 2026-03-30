@@ -126,32 +126,38 @@ void push_to_guest(Context* ctx, TcpFlow* flow) {
 		return;
 	}
 
-	int32_t in_flight = flow->seq_to_guest - flow->ack_from_guest;
-	int32_t available = flow->tx_buffer.size() - flow->tx_acked_offset;
+	/* Max TCP payload per TUN frame: MTU minus IP and TCP headers */
+	constexpr size_t max_seg = NSTUN_MTU - sizeof(ip4_hdr) - sizeof(tcp_hdr);
 
-	if (in_flight < 0) {
-		/* Guest acked future data? Reset flight */
-		flow->seq_to_guest = flow->ack_from_guest;
-		in_flight = 0;
-	}
-	if (in_flight >= available) {
-		if (flow->host_eof && available == 0) {
-			if (!flow->fin_sent) {
-				/* Stream fully flushed and host closed write-end */
-				tcp_send_packet(ctx, flow, NSTUN_TCP_FLAG_FIN | NSTUN_TCP_FLAG_ACK);
-				flow->seq_to_guest++;
-				flow->fin_sent = true;
-			}
+	for (;;) {
+		int32_t in_flight = flow->seq_to_guest - flow->ack_from_guest;
+		int32_t available = flow->tx_buffer.size() - flow->tx_acked_offset;
+
+		if (in_flight < 0) {
+			/* Guest acked future data? Reset flight */
+			flow->seq_to_guest = flow->ack_from_guest;
+			in_flight = 0;
 		}
-		return; /* Everything is in flight */
+		if (in_flight >= available) {
+			if (flow->host_eof && available == 0) {
+				if (!flow->fin_sent) {
+					/* Stream fully flushed and host closed write-end */
+					tcp_send_packet(
+					    ctx, flow, NSTUN_TCP_FLAG_FIN | NSTUN_TCP_FLAG_ACK);
+					flow->seq_to_guest++;
+					flow->fin_sent = true;
+				}
+			}
+			return; /* Everything is in flight */
+		}
+
+		size_t to_send = available - in_flight;
+		if (to_send > max_seg) to_send = max_seg;
+
+		const uint8_t* data = flow->tx_buffer.data() + flow->tx_acked_offset + in_flight;
+		tcp_send_packet(ctx, flow, NSTUN_TCP_FLAG_ACK | NSTUN_TCP_FLAG_PSH, data, to_send);
+		flow->seq_to_guest += to_send;
 	}
-
-	size_t to_send = available - in_flight;
-	if (to_send > 1400) to_send = 1400; /* MTU chunking */
-
-	const uint8_t* data = flow->tx_buffer.data() + flow->tx_acked_offset + in_flight;
-	tcp_send_packet(ctx, flow, NSTUN_TCP_FLAG_ACK | NSTUN_TCP_FLAG_PSH, data, to_send);
-	flow->seq_to_guest += to_send;
 }
 
 /* Returns true if the flow was destroyed (caller must not use flow afterward) */
@@ -629,6 +635,7 @@ void handle_host_tcp_data(Context* ctx, TcpFlow* flow, int fd) {
 		}
 
 		flow->tx_buffer.insert(flow->tx_buffer.end(), buf, buf + recv_len);
+
 		if (flow->state != TcpState::SYN_SENT) {
 			push_to_guest(ctx, flow);
 		}

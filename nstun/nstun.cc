@@ -145,14 +145,13 @@ static void handle_host_events(Context* ctx, int fd, uint32_t events) {
 		handle_host_icmp(ctx, fd);
 		return;
 	}
-
-	LOG_W("Unknown fd %d in epoll", fd);
-	epoll_ctl(ctx->epoll_fd, EPOLL_CTL_DEL, fd, nullptr);
-	close(fd);
+	/* Stale event: fd was already destroyed while processing an earlier event
+	 * in the same epoll_wait batch. Just skip it silently. */
+	LOG_D("Stale epoll event for fd %d (already closed), skipping", fd);
 }
 
 static void networkLoop(Context* ctx) {
-	LOG_I("nstun network loop started on tap_fd=%d", ctx->tap_fd);
+	LOG_D("nstun network loop started on tap_fd=%d", ctx->tap_fd);
 
 	defer {
 		close(ctx->tap_fd);
