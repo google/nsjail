@@ -16,6 +16,7 @@ enum class TcpState {
 	ESTABLISHED,
 	FIN_WAIT_1,
 	FIN_WAIT_2,
+	CLOSING,
 	TIME_WAIT,
 	CLOSE_WAIT,
 	LAST_ACK

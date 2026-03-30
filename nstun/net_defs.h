@@ -102,10 +102,10 @@ inline uint16_t compute_checksum(const void* buf, size_t len, uint32_t sum = 0) 
 	return finalize_checksum(compute_checksum_part(buf, len, sum));
 }
 
-}  // namespace nstun
-
 inline bool is_loopback_addr(uint32_t addr_net) {
 	return (ntohl(addr_net) & 0xFF000000) == 0x7F000000;
 }
+
+}  // namespace nstun
 
 #endif /* NSTUN_NET_DEFS_H_ */

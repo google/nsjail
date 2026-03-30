@@ -35,7 +35,9 @@ namespace nstun {
 
 Context::~Context() {
 	for (auto& pair : udp_flows_by_key) {
-		if (pair.second->host_fd != -1) close(pair.second->host_fd);
+		if (pair.second->host_fd != -1 && !pair.second->host_fd_is_listener) {
+			close(pair.second->host_fd);
+		}
 		if (pair.second->tcp_fd != -1) close(pair.second->tcp_fd);
 		delete pair.second;
 	}
@@ -46,6 +48,9 @@ Context::~Context() {
 	for (auto& pair : icmp_flows_by_key) {
 		if (pair.second->host_fd != -1) close(pair.second->host_fd);
 		delete pair.second;
+	}
+	for (auto& [fd, _] : host_listener_fd_to_rule) {
+		close(fd);
 	}
 }
 
@@ -83,7 +88,9 @@ static void garbage_collect(Context* ctx) {
 			timeout = 5;
 		} else if (flow->state == TcpState::CLOSE_WAIT ||
 			   flow->state == TcpState::LAST_ACK ||
-			   flow->state == TcpState::TIME_WAIT) {
+			   flow->state == TcpState::FIN_WAIT_1 ||
+			   flow->state == TcpState::FIN_WAIT_2 ||
+			   flow->state == TcpState::CLOSING || flow->state == TcpState::TIME_WAIT) {
 			timeout = 10;
 		}
 		if (now - flow->last_active > timeout) {

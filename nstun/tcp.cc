@@ -33,27 +33,34 @@ void tcp_send_packet(Context* ctx, TcpFlow* flow, uint8_t flags, const uint8_t* 
 		return;
 	}
 
+	constexpr uint8_t TCP_OPT_NOP = 1;
+	constexpr uint8_t TCP_OPT_MSS = 2;
+	constexpr uint8_t TCP_OPT_MSS_LEN = 4;
+	constexpr uint8_t TCP_OPT_WSCALE = 3;
+	constexpr uint8_t TCP_OPT_WSCALE_LEN = 3;
+
 	size_t opt_len = 0;
 	uint8_t options[40];
 	if (flags & NSTUN_TCP_FLAG_SYN) {
 		/* Add MSS option (Kind=2, Length=4, MSS=65495) */
-		options[opt_len++] = 2;
-		options[opt_len++] = 4;
+		options[opt_len++] = TCP_OPT_MSS;
+		options[opt_len++] = TCP_OPT_MSS_LEN;
 		uint16_t mss = htons(65495);
 		memcpy(&options[opt_len], &mss, 2);
 		opt_len += 2;
 
-		/* Add NOP (Kind=1) for 32-bit alignment */
-		options[opt_len++] = 1;
+		/* Add NOP for 32-bit alignment */
+		options[opt_len++] = TCP_OPT_NOP;
 
 		/* Add Window Scale option (Kind=3, Length=3, Shift=8) */
-		options[opt_len++] = 3;
-		options[opt_len++] = 3;
+		options[opt_len++] = TCP_OPT_WSCALE;
+		options[opt_len++] = TCP_OPT_WSCALE_LEN;
 		options[opt_len++] = 8;
 	}
 
 	size_t frame_len = sizeof(ip4_hdr) + sizeof(tcp_hdr) + opt_len + len;
-	uint8_t frame_buf[sizeof(ip4_hdr) + sizeof(tcp_hdr) + sizeof(options) + NSTUN_MTU];
+	/* Single-threaded network loop: use static buffer to avoid 63KB stack allocation */
+	static thread_local uint8_t frame_buf[sizeof(ip4_hdr) + sizeof(tcp_hdr) + 40 + NSTUN_MTU];
 
 	ip4_hdr* r_ip = reinterpret_cast<ip4_hdr*>(frame_buf);
 	tcp_hdr* r_tcp = reinterpret_cast<tcp_hdr*>(frame_buf + sizeof(ip4_hdr));
@@ -496,6 +503,10 @@ void handle_tcp(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t 
 
 			if (flow->state == TcpState::ESTABLISHED) {
 				flow->state = TcpState::CLOSE_WAIT;
+			} else if (flow->state == TcpState::FIN_WAIT_1) {
+				flow->state = TcpState::CLOSING;
+			} else if (flow->state == TcpState::FIN_WAIT_2) {
+				flow->state = TcpState::TIME_WAIT;
 			}
 
 			push_to_guest(ctx, flow);
@@ -630,7 +641,6 @@ void handle_host_tcp_data(Context* ctx, TcpFlow* flow, int fd) {
 	    (flow->inbound && flow->state == TcpState::SYN_SENT)) {
 		uint8_t buf[65536];
 		ssize_t recv_len = recv(fd, buf, sizeof(buf), 0);
-		LOG_D("recv_len=%zd errno=%d", recv_len, errno);
 		if (recv_len == 0) goto eof;
 		if (recv_len < 0) {
 			if (errno == EAGAIN || errno == EWOULDBLOCK) return;
@@ -757,6 +767,10 @@ void handle_host_tcp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 	}
 
 	LOG_D("Accepted fd=%d", fd);
+
+	int opt = 1;
+	setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt));
+
 	struct sockaddr_in server_addr = {};
 	socklen_t servlen = sizeof(server_addr);
 	getsockname(fd, (struct sockaddr*)&server_addr, &servlen);
