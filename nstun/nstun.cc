@@ -4,6 +4,8 @@
 #include <fcntl.h>
 #include <linux/if.h>
 #include <linux/if_tun.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <netlink/addr.h>
 #include <netlink/netlink.h>
 #include <sched.h>
@@ -47,9 +49,10 @@ Context::~Context() {
 	}
 }
 
-RuleResult evaluate_rules(Context* ctx, nstun_proto_t proto, uint32_t src_ip, uint32_t dst_ip,
-    uint16_t sport, uint16_t dport) {
+RuleResult evaluate_rules(Context* ctx, nstun_direction_t dir, nstun_proto_t proto, uint32_t src_ip,
+    uint32_t dst_ip, uint16_t sport, uint16_t dport) {
 	for (const auto& r : ctx->rules) {
+		if (r.direction != dir) continue;
 		if (r.proto != NSTUN_PROTO_ANY && r.proto != proto) continue;
 
 		if (r.src_ip != 0 && (src_ip & r.src_mask) != (r.src_ip & r.src_mask)) continue;
@@ -118,6 +121,14 @@ static void garbage_collect(Context* ctx) {
 }
 
 static void handle_host_events(Context* ctx, int fd, uint32_t events) {
+	if (ctx->host_listener_fd_to_rule.find(fd) != ctx->host_listener_fd_to_rule.end()) {
+		if (ctx->host_listener_fd_to_rule[fd].proto == NSTUN_PROTO_TCP) {
+			handle_host_tcp_accept(ctx, fd, ctx->host_listener_fd_to_rule[fd]);
+		} else if (ctx->host_listener_fd_to_rule[fd].proto == NSTUN_PROTO_UDP) {
+			handle_host_udp_accept(ctx, fd, ctx->host_listener_fd_to_rule[fd]);
+		}
+		return;
+	}
 	if (ctx->udp_flows_by_host_fd.find(fd) != ctx->udp_flows_by_host_fd.end()) {
 		handle_host_udp(ctx, fd);
 		return;
@@ -143,21 +154,13 @@ static void handle_host_events(Context* ctx, int fd, uint32_t events) {
 static void networkLoop(Context* ctx) {
 	LOG_I("nstun network loop started on tap_fd=%d", ctx->tap_fd);
 
-	ctx->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
-	if (ctx->epoll_fd == -1) {
-		PLOG_E("epoll_create1(EPOLL_CLOEXEC)");
-		return;
-	}
-
 	defer {
 		close(ctx->tap_fd);
 		close(ctx->epoll_fd);
 		delete ctx;
 	};
 
-	struct epoll_event ev = {};
-	ev.events = EPOLLIN;
-	ev.data.fd = ctx->tap_fd;
+	struct epoll_event ev = {.events = EPOLLIN, .data = {.fd = ctx->tap_fd}};
 	if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, ctx->tap_fd, &ev) == -1) {
 		PLOG_E("epoll_ctl(EPOLL_CTL_ADD, tap_fd)");
 		return;
@@ -290,17 +293,42 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 		}
 	};
 
+	ctx->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
+	if (ctx->epoll_fd == -1) {
+		PLOG_E("epoll_create1(EPOLL_CLOEXEC)");
+		close(ctx->tap_fd);
+		delete ctx;
+		return false;
+	}
+
+	auto cleanup_and_fail = [&ctx]() -> bool {
+		for (auto& [fd, _] : ctx->host_listener_fd_to_rule) {
+			close(fd);
+		}
+		close(ctx->epoll_fd);
+		close(ctx->tap_fd);
+		delete ctx;
+		return false;
+	};
+
 	for (int i = 0; i < nsj->njc.user_net().rule4_size(); i++) {
 		const auto& r = nsj->njc.user_net().rule4(i);
 
 		if (r.action() == nsjail::NsJailConfig_UserNet_NstunRule_Action_ENCAP_SOCKS5 &&
 		    r.proto() == nsjail::NsJailConfig_UserNet_NstunRule_Protocol_ICMP) {
 			LOG_E("SOCKS5 encapsulation is not supported for ICMP/ICMPv6");
-			delete ctx;
-			return false;
+			return cleanup_and_fail();
 		}
 
 		nstun_rule_t nr = {};
+
+		if (r.direction() ==
+		    nsjail::NsJailConfig_UserNet_NstunRule_Direction_HOST_TO_GUEST) {
+			nr.direction = NSTUN_DIR_HOST_TO_GUEST;
+		} else {
+			nr.direction = NSTUN_DIR_GUEST_TO_HOST;
+		}
+
 		if (r.action() == nsjail::NsJailConfig_UserNet_NstunRule_Action_DROP) {
 			nr.action = NSTUN_ACTION_DROP;
 		} else if (r.action() == nsjail::NsJailConfig_UserNet_NstunRule_Action_REJECT) {
@@ -328,6 +356,7 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 
 		nr.sport_start = r.has_sport() ? r.sport() : 0;
 		nr.sport_end = r.has_sport_end() ? r.sport_end() : nr.sport_start;
+
 		nr.dport_start = r.has_dport() ? r.dport() : 0;
 		nr.dport_end = r.has_dport_end() ? r.dport_end() : nr.dport_start;
 
@@ -350,6 +379,62 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 		}
 
 		ctx->rules.push_back(nr);
+
+		if (nr.direction == NSTUN_DIR_HOST_TO_GUEST && nr.action == NSTUN_ACTION_REDIRECT) {
+			if (nr.proto != NSTUN_PROTO_TCP && nr.proto != NSTUN_PROTO_UDP) {
+				LOG_E("HOST_TO_GUEST REDIRECT only supported for TCP/UDP");
+				return cleanup_and_fail();
+			}
+			if (nr.dport_start == 0) {
+				LOG_E("HOST_TO_GUEST REDIRECT requires 'dport' to be specified");
+				return cleanup_and_fail();
+			}
+			for (uint16_t port = nr.dport_start; port <= nr.dport_end; port++) {
+				int type = (nr.proto == NSTUN_PROTO_TCP) ? SOCK_STREAM : SOCK_DGRAM;
+				int fd = socket(AF_INET, type | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
+				if (fd == -1) {
+					PLOG_E("socket(AF_INET) for HOST_TO_GUEST");
+					return cleanup_and_fail();
+				}
+
+				int opt = 1;
+				if (nr.proto == NSTUN_PROTO_TCP)
+					setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt));
+				setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+				struct sockaddr_in addr = {};
+				addr.sin_family = AF_INET;
+				addr.sin_addr.s_addr = nr.src_ip;
+				addr.sin_port = htons(port);
+
+				if (bind(fd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
+					PLOG_E("bind() for HOST_TO_GUEST on port %u", port);
+					close(fd);
+					return cleanup_and_fail();
+				}
+
+				if (nr.proto == NSTUN_PROTO_TCP) {
+					if (listen(fd, SOMAXCONN) == -1) {
+						PLOG_E(
+						    "listen() for HOST_TO_GUEST on port %u", port);
+						close(fd);
+						return cleanup_and_fail();
+					}
+				}
+
+				struct epoll_event ev = {.events = EPOLLIN, .data = {.fd = fd}};
+				if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1) {
+					PLOG_E("epoll_ctl(EPOLL_CTL_ADD) for HOST_TO_GUEST");
+					close(fd);
+					return cleanup_and_fail();
+				}
+
+				ctx->host_listener_fd_to_rule[fd] = nr;
+				LOG_I(
+				    "Listening on host port %u for inbound %s redirection to guest",
+				    port, (nr.proto == NSTUN_PROTO_TCP) ? "TCP" : "UDP");
+			}
+		}
 	}
 
 	/* Spawn network loop thread */

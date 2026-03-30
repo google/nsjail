@@ -30,41 +30,55 @@ void icmp_destroy_flow(Context* ctx, IcmpFlow* flow) {
 	delete flow;
 }
 
-void send_icmp_error(Context* ctx, const ip4_hdr* req_ip, uint8_t type, uint8_t code) {
-	size_t req_ihl = ip4_ihl(req_ip) * 4;
-	size_t icmp_data_len = req_ihl + 8; /* IP header + 8 bytes of original datagram */
+static void icmp_send_packet(Context* ctx, uint32_t saddr, uint32_t daddr, uint8_t type,
+    uint8_t code, uint16_t id, uint16_t seq, const uint8_t* data, size_t len) {
+	size_t frame_len = sizeof(ip4_hdr) + sizeof(icmp_hdr) + len;
+	uint8_t* frame_buf = new uint8_t[frame_len]();
+	defer {
+		delete[] frame_buf;
+	};
 
-	size_t reply_len = sizeof(ip4_hdr) + sizeof(icmp_hdr) + icmp_data_len;
-	if (reply_len > 128) return;
-	uint8_t reply_buf[128] = {};
-
-	ip4_hdr* r_ip = reinterpret_cast<ip4_hdr*>(reply_buf);
-	icmp_hdr* r_icmp = reinterpret_cast<icmp_hdr*>(reply_buf + sizeof(ip4_hdr));
-	uint8_t* r_data = reply_buf + sizeof(ip4_hdr) + sizeof(icmp_hdr);
+	ip4_hdr* r_ip = reinterpret_cast<ip4_hdr*>(frame_buf);
+	icmp_hdr* r_icmp = reinterpret_cast<icmp_hdr*>(frame_buf + sizeof(ip4_hdr));
+	uint8_t* r_data = frame_buf + sizeof(ip4_hdr) + sizeof(icmp_hdr);
 
 	/* IPv4 */
 	r_ip->ihl_version = (4 << 4) | (sizeof(ip4_hdr) / 4);
 	r_ip->tos = 0;
-	r_ip->tot_len = htons(sizeof(ip4_hdr) + sizeof(icmp_hdr) + icmp_data_len);
+	r_ip->tot_len = htons(frame_len);
 	r_ip->id = 0;
 	r_ip->frag_off = 0;
 	r_ip->ttl = 64;
 	r_ip->protocol = NSTUN_IPPROTO_ICMP;
-	r_ip->saddr = req_ip->daddr; /* The destination they tried to reach */
-	r_ip->daddr = req_ip->saddr;
+	r_ip->saddr = saddr;
+	r_ip->daddr = daddr;
+	r_ip->check = 0;
 	r_ip->check = compute_checksum(r_ip, sizeof(ip4_hdr));
 
 	/* ICMP */
 	r_icmp->type = type;
 	r_icmp->code = code;
-	r_icmp->id = 0; /* unused for dest unreachable */
-	r_icmp->seq = 0;
+	r_icmp->id = id;
+	r_icmp->seq = seq;
+	r_icmp->check = 0;
 
-	memcpy(r_data, req_ip, icmp_data_len);
+	if (data && len > 0) {
+		memcpy(r_data, data, len);
+	}
 
-	r_icmp->check = compute_checksum(r_icmp, sizeof(icmp_hdr) + icmp_data_len);
+	r_icmp->check = compute_checksum(r_icmp, sizeof(icmp_hdr) + len);
 
-	send_to_guest(ctx, reply_buf, reply_len);
+	send_to_guest(ctx, frame_buf, frame_len);
+}
+
+void send_icmp_error(Context* ctx, const ip4_hdr* req_ip, uint8_t type, uint8_t code) {
+	size_t req_ihl = ip4_ihl(req_ip) * 4;
+	size_t icmp_data_len = req_ihl + 8; /* IP header + 8 bytes of original datagram */
+
+	if (sizeof(ip4_hdr) + sizeof(icmp_hdr) + icmp_data_len > 128) return;
+
+	icmp_send_packet(ctx, req_ip->daddr, req_ip->saddr, type, code, 0, 0,
+	    reinterpret_cast<const uint8_t*>(req_ip), icmp_data_len);
 }
 
 void handle_icmp(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t len) {
@@ -76,7 +90,8 @@ void handle_icmp(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t
 
 	/* We only handle Echo Request (Type 8, Code 0) */
 	if (icmp->type == 8 && icmp->code == 0) {
-		RuleResult rule = evaluate_rules(ctx, NSTUN_PROTO_ICMP, ip->saddr, ip->daddr, 0, 0);
+		RuleResult rule = evaluate_rules(
+		    ctx, NSTUN_DIR_GUEST_TO_HOST, NSTUN_PROTO_ICMP, ip->saddr, ip->daddr, 0, 0);
 
 		if (rule.action == NSTUN_ACTION_DROP) {
 			LOG_D("ICMP dropped by policy");
@@ -89,36 +104,10 @@ void handle_icmp(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t
 
 		if (ip->daddr == ctx->host_ip && rule.action != NSTUN_ACTION_REDIRECT) {
 			/* Construct reply (Type 0, Code 0) */
-			size_t reply_len = sizeof(ip4_hdr) + len;
-			uint8_t* reply_buf = new uint8_t[reply_len];
-			defer {
-				delete[] reply_buf;
-			};
-
-			ip4_hdr* r_ip = reinterpret_cast<ip4_hdr*>(reply_buf);
-			icmp_hdr* r_icmp = reinterpret_cast<icmp_hdr*>(reply_buf + sizeof(ip4_hdr));
-
-			/* IPv4 */
-			r_ip->ihl_version = ip->ihl_version;
-			r_ip->tos = ip->tos;
-			r_ip->tot_len = htons(sizeof(ip4_hdr) + len);
-			r_ip->id = ip->id;  /* doesn't really matter */
-			r_ip->frag_off = 0; /* no fragmentation */
-			r_ip->ttl = 64;
-			r_ip->protocol = NSTUN_IPPROTO_ICMP;
-			r_ip->saddr = ip->daddr;
-			r_ip->daddr = ip->saddr;
-			r_ip->check = 0;
-			r_ip->check = compute_checksum(r_ip, sizeof(ip4_hdr));
-
-			/* ICMP */
-			memcpy(r_icmp, payload, len);
-			r_icmp->type = 0; /* Echo Reply */
-			r_icmp->code = 0;
-			r_icmp->check = 0;
-			r_icmp->check = compute_checksum(r_icmp, len);
-
-			send_to_guest(ctx, reply_buf, reply_len);
+			const uint8_t* icmp_payload = payload + sizeof(icmp_hdr);
+			size_t icmp_payload_len = len - sizeof(icmp_hdr);
+			icmp_send_packet(ctx, ip->daddr, ip->saddr, 0, 0, icmp->id, icmp->seq,
+			    icmp_payload, icmp_payload_len);
 		} else {
 			/* Attempt to proxy ICMP using unprivileged socket */
 			IcmpFlowKey key = {ip->saddr, ip->daddr, icmp->id};
@@ -155,9 +144,7 @@ void handle_icmp(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t
 					}
 				};
 
-				struct epoll_event ev = {};
-				ev.events = EPOLLIN;
-				ev.data.fd = fd;
+				struct epoll_event ev = {.events = EPOLLIN, .data = {.fd = fd}};
 				if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1) {
 					PLOG_E("epoll_ctl(EPOLL_CTL_ADD) for ICMP failed");
 					return;
@@ -222,45 +209,17 @@ void handle_host_icmp(Context* ctx, int fd) {
 		return;
 	}
 
-	size_t frame_len = sizeof(ip4_hdr) + recv_len;
-	uint8_t* frame_buf = new uint8_t[frame_len];
-	defer {
-		delete[] frame_buf;
-	};
-	memset(frame_buf, 0, frame_len);
+	uint32_t saddr = flow->is_redirected ? flow->orig_dest_ip : src_addr.sin_addr.s_addr;
+	uint32_t daddr = flow->key.saddr;
 
-	ip4_hdr* r_ip = reinterpret_cast<ip4_hdr*>(frame_buf);
-	uint8_t* r_data = frame_buf + sizeof(ip4_hdr);
-
-	/* IPv4 */
-	r_ip->ihl_version = (4 << 4) | (sizeof(ip4_hdr) / 4);
-	r_ip->tos = 0;
-	r_ip->tot_len = htons(sizeof(ip4_hdr) + recv_len);
-	r_ip->id = 0;
-	r_ip->frag_off = 0;
-	r_ip->ttl = 64;
-	r_ip->protocol = NSTUN_IPPROTO_ICMP;
-	if (flow->is_redirected) {
-		r_ip->saddr = flow->orig_dest_ip;
-	} else {
-		r_ip->saddr = src_addr.sin_addr.s_addr;
-	}
-	r_ip->daddr = flow->key.saddr;
-	r_ip->check = 0;
-	r_ip->check = compute_checksum(r_ip, sizeof(ip4_hdr));
-
-	memcpy(r_data, buf, recv_len);
-
-	/* Unprivileged ICMP sockets rewrite the ICMP ID. */
-	/* We must restore the original guest ID so the ping command accepts the reply. */
 	if ((size_t)recv_len >= sizeof(icmp_hdr)) {
-		icmp_hdr* r_icmp = reinterpret_cast<icmp_hdr*>(r_data);
-		r_icmp->id = flow->key.id;
-		r_icmp->check = 0;
-		r_icmp->check = compute_checksum(r_icmp, recv_len);
-	}
+		icmp_hdr* r_icmp = reinterpret_cast<icmp_hdr*>(buf);
+		const uint8_t* icmp_payload = buf + sizeof(icmp_hdr);
+		size_t icmp_payload_len = recv_len - sizeof(icmp_hdr);
 
-	send_to_guest(ctx, frame_buf, frame_len);
+		icmp_send_packet(ctx, saddr, daddr, r_icmp->type, r_icmp->code, flow->key.id,
+		    r_icmp->seq, icmp_payload, icmp_payload_len);
+	}
 }
 
 } /* namespace nstun */

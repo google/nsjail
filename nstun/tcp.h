@@ -47,8 +47,16 @@ struct TcpFlow {
 	std::vector<uint8_t> tx_buffer;
 	size_t tx_acked_offset;
 
+	/* Buffer for accumulating SOCKS5 responses to avoid MSG_PEEK livelocks */
+	std::vector<uint8_t> socks5_rx_buffer;
+
+	/* Buffer for data from guest to host to avoid dropping packets on EAGAIN */
+	std::vector<uint8_t> rx_buffer;
+	size_t rx_sent_offset;
+
 	bool epoll_out_registered;
 	bool epoll_in_disabled;
+	bool inbound; /* true if flow is HOST_TO_GUEST */
 	time_t last_active;
 };
 
@@ -59,6 +67,7 @@ void push_to_guest(Context* ctx, TcpFlow* flow);
 
 void handle_tcp(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t len);
 void handle_host_tcp(Context* ctx, int fd, uint32_t events);
+void handle_host_tcp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rule);
 
 } /* namespace nstun */
 

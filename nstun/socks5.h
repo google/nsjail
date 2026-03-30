@@ -18,6 +18,23 @@ constexpr uint8_t SOCKS5_ATYP_IPV6 = 0x04;
 
 constexpr uint8_t SOCKS5_REP_SUCCESS = 0x00;
 
+struct __attribute__((packed)) socks5_req {
+    uint8_t ver;
+    uint8_t cmd;
+    uint8_t rsv;
+    uint8_t atyp;
+    uint32_t dst_ip;
+    uint16_t dst_port;
+};
+
+struct __attribute__((packed)) socks5_udp_hdr {
+    uint16_t rsv;
+    uint8_t frag;
+    uint8_t atyp;
+    uint32_t dst_ip;
+    uint16_t dst_port;
+};
+
 } /* namespace nstun */
 
 #endif /* NSTUN_SOCKS5_H_ */

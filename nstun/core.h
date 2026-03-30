@@ -63,6 +63,7 @@ struct UdpFlow {
 	uint32_t bnd_ip;
 	uint16_t bnd_port;
 
+	bool host_fd_is_listener;
 	std::vector<std::vector<uint8_t>> tx_queue;
 };
 
@@ -96,6 +97,8 @@ struct Context {
 	std::map<IcmpFlowKey, IcmpFlow*> icmp_flows_by_key;
 	std::map<int, IcmpFlow*> icmp_flows_by_host_fd;
 
+	std::map<int, nstun_rule_t> host_listener_fd_to_rule;
+
 	~Context();
 };
 
@@ -107,8 +110,8 @@ struct RuleResult {
 	uint16_t redirect_port;
 };
 
-RuleResult evaluate_rules(Context* ctx, nstun_proto_t proto, uint32_t src_ip, uint32_t dst_ip,
-    uint16_t sport, uint16_t dport);
+RuleResult evaluate_rules(Context* ctx, nstun_direction_t dir, nstun_proto_t proto, uint32_t src_ip,
+    uint32_t dst_ip, uint16_t sport, uint16_t dport);
 
 } /* namespace nstun */
 

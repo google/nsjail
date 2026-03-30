@@ -366,6 +366,10 @@ message NsJailConfig {
 		optional Pasta pasta = 2;
 
 		message NstunRule {
+			enum Direction {
+				GUEST_TO_HOST = 0;
+				HOST_TO_GUEST = 1;
+			}
 			enum Action {
 				DROP = 0;
 				REJECT = 1;
@@ -379,6 +383,7 @@ message NsJailConfig {
 				UDP = 2;
 				ICMP = 3;
 			}
+			optional Direction direction = 11 [default = GUEST_TO_HOST];
 			optional Action action = 1 [default = ALLOW];
 			optional Protocol proto = 2 [default = ANY];
 
@@ -390,7 +395,7 @@ message NsJailConfig {
 
 			/* Match destination IP network */
 			optional string dst_ip = 6;
-			/* Match destination port range */
+			/* Match destination port range (also the listen port for HOST_TO_GUEST) */
 			optional uint32 dport = 7;
 			optional uint32 dport_end = 8;
 

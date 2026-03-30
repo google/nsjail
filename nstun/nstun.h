@@ -17,9 +17,12 @@ typedef enum {
 	NSTUN_ACTION_ENCAP_SOCKS5
 } nstun_action_t;
 
+typedef enum { NSTUN_DIR_GUEST_TO_HOST, NSTUN_DIR_HOST_TO_GUEST } nstun_direction_t;
+
 typedef enum { NSTUN_PROTO_ANY, NSTUN_PROTO_TCP, NSTUN_PROTO_UDP, NSTUN_PROTO_ICMP } nstun_proto_t;
 
 typedef struct {
+	nstun_direction_t direction;
 	nstun_action_t action;
 	nstun_proto_t proto;
 

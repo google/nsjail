@@ -8,16 +8,15 @@
 
 namespace nstun {
 
-#pragma pack(push, 1)
 constexpr size_t NSTUN_MTU = (1024 * 32);
 
-struct eth_hdr {
+struct __attribute__((packed)) eth_hdr {
 	uint8_t dst[6];
 	uint8_t src[6];
 	uint16_t ethertype;
 };
 
-struct arp_hdr {
+struct __attribute__((packed)) arp_hdr {
 	uint16_t htype;
 	uint16_t ptype;
 	uint8_t hlen;
@@ -29,7 +28,7 @@ struct arp_hdr {
 	uint32_t tpa;
 };
 
-struct ip4_hdr {
+struct __attribute__((packed)) ip4_hdr {
 	uint8_t ihl_version; /* version << 4 | ihl */
 	uint8_t tos;
 	uint16_t tot_len;
@@ -42,7 +41,7 @@ struct ip4_hdr {
 	uint32_t daddr;
 };
 
-struct icmp_hdr {
+struct __attribute__((packed)) icmp_hdr {
 	uint8_t type;
 	uint8_t code;
 	uint16_t check;
@@ -50,14 +49,14 @@ struct icmp_hdr {
 	uint16_t seq;
 };
 
-struct udp_hdr {
+struct __attribute__((packed)) udp_hdr {
 	uint16_t source;
 	uint16_t dest;
 	uint16_t len;
 	uint16_t check;
 };
 
-struct tcp_hdr {
+struct __attribute__((packed)) tcp_hdr {
 	uint16_t source;
 	uint16_t dest;
 	uint32_t seq;
@@ -68,8 +67,6 @@ struct tcp_hdr {
 	uint16_t check;
 	uint16_t urg_ptr;
 };
-
-#pragma pack(pop)
 
 inline uint8_t ip4_version(const ip4_hdr* h) {
 	return h->ihl_version >> 4;
