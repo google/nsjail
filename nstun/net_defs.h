@@ -106,6 +106,19 @@ inline bool is_loopback_addr(uint32_t addr_net) {
 	return (ntohl(addr_net) & 0xFF000000) == 0x7F000000;
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
+inline struct sockaddr_in init_sockaddr_in(unsigned short family) {
+#ifdef sin_zero
+	return (struct sockaddr_in){ .sin_family = family, .sin_port = 0, .sin_addr = {0}, .sin_zero = {0} };
+#else
+	return (struct sockaddr_in){ .sin_family = family, .sin_port = 0, .sin_addr = {0} };
+#endif
+}
+#pragma GCC diagnostic pop
+
+#define INIT_SOCKADDR_IN(family) nstun::init_sockaddr_in(family)
+
 }  // namespace nstun
 
 #endif /* NSTUN_NET_DEFS_H_ */

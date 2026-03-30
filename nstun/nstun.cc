@@ -408,10 +408,9 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 					setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt));
 				setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
-				struct sockaddr_in addr = {};
-				addr.sin_family = AF_INET;
-				addr.sin_addr.s_addr = nr.src_ip;
+				struct sockaddr_in addr = INIT_SOCKADDR_IN(AF_INET);
 				addr.sin_port = htons(port);
+				addr.sin_addr.s_addr = nr.src_ip;
 
 				if (bind(fd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
 					PLOG_E("bind() for HOST_TO_GUEST on port %u", port);

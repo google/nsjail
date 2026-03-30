@@ -283,8 +283,7 @@ void handle_tcp(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t 
 			}
 		};
 
-		struct sockaddr_in dest_addr = {};
-		dest_addr.sin_family = AF_INET;
+		struct sockaddr_in dest_addr = INIT_SOCKADDR_IN(AF_INET);
 
 		if (rule.redirect_ip && rule.redirect_port) {
 			dest_addr.sin_addr.s_addr = rule.redirect_ip;
@@ -316,26 +315,31 @@ void handle_tcp(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t 
 		/* Network setup successful! Create flow. */
 		success = true;
 
-		flow = new TcpFlow();
-		flow->key = key;
-		flow->state = TcpState::SYN_SENT;
-		flow->epoll_out_registered = true;
-		flow->epoll_in_disabled = false;
-		flow->host_eof = false;
-		flow->guest_eof = false;
-		flow->fin_sent = false;
-		flow->syn_acked = false;
-		flow->fin_acked = false;
-		flow->use_socks5 = (rule.action == NSTUN_ACTION_ENCAP_SOCKS5);
-		flow->last_active = time(NULL);
-
-		flow->seq_from_guest = seq + 1;
-		flow->ack_to_guest = flow->seq_from_guest;
-		flow->seq_to_guest = (uint32_t)util::rnd64(); /* random ISN */
+		flow = new TcpFlow{.host_fd = fd,
+		    .key = key,
+		    .state = TcpState::SYN_SENT,
+		    .use_socks5 = (rule.action == NSTUN_ACTION_ENCAP_SOCKS5),
+		    .host_eof = false,
+		    .guest_eof = false,
+		    .fin_sent = false,
+		    .syn_acked = false,
+		    .fin_acked = false,
+		    .seq_to_guest = (uint32_t)util::rnd64(), /* random ISN */
+		    .ack_from_guest = 0,		     /* set below */
+		    .seq_from_guest = seq + 1,
+		    .ack_to_guest = seq + 1,
+		    .guest_window = 0,
+		    .tx_buffer = {},
+		    .tx_acked_offset = 0,
+		    .socks5_rx_buffer = {},
+		    .rx_buffer = {},
+		    .rx_sent_offset = 0,
+		    .epoll_out_registered = true,
+		    .epoll_in_disabled = false,
+		    .inbound = false,
+		    .last_active = time(NULL)};
 		flow->ack_from_guest = flow->seq_to_guest;
-		flow->tx_acked_offset = 0;
 
-		flow->host_fd = fd;
 		ctx->tcp_flows_by_key[key] = flow;
 		ctx->tcp_flows_by_host_fd[fd] = flow;
 
@@ -490,6 +494,12 @@ void handle_tcp(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t 
 			if (flow->state == TcpState::FIN_WAIT_1 && ack == flow->seq_to_guest) {
 				flow->state = TcpState::FIN_WAIT_2;
 			}
+		} else if (data_len == 0 &&
+			   !(tcp->flags &
+			       (NSTUN_TCP_FLAG_FIN | NSTUN_TCP_FLAG_SYN | NSTUN_TCP_FLAG_RST))) {
+			/* Duplicate ACK -> Fast Retransmit */
+			flow->seq_to_guest = flow->ack_from_guest;
+			push_to_guest(ctx, flow);
 		}
 
 		if (tcp->flags & NSTUN_TCP_FLAG_FIN) {
@@ -755,7 +765,7 @@ void handle_host_tcp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 		return;
 	}
 
-	struct sockaddr_in client_addr = {};
+	struct sockaddr_in client_addr = INIT_SOCKADDR_IN(AF_INET);
 	socklen_t addrlen = sizeof(client_addr);
 	int fd = accept4(
 	    listen_fd, (struct sockaddr*)&client_addr, &addrlen, SOCK_NONBLOCK | SOCK_CLOEXEC);
@@ -771,7 +781,7 @@ void handle_host_tcp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 	int opt = 1;
 	setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt));
 
-	struct sockaddr_in server_addr = {};
+	struct sockaddr_in server_addr = INIT_SOCKADDR_IN(AF_INET);
 	socklen_t servlen = sizeof(server_addr);
 	getsockname(fd, (struct sockaddr*)&server_addr, &servlen);
 
