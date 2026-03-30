@@ -374,8 +374,8 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 				}
 				nl_addr_put(addr);
 			}
-			nr.redirect_port = r.has_redirect_port() ? r.redirect_port() : 0;
 		}
+		nr.redirect_port = r.has_redirect_port() ? r.redirect_port() : 0;
 
 		ctx->rules.push_back(nr);
 
