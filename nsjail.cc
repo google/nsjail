@@ -29,6 +29,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/resource.h>
 #include <sys/time.h>
 #include <termios.h>
 #include <unistd.h>
@@ -116,6 +117,29 @@ static bool setTimer(nsj_t* nsj) {
 		PLOG_E("setitimer(ITIMER_REAL)");
 		return false;
 	}
+	return true;
+}
+
+static bool setFDLimit() {
+	constexpr uint64_t kRLimitNoFileDesired = 8192ULL;
+
+	struct rlimit64 rl;
+	if (util::getrlimit(RLIMIT_NOFILE, &rl) == -1) {
+		return false;
+	}
+	if (rl.rlim_cur >= kRLimitNoFileDesired) {
+		return true;
+	}
+	uint64_t target = std::min((uint64_t)kRLimitNoFileDesired, (uint64_t)rl.rlim_max);
+	if (target <= rl.rlim_cur) {
+		return true;
+	}
+	rl.rlim_cur = target;
+	if (util::setrlimit(RLIMIT_NOFILE, rl) == -1) {
+		PLOG_W("util::setrlimit(RLIMIT_NOFILE, %" PRIu64 ") failed", (uint64_t)rl.rlim_cur);
+		return false;
+	}
+	LOG_D("Increased RLIMIT_NOFILE to %" PRIu64, (uint64_t)rl.rlim_cur);
 	return true;
 }
 
@@ -339,10 +363,12 @@ int main(int argc, char* argv[]) {
 	if (!nsjail::setSigHandlers()) {
 		LOG_F("nsjail::setSigHandlers() failed");
 	}
+	if (!nsjail::setFDLimit()) {
+		LOG_E("nsjail::setFDLimit() failed");
+	}
 	if (!nsjail::setTimer(nsj.get())) {
 		LOG_F("nsjail::setTimer() failed");
 	}
-
 	if (nsj->njc.detect_cgroupv2()) {
 		cgroup2::detectCgroupv2(nsj.get());
 		LOG_I("Detected cgroups version: %d", nsj->njc.use_cgroupv2() ? 2 : 1);
