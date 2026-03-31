@@ -18,21 +18,68 @@ constexpr uint8_t SOCKS5_ATYP_IPV6 = 0x04;
 
 constexpr uint8_t SOCKS5_REP_SUCCESS = 0x00;
 
+struct __attribute__((packed)) socks5_greeting {
+	uint8_t ver;
+	uint8_t num_auth;
+	uint8_t auth[1];
+};
+
+struct __attribute__((packed)) socks5_auth_reply {
+	uint8_t ver;
+	uint8_t method;
+};
+
 struct __attribute__((packed)) socks5_req {
-    uint8_t ver;
-    uint8_t cmd;
-    uint8_t rsv;
-    uint8_t atyp;
-    uint32_t dst_ip;
-    uint16_t dst_port;
+	uint8_t ver;
+	uint8_t cmd;
+	uint8_t rsv;
+	uint8_t atyp;
+	uint32_t dst_ip4;
+	uint16_t dst_port;
+};
+
+struct __attribute__((packed)) socks5_req6 {
+	uint8_t ver;
+	uint8_t cmd;
+	uint8_t rsv;
+	uint8_t atyp;
+	uint8_t dst_ip6[16];
+	uint16_t dst_port;
+};
+
+struct __attribute__((packed)) socks5_req_domain {
+	uint8_t ver;
+	uint8_t cmd;
+	uint8_t rsv;
+	uint8_t atyp;
+	uint8_t domain_len;
 };
 
 struct __attribute__((packed)) socks5_udp_hdr {
-    uint16_t rsv;
-    uint8_t frag;
-    uint8_t atyp;
-    uint32_t dst_ip;
-    uint16_t dst_port;
+	uint16_t rsv;
+	uint8_t frag;
+	uint8_t atyp;
+	uint32_t dst_ip4;
+	uint16_t dst_port;
+};
+
+struct __attribute__((packed)) socks5_udp_hdr6 {
+	uint16_t rsv;
+	uint8_t frag;
+	uint8_t atyp;
+	uint8_t dst_ip6[16];
+	uint16_t dst_port;
+};
+
+struct __attribute__((packed)) socks5_udp_hdr_domain {
+	uint16_t rsv;
+	uint8_t frag;
+	uint8_t atyp;
+	uint8_t domain_len;
+};
+
+struct __attribute__((packed)) socks5_max_buf {
+	uint8_t data[512];
 };
 
 } /* namespace nstun */

@@ -34,18 +34,33 @@
 namespace nstun {
 
 Context::~Context() {
-	for (auto& pair : udp_flows_by_key) {
+	for (auto& pair : ipv4_udp_flows_by_key) {
 		if (pair.second->host_fd != -1 && !pair.second->host_fd_is_listener) {
 			close(pair.second->host_fd);
 		}
 		if (pair.second->tcp_fd != -1) close(pair.second->tcp_fd);
 		delete pair.second;
 	}
-	for (auto& pair : tcp_flows_by_key) {
+	for (auto& pair : ipv4_tcp_flows_by_key) {
 		if (pair.second->host_fd != -1) close(pair.second->host_fd);
 		delete pair.second;
 	}
-	for (auto& pair : icmp_flows_by_key) {
+	for (auto& pair : ipv4_icmp_flows_by_key) {
+		if (pair.second->host_fd != -1) close(pair.second->host_fd);
+		delete pair.second;
+	}
+	for (auto& pair : ipv6_udp_flows_by_key) {
+		if (pair.second->host_fd != -1 && !pair.second->host_fd_is_listener) {
+			close(pair.second->host_fd);
+		}
+		if (pair.second->tcp_fd != -1) close(pair.second->tcp_fd);
+		delete pair.second;
+	}
+	for (auto& pair : ipv6_tcp_flows_by_key) {
+		if (pair.second->host_fd != -1) close(pair.second->host_fd);
+		delete pair.second;
+	}
+	for (auto& pair : ipv6_icmp_flows_by_key) {
 		if (pair.second->host_fd != -1) close(pair.second->host_fd);
 		delete pair.second;
 	}
@@ -54,26 +69,73 @@ Context::~Context() {
 	}
 }
 
-RuleResult evaluate_rules(Context* ctx, nstun_direction_t dir, nstun_proto_t proto, uint32_t src_ip,
-    uint32_t dst_ip, uint16_t sport, uint16_t dport) {
+RuleResult evaluate_rules4(Context* ctx, nstun_direction_t dir, nstun_proto_t proto,
+    uint32_t src_ip4, uint32_t dst_ip4, uint16_t sport, uint16_t dport) {
 	for (const auto& r : ctx->rules) {
+		if (r.is_ipv6) continue;
 		if (r.direction != dir) continue;
 		if (r.proto != NSTUN_PROTO_ANY && r.proto != proto) continue;
 
-		if (r.src_ip != 0 && (src_ip & r.src_mask) != (r.src_ip & r.src_mask)) continue;
-		if (r.dst_ip != 0 && (dst_ip & r.dst_mask) != (r.dst_ip & r.dst_mask)) continue;
+		if (r.src_ip4 != 0 && (src_ip4 & r.src_mask4) != (r.src_ip4 & r.src_mask4))
+			continue;
+		if (r.dst_ip4 != 0 && (dst_ip4 & r.dst_mask4) != (r.dst_ip4 & r.dst_mask4))
+			continue;
 
 		if (r.sport_start != 0 && (sport < r.sport_start || sport > r.sport_end)) continue;
 		if (r.dport_start != 0 && (dport < r.dport_start || dport > r.dport_end)) continue;
 
-		RuleResult res = {r.action, 0, 0};
+		RuleResult res = {r.action, 0, 0, false, {}};
 		if (r.action == NSTUN_ACTION_REDIRECT || r.action == NSTUN_ACTION_ENCAP_SOCKS5) {
-			res.redirect_ip = r.redirect_ip;
+			res.redirect_ip4 = r.redirect_ip4;
 			res.redirect_port = r.redirect_port;
 		}
 		return res;
 	}
-	return {NSTUN_ACTION_ALLOW, 0, 0}; /* Default allow */
+	return {NSTUN_ACTION_ALLOW, 0, 0, false, {}}; /* Default allow */
+}
+
+static bool ip6_masked_eq(const uint8_t* a, const uint8_t* b, const uint8_t* mask) {
+	for (int i = 0; i < 16; i++) {
+		if ((a[i] & mask[i]) != (b[i] & mask[i])) return false;
+	}
+	return true;
+}
+
+static bool ip6_is_zero(const uint8_t* addr) {
+	for (int i = 0; i < 16; i++) {
+		if (addr[i] != 0) return false;
+	}
+	return true;
+}
+
+RuleResult evaluate_rules6(Context* ctx, nstun_direction_t dir, nstun_proto_t proto,
+    const uint8_t* src_ip6, const uint8_t* dst_ip6, uint16_t sport, uint16_t dport) {
+	for (const auto& r : ctx->rules) {
+		if (!r.is_ipv6) continue;
+		if (r.direction != dir) continue;
+		if (r.proto != NSTUN_PROTO_ANY && r.proto != proto) continue;
+
+		if (!ip6_is_zero(r.src_ip6) && !ip6_masked_eq(src_ip6, r.src_ip6, r.src_mask6))
+			continue;
+		if (!ip6_is_zero(r.dst_ip6) && !ip6_masked_eq(dst_ip6, r.dst_ip6, r.dst_mask6))
+			continue;
+
+		if (r.sport_start != 0 && (sport < r.sport_start || sport > r.sport_end)) continue;
+		if (r.dport_start != 0 && (dport < r.dport_start || dport > r.dport_end)) continue;
+
+		RuleResult res = {r.action, 0, 0, false, {}};
+		if (r.action == NSTUN_ACTION_REDIRECT) {
+			res.has_redirect_ip6 = true;
+			memcpy(res.redirect_ip6, r.redirect_ip6, sizeof(res.redirect_ip6));
+			res.redirect_port = r.redirect_port;
+		} else if (r.action == NSTUN_ACTION_ENCAP_SOCKS5) {
+			/* SOCKS5 proxy is always IPv4 */
+			res.redirect_ip4 = r.redirect_ip4;
+			res.redirect_port = r.redirect_port;
+		}
+		return res;
+	}
+	return {NSTUN_ACTION_ALLOW, 0, 0, false, {}}; /* Default allow */
 }
 
 static void garbage_collect(Context* ctx) {
@@ -81,7 +143,7 @@ static void garbage_collect(Context* ctx) {
 
 	/* Collect TCP flows */
 	std::vector<TcpFlow*> stale_tcp;
-	for (auto const& [key, flow] : ctx->tcp_flows_by_key) {
+	for (auto const& [key, flow] : ctx->ipv4_tcp_flows_by_key) {
 		time_t timeout = 3600; /* default 1 hour for established */
 		if (flow->state == TcpState::SYN_SENT || flow->state == TcpState::SOCKS5_INIT ||
 		    flow->state == TcpState::SOCKS5_CONNECTING) {
@@ -98,31 +160,78 @@ static void garbage_collect(Context* ctx) {
 		}
 	}
 	for (TcpFlow* flow : stale_tcp) {
-		LOG_D("Garbage collecting stale TCP flow %u", ntohs(flow->key.sport));
+		LOG_D("Garbage collecting stale TCP flow %u", ntohs(flow->key4.sport));
 		tcp_destroy_flow(ctx, flow);
 	}
 
 	/* Collect UDP flows */
 	std::vector<UdpFlow*> stale_udp;
-	for (auto const& [key, flow] : ctx->udp_flows_by_key) {
+	for (auto const& [key, flow] : ctx->ipv4_udp_flows_by_key) {
 		if (now - flow->last_active > 60) {
 			stale_udp.push_back(flow);
 		}
 	}
 	for (UdpFlow* flow : stale_udp) {
-		LOG_D("Garbage collecting stale UDP flow %u", ntohs(flow->key.sport));
+		LOG_D("Garbage collecting stale UDP flow %u", ntohs(flow->key4.sport));
 		udp_destroy_flow(ctx, flow);
 	}
 
 	/* Collect ICMP flows */
 	std::vector<IcmpFlow*> stale_icmp;
-	for (auto const& [key, flow] : ctx->icmp_flows_by_key) {
+	for (auto const& [key, flow] : ctx->ipv4_icmp_flows_by_key) {
 		if (now - flow->last_active > 10) {
 			stale_icmp.push_back(flow);
 		}
 	}
 	for (IcmpFlow* flow : stale_icmp) {
-		LOG_D("Garbage collecting stale ICMP flow %u", ntohs(flow->key.id));
+		LOG_D("Garbage collecting stale ICMP flow");
+		icmp_destroy_flow(ctx, flow);
+	}
+
+	/* Collect IPv6 TCP flows */
+	std::vector<TcpFlow*> stale_tcp6;
+	for (auto const& [key, flow] : ctx->ipv6_tcp_flows_by_key) {
+		time_t timeout = 3600;
+		if (flow->state == TcpState::SYN_SENT || flow->state == TcpState::SOCKS5_INIT ||
+		    flow->state == TcpState::SOCKS5_CONNECTING) {
+			timeout = 5;
+		} else if (flow->state == TcpState::CLOSE_WAIT ||
+			   flow->state == TcpState::LAST_ACK ||
+			   flow->state == TcpState::FIN_WAIT_1 ||
+			   flow->state == TcpState::FIN_WAIT_2 ||
+			   flow->state == TcpState::CLOSING || flow->state == TcpState::TIME_WAIT) {
+			timeout = 10;
+		}
+		if (now - flow->last_active > timeout) {
+			stale_tcp6.push_back(flow);
+		}
+	}
+	for (TcpFlow* flow : stale_tcp6) {
+		LOG_D("Garbage collecting stale IPv6 TCP flow");
+		tcp_destroy_flow(ctx, flow);
+	}
+
+	/* Collect IPv6 UDP flows */
+	std::vector<UdpFlow*> stale_udp6;
+	for (auto const& [key, flow] : ctx->ipv6_udp_flows_by_key) {
+		if (now - flow->last_active > 60) {
+			stale_udp6.push_back(flow);
+		}
+	}
+	for (UdpFlow* flow : stale_udp6) {
+		LOG_D("Garbage collecting stale IPv6 UDP flow");
+		udp_destroy_flow(ctx, flow);
+	}
+
+	/* Collect IPv6 ICMP flows */
+	std::vector<IcmpFlow*> stale_icmp6;
+	for (auto const& [key, flow] : ctx->ipv6_icmp_flows_by_key) {
+		if (now - flow->last_active > 10) {
+			stale_icmp6.push_back(flow);
+		}
+	}
+	for (IcmpFlow* flow : stale_icmp6) {
+		LOG_D("Garbage collecting stale IPv6 ICMP flow");
 		icmp_destroy_flow(ctx, flow);
 	}
 }
@@ -185,7 +294,7 @@ static void networkLoop(Context* ctx) {
 		}
 
 		time_t now = time(NULL);
-		if (now - last_gc >= 1) {
+		if (now - last_gc >= 2) {
 			garbage_collect(ctx);
 			last_gc = now;
 		}
@@ -279,10 +388,27 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 	};
 
 	if (!nsj->njc.user_net().ip4().empty()) {
-		assign_ip(nsj->njc.user_net().ip4(), &ctx->guest_ip);
+		assign_ip(nsj->njc.user_net().ip4(), &ctx->guest_ip4);
 	}
 	if (!nsj->njc.user_net().gw4().empty()) {
-		assign_ip(nsj->njc.user_net().gw4(), &ctx->host_ip);
+		assign_ip(nsj->njc.user_net().gw4(), &ctx->host_ip4);
+	}
+
+	if (!nsj->njc.user_net().ip6().empty()) {
+		if (inet_pton(AF_INET6, nsj->njc.user_net().ip6().c_str(), ctx->guest_ip6) != 1) {
+			LOG_E("Cannot convert '%s' into an IPv6 address",
+			    nsj->njc.user_net().ip6().c_str());
+			delete ctx;
+			return false;
+		}
+	}
+	if (!nsj->njc.user_net().gw6().empty()) {
+		if (inet_pton(AF_INET6, nsj->njc.user_net().gw6().c_str(), ctx->host_ip6) != 1) {
+			LOG_E("Cannot convert '%s' into an IPv6 address",
+			    nsj->njc.user_net().gw6().c_str());
+			delete ctx;
+			return false;
+		}
 	}
 
 	auto parse_ip = [](const std::string& str, uint32_t* ip, uint32_t* mask) {
@@ -296,6 +422,31 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 			nl_addr_put(addr);
 		} else {
 			LOG_E("Failed to parse IP/CIDR string: %s", str.c_str());
+		}
+	};
+
+	auto parse_ip6 = [](const std::string& str, uint8_t* ip6, uint8_t* mask6) {
+		struct nl_addr* addr;
+		if (nl_addr_parse(str.c_str(), AF_INET6, &addr) == 0) {
+			if (nl_addr_get_len(addr) == 16) {
+				memcpy(ip6, nl_addr_get_binary_addr(addr), 16);
+			}
+			int bits = nl_addr_get_prefixlen(addr);
+			memset(mask6, 0, 16);
+			for (int i = 0; i < 16; i++) {
+				if (bits >= 8) {
+					mask6[i] = 0xFF;
+					bits -= 8;
+				} else if (bits > 0) {
+					mask6[i] = (uint8_t)(0xFF << (8 - bits));
+					bits = 0;
+				} else {
+					mask6[i] = 0;
+				}
+			}
+			nl_addr_put(addr);
+		} else {
+			LOG_E("Failed to parse IPv6/CIDR string: %s", str.c_str());
 		}
 	};
 
@@ -367,17 +518,18 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 		nr.dport_end = r.has_dport_end() ? r.dport_end() : nr.dport_start;
 
 		if (r.has_src_ip()) {
-			parse_ip(r.src_ip(), &nr.src_ip, &nr.src_mask);
+			parse_ip(r.src_ip(), &nr.src_ip4, &nr.src_mask4);
 		}
 		if (r.has_dst_ip()) {
-			parse_ip(r.dst_ip(), &nr.dst_ip, &nr.dst_mask);
+			parse_ip(r.dst_ip(), &nr.dst_ip4, &nr.dst_mask4);
 		}
 
 		if (r.has_redirect_ip()) {
 			struct nl_addr* addr;
 			if (nl_addr_parse(r.redirect_ip().c_str(), AF_INET, &addr) == 0) {
 				if (nl_addr_get_len(addr) == 4) {
-					memcpy(&nr.redirect_ip, nl_addr_get_binary_addr(addr), 4);
+					memcpy(&nr.redirect_ip4, nl_addr_get_binary_addr(addr),
+					    sizeof(nr.redirect_ip4));
 				}
 				nl_addr_put(addr);
 			}
@@ -410,7 +562,7 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 
 				struct sockaddr_in addr = INIT_SOCKADDR_IN(AF_INET);
 				addr.sin_port = htons(port);
-				addr.sin_addr.s_addr = nr.src_ip;
+				addr.sin_addr.s_addr = nr.src_ip4;
 
 				if (bind(fd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
 					PLOG_E("bind() for HOST_TO_GUEST on port %u", port);
@@ -437,6 +589,150 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 				ctx->host_listener_fd_to_rule[fd] = nr;
 				LOG_I(
 				    "Listening on host port %u for inbound %s redirection to guest",
+				    port, (nr.proto == NSTUN_PROTO_TCP) ? "TCP" : "UDP");
+			}
+		}
+	}
+
+	/* Process IPv6 rules - same NstunRule message, but src_ip4/dst_ip4 parsed as IPv6 */
+	for (int i = 0; i < nsj->njc.user_net().rule6_size(); i++) {
+		const auto& r = nsj->njc.user_net().rule6(i);
+
+		if (r.action() == nsjail::NsJailConfig_UserNet_NstunRule_Action_ENCAP_SOCKS5) {
+			if (r.proto() == nsjail::NsJailConfig_UserNet_NstunRule_Protocol_ICMP) {
+				LOG_E("SOCKS5 encapsulation is not supported for ICMP/ICMPv6");
+				return cleanup_and_fail();
+			}
+		}
+
+		nstun_rule_t nr = {};
+		nr.is_ipv6 = true;
+
+		if (r.direction() ==
+		    nsjail::NsJailConfig_UserNet_NstunRule_Direction_HOST_TO_GUEST) {
+			nr.direction = NSTUN_DIR_HOST_TO_GUEST;
+		} else {
+			nr.direction = NSTUN_DIR_GUEST_TO_HOST;
+		}
+
+		if (r.action() == nsjail::NsJailConfig_UserNet_NstunRule_Action_DROP) {
+			nr.action = NSTUN_ACTION_DROP;
+		} else if (r.action() == nsjail::NsJailConfig_UserNet_NstunRule_Action_REJECT) {
+			nr.action = NSTUN_ACTION_REJECT;
+		} else if (r.action() == nsjail::NsJailConfig_UserNet_NstunRule_Action_ALLOW) {
+			nr.action = NSTUN_ACTION_ALLOW;
+		} else if (r.action() == nsjail::NsJailConfig_UserNet_NstunRule_Action_REDIRECT) {
+			nr.action = NSTUN_ACTION_REDIRECT;
+		} else if (r.action() ==
+			   nsjail::NsJailConfig_UserNet_NstunRule_Action_ENCAP_SOCKS5) {
+			nr.action = NSTUN_ACTION_ENCAP_SOCKS5;
+		} else {
+			continue;
+		}
+
+		if (r.proto() == nsjail::NsJailConfig_UserNet_NstunRule_Protocol_TCP) {
+			nr.proto = NSTUN_PROTO_TCP;
+		} else if (r.proto() == nsjail::NsJailConfig_UserNet_NstunRule_Protocol_UDP) {
+			nr.proto = NSTUN_PROTO_UDP;
+		} else if (r.proto() == nsjail::NsJailConfig_UserNet_NstunRule_Protocol_ICMP) {
+			nr.proto = NSTUN_PROTO_ICMP;
+		} else {
+			nr.proto = NSTUN_PROTO_ANY;
+		}
+
+		nr.sport_start = r.has_sport() ? r.sport() : 0;
+		nr.sport_end = r.has_sport_end() ? r.sport_end() : nr.sport_start;
+
+		nr.dport_start = r.has_dport() ? r.dport() : 0;
+		nr.dport_end = r.has_dport_end() ? r.dport_end() : nr.dport_start;
+
+		if (r.has_src_ip()) {
+			parse_ip6(r.src_ip(), nr.src_ip6, nr.src_mask6);
+		}
+		if (r.has_dst_ip()) {
+			parse_ip6(r.dst_ip(), nr.dst_ip6, nr.dst_mask6);
+		}
+
+		if (r.has_redirect_ip()) {
+			if (nr.action == NSTUN_ACTION_ENCAP_SOCKS5) {
+				/* SOCKS5 proxy is always IPv4 */
+				struct nl_addr* addr;
+				if (nl_addr_parse(r.redirect_ip().c_str(), AF_INET, &addr) == 0) {
+					if (nl_addr_get_len(addr) == 4) {
+						memcpy(&nr.redirect_ip4,
+						    nl_addr_get_binary_addr(addr),
+						    sizeof(nr.redirect_ip4));
+					}
+					nl_addr_put(addr);
+				}
+			} else {
+				/* REDIRECT: target is IPv6 */
+				struct nl_addr* addr;
+				if (nl_addr_parse(r.redirect_ip().c_str(), AF_INET6, &addr) == 0) {
+					if (nl_addr_get_len(addr) == 16) {
+						memcpy(nr.redirect_ip6,
+						    nl_addr_get_binary_addr(addr),
+						    sizeof(nr.redirect_ip6));
+					}
+					nl_addr_put(addr);
+				}
+			}
+		}
+		nr.redirect_port = r.has_redirect_port() ? r.redirect_port() : 0;
+
+		ctx->rules.push_back(nr);
+
+		if (nr.direction == NSTUN_DIR_HOST_TO_GUEST && nr.action == NSTUN_ACTION_REDIRECT) {
+			if (nr.proto != NSTUN_PROTO_TCP && nr.proto != NSTUN_PROTO_UDP) {
+				LOG_E("HOST_TO_GUEST REDIRECT only supported for TCP/UDP");
+				return cleanup_and_fail();
+			}
+			if (nr.dport_start == 0) {
+				LOG_E("HOST_TO_GUEST REDIRECT requires 'dport' to be specified");
+				return cleanup_and_fail();
+			}
+			for (uint16_t port = nr.dport_start; port <= nr.dport_end; port++) {
+				int type = (nr.proto == NSTUN_PROTO_TCP) ? SOCK_STREAM : SOCK_DGRAM;
+				int fd = socket(AF_INET6, type | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
+				if (fd == -1) {
+					PLOG_E("socket(AF_INET6) for HOST_TO_GUEST");
+					return cleanup_and_fail();
+				}
+
+				int opt = 1;
+				if (nr.proto == NSTUN_PROTO_TCP)
+					setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt));
+				setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+				struct sockaddr_in6 addr = INIT_SOCKADDR_IN6(AF_INET6);
+				addr.sin6_port = htons(port);
+				memcpy(addr.sin6_addr.s6_addr, nr.src_ip6, sizeof(nr.src_ip6));
+
+				if (bind(fd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
+					PLOG_E("bind() for HOST_TO_GUEST IPv6 on port %u", port);
+					close(fd);
+					return cleanup_and_fail();
+				}
+
+				if (nr.proto == NSTUN_PROTO_TCP) {
+					if (listen(fd, SOMAXCONN) == -1) {
+						PLOG_E("listen() for HOST_TO_GUEST IPv6 on port %u",
+						    port);
+						close(fd);
+						return cleanup_and_fail();
+					}
+				}
+
+				struct epoll_event ev = {.events = EPOLLIN, .data = {.fd = fd}};
+				if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1) {
+					PLOG_E("epoll_ctl(EPOLL_CTL_ADD) for HOST_TO_GUEST IPv6");
+					close(fd);
+					return cleanup_and_fail();
+				}
+
+				ctx->host_listener_fd_to_rule[fd] = nr;
+				LOG_I("Listening on host IPv6 port %u for inbound %s redirection "
+				      "to guest",
 				    port, (nr.proto == NSTUN_PROTO_TCP) ? "TCP" : "UDP");
 			}
 		}

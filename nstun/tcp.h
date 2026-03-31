@@ -24,7 +24,11 @@ enum class TcpState {
 
 struct TcpFlow {
 	int host_fd;
-	FlowKey key;
+	bool is_ipv6;
+	union {
+		FlowKey4 key4;
+		FlowKey6 key6;
+	};
 
 	TcpState state;
 	bool use_socks5;
@@ -61,12 +65,15 @@ struct TcpFlow {
 	time_t last_active;
 };
 
-void tcp_send_packet(
+void tcp_send_packet4(
+    Context* ctx, TcpFlow* flow, uint8_t flags, const uint8_t* data = nullptr, size_t len = 0);
+void tcp_send_packet6(
     Context* ctx, TcpFlow* flow, uint8_t flags, const uint8_t* data = nullptr, size_t len = 0);
 void tcp_destroy_flow(Context* ctx, TcpFlow* flow);
 void push_to_guest(Context* ctx, TcpFlow* flow);
 
-void handle_tcp(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t len);
+void handle_tcp4(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t len);
+void handle_tcp6(Context* ctx, const ip6_hdr* ip, const uint8_t* payload, size_t len);
 void handle_host_tcp(Context* ctx, int fd, uint32_t events);
 void handle_host_tcp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rule);
 

@@ -2,6 +2,8 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
+#include <linux/if.h>
+#include <linux/ipv6_route.h>
 #include <linux/route.h>
 #include <stdio.h>
 #include <string.h>
@@ -16,6 +18,13 @@
 #include "nstun.h"
 
 namespace nstun {
+
+/* Not always exported by userspace headers */
+struct in6_ifreq {
+	struct in6_addr ifr6_addr;
+	uint32_t ifr6_prefixlen;
+	int ifr6_ifindex;
+};
 
 bool configIface(nsj_t* nsj) {
 	int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
@@ -84,10 +93,10 @@ bool configIface(nsj_t* nsj) {
 		return false;
 	}
 
-	/* Set MTU - not critical */
 	ifr.ifr_mtu = NSTUN_MTU;
 	if (ioctl(sock, SIOCSIFMTU, &ifr) == -1) {
 		PLOG_W("ioctl(SIOCSIFMTU, %zu)", NSTUN_MTU);
+		return false;
 	}
 
 	/* Add default route out of interface */
@@ -110,6 +119,61 @@ bool configIface(nsj_t* nsj) {
 			PLOG_E("ioctl(SIOCADDRT, dev %s)", nsj->njc.user_net().ns_iface().c_str());
 			return false;
 		}
+	}
+
+	/* Configure IPv6 address and route */
+	if (!nsj->njc.user_net().ip6().empty()) {
+		int sock6 = socket(AF_INET6, SOCK_DGRAM, 0);
+		if (sock6 == -1) {
+			PLOG_E("socket(AF_INET6, SOCK_DGRAM)");
+			return false;
+		}
+		defer {
+			close(sock6);
+		};
+
+		/* Get interface index */
+		struct ifreq ifr6 = {};
+		snprintf(ifr6.ifr_name, IFNAMSIZ, "%s", nsj->njc.user_net().ns_iface().c_str());
+		if (ioctl(sock6, SIOCGIFINDEX, &ifr6) == -1) {
+			PLOG_E("ioctl(SIOCGIFINDEX) for IPv6");
+			return false;
+		}
+		int ifindex = ifr6.ifr_ifindex;
+
+		/* Set IPv6 address with /128 prefix */
+		struct in6_ifreq ifr6_addr = {};
+		if (inet_pton(AF_INET6, nsj->njc.user_net().ip6().c_str(), &ifr6_addr.ifr6_addr) !=
+		    1) {
+			LOG_E("Cannot convert '%s' into an IPv6 address",
+			    nsj->njc.user_net().ip6().c_str());
+			return false;
+		}
+		ifr6_addr.ifr6_prefixlen = 128;
+		ifr6_addr.ifr6_ifindex = ifindex;
+
+		if (ioctl(sock6, SIOCSIFADDR, &ifr6_addr) == -1) {
+			PLOG_E(
+			    "ioctl(SIOCSIFADDR) for IPv6 '%s'", nsj->njc.user_net().ip6().c_str());
+			return false;
+		}
+
+		/* Add default IPv6 route via the interface (device route, no gateway) */
+		struct in6_rtmsg rt6 = {};
+		rt6.rtmsg_ifindex = ifindex;
+		rt6.rtmsg_flags = RTF_UP;
+		rt6.rtmsg_metric = 1;
+		/* dst = ::0/0 (default route) is already zeroed */
+
+		if (ioctl(sock6, SIOCADDRT, &rt6) == -1) {
+			if (errno != EEXIST) {
+				PLOG_E("ioctl(SIOCADDRT) for IPv6 default route");
+				return false;
+			}
+		}
+
+		LOG_D("IPv6 configured: %s/128 on %s", nsj->njc.user_net().ip6().c_str(),
+		    nsj->njc.user_net().ns_iface().c_str());
 	}
 
 	return true;

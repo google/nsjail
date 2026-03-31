@@ -68,7 +68,7 @@ void handle_tun_frame(Context* ctx, const uint8_t* buf, size_t len) {
 		handle_ip4(ctx, buf, len);
 		break;
 	case 6:
-		/* TODO: IPv6 */
+		handle_ip6(ctx, buf, len);
 		break;
 	default:
 		LOG_D("Unknown IP version: %u", version);

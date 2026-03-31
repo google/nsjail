@@ -9,6 +9,7 @@
 namespace nstun {
 
 void handle_ip4(Context* ctx, const uint8_t* payload, size_t len);
+void handle_ip6(Context* ctx, const uint8_t* payload, size_t len);
 
 }  // namespace nstun
 

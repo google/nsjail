@@ -404,8 +404,10 @@ message NsJailConfig {
 			optional uint32 redirect_port = 10;
 		}
 
-		/* backend firewall/NAT rules */
+		/* IPv4 backend firewall/NAT rules */
 		repeated NstunRule rule4 = 3;
+		/* IPv6 backend firewall/NAT rules */
+		repeated NstunRule rule6 = 12;
 
 		/* IP address for the container */
 		optional string ip4 = 4 [default = "10.255.255.2"];

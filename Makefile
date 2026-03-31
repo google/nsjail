@@ -169,6 +169,13 @@ test: $(BIN)
 	# --- IPv6-only NAT tests ---
 	$(call run_test, ./nsjail --config tests/nat-ip6-only.cfg -q -t 3 -- /bin/true, 0)
 
+	# --- SOCKS5 proxy test ---
+	$(call run_test, ./nsjail --config tests/socks5.cfg -q -t 3 -- /bin/bash -c 'nc -v -z -w 2 8.8.8.8 443 && exit 77', 77)
+
+	# --- HOST_TO_GUEST proxy test ---
+	$(call run_test, ./nsjail --config tests/dns_http_host_to_guest.cfg -q -t 3 -- /bin/bash -c 'sleep 0.2; nc -v -z -w 2 127.0.0.1 8080 || exit 77', 77)
+	$(call run_test, ./nsjail --config tests/dns_http_host_to_guest.cfg -q -t 3 -- /bin/bash -c 'sleep 0.2; nc -v -z -w 2 ::1 8081 || exit 77', 77)
+
 	# --- --experimental_mnt=old ---
 	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --rw --chroot / --user 99999 --group 99999 -- /bin/bash -c 'touch $(HOME)/nsjail_test && exit 77', 77)
 	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --chroot / --user 99999 --group 99999 -- /bin/bash -c 'touch $(HOME)/nsjail_test || exit 77', 77)
@@ -235,7 +242,7 @@ mnt.o: mnt.h nsjail.h config.pb.h logs.h macros.h mnt_legacy.h mnt_newapi.h
 mnt.o: subproc.h util.h
 mnt_legacy.o: mnt_legacy.h mnt.h nsjail.h config.pb.h logs.h macros.h util.h
 mnt_newapi.o: mnt_newapi.h mnt.h nsjail.h config.pb.h logs.h util.h
-net.o: net.h nsjail.h config.pb.h logs.h macros.h util.h
+net.o: net.h nsjail.h config.pb.h logs.h macros.h nstun/nstun.h util.h
 nsjail.o: nsjail.h config.pb.h cgroup2.h cmdline.h logs.h macros.h net.h
 nsjail.o: sandbox.h subproc.h util.h
 pid.o: pid.h nsjail.h config.pb.h logs.h subproc.h
@@ -259,5 +266,5 @@ nstun/icmp.o: macros.h nstun/tun.h
 nstun/udp.o: nstun/udp.h nstun/core.h nstun/net_defs.h nstun/nstun.h
 nstun/udp.o: nstun/icmp.h logs.h macros.h nstun/socks5.h nstun/tun.h
 nstun/tcp.o: nstun/tcp.h nstun/core.h nstun/net_defs.h nstun/nstun.h logs.h
-nstun/tcp.o: macros.h nstun/socks5.h nstun/tun.h
+nstun/tcp.o: macros.h nstun/socks5.h nstun/tun.h util.h nsjail.h config.pb.h
 config.pb.o: config.pb.h

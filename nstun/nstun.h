@@ -25,11 +25,17 @@ typedef struct {
 	nstun_direction_t direction;
 	nstun_action_t action;
 	nstun_proto_t proto;
+	bool is_ipv6;
 
-	uint32_t src_ip;
-	uint32_t src_mask;
-	uint32_t dst_ip;
-	uint32_t dst_mask;
+	uint32_t src_ip4;
+	uint32_t src_mask4;
+	uint32_t dst_ip4;
+	uint32_t dst_mask4;
+
+	uint8_t src_ip6[16];
+	uint8_t src_mask6[16];
+	uint8_t dst_ip6[16];
+	uint8_t dst_mask6[16];
 
 	uint16_t sport_start;
 	uint16_t sport_end;
@@ -37,10 +43,10 @@ typedef struct {
 	uint16_t dport_end;
 
 	/* For REDIRECT */
-	uint32_t redirect_ip;
+	uint32_t redirect_ip4;
+	uint8_t redirect_ip6[16];
 	uint16_t redirect_port;
 } nstun_rule_t;
-
 struct nsj_t;
 
 bool nstun_init_child(int sock, struct nsj_t* nsj);
