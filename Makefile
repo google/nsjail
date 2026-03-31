@@ -170,7 +170,8 @@ test: $(BIN)
 	$(call run_test, ./nsjail --config tests/nat-ip6-only.cfg -q -t 3 -- /bin/true, 0)
 
 	# --- SOCKS5 proxy test ---
-	$(call run_test, ./nsjail --config tests/socks5.cfg -q -t 3 -- /bin/bash -c 'nc -v -z -w 2 8.8.8.8 443 && exit 77', 77)
+	$(call run_test, ./nsjail --config tests/socks5.cfg -q -t 3 -- /bin/bash -c 'wget -4 https://dns.google -O /dev/null && exit 77', 77)
+	$(call run_test, ./nsjail --config tests/socks5.cfg -q -t 3 -- /bin/bash -c 'wget -6 https://dns.google -O /dev/null && exit 77', 77)
 
 	# --- HOST_TO_GUEST proxy test ---
 	$(call run_test, ./nsjail --config tests/dns_http_host_to_guest.cfg -q -t 3 -- /bin/bash -c 'sleep 0.2; nc -v -z -w 2 127.0.0.1 8080 || exit 77', 77)
