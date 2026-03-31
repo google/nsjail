@@ -85,7 +85,8 @@ RuleResult evaluate_rules4(Context* ctx, nstun_direction_t dir, nstun_proto_t pr
 		if (r.dport_start != 0 && (dport < r.dport_start || dport > r.dport_end)) continue;
 
 		RuleResult res = {r.action, 0, 0, false, {}};
-		if (r.action == NSTUN_ACTION_REDIRECT || r.action == NSTUN_ACTION_ENCAP_SOCKS5) {
+		if (r.action == NSTUN_ACTION_REDIRECT || r.action == NSTUN_ACTION_ENCAP_SOCKS5 ||
+		    r.action == NSTUN_ACTION_ENCAP_CONNECT) {
 			res.redirect_ip4 = r.redirect_ip4;
 			res.redirect_port = r.redirect_port;
 		}
@@ -128,8 +129,9 @@ RuleResult evaluate_rules6(Context* ctx, nstun_direction_t dir, nstun_proto_t pr
 			res.has_redirect_ip6 = true;
 			memcpy(res.redirect_ip6, r.redirect_ip6, sizeof(res.redirect_ip6));
 			res.redirect_port = r.redirect_port;
-		} else if (r.action == NSTUN_ACTION_ENCAP_SOCKS5) {
-			/* SOCKS5 proxy is always IPv4 */
+		} else if (r.action == NSTUN_ACTION_ENCAP_SOCKS5 ||
+			   r.action == NSTUN_ACTION_ENCAP_CONNECT) {
+			/* proxy is always IPv4 */
 			res.redirect_ip4 = r.redirect_ip4;
 			res.redirect_port = r.redirect_port;
 		}
@@ -146,7 +148,8 @@ static void garbage_collect(Context* ctx) {
 	for (auto const& [key, flow] : ctx->ipv4_tcp_flows_by_key) {
 		time_t timeout = 3600; /* default 1 hour for established */
 		if (flow->state == TcpState::SYN_SENT || flow->state == TcpState::SOCKS5_INIT ||
-		    flow->state == TcpState::SOCKS5_CONNECTING) {
+		    flow->state == TcpState::SOCKS5_CONNECTING ||
+		    flow->state == TcpState::HTTP_CONNECT_INIT) {
 			timeout = 5;
 		} else if (flow->state == TcpState::CLOSE_WAIT ||
 			   flow->state == TcpState::LAST_ACK ||
@@ -193,7 +196,8 @@ static void garbage_collect(Context* ctx) {
 	for (auto const& [key, flow] : ctx->ipv6_tcp_flows_by_key) {
 		time_t timeout = 3600;
 		if (flow->state == TcpState::SYN_SENT || flow->state == TcpState::SOCKS5_INIT ||
-		    flow->state == TcpState::SOCKS5_CONNECTING) {
+		    flow->state == TcpState::SOCKS5_CONNECTING ||
+		    flow->state == TcpState::HTTP_CONNECT_INIT) {
 			timeout = 5;
 		} else if (flow->state == TcpState::CLOSE_WAIT ||
 			   flow->state == TcpState::LAST_ACK ||
@@ -471,9 +475,11 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 	for (int i = 0; i < nsj->njc.user_net().rule4_size(); i++) {
 		const auto& r = nsj->njc.user_net().rule4(i);
 
-		if (r.action() == nsjail::NsJailConfig_UserNet_NstunRule_Action_ENCAP_SOCKS5 &&
+		if ((r.action() == nsjail::NsJailConfig_UserNet_NstunRule_Action_ENCAP_SOCKS5 ||
+			r.action() ==
+			    nsjail::NsJailConfig_UserNet_NstunRule_Action_ENCAP_CONNECT) &&
 		    r.proto() == nsjail::NsJailConfig_UserNet_NstunRule_Protocol_ICMP) {
-			LOG_E("SOCKS5 encapsulation is not supported for ICMP/ICMPv6");
+			LOG_E("Proxy encapsulation is not supported for ICMP/ICMPv6");
 			return cleanup_and_fail();
 		}
 
@@ -497,6 +503,9 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 		} else if (r.action() ==
 			   nsjail::NsJailConfig_UserNet_NstunRule_Action_ENCAP_SOCKS5) {
 			nr.action = NSTUN_ACTION_ENCAP_SOCKS5;
+		} else if (r.action() ==
+			   nsjail::NsJailConfig_UserNet_NstunRule_Action_ENCAP_CONNECT) {
+			nr.action = NSTUN_ACTION_ENCAP_CONNECT;
 		} else {
 			continue;
 		}
@@ -598,9 +607,10 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 	for (int i = 0; i < nsj->njc.user_net().rule6_size(); i++) {
 		const auto& r = nsj->njc.user_net().rule6(i);
 
-		if (r.action() == nsjail::NsJailConfig_UserNet_NstunRule_Action_ENCAP_SOCKS5) {
+		if (r.action() == nsjail::NsJailConfig_UserNet_NstunRule_Action_ENCAP_SOCKS5 ||
+		    r.action() == nsjail::NsJailConfig_UserNet_NstunRule_Action_ENCAP_CONNECT) {
 			if (r.proto() == nsjail::NsJailConfig_UserNet_NstunRule_Protocol_ICMP) {
-				LOG_E("SOCKS5 encapsulation is not supported for ICMP/ICMPv6");
+				LOG_E("Proxy encapsulation is not supported for ICMP/ICMPv6");
 				return cleanup_and_fail();
 			}
 		}
@@ -626,6 +636,9 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 		} else if (r.action() ==
 			   nsjail::NsJailConfig_UserNet_NstunRule_Action_ENCAP_SOCKS5) {
 			nr.action = NSTUN_ACTION_ENCAP_SOCKS5;
+		} else if (r.action() ==
+			   nsjail::NsJailConfig_UserNet_NstunRule_Action_ENCAP_CONNECT) {
+			nr.action = NSTUN_ACTION_ENCAP_CONNECT;
 		} else {
 			continue;
 		}
@@ -654,8 +667,9 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 		}
 
 		if (r.has_redirect_ip()) {
-			if (nr.action == NSTUN_ACTION_ENCAP_SOCKS5) {
-				/* SOCKS5 proxy is always IPv4 */
+			if (nr.action == NSTUN_ACTION_ENCAP_SOCKS5 ||
+			    nr.action == NSTUN_ACTION_ENCAP_CONNECT) {
+				/* Proxy is always IPv4 */
 				struct nl_addr* addr;
 				if (nl_addr_parse(r.redirect_ip().c_str(), AF_INET, &addr) == 0) {
 					if (nl_addr_get_len(addr) == 4) {

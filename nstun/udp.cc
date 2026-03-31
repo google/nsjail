@@ -100,36 +100,42 @@ void handle_host_udp_control(Context* ctx, int fd, uint32_t events) {
 	UdpFlow* flow = it->second;
 	flow->last_active = time(NULL);
 
-	if (flow->state == UdpSocks5State::TCP_CONNECTING) {
-		if (events & EPOLLOUT) {
-			int err = 0;
-			socklen_t errlen = sizeof(err);
-			getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &errlen);
-			if (err != 0) {
-				udp_destroy_flow(ctx, flow);
-				return;
-			}
-			struct epoll_event ev = {
-			    .events = EPOLLIN | EPOLLERR | EPOLLHUP, .data = {.fd = fd}};
-			epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, fd, &ev);
-
-			flow->state = UdpSocks5State::SOCKS5_GREETING;
-			socks5_greeting greeting = {
-			    .ver = SOCKS5_VERSION,
-			    .num_auth = 1,
-			    .auth = {SOCKS5_AUTH_NONE},
-			};
-			send(fd, &greeting, sizeof(greeting), MSG_NOSIGNAL);
-		} else {
+	switch (flow->state) {
+	case UdpSocks5State::TCP_CONNECTING: {
+		if (!(events & EPOLLOUT)) {
 			udp_destroy_flow(ctx, flow);
+			return;
+		}
+		int err = 0;
+		socklen_t errlen = sizeof(err);
+		getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &errlen);
+		if (err != 0) {
+			udp_destroy_flow(ctx, flow);
+			return;
+		}
+		struct epoll_event ev = {
+		    .events = EPOLLIN | EPOLLERR | EPOLLHUP, .data = {.fd = fd}};
+		epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, fd, &ev);
+
+		flow->state = UdpSocks5State::SOCKS5_GREETING;
+		socks5_greeting greeting = {
+		    .ver = SOCKS5_VERSION,
+		    .num_auth = 1,
+		    .auth = {SOCKS5_AUTH_NONE},
+		};
+		if (send(fd, &greeting, sizeof(greeting), MSG_NOSIGNAL) !=
+		    (ssize_t)sizeof(greeting)) {
+			udp_destroy_flow(ctx, flow);
+			return;
 		}
 		return;
 	}
 
-	if (flow->state == UdpSocks5State::SOCKS5_GREETING) {
+	case UdpSocks5State::SOCKS5_GREETING: {
 		socks5_auth_reply reply;
 		ssize_t n = recv(fd, &reply, sizeof(reply), MSG_PEEK | MSG_DONTWAIT);
 		if (n <= 0) {
+			if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return;
 			udp_destroy_flow(ctx, flow);
 			return;
 		}
@@ -149,14 +155,18 @@ void handle_host_udp_control(Context* ctx, int fd, uint32_t events) {
 		    .dst_ip4 = 0,
 		    .dst_port = 0,
 		};
-		send(fd, &req, sizeof(req), MSG_NOSIGNAL);
+		if (send(fd, &req, sizeof(req), MSG_NOSIGNAL) != (ssize_t)sizeof(req)) {
+			udp_destroy_flow(ctx, flow);
+			return;
+		}
 		return;
 	}
 
-	if (flow->state == UdpSocks5State::SOCKS5_ASSOCIATE) {
+	case UdpSocks5State::SOCKS5_ASSOCIATE: {
 		socks5_req req = {};
 		ssize_t n = recv(fd, &req, sizeof(req), MSG_PEEK | MSG_DONTWAIT);
 		if (n <= 0) {
+			if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return;
 			udp_destroy_flow(ctx, flow);
 			return;
 		}
@@ -202,8 +212,7 @@ void handle_host_udp_control(Context* ctx, int fd, uint32_t events) {
 			udp_destroy_flow(ctx, flow);
 			return;
 		}
-		struct sockaddr_in bind_addr = {};
-		bind_addr.sin_family = AF_INET;
+		struct sockaddr_in bind_addr = INIT_SOCKADDR_IN(AF_INET);
 		bind_addr.sin_addr.s_addr = INADDR_ANY;
 		bind_addr.sin_port = 0;
 		if (bind(udp_fd, (struct sockaddr*)&bind_addr, sizeof(bind_addr)) == -1) {
@@ -222,8 +231,7 @@ void handle_host_udp_control(Context* ctx, int fd, uint32_t events) {
 		flow->state = UdpSocks5State::ESTABLISHED;
 
 		for (const auto& pkt : flow->tx_queue) {
-			struct sockaddr_in dest_addr = {};
-			dest_addr.sin_family = AF_INET;
+			struct sockaddr_in dest_addr = INIT_SOCKADDR_IN(AF_INET);
 			dest_addr.sin_addr.s_addr = flow->bnd_ip;
 			dest_addr.sin_port = flow->bnd_port;
 
@@ -259,9 +267,15 @@ void handle_host_udp_control(Context* ctx, int fd, uint32_t events) {
 		return;
 	}
 
+	case UdpSocks5State::ESTABLISHED:
+		break;
+	}
+
 	if (events & (EPOLLERR | EPOLLHUP) || (events & EPOLLIN)) {
 		uint8_t buf[1];
-		if (recv(fd, buf, 1, MSG_PEEK | MSG_DONTWAIT) <= 0) {
+		ssize_t n = recv(fd, buf, 1, MSG_PEEK | MSG_DONTWAIT);
+		if (n <= 0) {
+			if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return;
 			udp_destroy_flow(ctx, flow);
 		}
 	}
@@ -291,6 +305,10 @@ void handle_udp4(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t
 		inet_ntop(AF_INET, &ip->daddr, rej_str, sizeof(rej_str));
 		LOG_D("UDP flow %u -> %s:%u rejected by policy", guest_port, rej_str, dest_port);
 		send_icmp4_error(ctx, ip, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH);
+		return;
+	} else if (rule.action == NSTUN_ACTION_ENCAP_CONNECT) {
+		LOG_W("HTTP CONNECT proxy not supported for UDP, dropping packet to port %u",
+		    dest_port);
 		return;
 	}
 
@@ -336,8 +354,7 @@ void handle_udp4(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t
 			    .data = {.fd = tcp_fd}};
 			if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, tcp_fd, &ev) == -1) return;
 
-			struct sockaddr_in dest_addr = {};
-			dest_addr.sin_family = AF_INET;
+			struct sockaddr_in dest_addr = INIT_SOCKADDR_IN(AF_INET);
 			dest_addr.sin_addr.s_addr = rule.redirect_ip4;
 			dest_addr.sin_port = htons(rule.redirect_port);
 			connect(tcp_fd, (struct sockaddr*)&dest_addr, sizeof(dest_addr));
@@ -360,8 +377,7 @@ void handle_udp4(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t
 				if (!fd_success) close(fd);
 			};
 
-			struct sockaddr_in bind_addr = {};
-			bind_addr.sin_family = AF_INET;
+			struct sockaddr_in bind_addr = INIT_SOCKADDR_IN(AF_INET);
 			bind_addr.sin_addr.s_addr = INADDR_ANY;
 			bind_addr.sin_port = 0; /* Let OS choose */
 			if (bind(fd, (struct sockaddr*)&bind_addr, sizeof(bind_addr)) == -1) {
@@ -399,8 +415,7 @@ void handle_udp4(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t
 		return;
 	}
 
-	struct sockaddr_in dest_addr = {};
-	dest_addr.sin_family = AF_INET;
+	struct sockaddr_in dest_addr = INIT_SOCKADDR_IN(AF_INET);
 
 	if (flow->use_socks5) {
 		dest_addr.sin_addr.s_addr = flow->bnd_ip;
@@ -755,6 +770,10 @@ void handle_udp6(Context* ctx, const ip6_hdr* ip, const uint8_t* payload, size_t
 		LOG_D("IPv6 UDP flow %u -> %u rejected by policy", guest_port, dest_port);
 		send_icmp6_error(ctx, ip, ICMP6_DST_UNREACH, ICMP6_DST_UNREACH_NOPORT);
 		return;
+	} else if (rule.action == NSTUN_ACTION_ENCAP_CONNECT) {
+		LOG_W("HTTP CONNECT proxy not supported for UDP, dropping packet to port %u",
+		    dest_port);
+		return;
 	}
 
 	UdpFlow* flow = nullptr;
@@ -798,8 +817,7 @@ void handle_udp6(Context* ctx, const ip6_hdr* ip, const uint8_t* payload, size_t
 			    .data = {.fd = tcp_fd}};
 			if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, tcp_fd, &ev) == -1) return;
 
-			struct sockaddr_in dest_addr = {};
-			dest_addr.sin_family = AF_INET;
+			struct sockaddr_in dest_addr = INIT_SOCKADDR_IN(AF_INET);
 			dest_addr.sin_addr.s_addr = rule.redirect_ip4;
 			dest_addr.sin_port = htons(rule.redirect_port);
 			connect(tcp_fd, (struct sockaddr*)&dest_addr, sizeof(dest_addr));
@@ -860,8 +878,7 @@ void handle_udp6(Context* ctx, const ip6_hdr* ip, const uint8_t* payload, size_t
 	struct sockaddr_in6 dest_addr = INIT_SOCKADDR_IN6(AF_INET6);
 
 	if (flow->use_socks5) {
-		struct sockaddr_in dest_addr4 = {};
-		dest_addr4.sin_family = AF_INET;
+		struct sockaddr_in dest_addr4 = INIT_SOCKADDR_IN(AF_INET);
 		dest_addr4.sin_addr.s_addr = flow->bnd_ip;
 		dest_addr4.sin_port = flow->bnd_port;
 

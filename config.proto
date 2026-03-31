@@ -376,6 +376,7 @@ message NsJailConfig {
 				ALLOW = 2;
 				REDIRECT = 3;
 				ENCAP_SOCKS5 = 4;
+				ENCAP_CONNECT = 5;
 			}
 			enum Protocol {
 				ANY = 0;

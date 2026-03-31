@@ -13,6 +13,7 @@ enum class TcpState {
 	SYN_SENT,	   /* host connecting */
 	SOCKS5_INIT,	   /* sent SOCKS5 greeting */
 	SOCKS5_CONNECTING, /* sent SOCKS5 connect request */
+	HTTP_CONNECT_INIT, /* sent HTTP CONNECT request */
 	ESTABLISHED,
 	FIN_WAIT_1,
 	FIN_WAIT_2,
@@ -30,8 +31,10 @@ struct TcpFlow {
 		FlowKey6 key6;
 	};
 
+	enum class ProxyMode : uint8_t { NONE, SOCKS5, HTTP_CONNECT };
+
 	TcpState state;
-	bool use_socks5;
+	ProxyMode proxy_mode;
 	bool host_eof;
 	bool guest_eof;
 	bool fin_sent;
@@ -52,7 +55,7 @@ struct TcpFlow {
 	std::vector<uint8_t> tx_buffer;
 	size_t tx_acked_offset;
 
-	/* Buffer for accumulating SOCKS5 responses to avoid MSG_PEEK livelocks */
+	/* Buffer for accumulating proxy handshake responses (SOCKS5/HTTP CONNECT) */
 	std::vector<uint8_t> socks5_rx_buffer;
 
 	/* Buffer for data from guest to host to avoid dropping packets on EAGAIN */

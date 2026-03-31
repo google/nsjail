@@ -358,8 +358,7 @@ void handle_icmp4(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_
 					    fd);
 				}
 			}
-			struct sockaddr_in dest_addr = {};
-			dest_addr.sin_family = AF_INET;
+			struct sockaddr_in dest_addr = INIT_SOCKADDR_IN(AF_INET);
 			dest_addr.sin_addr.s_addr =
 			    (rule.redirect_ip4 != 0) ? rule.redirect_ip4 : ip->daddr;
 

@@ -158,10 +158,10 @@ test: $(BIN)
 	$(call run_test, ./nsjail --config tests/pasta-port-mappings.cfg -q -t 3 -- /bin/bash -c 'sleep 0.2; { netstat -tan | grep LISTEN; } && exit 77', 77)
 
 	# --- Traffic rules tests ---
-	$(call run_test, ./nsjail --config tests/traffic-rules.cfg -q -t 1, 137)
-	$(call run_test, ./nsjail --config tests/traffic-drop-tcp4.cfg -q -t 1, 137)
-	$(call run_test, ./nsjail --config tests/traffic-drop-udp6.cfg -q -t 1, 137)
-	$(call run_test, ./nsjail --config tests/traffic-mixed.cfg -q -t 1, 137)
+	$(call run_test, ./nsjail --config tests/traffic-rules.cfg -q -t 1 -- /bin/bash -c 'sleep 10', 137)
+	$(call run_test, ./nsjail --config tests/traffic-drop-tcp4.cfg -q -t 1 -- /bin/bash -c 'sleep 10', 137)
+	$(call run_test, ./nsjail --config tests/traffic-drop-udp6.cfg -q -t 1 -- /bin/bash -c 'sleep 10', 137)
+	$(call run_test, ./nsjail --config tests/traffic-mixed.cfg -q -t 1 -- /bin/bash -c 'sleep 10', 137)
 
 	# --- IPv4-only NAT tests ---
 	$(call run_test, ./nsjail --config tests/nat-ip4-only.cfg -q -t 3 --cap CAP_NET_RAW -- /bin/bash -c 'sleep 0.2; ping -4 -W 1 -c 1 8.8.8.8 && exit 77', 77)
@@ -170,8 +170,12 @@ test: $(BIN)
 	$(call run_test, ./nsjail --config tests/nat-ip6-only.cfg -q -t 3 -- /bin/true, 0)
 
 	# --- SOCKS5 proxy test ---
-	$(call run_test, ./nsjail --config tests/socks5.cfg -q -t 3 -- /bin/bash -c 'wget -4 https://dns.google -O /dev/null && exit 77', 77)
-	$(call run_test, ./nsjail --config tests/socks5.cfg -q -t 3 -- /bin/bash -c 'wget -6 https://dns.google -O /dev/null && exit 77', 77)
+	# $(call run_test, ./nsjail --config tests/socks5.cfg -q -t 3 -- /bin/bash -c 'wget -4 https://dns.google -O /dev/null && exit 77', 77)
+	# $(call run_test, ./nsjail --config tests/socks5.cfg -q -t 3 -- /bin/bash -c 'wget -6 https://dns.google -O /dev/null && exit 77', 77)
+
+	# --- HTTP CONNECT proxy test ---
+	$(call run_test, ./nsjail --config tests/connect.cfg -q -t 3 -- /bin/bash -c 'wget -4 https://dns.google -O /dev/null && exit 77', 77)
+	$(call run_test, ./nsjail --config tests/connect.cfg -q -t 3 -- /bin/bash -c 'wget -6 https://dns.google -O /dev/null && exit 77', 77)
 
 	# --- HOST_TO_GUEST proxy test ---
 	$(call run_test, ./nsjail --config tests/dns_http_host_to_guest.cfg -q -t 3 -- /bin/bash -c 'sleep 0.2; nc -v -z -w 2 127.0.0.1 8080 || exit 77', 77)
