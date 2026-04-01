@@ -951,6 +951,30 @@ void handle_host_tcp(Context* ctx, TcpFlow* flow, uint32_t events) {
 			}
 		}
 	}
+
+	/* Handle EPOLLHUP/EPOLLERR: the host socket is dead.
+	 * If we didn't already process this via EPOLLIN above, clean up now
+	 * to avoid spinning forever on a hung-up fd */
+	if (events & (EPOLLHUP | EPOLLERR)) {
+		if (flow->host_eof && flow->guest_eof) {
+			/* Both sides are done, destroy the flow */
+			tcp_destroy_flow(ctx, flow);
+			return;
+		}
+		if (!flow->host_eof) {
+			/* Treat HUP as EOF from host */
+			flow->host_eof = true;
+			flow->epoll_in_disabled = true;
+			push_to_guest(ctx, flow);
+			if (ctx->flows_by_fd.find(fd) == ctx->flows_by_fd.end()) {
+				return;
+			}
+		}
+		if (flow->guest_eof) {
+			tcp_destroy_flow(ctx, flow);
+			return;
+		}
+	}
 }
 
 void handle_host_tcp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rule) {
