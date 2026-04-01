@@ -604,9 +604,6 @@ void handle_tcp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> paylo
 		flow->ack_from_guest = 0;
 		flow->seq_from_guest = seq + 1;
 		flow->ack_to_guest = seq + 1;
-		flow->guest_window = 0;
-		flow->guest_mss = 1460;
-		flow->guest_wscale = 0;
 		flow->tx_acked_offset = 0;
 		flow->rx_sent_offset = 0;
 		flow->epoll_out_registered = true;
@@ -615,8 +612,6 @@ void handle_tcp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> paylo
 		flow->last_active = time(NULL);
 
 		flow->ack_from_guest = flow->seq_to_guest;
-		parse_tcp_options(reinterpret_cast<const uint8_t*>(tcp) + sizeof(tcp_hdr),
-		    doff - sizeof(tcp_hdr), flow);
 
 		ctx->ipv4_tcp_flows_by_key[key4] = std::move(flow_ptr);
 		ctx->flows_by_fd[fd] = flow;
@@ -1222,9 +1217,7 @@ void handle_tcp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> paylo
 			flow->ack_from_guest = 0;
 			flow->seq_from_guest = seq + 1;
 			flow->ack_to_guest = seq + 1;
-			flow->guest_window = 0;
-			flow->guest_mss = 1460;
-			flow->guest_wscale = 0;
+
 			flow->tx_acked_offset = 0;
 			flow->rx_sent_offset = 0;
 			flow->epoll_out_registered = true;
@@ -1289,9 +1282,7 @@ void handle_tcp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> paylo
 		flow->ack_from_guest = 0;
 		flow->seq_from_guest = seq + 1;
 		flow->ack_to_guest = seq + 1;
-		flow->guest_window = 0;
-		flow->guest_mss = 1460;
-		flow->guest_wscale = 0;
+
 		flow->tx_acked_offset = 0;
 		flow->rx_sent_offset = 0;
 		flow->epoll_out_registered = true;

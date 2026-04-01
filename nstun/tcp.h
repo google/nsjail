@@ -43,9 +43,7 @@ struct TcpFlow : public Flow {
 	uint32_t seq_from_guest = 0;
 	uint32_t ack_to_guest = 0;
 
-	uint16_t guest_window = 0;
-	uint16_t guest_mss = 1460;
-	uint8_t guest_wscale = 0;
+
 
 	/* Buffer for data from host to guest (not yet ACKed) */
 	/* In a real TCP stack, this would handle retransmissions. */

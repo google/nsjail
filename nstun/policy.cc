@@ -1,12 +1,12 @@
 #include "policy.h"
 
-#include <netinet/tcp.h>
+
 #include <string.h>
 
 #include "core.h"
 #include "logs.h"
 #include "nstun.h"
-#include "tcp.h"
+
 
 /* Pull in the protobuf types for NstunRule enums */
 #include "config.pb.h"
@@ -139,37 +139,7 @@ RuleParseStatus fill_rule_common(const RuleMsg& r, nstun_rule_t* nr) {
 template RuleParseStatus fill_rule_common<nsjail::NsJailConfig_UserNet_NstunRule>(
     const nsjail::NsJailConfig_UserNet_NstunRule& r, nstun_rule_t* nr);
 
-void parse_tcp_options(const uint8_t* opts, size_t opts_len, TcpFlow* flow) {
-	size_t i = 0;
-	while (i < opts_len) {
-		uint8_t kind = opts[i];
-		if (kind == TCPOPT_EOL) break;
-		if (kind == TCPOPT_NOP) {
-			i++;
-			continue;
-		}
 
-		if (i + 1 >= opts_len) break;
-		uint8_t len = opts[i + 1];
-		if (len < 2 || i + len > opts_len) break;
 
-		switch (kind) {
-		case TCPOPT_MAXSEG:
-			if (len == TCPOLEN_MAXSEG && flow) {
-				uint16_t mss;
-				memcpy(&mss, &opts[i + 2], sizeof(mss));
-				flow->guest_mss = ntohs(mss);
-			}
-			break;
-		case TCPOPT_WINDOW:
-			if (len == TCPOLEN_WINDOW && flow) {
-				flow->guest_wscale = opts[i + 2];
-				if (flow->guest_wscale > 14) flow->guest_wscale = 14;
-			}
-			break;
-		}
-		i += len;
-	}
-}
 
 } /* namespace nstun */

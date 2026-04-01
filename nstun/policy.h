@@ -21,7 +21,8 @@ RuleResult evaluate_rules6(Context* ctx, nstun_direction_t dir, nstun_proto_t pr
 template <typename RuleMsg>
 RuleParseStatus fill_rule_common(const RuleMsg& r, nstun_rule_t* nr);
 
-void parse_tcp_options(const uint8_t* opts, size_t opts_len, struct TcpFlow* flow);
+
+
 
 } /* namespace nstun */
 
