@@ -23,11 +23,11 @@ namespace nstun {
 void udp_destroy_flow(Context* ctx, UdpFlow* flow) {
 	if (flow->host_fd != -1 && !flow->host_fd_is_listener) {
 		epoll_ctl(ctx->epoll_fd, EPOLL_CTL_DEL, flow->host_fd, nullptr);
-		ctx->udp_flows_by_host_fd.erase(flow->host_fd);
+		ctx->flows_by_fd.erase(flow->host_fd);
 	}
 	if (flow->tcp_fd != -1) {
 		epoll_ctl(ctx->epoll_fd, EPOLL_CTL_DEL, flow->tcp_fd, nullptr);
-		ctx->udp_flows_by_tcp_fd.erase(flow->tcp_fd);
+		ctx->flows_by_fd.erase(flow->tcp_fd);
 	}
 	/* Erase from owning map last — unique_ptr runs ~UdpFlow() which closes fds */
 	if (flow->is_ipv6) {
@@ -92,12 +92,54 @@ static void udp_send_packet4(Context* ctx, uint32_t saddr, uint32_t daddr, uint1
 static void udp_send_packet6(Context* ctx, const uint8_t* saddr, const uint8_t* daddr,
     uint16_t sport, uint16_t dport, const uint8_t* data, size_t len);
 
-void handle_host_udp_control(Context* ctx, int fd, uint32_t events) {
-	auto it = ctx->udp_flows_by_tcp_fd.find(fd);
-	if (it == ctx->udp_flows_by_tcp_fd.end()) {
-		return;
+static void udp_push_to_guest(Context* ctx, UdpFlow* flow, const uint8_t* data, size_t data_len,
+    const struct sockaddr_storage* src_addr_storage) {
+	if (flow->is_ipv6) {
+		uint8_t saddr6[16];
+		uint8_t daddr6[16];
+		uint16_t sport, dport;
+
+		memcpy(daddr6, flow->key6.saddr6, sizeof(daddr6));
+		dport = flow->key6.sport;
+
+		if (flow->is_redirected || flow->use_socks5) {
+			memcpy(saddr6, flow->orig_dest_ip6, sizeof(saddr6));
+			sport = htons(flow->orig_dest_port);
+		} else if (src_addr_storage) {
+			const struct sockaddr_in6* src6 =
+			    reinterpret_cast<const struct sockaddr_in6*>(src_addr_storage);
+			memcpy(saddr6, &src6->sin6_addr, sizeof(saddr6));
+			sport = src6->sin6_port;
+		} else {
+			return;
+		}
+
+		udp_send_packet6(ctx, saddr6, daddr6, sport, dport, data, data_len);
+	} else {
+		uint32_t saddr, daddr;
+		uint16_t sport, dport;
+
+		daddr = flow->key4.saddr4;
+		dport = flow->key4.sport;
+
+		if (flow->is_redirected || flow->use_socks5) {
+			saddr = flow->orig_dest_ip4;
+			sport = htons(flow->orig_dest_port);
+		} else if (src_addr_storage) {
+			const struct sockaddr_in* src_addr =
+			    reinterpret_cast<const struct sockaddr_in*>(src_addr_storage);
+			saddr = src_addr->sin_addr.s_addr;
+			sport = src_addr->sin_port;
+		} else {
+			return;
+		}
+
+		udp_send_packet4(ctx, saddr, daddr, sport, dport, data, data_len);
 	}
-	UdpFlow* flow = it->second;
+}
+
+void handle_host_udp_control(Context* ctx, UdpFlow* flow, uint32_t events) {
+	int fd = flow->tcp_fd;
 	flow->last_active = time(NULL);
 
 	switch (flow->state) {
@@ -117,10 +159,12 @@ void handle_host_udp_control(Context* ctx, int fd, uint32_t events) {
 		    .events = EPOLLIN | EPOLLERR | EPOLLHUP, .data = {.fd = fd}};
 		epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, fd, &ev);
 
-		flow->state = UdpSocks5State::SOCKS5_GREETING;
-		if (nstun::send_socks5_greeting(fd) < 0) {
-			udp_destroy_flow(ctx, flow);
-			return;
+		if (flow->use_socks5) {
+			flow->state = UdpSocks5State::SOCKS5_GREETING;
+			if (nstun::send_socks5_greeting(fd) < 0) {
+				udp_destroy_flow(ctx, flow);
+				return;
+			}
 		}
 		return;
 	}
@@ -221,7 +265,7 @@ void handle_host_udp_control(Context* ctx, int fd, uint32_t events) {
 			return;
 		}
 		flow->host_fd = udp_fd;
-		ctx->udp_flows_by_host_fd[udp_fd] = flow;
+		ctx->flows_by_fd[udp_fd] = flow;
 		flow->state = UdpSocks5State::ESTABLISHED;
 
 		for (const auto& pkt : flow->tx_queue) {
@@ -262,16 +306,17 @@ void handle_host_udp_control(Context* ctx, int fd, uint32_t events) {
 	}
 
 	case UdpSocks5State::ESTABLISHED:
-		break;
-	}
-
-	if (events & (EPOLLERR | EPOLLHUP) || (events & EPOLLIN)) {
-		uint8_t buf[1];
-		ssize_t n = recv(fd, buf, 1, MSG_PEEK | MSG_DONTWAIT);
-		if (n <= 0) {
-			if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return;
-			udp_destroy_flow(ctx, flow);
+		/* Detect SOCKS5 TCP control channel death */
+		if (events & (EPOLLERR | EPOLLHUP | EPOLLIN)) {
+			uint8_t buf[1];
+			ssize_t n = recv(fd, buf, 1, MSG_PEEK | MSG_DONTWAIT);
+			if (n <= 0) {
+				if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return;
+				LOG_D("SOCKS5 TCP control channel died, destroying UDP flow");
+				udp_destroy_flow(ctx, flow);
+			}
 		}
+		break;
 	}
 }
 
@@ -367,9 +412,10 @@ void handle_udp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> paylo
 			flow->tcp_fd = tcp_fd;
 			flow->state = UdpSocks5State::TCP_CONNECTING;
 			ctx->ipv4_udp_flows_by_key[key4] = std::move(flow_ptr);
-			ctx->udp_flows_by_tcp_fd[tcp_fd] = flow;
-			LOG_D("Created UDP SOCKS5 flow for guest port %u -> tcp fd %d%s",
-			    guest_port, tcp_fd, flow->is_redirected ? " [redirected]" : "");
+			ctx->flows_by_fd[tcp_fd] = flow;
+			LOG_D("Created UDP Proxy flow (socks5=%d) for guest port %u -> tcp fd %d%s",
+			    flow->use_socks5 ? 1 : 0, guest_port, tcp_fd,
+			    flow->is_redirected ? " [redirected]" : "");
 		} else {
 			int fd = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
 			if (fd == -1) {
@@ -399,7 +445,7 @@ void handle_udp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> paylo
 			flow->host_fd = fd;
 			flow->state = UdpSocks5State::ESTABLISHED;
 			ctx->ipv4_udp_flows_by_key[key4] = std::move(flow_ptr);
-			ctx->udp_flows_by_host_fd[fd] = flow;
+			ctx->flows_by_fd[fd] = flow;
 			LOG_D("Created UDP flow for guest port %u -> fd %d%s", guest_port, fd,
 			    flow->is_redirected ? " [redirected]" : "");
 		}
@@ -413,7 +459,7 @@ void handle_udp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> paylo
 		/* Cap queued packet size to prevent memory exhaustion:
 		 * 1024 flows * 50 packets * 1500 bytes = ~75MB worst case */
 		if (data_len > 1500) {
-			LOG_D("UDP SOCKS5 queue dropping oversized packet (%zu bytes)", data_len);
+			LOG_D("UDP proxy queue dropping oversized packet (%zu bytes)", data_len);
 			return;
 		}
 		std::vector<uint8_t> pkt(data, data + data_len);
@@ -447,16 +493,7 @@ void handle_udp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> paylo
 			dest_addr.sin_addr.s_addr = rule.redirect_ip4;
 			dest_addr.sin_port = htons(rule.redirect_port);
 		} else {
-			uint32_t real_dest_ip = ip->daddr;
-			if (real_dest_ip == ctx->host_ip4) {
-				real_dest_ip = htonl(INADDR_LOOPBACK);
-			} else if (IN_LOOPBACK(ntohl(real_dest_ip))) {
-				LOG_W("UDP SSRF blocked: Guest forged loopback destination");
-				send_icmp4_error(ctx, ip, ntohs(ip->tot_len), ICMP_DEST_UNREACH,
-				    ICMP_PORT_UNREACH);
-				return;
-			}
-			dest_addr.sin_addr.s_addr = real_dest_ip;
+			dest_addr.sin_addr.s_addr = ip->daddr;
 			dest_addr.sin_port = htons(dest_port);
 		}
 		sendto(flow->host_fd, data, data_len, MSG_NOSIGNAL, (struct sockaddr*)&dest_addr,
@@ -464,12 +501,8 @@ void handle_udp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> paylo
 	}
 }
 
-void handle_host_udp(Context* ctx, int fd) {
-	auto it = ctx->udp_flows_by_host_fd.find(fd);
-	if (it == ctx->udp_flows_by_host_fd.end()) {
-		return; /* Should not happen */
-	}
-	UdpFlow* flow = it->second;
+void handle_host_udp(Context* ctx, UdpFlow* flow) {
+	int fd = flow->host_fd;
 	flow->last_active = time(NULL);
 
 	constexpr int VLEN = 64;
@@ -529,44 +562,7 @@ void handle_host_udp(Context* ctx, int fd) {
 			data_len -= header_len;
 		}
 
-		if (flow->is_ipv6) {
-			uint8_t saddr6[16];
-			uint8_t daddr6[16];
-			uint16_t sport, dport;
-
-			memcpy(daddr6, flow->key6.saddr6, sizeof(daddr6));
-			dport = flow->key6.sport;
-
-			if (flow->is_redirected || flow->use_socks5) {
-				memcpy(saddr6, flow->orig_dest_ip6, sizeof(saddr6));
-				sport = htons(flow->orig_dest_port);
-			} else {
-				struct sockaddr_in6* src6 =
-				    reinterpret_cast<struct sockaddr_in6*>(src_addr_storage);
-				memcpy(saddr6, &src6->sin6_addr, sizeof(saddr6));
-				sport = src6->sin6_port;
-			}
-
-			udp_send_packet6(ctx, saddr6, daddr6, sport, dport, data_ptr, data_len);
-		} else {
-			struct sockaddr_in* src_addr =
-			    reinterpret_cast<struct sockaddr_in*>(src_addr_storage);
-			uint32_t saddr, daddr;
-			uint16_t sport, dport;
-
-			daddr = flow->key4.saddr4;
-			dport = flow->key4.sport;
-
-			if (flow->is_redirected || flow->use_socks5) {
-				saddr = flow->orig_dest_ip4;
-				sport = htons(flow->orig_dest_port);
-			} else {
-				saddr = src_addr->sin_addr.s_addr;
-				sport = src_addr->sin_port;
-			}
-
-			udp_send_packet4(ctx, saddr, daddr, sport, dport, data_ptr, data_len);
-		}
+		udp_push_to_guest(ctx, flow, data_ptr, data_len, src_addr_storage);
 	}
 }
 
@@ -848,9 +844,11 @@ void handle_udp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> paylo
 			flow->tcp_fd = tcp_fd;
 			flow->state = UdpSocks5State::TCP_CONNECTING;
 			ctx->ipv6_udp_flows_by_key[key6] = std::move(flow_ptr);
-			ctx->udp_flows_by_tcp_fd[tcp_fd] = flow;
-			LOG_D("Created IPv6 UDP SOCKS5 flow for guest port %u -> tcp fd %d%s",
-			    guest_port, tcp_fd, flow->is_redirected ? " [redirected]" : "");
+			ctx->flows_by_fd[tcp_fd] = flow;
+			LOG_D("Created IPv6 UDP Proxy flow (socks5=%d) for guest port %u -> tcp fd "
+			      "%d%s",
+			    flow->use_socks5 ? 1 : 0, guest_port, tcp_fd,
+			    flow->is_redirected ? " [redirected]" : "");
 		} else {
 			int fd = socket(AF_INET6, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
 			if (fd == -1) {
@@ -878,7 +876,7 @@ void handle_udp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> paylo
 			flow->host_fd = fd;
 			flow->state = UdpSocks5State::ESTABLISHED;
 			ctx->ipv6_udp_flows_by_key[key6] = std::move(flow_ptr);
-			ctx->udp_flows_by_host_fd[fd] = flow;
+			ctx->flows_by_fd[fd] = flow;
 			LOG_D("Created IPv6 UDP flow for guest port %u -> fd %d%s", guest_port, fd,
 			    flow->is_redirected ? " [redirected]" : "");
 		}
@@ -891,8 +889,8 @@ void handle_udp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> paylo
 	if (flow->use_socks5 && flow->state != UdpSocks5State::ESTABLISHED) {
 		/* Cap queued packet size to prevent memory exhaustion */
 		if (data_len > 1500) {
-			LOG_D("IPv6 UDP SOCKS5 queue dropping oversized packet (%zu bytes)",
-			    data_len);
+			LOG_D(
+			    "IPv6 UDP proxy queue dropping oversized packet (%zu bytes)", data_len);
 			return;
 		}
 		std::vector<uint8_t> pkt(data, data + data_len);
@@ -927,26 +925,42 @@ void handle_udp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> paylo
 			    &dest_addr.sin6_addr, rule.redirect_ip6, sizeof(dest_addr.sin6_addr));
 			dest_addr.sin6_port = htons(rule.redirect_port);
 		} else {
-			/* Gateway→loopback rewrite: traffic to host_ip6 goes to ::1 */
-			if (memcmp(ip->daddr, ctx->host_ip6, 16) == 0) {
-				struct in6_addr lo6 = IN6ADDR_LOOPBACK_INIT;
-				memcpy(&dest_addr.sin6_addr, &lo6, sizeof(dest_addr.sin6_addr));
-			} else if (IN6_IS_ADDR_LOOPBACK((const struct in6_addr*)ip->daddr) ||
-				   IN6_IS_ADDR_V4MAPPED((const struct in6_addr*)ip->daddr)) {
-				LOG_W("IPv6 UDP SSRF blocked: Guest forged loopback/v4mapped "
-				      "destination");
-				send_icmp6_error(ctx, ip, sizeof(ip6_hdr) + payload.size(),
-				    ICMP6_DST_UNREACH, ICMP6_DST_UNREACH_NOPORT);
-				return;
-			} else {
-				memcpy(
-				    &dest_addr.sin6_addr, ip->daddr, sizeof(dest_addr.sin6_addr));
-			}
+			memcpy(&dest_addr.sin6_addr, ip->daddr, sizeof(dest_addr.sin6_addr));
 			dest_addr.sin6_port = htons(dest_port);
 		}
 		sendto(flow->host_fd, data, data_len, MSG_NOSIGNAL, (struct sockaddr*)&dest_addr,
 		    sizeof(dest_addr));
 	}
+}
+
+void UdpFlow::handle_host_event(Context* ctx, int fd, uint32_t events) {
+	if (fd == this->host_fd) {
+		handle_host_udp(ctx, this);
+	} else if (fd == this->tcp_fd) {
+		handle_host_udp_control(ctx, this, events);
+	} else {
+		LOG_E("UdpFlow::handle_host_event: unknown fd=%d (host_fd=%d, tcp_fd=%d)", fd,
+		    this->host_fd, this->tcp_fd);
+	}
+}
+
+bool UdpFlow::is_stale(time_t now) const {
+	time_t timeout = 60;
+	if (this->use_socks5 && this->state != UdpSocks5State::ESTABLISHED) {
+		timeout = 5;
+	}
+	return (now - this->last_active) > timeout;
+}
+
+void UdpFlow::destroy(Context* ctx) {
+	if (is_ipv6) {
+		LOG_D("GC: stale UDP flow (IPv6, sport=%u, socks5=%d)", ntohs(key6.sport),
+		    use_socks5 ? 1 : 0);
+	} else {
+		LOG_D("GC: stale UDP flow (sport=%u, socks5=%d)", ntohs(key4.sport),
+		    use_socks5 ? 1 : 0);
+	}
+	udp_destroy_flow(ctx, this);
 }
 
 } /* namespace nstun */

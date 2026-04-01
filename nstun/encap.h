@@ -98,6 +98,7 @@ bool parse_socks5_connect_reply(std::span<const uint8_t> data, Socks5Reply* out)
 
 /* HTTP CONNECT helpers */
 int send_http_connect(int fd, const uint8_t* addr, uint16_t port_nbo, bool is_ipv6);
+size_t find_end_of_headers(const std::vector<uint8_t>& buf);
 bool parse_http_connect_reply(const std::vector<uint8_t>& buf);
 
 } /* namespace nstun */

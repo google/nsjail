@@ -115,6 +115,16 @@ int send_http_connect(int fd, const uint8_t* addr, uint16_t port_nbo, bool is_ip
 	return 0;
 }
 
+size_t find_end_of_headers(const std::vector<uint8_t>& buf) {
+	for (size_t i = 0; i + 3 < buf.size(); ++i) {
+		if (buf[i] == '\r' && buf[i + 1] == '\n' && buf[i + 2] == '\r' &&
+		    buf[i + 3] == '\n') {
+			return i + 4;
+		}
+	}
+	return 0;
+}
+
 bool parse_http_connect_reply(const std::vector<uint8_t>& buf) {
 	if (buf.size() < 12) return false; /* "HTTP/1.x 200" */
 	/* Check for "HTTP/1." prefix and 2xx status code */

@@ -50,6 +50,10 @@ void handle_ip4(Context* ctx, std::span<const uint8_t> payload) {
 		return;
 	}
 
+	/* SSRF gate: reject packets to loopback, broadcast, or INADDR_ANY.
+	 * This is the single authoritative check — L4 handlers rely on this
+	 * and do NOT duplicate it. Redirect rules in policy may still target
+	 * loopback intentionally (admin-controlled). */
 	if (IN_LOOPBACK(ntohl(ip->daddr)) || ip->daddr == htonl(INADDR_ANY) ||
 	    ip->daddr == htonl(INADDR_BROADCAST)) {
 		LOG_W("Dropping packet destined to loopback, ANY, or broadcast: %s",
@@ -120,13 +124,22 @@ void handle_ip6(Context* ctx, std::span<const uint8_t> payload) {
 		}
 	}
 
-	/* Drop packets destined to loopback, v4mapped, link-local, or site-local (SSRF protection)
-	 */
-	if (IN6_IS_ADDR_LOOPBACK((const struct in6_addr*)ip6->daddr) ||
-	    IN6_IS_ADDR_V4MAPPED((const struct in6_addr*)ip6->daddr) ||
-	    IN6_IS_ADDR_LINKLOCAL((const struct in6_addr*)ip6->daddr) ||
+	/* SSRF gate: reject packets to loopback, v4-mapped, link-local, or site-local.
+	 * This is the single authoritative check — L4 handlers rely on this
+	 * and do NOT duplicate it. Redirect rules in policy may still target
+	 * ::1 intentionally (admin-controlled). */
+	if (IN6_IS_ADDR_LOOPBACK((const struct in6_addr*)ip6->daddr)) {
+		LOG_D("Dropping IPv6 packet to loopback: %s", ip6_to_string(ip6->daddr).c_str());
+		return;
+	}
+	if (IN6_IS_ADDR_V4MAPPED((const struct in6_addr*)ip6->daddr)) {
+		LOG_D("Dropping IPv6 packet to v4-mapped address (use IPv4 directly): %s",
+		    ip6_to_string(ip6->daddr).c_str());
+		return;
+	}
+	if (IN6_IS_ADDR_LINKLOCAL((const struct in6_addr*)ip6->daddr) ||
 	    IN6_IS_ADDR_SITELOCAL((const struct in6_addr*)ip6->daddr)) {
-		LOG_W("Dropping IPv6 packet destined to local address: %s",
+		LOG_D("Dropping IPv6 packet to link/site-local address: %s",
 		    ip6_to_string(ip6->daddr).c_str());
 		return;
 	}

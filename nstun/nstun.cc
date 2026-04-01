@@ -44,121 +44,26 @@ Context::~Context() {
 static void garbage_collect(Context* ctx) {
 	time_t now = time(NULL);
 
-	/* Collect TCP flows */
-	std::vector<TcpFlow*> stale_tcp;
-	for (auto const& [key, flow] : ctx->ipv4_tcp_flows_by_key) {
-		time_t timeout = 3600; /* default 1 hour for established */
-		if (flow->state == TcpState::SYN_SENT || flow->state == TcpState::SOCKS5_INIT ||
-		    flow->state == TcpState::SOCKS5_CONNECTING ||
-		    flow->state == TcpState::HTTP_CONNECT_INIT) {
-			timeout = 5;
-		} else if (flow->state == TcpState::CLOSE_WAIT ||
-			   flow->state == TcpState::FIN_WAIT_1 ||
-			   flow->state == TcpState::FIN_WAIT_2 ||
-			   flow->state == TcpState::CLOSING || flow->state == TcpState::TIME_WAIT) {
-			timeout = 10;
+	auto do_gc = [&](auto& map) {
+		std::vector<Flow*> stale_flows;
+		for (auto const& pair : map) {
+			Flow* flow = pair.second.get();
+			flow->periodic_check(ctx, now);
+			if (flow->is_stale(now)) {
+				stale_flows.push_back(flow);
+			}
 		}
-		if (now - flow->last_active > timeout) {
-			stale_tcp.push_back(flow.get());
-			continue;
+		for (Flow* flow : stale_flows) {
+			flow->destroy(ctx);
 		}
-		if (flow->seq_to_guest > flow->ack_from_guest && (now - flow->last_active >= 2)) {
-			LOG_D("TCP RTO triggered for flow %u", ntohs(flow->key4.sport));
-			flow->seq_to_guest = flow->ack_from_guest;
-			push_to_guest(ctx, flow.get());
-			flow->last_active = now;
-		}
-	}
-	for (TcpFlow* flow : stale_tcp) {
-		LOG_D("Garbage collecting stale TCP flow %u", ntohs(flow->key4.sport));
-		tcp_destroy_flow(ctx, flow);
-	}
+	};
 
-	/* Collect UDP flows */
-	std::vector<UdpFlow*> stale_udp;
-	for (auto const& [key, flow] : ctx->ipv4_udp_flows_by_key) {
-		time_t timeout = 60;
-		if (flow->use_socks5 && flow->state != UdpSocks5State::ESTABLISHED) {
-			timeout = 5;
-		}
-		if (now - flow->last_active > timeout) {
-			stale_udp.push_back(flow.get());
-		}
-	}
-	for (UdpFlow* flow : stale_udp) {
-		LOG_D("Garbage collecting stale UDP flow %u", ntohs(flow->key4.sport));
-		udp_destroy_flow(ctx, flow);
-	}
-
-	/* Collect ICMP flows */
-	std::vector<IcmpFlow*> stale_icmp;
-	for (auto const& [key, flow] : ctx->ipv4_icmp_flows_by_key) {
-		if (now - flow->last_active > 10) {
-			stale_icmp.push_back(flow.get());
-		}
-	}
-	for (IcmpFlow* flow : stale_icmp) {
-		LOG_D("Garbage collecting stale ICMP flow");
-		icmp_destroy_flow(ctx, flow);
-	}
-
-	/* Collect IPv6 TCP flows */
-	std::vector<TcpFlow*> stale_tcp6;
-	for (auto const& [key, flow] : ctx->ipv6_tcp_flows_by_key) {
-		time_t timeout = 3600;
-		if (flow->state == TcpState::SYN_SENT || flow->state == TcpState::SOCKS5_INIT ||
-		    flow->state == TcpState::SOCKS5_CONNECTING ||
-		    flow->state == TcpState::HTTP_CONNECT_INIT) {
-			timeout = 5;
-		} else if (flow->state == TcpState::CLOSE_WAIT ||
-			   flow->state == TcpState::FIN_WAIT_1 ||
-			   flow->state == TcpState::FIN_WAIT_2 ||
-			   flow->state == TcpState::CLOSING || flow->state == TcpState::TIME_WAIT) {
-			timeout = 10;
-		}
-		if (now - flow->last_active > timeout) {
-			stale_tcp6.push_back(flow.get());
-			continue;
-		}
-		if (flow->seq_to_guest > flow->ack_from_guest && (now - flow->last_active >= 2)) {
-			LOG_D("IPv6 TCP RTO triggered for flow %u", ntohs(flow->key6.sport));
-			flow->seq_to_guest = flow->ack_from_guest;
-			push_to_guest(ctx, flow.get());
-			flow->last_active = now;
-		}
-	}
-	for (TcpFlow* flow : stale_tcp6) {
-		LOG_D("Garbage collecting stale IPv6 TCP flow");
-		tcp_destroy_flow(ctx, flow);
-	}
-
-	/* Collect IPv6 UDP flows */
-	std::vector<UdpFlow*> stale_udp6;
-	for (auto const& [key, flow] : ctx->ipv6_udp_flows_by_key) {
-		time_t timeout = 60;
-		if (flow->use_socks5 && flow->state != UdpSocks5State::ESTABLISHED) {
-			timeout = 5;
-		}
-		if (now - flow->last_active > timeout) {
-			stale_udp6.push_back(flow.get());
-		}
-	}
-	for (UdpFlow* flow : stale_udp6) {
-		LOG_D("Garbage collecting stale IPv6 UDP flow");
-		udp_destroy_flow(ctx, flow);
-	}
-
-	/* Collect IPv6 ICMP flows */
-	std::vector<IcmpFlow*> stale_icmp6;
-	for (auto const& [key, flow] : ctx->ipv6_icmp_flows_by_key) {
-		if (now - flow->last_active > 10) {
-			stale_icmp6.push_back(flow.get());
-		}
-	}
-	for (IcmpFlow* flow : stale_icmp6) {
-		LOG_D("Garbage collecting stale IPv6 ICMP flow");
-		icmp_destroy_flow(ctx, flow);
-	}
+	do_gc(ctx->ipv4_tcp_flows_by_key);
+	do_gc(ctx->ipv4_udp_flows_by_key);
+	do_gc(ctx->ipv4_icmp_flows_by_key);
+	do_gc(ctx->ipv6_tcp_flows_by_key);
+	do_gc(ctx->ipv6_udp_flows_by_key);
+	do_gc(ctx->ipv6_icmp_flows_by_key);
 }
 
 static void handle_host_events(Context* ctx, int fd, uint32_t events) {
@@ -171,22 +76,13 @@ static void handle_host_events(Context* ctx, int fd, uint32_t events) {
 		}
 		return;
 	}
-	if (ctx->udp_flows_by_host_fd.find(fd) != ctx->udp_flows_by_host_fd.end()) {
-		handle_host_udp(ctx, fd);
+
+	auto it = ctx->flows_by_fd.find(fd);
+	if (it != ctx->flows_by_fd.end()) {
+		it->second->handle_host_event(ctx, fd, events);
 		return;
 	}
-	if (ctx->udp_flows_by_tcp_fd.find(fd) != ctx->udp_flows_by_tcp_fd.end()) {
-		handle_host_udp_control(ctx, fd, events);
-		return;
-	}
-	if (ctx->tcp_flows_by_host_fd.find(fd) != ctx->tcp_flows_by_host_fd.end()) {
-		handle_host_tcp(ctx, fd, events);
-		return;
-	}
-	if (ctx->icmp_flows_by_host_fd.find(fd) != ctx->icmp_flows_by_host_fd.end()) {
-		handle_host_icmp(ctx, fd);
-		return;
-	}
+
 	/* Stale event: fd was already destroyed while processing an earlier event
 	 * in the same epoll_wait batch. Just skip it silently. */
 	LOG_D("Stale epoll event for fd %d (already closed), skipping", fd);

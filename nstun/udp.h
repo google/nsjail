@@ -12,8 +12,8 @@ namespace nstun {
 
 void handle_udp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> payload);
 void handle_udp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> payload);
-void handle_host_udp(Context* ctx, int fd);
-void handle_host_udp_control(Context* ctx, int fd, uint32_t events);
+void handle_host_udp(Context* ctx, UdpFlow* flow);
+void handle_host_udp_control(Context* ctx, UdpFlow* flow, uint32_t events);
 void handle_host_udp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rule);
 void udp_destroy_flow(Context* ctx, UdpFlow* flow);
 

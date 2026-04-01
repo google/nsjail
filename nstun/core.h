@@ -27,7 +27,7 @@ struct __attribute__((packed)) FlowKey4 {
 	uint16_t sport;
 	uint16_t dport;
 
-	auto operator<=>(const FlowKey4&) const = default;
+	auto operator<=> (const FlowKey4&) const = default;
 };
 
 struct __attribute__((packed)) FlowKey6 {
@@ -36,7 +36,7 @@ struct __attribute__((packed)) FlowKey6 {
 	uint16_t sport;
 	uint16_t dport;
 
-	auto operator<=>(const FlowKey6&) const = default;
+	auto operator<=> (const FlowKey6&) const = default;
 };
 
 struct __attribute__((packed)) IcmpFlowKey4 {
@@ -44,7 +44,7 @@ struct __attribute__((packed)) IcmpFlowKey4 {
 	uint32_t daddr4;
 	uint16_t id;
 
-	auto operator<=>(const IcmpFlowKey4&) const = default;
+	auto operator<=> (const IcmpFlowKey4&) const = default;
 };
 
 struct __attribute__((packed)) IcmpFlowKey6 {
@@ -52,8 +52,24 @@ struct __attribute__((packed)) IcmpFlowKey6 {
 	uint8_t daddr6[16];
 	uint16_t id;
 
-	auto operator<=>(const IcmpFlowKey6&) const = default;
+	auto operator<=> (const IcmpFlowKey6&) const = default;
 };
+
+struct Context;
+
+class Flow {
+public:
+	time_t last_active = 0;
+	bool is_ipv6 = false;
+
+	virtual ~Flow() = default;
+	virtual void handle_host_event(Context* ctx, int fd, uint32_t events) = 0;
+	virtual void periodic_check(Context* ctx, time_t now) {}
+	virtual bool is_stale(time_t now) const = 0;
+	virtual void destroy(Context* ctx) = 0;
+};
+
+enum class ProxyMode : uint8_t { NONE, SOCKS5, HTTP_CONNECT };
 
 enum class UdpSocks5State {
 	ESTABLISHED,	  /* Direct or SOCKS5 ready */
@@ -62,15 +78,13 @@ enum class UdpSocks5State {
 	TCP_CONNECTING,	  /* TCP connect() to SOCKS5 proxy in progress */
 };
 
-struct UdpFlow {
+struct UdpFlow : public Flow {
 	int host_fd = -1;
 	int tcp_fd = -1; /* For SOCKS5 UDP associate */
-	bool is_ipv6 = false;
 	union {
 		FlowKey4 key4;
 		FlowKey6 key6;
 	};
-	time_t last_active = 0;
 	bool is_redirected = false;
 	union {
 		uint32_t orig_dest_ip4;
@@ -86,31 +100,37 @@ struct UdpFlow {
 	bool host_fd_is_listener = false;
 	std::deque<std::vector<uint8_t>> tx_queue;
 
-	~UdpFlow() {
+	~UdpFlow() override {
 		if (host_fd != -1 && !host_fd_is_listener) ::close(host_fd);
 		if (tcp_fd != -1) ::close(tcp_fd);
 	}
+
+	void handle_host_event(Context* ctx, int fd, uint32_t events) override;
+	bool is_stale(time_t now) const override;
+	void destroy(Context* ctx) override;
 };
 
 struct TcpFlow;
 
-struct IcmpFlow {
+struct IcmpFlow : public Flow {
 	int host_fd = -1;
-	bool is_ipv6 = false;
 	union {
 		IcmpFlowKey4 key4;
 		IcmpFlowKey6 key6;
 	};
-	time_t last_active = 0;
 	bool is_redirected = false;
 	union {
 		uint32_t orig_dest_ip4;
 		uint8_t orig_dest_ip6[16];
 	};
 
-	~IcmpFlow() {
+	~IcmpFlow() override {
 		if (host_fd != -1) ::close(host_fd);
 	}
+
+	void handle_host_event(Context* ctx, int fd, uint32_t events) override;
+	bool is_stale(time_t now) const override;
+	void destroy(Context* ctx) override;
 };
 
 struct Context {
@@ -128,14 +148,11 @@ struct Context {
 
 	std::vector<nstun_rule_t> rules;
 	std::map<FlowKey4, std::unique_ptr<UdpFlow>> ipv4_udp_flows_by_key;
-	std::map<int, UdpFlow*> udp_flows_by_host_fd; // Observer pointer
-	std::map<int, UdpFlow*> udp_flows_by_tcp_fd; // Observer pointer
-
 	std::map<FlowKey4, std::unique_ptr<TcpFlow>> ipv4_tcp_flows_by_key;
-	std::map<int, TcpFlow*> tcp_flows_by_host_fd; // Observer pointer
-
 	std::map<IcmpFlowKey4, std::unique_ptr<IcmpFlow>> ipv4_icmp_flows_by_key;
-	std::map<int, IcmpFlow*> icmp_flows_by_host_fd; // Observer pointer
+
+	/* Unified host mapping for all encapsulated flows */
+	std::map<int, Flow*> flows_by_fd; // Observer pointer
 
 	/* IPv6 maps (Owning) */
 	std::map<FlowKey6, std::unique_ptr<UdpFlow>> ipv6_udp_flows_by_key;

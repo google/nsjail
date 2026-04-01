@@ -20,7 +20,7 @@ namespace nstun {
 void icmp_destroy_flow(Context* ctx, IcmpFlow* flow) {
 	if (flow->host_fd != -1) {
 		epoll_ctl(ctx->epoll_fd, EPOLL_CTL_DEL, flow->host_fd, nullptr);
-		ctx->icmp_flows_by_host_fd.erase(flow->host_fd);
+		ctx->flows_by_fd.erase(flow->host_fd);
 		/* close() is handled by ~IcmpFlow via unique_ptr destruction below */
 	}
 	if (flow->is_ipv6) {
@@ -243,7 +243,7 @@ void handle_icmp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> payl
 				memcpy(flow->orig_dest_ip6, ip->daddr, sizeof(flow->orig_dest_ip6));
 
 				ctx->ipv6_icmp_flows_by_key[key6] = std::move(flow_ptr);
-				ctx->icmp_flows_by_host_fd[fd] = flow;
+				ctx->flows_by_fd[fd] = flow;
 
 				if (flow->is_redirected) {
 					LOG_D(
@@ -259,6 +259,7 @@ void handle_icmp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> payl
 				memcpy(&dest_addr.sin6_addr, rule.redirect_ip6,
 				    sizeof(dest_addr.sin6_addr));
 			} else {
+				/* ip.cc already rejected loopback/v4-mapped destinations */
 				memcpy(
 				    &dest_addr.sin6_addr, ip->daddr, sizeof(dest_addr.sin6_addr));
 			}
@@ -362,7 +363,7 @@ void handle_icmp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> payl
 				flow->orig_dest_ip4 = ip->daddr;
 
 				ctx->ipv4_icmp_flows_by_key[key4] = std::move(flow_ptr);
-				ctx->icmp_flows_by_host_fd[fd] = flow;
+				ctx->flows_by_fd[fd] = flow;
 
 				if (flow->is_redirected) {
 					LOG_D("Created ICMP flow for ID %u (fd=%d) [redirected to "
@@ -374,6 +375,7 @@ void handle_icmp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> payl
 					    fd);
 				}
 			}
+			/* ip.cc already rejected loopback destinations */
 			struct sockaddr_in dest_addr = INIT_SOCKADDR_IN(AF_INET);
 			dest_addr.sin_addr.s_addr =
 			    (rule.redirect_ip4 != 0) ? rule.redirect_ip4 : ip->daddr;
@@ -387,12 +389,8 @@ void handle_icmp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> payl
 	}
 }
 
-void handle_host_icmp(Context* ctx, int fd) {
-	auto it = ctx->icmp_flows_by_host_fd.find(fd);
-	if (it == ctx->icmp_flows_by_host_fd.end()) {
-		return;
-	}
-	IcmpFlow* flow = it->second;
+void handle_host_icmp(Context* ctx, IcmpFlow* flow) {
+	int fd = flow->host_fd;
 	flow->last_active = time(NULL);
 
 	constexpr int VLEN = 64;
@@ -464,6 +462,25 @@ void handle_host_icmp(Context* ctx, int fd) {
 			}
 		}
 	}
+}
+
+void IcmpFlow::handle_host_event(Context* ctx, int fd, uint32_t events) {
+	if (fd == this->host_fd) {
+		handle_host_icmp(ctx, this);
+	}
+}
+
+bool IcmpFlow::is_stale(time_t now) const {
+	return (now - this->last_active) > 10;
+}
+
+void IcmpFlow::destroy(Context* ctx) {
+	if (is_ipv6) {
+		LOG_D("GC: stale ICMP flow (IPv6, id=%u)", ntohs(key6.id));
+	} else {
+		LOG_D("GC: stale ICMP flow (id=%u)", ntohs(key4.id));
+	}
+	icmp_destroy_flow(ctx, this);
 }
 
 } /* namespace nstun */
