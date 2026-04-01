@@ -15,24 +15,6 @@
 
 namespace nstun {
 
-bool send_to_guest(Context* ctx, const void* data, size_t len) {
-	ssize_t written = TEMP_FAILURE_RETRY(write(ctx->tap_fd, data, len));
-	if (written < 0) {
-		if (errno == EAGAIN || errno == EWOULDBLOCK) {
-			/* Saturated queue, drop packet normally */
-			return false;
-		}
-		PLOG_E("write(tap_fd) failed");
-		return false;
-	}
-	if ((size_t)written != len) {
-		LOG_E("write(tap_fd) partial write: %zd of %zu", written, len);
-		return false;
-	}
-
-	return true;
-}
-
 bool send_to_guest_v(
     Context* ctx, const void* header, size_t header_len, const void* payload, size_t payload_len) {
 	if (header_len > NSTUN_MTU || payload_len > NSTUN_MTU - header_len) {

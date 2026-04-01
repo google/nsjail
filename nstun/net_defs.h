@@ -107,6 +107,7 @@ inline uint8_t ip_version(const uint8_t* ptr) {
 	return ptr[0] >> 4;
 }
 
+
 inline uint8_t ip4_version(const ip4_hdr* h) {
 	return h->ihl_version >> 4;
 }

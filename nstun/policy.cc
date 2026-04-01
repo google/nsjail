@@ -1,12 +1,10 @@
 #include "policy.h"
 
-
 #include <string.h>
 
 #include "core.h"
 #include "logs.h"
 #include "nstun.h"
-
 
 /* Pull in the protobuf types for NstunRule enums */
 #include "config.pb.h"
@@ -138,8 +136,5 @@ RuleParseStatus fill_rule_common(const RuleMsg& r, nstun_rule_t* nr) {
 /* Explicit template instantiation for the protobuf rule message type */
 template RuleParseStatus fill_rule_common<nsjail::NsJailConfig_UserNet_NstunRule>(
     const nsjail::NsJailConfig_UserNet_NstunRule& r, nstun_rule_t* nr);
-
-
-
 
 } /* namespace nstun */

@@ -17,7 +17,7 @@
 
 namespace nstun {
 
-void icmp_destroy_flow(Context* ctx, IcmpFlow* flow) {
+static void icmp_destroy_flow(Context* ctx, IcmpFlow* flow) {
 	if (flow->host_fd != -1) {
 		epoll_ctl(ctx->epoll_fd, EPOLL_CTL_DEL, flow->host_fd, nullptr);
 		ctx->flows_by_fd.erase(flow->host_fd);
@@ -46,7 +46,7 @@ static void icmp_send_packet4(Context* ctx, uint32_t saddr, uint32_t daddr, uint
 	icmp4_hdr* r_icmp = reinterpret_cast<icmp4_hdr*>(header_buf + sizeof(ip4_hdr));
 
 	/* IPv4 */
-	r_ip->ihl_version = (4 << 4) | (sizeof(ip4_hdr) / 4);
+	ip4_set_ihl_version(r_ip, 4, sizeof(ip4_hdr) / 4);
 	r_ip->tos = 0;
 	r_ip->tot_len = htons(frame_len);
 	r_ip->id = 0;
@@ -389,7 +389,7 @@ void handle_icmp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> payl
 	}
 }
 
-void handle_host_icmp(Context* ctx, IcmpFlow* flow) {
+static void handle_host_icmp(Context* ctx, IcmpFlow* flow) {
 	int fd = flow->host_fd;
 	flow->last_active = time(NULL);
 

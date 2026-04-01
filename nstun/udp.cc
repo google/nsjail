@@ -20,7 +20,7 @@
 
 namespace nstun {
 
-void udp_destroy_flow(Context* ctx, UdpFlow* flow) {
+static void udp_destroy_flow(Context* ctx, UdpFlow* flow) {
 	if (flow->host_fd != -1 && !flow->host_fd_is_listener) {
 		epoll_ctl(ctx->epoll_fd, EPOLL_CTL_DEL, flow->host_fd, nullptr);
 		ctx->flows_by_fd.erase(flow->host_fd);
@@ -50,7 +50,7 @@ static void udp_send_packet4(Context* ctx, uint32_t saddr, uint32_t daddr, uint1
 	udp_hdr* r_udp = reinterpret_cast<udp_hdr*>(header_buf + sizeof(ip4_hdr));
 
 	/* IPv4 */
-	r_ip->ihl_version = (4 << 4) | (sizeof(ip4_hdr) / 4);
+	ip4_set_ihl_version(r_ip, 4, sizeof(ip4_hdr) / 4);
 	r_ip->tos = 0;
 	r_ip->tot_len = htons(sizeof(ip4_hdr) + sizeof(udp_hdr) + len);
 	r_ip->id = 0;
@@ -138,7 +138,7 @@ static void udp_push_to_guest(Context* ctx, UdpFlow* flow, const uint8_t* data, 
 	}
 }
 
-void handle_host_udp_control(Context* ctx, UdpFlow* flow, uint32_t events) {
+static void handle_host_udp_control(Context* ctx, UdpFlow* flow, uint32_t events) {
 	int fd = flow->tcp_fd;
 	flow->last_active = time(NULL);
 
@@ -501,7 +501,7 @@ void handle_udp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> paylo
 	}
 }
 
-void handle_host_udp(Context* ctx, UdpFlow* flow) {
+static void handle_host_udp(Context* ctx, UdpFlow* flow) {
 	int fd = flow->host_fd;
 	flow->last_active = time(NULL);
 

@@ -21,9 +21,6 @@ RuleResult evaluate_rules6(Context* ctx, nstun_direction_t dir, nstun_proto_t pr
 template <typename RuleMsg>
 RuleParseStatus fill_rule_common(const RuleMsg& r, nstun_rule_t* nr);
 
-
-
-
 } /* namespace nstun */
 
 #endif /* NSTUN_POLICY_H_ */

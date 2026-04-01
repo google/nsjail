@@ -94,7 +94,7 @@ void tcp_send_packet4(Context* ctx, TcpFlow* flow, uint8_t flags, const uint8_t*
 	uint8_t* r_opt = frame_buf + sizeof(ip4_hdr) + sizeof(tcp_hdr);
 
 	/* IPv4 */
-	r_ip->ihl_version = (4 << 4) | (sizeof(ip4_hdr) / 4);
+	ip4_set_ihl_version(r_ip, 4, sizeof(ip4_hdr) / 4);
 	r_ip->tos = 0;
 	r_ip->tot_len = htons(sizeof(ip4_hdr) + sizeof(tcp_hdr) + opt_len + len);
 	r_ip->id = 0;
