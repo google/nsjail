@@ -1,6 +1,8 @@
 #ifndef NSTUN_NET_DEFS_H_
 #define NSTUN_NET_DEFS_H_
 
+#include <string>
+
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <stddef.h>
@@ -191,6 +193,22 @@ inline struct sockaddr_in6 init_sockaddr_in6(unsigned short family) {
 
 #define INIT_SOCKADDR_IN(family) nstun::init_sockaddr_in(family)
 #define INIT_SOCKADDR_IN6(family) nstun::init_sockaddr_in6(family)
+
+inline std::string ip4_to_string(uint32_t addr_nbo) {
+	char buf[INET_ADDRSTRLEN];
+	if (inet_ntop(AF_INET, &addr_nbo, buf, sizeof(buf)) == nullptr) {
+		return "unknown";
+	}
+	return buf;
+}
+
+inline std::string ip6_to_string(const uint8_t addr[16]) {
+	char buf[INET6_ADDRSTRLEN];
+	if (inet_ntop(AF_INET6, addr, buf, sizeof(buf)) == nullptr) {
+		return "unknown";
+	}
+	return buf;
+}
 
 }  // namespace nstun
 

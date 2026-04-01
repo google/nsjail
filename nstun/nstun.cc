@@ -26,6 +26,7 @@
 #include "ip.h"
 #include "logs.h"
 #include "macros.h"
+#include "policy.h"
 #include "tcp.h"
 #include "tun.h"
 #include "udp.h"
@@ -34,110 +35,10 @@
 namespace nstun {
 
 Context::~Context() {
-	for (auto& pair : ipv4_udp_flows_by_key) {
-		if (pair.second->host_fd != -1 && !pair.second->host_fd_is_listener) {
-			close(pair.second->host_fd);
-		}
-		if (pair.second->tcp_fd != -1) close(pair.second->tcp_fd);
-		delete pair.second;
-	}
-	for (auto& pair : ipv4_tcp_flows_by_key) {
-		if (pair.second->host_fd != -1) close(pair.second->host_fd);
-		delete pair.second;
-	}
-	for (auto& pair : ipv4_icmp_flows_by_key) {
-		if (pair.second->host_fd != -1) close(pair.second->host_fd);
-		delete pair.second;
-	}
-	for (auto& pair : ipv6_udp_flows_by_key) {
-		if (pair.second->host_fd != -1 && !pair.second->host_fd_is_listener) {
-			close(pair.second->host_fd);
-		}
-		if (pair.second->tcp_fd != -1) close(pair.second->tcp_fd);
-		delete pair.second;
-	}
-	for (auto& pair : ipv6_tcp_flows_by_key) {
-		if (pair.second->host_fd != -1) close(pair.second->host_fd);
-		delete pair.second;
-	}
-	for (auto& pair : ipv6_icmp_flows_by_key) {
-		if (pair.second->host_fd != -1) close(pair.second->host_fd);
-		delete pair.second;
-	}
+	/* Owning maps (ipv4_udp_flows_by_key, etc.) will self-clean via std::unique_ptr */
 	for (auto& [fd, _] : host_listener_fd_to_rule) {
-		close(fd);
+		::close(fd);
 	}
-}
-
-RuleResult evaluate_rules4(Context* ctx, nstun_direction_t dir, nstun_proto_t proto,
-    uint32_t src_ip4, uint32_t dst_ip4, uint16_t sport, uint16_t dport) {
-	for (const auto& r : ctx->rules) {
-		if (r.is_ipv6) continue;
-		if (r.direction != dir) continue;
-		if (r.proto != NSTUN_PROTO_ANY && r.proto != proto) continue;
-
-		if (r.src_ip4 != 0 && (src_ip4 & r.src_mask4) != (r.src_ip4 & r.src_mask4))
-			continue;
-		if (r.dst_ip4 != 0 && (dst_ip4 & r.dst_mask4) != (r.dst_ip4 & r.dst_mask4))
-			continue;
-
-		if (r.sport_start != 0 && (sport < r.sport_start || sport > r.sport_end)) continue;
-		if (r.dport_start != 0 && (dport < r.dport_start || dport > r.dport_end)) continue;
-
-		RuleResult res = {r.action, 0, 0, false, {}};
-		if (r.action == NSTUN_ACTION_REDIRECT || r.action == NSTUN_ACTION_ENCAP_SOCKS5 ||
-		    r.action == NSTUN_ACTION_ENCAP_CONNECT) {
-			res.redirect_ip4 = r.redirect_ip4;
-			res.redirect_port = r.redirect_port;
-		}
-		return res;
-	}
-	return {NSTUN_ACTION_ALLOW, 0, 0, false, {}}; /* Default allow */
-}
-
-static bool ip6_masked_eq(const uint8_t* a, const uint8_t* b, const uint8_t* mask) {
-	for (int i = 0; i < 16; i++) {
-		if ((a[i] & mask[i]) != (b[i] & mask[i])) return false;
-	}
-	return true;
-}
-
-static bool ip6_is_zero(const uint8_t* addr) {
-	for (int i = 0; i < 16; i++) {
-		if (addr[i] != 0) return false;
-	}
-	return true;
-}
-
-RuleResult evaluate_rules6(Context* ctx, nstun_direction_t dir, nstun_proto_t proto,
-    const uint8_t* src_ip6, const uint8_t* dst_ip6, uint16_t sport, uint16_t dport) {
-	for (const auto& r : ctx->rules) {
-		if (!r.is_ipv6) continue;
-		if (r.direction != dir) continue;
-		if (r.proto != NSTUN_PROTO_ANY && r.proto != proto) continue;
-
-		if (!ip6_is_zero(r.src_ip6) && !ip6_masked_eq(src_ip6, r.src_ip6, r.src_mask6))
-			continue;
-		if (!ip6_is_zero(r.dst_ip6) && !ip6_masked_eq(dst_ip6, r.dst_ip6, r.dst_mask6))
-			continue;
-
-		if (r.sport_start != 0 && (sport < r.sport_start || sport > r.sport_end)) continue;
-		if (r.dport_start != 0 && (dport < r.dport_start || dport > r.dport_end)) continue;
-
-		RuleResult res = {r.action, 0, 0, false, {}};
-		if (r.action == NSTUN_ACTION_REDIRECT) {
-			res.has_redirect_ip6 = true;
-			memcpy(res.redirect_ip6, r.redirect_ip6, sizeof(res.redirect_ip6));
-			res.redirect_port = r.redirect_port;
-		} else if (r.action == NSTUN_ACTION_ENCAP_SOCKS5 ||
-			   r.action == NSTUN_ACTION_ENCAP_CONNECT) {
-			/* proxy is always IPv4 */
-			res.redirect_ip4 = r.redirect_ip4;
-			res.redirect_port = r.redirect_port;
-		}
-		return res;
-	}
-	return {NSTUN_ACTION_ALLOW, 0, 0, false, {}}; /* Default allow */
 }
 
 static void garbage_collect(Context* ctx) {
@@ -152,14 +53,20 @@ static void garbage_collect(Context* ctx) {
 		    flow->state == TcpState::HTTP_CONNECT_INIT) {
 			timeout = 5;
 		} else if (flow->state == TcpState::CLOSE_WAIT ||
-			   flow->state == TcpState::LAST_ACK ||
 			   flow->state == TcpState::FIN_WAIT_1 ||
 			   flow->state == TcpState::FIN_WAIT_2 ||
 			   flow->state == TcpState::CLOSING || flow->state == TcpState::TIME_WAIT) {
 			timeout = 10;
 		}
 		if (now - flow->last_active > timeout) {
-			stale_tcp.push_back(flow);
+			stale_tcp.push_back(flow.get());
+			continue;
+		}
+		if (flow->seq_to_guest > flow->ack_from_guest && (now - flow->last_active >= 2)) {
+			LOG_D("TCP RTO triggered for flow %u", ntohs(flow->key4.sport));
+			flow->seq_to_guest = flow->ack_from_guest;
+			push_to_guest(ctx, flow.get());
+			flow->last_active = now;
 		}
 	}
 	for (TcpFlow* flow : stale_tcp) {
@@ -170,8 +77,12 @@ static void garbage_collect(Context* ctx) {
 	/* Collect UDP flows */
 	std::vector<UdpFlow*> stale_udp;
 	for (auto const& [key, flow] : ctx->ipv4_udp_flows_by_key) {
-		if (now - flow->last_active > 60) {
-			stale_udp.push_back(flow);
+		time_t timeout = 60;
+		if (flow->use_socks5 && flow->state != UdpSocks5State::ESTABLISHED) {
+			timeout = 5;
+		}
+		if (now - flow->last_active > timeout) {
+			stale_udp.push_back(flow.get());
 		}
 	}
 	for (UdpFlow* flow : stale_udp) {
@@ -183,7 +94,7 @@ static void garbage_collect(Context* ctx) {
 	std::vector<IcmpFlow*> stale_icmp;
 	for (auto const& [key, flow] : ctx->ipv4_icmp_flows_by_key) {
 		if (now - flow->last_active > 10) {
-			stale_icmp.push_back(flow);
+			stale_icmp.push_back(flow.get());
 		}
 	}
 	for (IcmpFlow* flow : stale_icmp) {
@@ -200,14 +111,20 @@ static void garbage_collect(Context* ctx) {
 		    flow->state == TcpState::HTTP_CONNECT_INIT) {
 			timeout = 5;
 		} else if (flow->state == TcpState::CLOSE_WAIT ||
-			   flow->state == TcpState::LAST_ACK ||
 			   flow->state == TcpState::FIN_WAIT_1 ||
 			   flow->state == TcpState::FIN_WAIT_2 ||
 			   flow->state == TcpState::CLOSING || flow->state == TcpState::TIME_WAIT) {
 			timeout = 10;
 		}
 		if (now - flow->last_active > timeout) {
-			stale_tcp6.push_back(flow);
+			stale_tcp6.push_back(flow.get());
+			continue;
+		}
+		if (flow->seq_to_guest > flow->ack_from_guest && (now - flow->last_active >= 2)) {
+			LOG_D("IPv6 TCP RTO triggered for flow %u", ntohs(flow->key6.sport));
+			flow->seq_to_guest = flow->ack_from_guest;
+			push_to_guest(ctx, flow.get());
+			flow->last_active = now;
 		}
 	}
 	for (TcpFlow* flow : stale_tcp6) {
@@ -218,8 +135,12 @@ static void garbage_collect(Context* ctx) {
 	/* Collect IPv6 UDP flows */
 	std::vector<UdpFlow*> stale_udp6;
 	for (auto const& [key, flow] : ctx->ipv6_udp_flows_by_key) {
-		if (now - flow->last_active > 60) {
-			stale_udp6.push_back(flow);
+		time_t timeout = 60;
+		if (flow->use_socks5 && flow->state != UdpSocks5State::ESTABLISHED) {
+			timeout = 5;
+		}
+		if (now - flow->last_active > timeout) {
+			stale_udp6.push_back(flow.get());
 		}
 	}
 	for (UdpFlow* flow : stale_udp6) {
@@ -231,7 +152,7 @@ static void garbage_collect(Context* ctx) {
 	std::vector<IcmpFlow*> stale_icmp6;
 	for (auto const& [key, flow] : ctx->ipv6_icmp_flows_by_key) {
 		if (now - flow->last_active > 10) {
-			stale_icmp6.push_back(flow);
+			stale_icmp6.push_back(flow.get());
 		}
 	}
 	for (IcmpFlow* flow : stale_icmp6) {
@@ -241,11 +162,12 @@ static void garbage_collect(Context* ctx) {
 }
 
 static void handle_host_events(Context* ctx, int fd, uint32_t events) {
-	if (ctx->host_listener_fd_to_rule.find(fd) != ctx->host_listener_fd_to_rule.end()) {
-		if (ctx->host_listener_fd_to_rule[fd].proto == NSTUN_PROTO_TCP) {
-			handle_host_tcp_accept(ctx, fd, ctx->host_listener_fd_to_rule[fd]);
-		} else if (ctx->host_listener_fd_to_rule[fd].proto == NSTUN_PROTO_UDP) {
-			handle_host_udp_accept(ctx, fd, ctx->host_listener_fd_to_rule[fd]);
+	auto it_listener = ctx->host_listener_fd_to_rule.find(fd);
+	if (it_listener != ctx->host_listener_fd_to_rule.end()) {
+		if (it_listener->second.proto == NSTUN_PROTO_TCP) {
+			handle_host_tcp_accept(ctx, fd, it_listener->second);
+		} else if (it_listener->second.proto == NSTUN_PROTO_UDP) {
+			handle_host_udp_accept(ctx, fd, it_listener->second);
 		}
 		return;
 	}
@@ -376,7 +298,7 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 
 	LOG_I("nstun initialized successfully, tap_fd=%d", tap_fd);
 
-	nstun::Context* ctx = new nstun::Context{};
+	std::unique_ptr<nstun::Context> ctx = std::make_unique<nstun::Context>();
 	ctx->epoll_fd = -1; /* Not used yet */
 	ctx->tap_fd = tap_fd;
 	ctx->nsj = nsj;
@@ -402,7 +324,7 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 		if (inet_pton(AF_INET6, nsj->njc.user_net().ip6().c_str(), ctx->guest_ip6) != 1) {
 			LOG_E("Cannot convert '%s' into an IPv6 address",
 			    nsj->njc.user_net().ip6().c_str());
-			delete ctx;
+			close(tap_fd);
 			return false;
 		}
 	}
@@ -410,7 +332,7 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 		if (inet_pton(AF_INET6, nsj->njc.user_net().gw6().c_str(), ctx->host_ip6) != 1) {
 			LOG_E("Cannot convert '%s' into an IPv6 address",
 			    nsj->njc.user_net().gw6().c_str());
-			delete ctx;
+			close(tap_fd);
 			return false;
 		}
 	}
@@ -458,7 +380,6 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 	if (ctx->epoll_fd == -1) {
 		PLOG_E("epoll_create1(EPOLL_CLOEXEC)");
 		close(ctx->tap_fd);
-		delete ctx;
 		return false;
 	}
 
@@ -468,63 +389,16 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 		}
 		close(ctx->epoll_fd);
 		close(ctx->tap_fd);
-		delete ctx;
 		return false;
 	};
 
 	for (int i = 0; i < nsj->njc.user_net().rule4_size(); i++) {
 		const auto& r = nsj->njc.user_net().rule4(i);
 
-		if ((r.action() == nsjail::NsJailConfig_UserNet_NstunRule_Action_ENCAP_SOCKS5 ||
-			r.action() ==
-			    nsjail::NsJailConfig_UserNet_NstunRule_Action_ENCAP_CONNECT) &&
-		    r.proto() == nsjail::NsJailConfig_UserNet_NstunRule_Protocol_ICMP) {
-			LOG_E("Proxy encapsulation is not supported for ICMP/ICMPv6");
-			return cleanup_and_fail();
-		}
-
 		nstun_rule_t nr = {};
-
-		if (r.direction() ==
-		    nsjail::NsJailConfig_UserNet_NstunRule_Direction_HOST_TO_GUEST) {
-			nr.direction = NSTUN_DIR_HOST_TO_GUEST;
-		} else {
-			nr.direction = NSTUN_DIR_GUEST_TO_HOST;
-		}
-
-		if (r.action() == nsjail::NsJailConfig_UserNet_NstunRule_Action_DROP) {
-			nr.action = NSTUN_ACTION_DROP;
-		} else if (r.action() == nsjail::NsJailConfig_UserNet_NstunRule_Action_REJECT) {
-			nr.action = NSTUN_ACTION_REJECT;
-		} else if (r.action() == nsjail::NsJailConfig_UserNet_NstunRule_Action_ALLOW) {
-			nr.action = NSTUN_ACTION_ALLOW;
-		} else if (r.action() == nsjail::NsJailConfig_UserNet_NstunRule_Action_REDIRECT) {
-			nr.action = NSTUN_ACTION_REDIRECT;
-		} else if (r.action() ==
-			   nsjail::NsJailConfig_UserNet_NstunRule_Action_ENCAP_SOCKS5) {
-			nr.action = NSTUN_ACTION_ENCAP_SOCKS5;
-		} else if (r.action() ==
-			   nsjail::NsJailConfig_UserNet_NstunRule_Action_ENCAP_CONNECT) {
-			nr.action = NSTUN_ACTION_ENCAP_CONNECT;
-		} else {
-			continue;
-		}
-
-		if (r.proto() == nsjail::NsJailConfig_UserNet_NstunRule_Protocol_TCP) {
-			nr.proto = NSTUN_PROTO_TCP;
-		} else if (r.proto() == nsjail::NsJailConfig_UserNet_NstunRule_Protocol_UDP) {
-			nr.proto = NSTUN_PROTO_UDP;
-		} else if (r.proto() == nsjail::NsJailConfig_UserNet_NstunRule_Protocol_ICMP) {
-			nr.proto = NSTUN_PROTO_ICMP;
-		} else {
-			nr.proto = NSTUN_PROTO_ANY;
-		}
-
-		nr.sport_start = r.has_sport() ? r.sport() : 0;
-		nr.sport_end = r.has_sport_end() ? r.sport_end() : nr.sport_start;
-
-		nr.dport_start = r.has_dport() ? r.dport() : 0;
-		nr.dport_end = r.has_dport_end() ? r.dport_end() : nr.dport_start;
+		nstun::RuleParseStatus status = nstun::fill_rule_common(r, &nr);
+		if (status == nstun::RuleParseStatus::ABORT) return cleanup_and_fail();
+		if (status == nstun::RuleParseStatus::IGNORE) continue;
 
 		if (r.has_src_ip()) {
 			parse_ip(r.src_ip(), &nr.src_ip4, &nr.src_mask4);
@@ -556,7 +430,7 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 				LOG_E("HOST_TO_GUEST REDIRECT requires 'dport' to be specified");
 				return cleanup_and_fail();
 			}
-			for (uint16_t port = nr.dport_start; port <= nr.dport_end; port++) {
+			for (uint32_t port = nr.dport_start; port <= nr.dport_end; port++) {
 				int type = (nr.proto == NSTUN_PROTO_TCP) ? SOCK_STREAM : SOCK_DGRAM;
 				int fd = socket(AF_INET, type | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
 				if (fd == -1) {
@@ -607,57 +481,11 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 	for (int i = 0; i < nsj->njc.user_net().rule6_size(); i++) {
 		const auto& r = nsj->njc.user_net().rule6(i);
 
-		if (r.action() == nsjail::NsJailConfig_UserNet_NstunRule_Action_ENCAP_SOCKS5 ||
-		    r.action() == nsjail::NsJailConfig_UserNet_NstunRule_Action_ENCAP_CONNECT) {
-			if (r.proto() == nsjail::NsJailConfig_UserNet_NstunRule_Protocol_ICMP) {
-				LOG_E("Proxy encapsulation is not supported for ICMP/ICMPv6");
-				return cleanup_and_fail();
-			}
-		}
-
 		nstun_rule_t nr = {};
 		nr.is_ipv6 = true;
-
-		if (r.direction() ==
-		    nsjail::NsJailConfig_UserNet_NstunRule_Direction_HOST_TO_GUEST) {
-			nr.direction = NSTUN_DIR_HOST_TO_GUEST;
-		} else {
-			nr.direction = NSTUN_DIR_GUEST_TO_HOST;
-		}
-
-		if (r.action() == nsjail::NsJailConfig_UserNet_NstunRule_Action_DROP) {
-			nr.action = NSTUN_ACTION_DROP;
-		} else if (r.action() == nsjail::NsJailConfig_UserNet_NstunRule_Action_REJECT) {
-			nr.action = NSTUN_ACTION_REJECT;
-		} else if (r.action() == nsjail::NsJailConfig_UserNet_NstunRule_Action_ALLOW) {
-			nr.action = NSTUN_ACTION_ALLOW;
-		} else if (r.action() == nsjail::NsJailConfig_UserNet_NstunRule_Action_REDIRECT) {
-			nr.action = NSTUN_ACTION_REDIRECT;
-		} else if (r.action() ==
-			   nsjail::NsJailConfig_UserNet_NstunRule_Action_ENCAP_SOCKS5) {
-			nr.action = NSTUN_ACTION_ENCAP_SOCKS5;
-		} else if (r.action() ==
-			   nsjail::NsJailConfig_UserNet_NstunRule_Action_ENCAP_CONNECT) {
-			nr.action = NSTUN_ACTION_ENCAP_CONNECT;
-		} else {
-			continue;
-		}
-
-		if (r.proto() == nsjail::NsJailConfig_UserNet_NstunRule_Protocol_TCP) {
-			nr.proto = NSTUN_PROTO_TCP;
-		} else if (r.proto() == nsjail::NsJailConfig_UserNet_NstunRule_Protocol_UDP) {
-			nr.proto = NSTUN_PROTO_UDP;
-		} else if (r.proto() == nsjail::NsJailConfig_UserNet_NstunRule_Protocol_ICMP) {
-			nr.proto = NSTUN_PROTO_ICMP;
-		} else {
-			nr.proto = NSTUN_PROTO_ANY;
-		}
-
-		nr.sport_start = r.has_sport() ? r.sport() : 0;
-		nr.sport_end = r.has_sport_end() ? r.sport_end() : nr.sport_start;
-
-		nr.dport_start = r.has_dport() ? r.dport() : 0;
-		nr.dport_end = r.has_dport_end() ? r.dport_end() : nr.dport_start;
+		nstun::RuleParseStatus status = nstun::fill_rule_common(r, &nr);
+		if (status == nstun::RuleParseStatus::ABORT) return cleanup_and_fail();
+		if (status == nstun::RuleParseStatus::IGNORE) continue;
 
 		if (r.has_src_ip()) {
 			parse_ip6(r.src_ip(), nr.src_ip6, nr.src_mask6);
@@ -705,7 +533,7 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 				LOG_E("HOST_TO_GUEST REDIRECT requires 'dport' to be specified");
 				return cleanup_and_fail();
 			}
-			for (uint16_t port = nr.dport_start; port <= nr.dport_end; port++) {
+			for (uint32_t port = nr.dport_start; port <= nr.dport_end; port++) {
 				int type = (nr.proto == NSTUN_PROTO_TCP) ? SOCK_STREAM : SOCK_DGRAM;
 				int fd = socket(AF_INET6, type | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
 				if (fd == -1) {
@@ -753,7 +581,7 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 	}
 
 	/* Spawn network loop thread */
-	std::thread t(nstun::networkLoop, ctx);
+	std::thread t(nstun::networkLoop, ctx.release());
 	t.detach();
 
 	return true;

@@ -12,6 +12,7 @@
 #include "core.h"
 #include "logs.h"
 #include "macros.h"
+#include "policy.h"
 #include "tun.h"
 
 namespace nstun {
@@ -19,17 +20,15 @@ namespace nstun {
 void icmp_destroy_flow(Context* ctx, IcmpFlow* flow) {
 	if (flow->host_fd != -1) {
 		epoll_ctl(ctx->epoll_fd, EPOLL_CTL_DEL, flow->host_fd, nullptr);
-		close(flow->host_fd);
+		ctx->icmp_flows_by_host_fd.erase(flow->host_fd);
+		/* close() is handled by ~IcmpFlow via unique_ptr destruction below */
 	}
 	if (flow->is_ipv6) {
 		ctx->ipv6_icmp_flows_by_key.erase(flow->key6);
 	} else {
 		ctx->ipv4_icmp_flows_by_key.erase(flow->key4);
 	}
-	if (flow->host_fd != -1) {
-		ctx->icmp_flows_by_host_fd.erase(flow->host_fd);
-	}
-	delete flow;
+	/* unique_ptr in the owning map runs ~IcmpFlow() which closes host_fd */
 }
 
 static void icmp_send_packet4(Context* ctx, uint32_t saddr, uint32_t daddr, uint8_t type,
@@ -120,9 +119,13 @@ static void icmp_send_packet6(Context* ctx, const uint8_t* saddr, const uint8_t*
 	send_to_guest_v(ctx, header_buf, sizeof(header_buf), data, len);
 }
 
-void send_icmp4_error(Context* ctx, const ip4_hdr* req_ip, uint8_t type, uint8_t code) {
+void send_icmp4_error(
+    Context* ctx, const ip4_hdr* req_ip, size_t tot_len, uint8_t type, uint8_t code) {
 	size_t req_ihl = ip4_ihl(req_ip) * 4;
-	size_t icmp_data_len = req_ihl + 8; /* IP header + 8 bytes of original datagram */
+	/* RFC 792: include IP header + first 8 bytes of original datagram.
+	 * Clamp to actual available data to prevent OOB read. */
+	size_t icmp_data_len = req_ihl + 8;
+	if (icmp_data_len > tot_len) icmp_data_len = tot_len;
 
 	if (sizeof(ip4_hdr) + sizeof(icmp4_hdr) + icmp_data_len > 128) return;
 
@@ -130,8 +133,12 @@ void send_icmp4_error(Context* ctx, const ip4_hdr* req_ip, uint8_t type, uint8_t
 	    reinterpret_cast<const uint8_t*>(req_ip), icmp_data_len);
 }
 
-void send_icmp6_error(Context* ctx, const ip6_hdr* req_ip, uint8_t type, uint8_t code) {
-	size_t icmp_data_len = sizeof(ip6_hdr) + 8; /* IPv6 header + 8 bytes of original datagram */
+void send_icmp6_error(
+    Context* ctx, const ip6_hdr* req_ip, size_t tot_len, uint8_t type, uint8_t code) {
+	/* IPv6 header + first 8 bytes of original datagram.
+	 * Clamp to actual available data to prevent OOB read. */
+	size_t icmp_data_len = sizeof(ip6_hdr) + 8;
+	if (icmp_data_len > tot_len) icmp_data_len = tot_len;
 
 	if (sizeof(ip6_hdr) + sizeof(icmp6_hdr) + icmp_data_len > 128) return;
 
@@ -139,21 +146,21 @@ void send_icmp6_error(Context* ctx, const ip6_hdr* req_ip, uint8_t type, uint8_t
 	    reinterpret_cast<const uint8_t*>(req_ip), icmp_data_len);
 }
 
-void handle_icmp6(Context* ctx, const ip6_hdr* ip, const uint8_t* payload, size_t len) {
-	if (len < sizeof(icmp6_hdr)) {
+void handle_icmp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> payload) {
+	if (payload.size() < sizeof(icmp6_hdr)) {
 		return;
 	}
 
-	const icmp6_hdr* icmp = reinterpret_cast<const icmp6_hdr*>(payload);
+	const icmp6_hdr* icmp = reinterpret_cast<const icmp6_hdr*>(payload.data());
 
 	/* Validate ICMPv6 checksum (mandatory per RFC 4443) */
 	pseudo_hdr6 phdr = {};
-	phdr.len = htonl(len);
+	phdr.len = htonl(payload.size());
 	phdr.next_header = IPPROTO_ICMPV6;
 	memcpy(phdr.saddr, ip->saddr, sizeof(phdr.saddr));
 	memcpy(phdr.daddr, ip->daddr, sizeof(phdr.daddr));
 	uint32_t csum = compute_checksum_part(&phdr, sizeof(phdr), 0);
-	csum = compute_checksum_part(payload, len, csum);
+	csum = compute_checksum_part(payload.data(), payload.size(), csum);
 	if (finalize_checksum(csum) != 0) {
 		LOG_D("ICMPv6 checksum invalid, dropping");
 		return;
@@ -169,7 +176,8 @@ void handle_icmp6(Context* ctx, const ip6_hdr* ip, const uint8_t* payload, size_
 			return;
 		} else if (rule.action == NSTUN_ACTION_REJECT) {
 			LOG_D("ICMPv6 rejected by policy");
-			send_icmp6_error(ctx, ip, ICMP6_DST_UNREACH,
+			send_icmp6_error(ctx, ip, sizeof(ip6_hdr) + payload.size(),
+			    ICMP6_DST_UNREACH,
 			    ICMP6_DST_UNREACH_NOPORT); /* Dest unreachable, port unreachable */
 			return;
 		}
@@ -177,8 +185,8 @@ void handle_icmp6(Context* ctx, const ip6_hdr* ip, const uint8_t* payload, size_
 		if (memcmp(ip->daddr, ctx->host_ip6, 16) == 0 &&
 		    rule.action != NSTUN_ACTION_REDIRECT) {
 			/* Construct reply (Type 129, Code 0) */
-			const uint8_t* icmp_payload = payload + sizeof(icmp6_hdr);
-			size_t icmp_payload_len = len - sizeof(icmp6_hdr);
+			const uint8_t* icmp_payload = payload.data() + sizeof(icmp6_hdr);
+			size_t icmp_payload_len = payload.size() - sizeof(icmp6_hdr);
 			icmp_send_packet6(ctx, ip->daddr, ip->saddr, ICMP6_ECHO_REPLY, 0, icmp->id,
 			    icmp->seq, icmp_payload, icmp_payload_len);
 		} else {
@@ -192,7 +200,7 @@ void handle_icmp6(Context* ctx, const ip6_hdr* ip, const uint8_t* payload, size_
 			auto it = ctx->ipv6_icmp_flows_by_key.find(key6);
 
 			if (it != ctx->ipv6_icmp_flows_by_key.end()) {
-				flow = it->second;
+				flow = it->second.get();
 				flow->last_active = time(NULL);
 			} else {
 				if (ctx->ipv6_icmp_flows_by_key.size() >= NSTUN_MAX_FLOWS) {
@@ -225,7 +233,8 @@ void handle_icmp6(Context* ctx, const ip6_hdr* ip, const uint8_t* payload, size_
 
 				success = true;
 
-				flow = new IcmpFlow();
+				auto flow_ptr = std::make_unique<IcmpFlow>();
+				flow = flow_ptr.get();
 				flow->host_fd = fd;
 				flow->is_ipv6 = true;
 				flow->key6 = key6;
@@ -233,7 +242,7 @@ void handle_icmp6(Context* ctx, const ip6_hdr* ip, const uint8_t* payload, size_
 				flow->is_redirected = rule.has_redirect_ip6;
 				memcpy(flow->orig_dest_ip6, ip->daddr, sizeof(flow->orig_dest_ip6));
 
-				ctx->ipv6_icmp_flows_by_key[key6] = flow;
+				ctx->ipv6_icmp_flows_by_key[key6] = std::move(flow_ptr);
 				ctx->icmp_flows_by_host_fd[fd] = flow;
 
 				if (flow->is_redirected) {
@@ -254,8 +263,8 @@ void handle_icmp6(Context* ctx, const ip6_hdr* ip, const uint8_t* payload, size_
 				    &dest_addr.sin6_addr, ip->daddr, sizeof(dest_addr.sin6_addr));
 			}
 
-			ssize_t sent = sendto(flow->host_fd, payload, len, MSG_NOSIGNAL,
-			    (struct sockaddr*)&dest_addr, sizeof(dest_addr));
+			ssize_t sent = sendto(flow->host_fd, payload.data(), payload.size(),
+			    MSG_NOSIGNAL, (struct sockaddr*)&dest_addr, sizeof(dest_addr));
 			if (sent == -1) {
 				PLOG_E("sendto(fd=%d) ICMPv6 failed", flow->host_fd);
 			}
@@ -263,12 +272,18 @@ void handle_icmp6(Context* ctx, const ip6_hdr* ip, const uint8_t* payload, size_
 	}
 }
 
-void handle_icmp4(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t len) {
-	if (len < sizeof(icmp4_hdr)) {
+void handle_icmp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> payload) {
+	if (payload.size() < sizeof(icmp4_hdr)) {
 		return;
 	}
 
-	const icmp4_hdr* icmp = reinterpret_cast<const icmp4_hdr*>(payload);
+	const icmp4_hdr* icmp = reinterpret_cast<const icmp4_hdr*>(payload.data());
+
+	/* Validate ICMP checksum */
+	if (compute_checksum(payload.data(), payload.size()) != 0) {
+		LOG_D("Invalid ICMP checksum, dropping");
+		return;
+	}
 
 	/* We only handle Echo Request (Type 8, Code 0) */
 	if (icmp->type == ICMP_ECHO && icmp->code == 0) {
@@ -280,15 +295,15 @@ void handle_icmp4(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_
 			return;
 		} else if (rule.action == NSTUN_ACTION_REJECT) {
 			LOG_D("ICMP rejected by policy");
-			send_icmp4_error(ctx, ip, ICMP_DEST_UNREACH,
+			send_icmp4_error(ctx, ip, ntohs(ip->tot_len), ICMP_DEST_UNREACH,
 			    ICMP_PORT_UNREACH); /* Dest unreach, port unreach */
 			return;
 		}
 
 		if (ip->daddr == ctx->host_ip4 && rule.action != NSTUN_ACTION_REDIRECT) {
 			/* Construct reply (Type 0, Code 0) */
-			const uint8_t* icmp_payload = payload + sizeof(icmp4_hdr);
-			size_t icmp_payload_len = len - sizeof(icmp4_hdr);
+			const uint8_t* icmp_payload = payload.data() + sizeof(icmp4_hdr);
+			size_t icmp_payload_len = payload.size() - sizeof(icmp4_hdr);
 			icmp_send_packet4(ctx, ip->daddr, ip->saddr, ICMP_ECHOREPLY, 0, icmp->id,
 			    icmp->seq, icmp_payload, icmp_payload_len);
 		} else {
@@ -298,7 +313,7 @@ void handle_icmp4(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_
 			auto it = ctx->ipv4_icmp_flows_by_key.find(key4);
 
 			if (it != ctx->ipv4_icmp_flows_by_key.end()) {
-				flow = it->second;
+				flow = it->second.get();
 				flow->last_active = time(NULL);
 			} else {
 				if (ctx->ipv4_icmp_flows_by_key.size() >= NSTUN_MAX_FLOWS) {
@@ -316,7 +331,8 @@ void handle_icmp4(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_
 					    "failed. "
 					    "You may need: sysctl -w net.ipv4.ping_group_range='0 "
 					    "2147483647'");
-					send_icmp4_error(ctx, ip, ICMP_DEST_UNREACH,
+					send_icmp4_error(ctx, ip, ntohs(ip->tot_len),
+					    ICMP_DEST_UNREACH,
 					    ICMP_HOST_UNREACH); /* host unreachable */
 					return;
 				}
@@ -336,7 +352,8 @@ void handle_icmp4(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_
 
 				success = true;
 
-				flow = new IcmpFlow();
+				auto flow_ptr = std::make_unique<IcmpFlow>();
+				flow = flow_ptr.get();
 				flow->host_fd = fd;
 				flow->is_ipv6 = false;
 				flow->key4 = key4;
@@ -344,15 +361,14 @@ void handle_icmp4(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_
 				flow->is_redirected = (rule.redirect_ip4 != 0);
 				flow->orig_dest_ip4 = ip->daddr;
 
-				ctx->ipv4_icmp_flows_by_key[key4] = flow;
+				ctx->ipv4_icmp_flows_by_key[key4] = std::move(flow_ptr);
 				ctx->icmp_flows_by_host_fd[fd] = flow;
 
 				if (flow->is_redirected) {
-					const uint8_t* rip =
-					    reinterpret_cast<const uint8_t*>(&rule.redirect_ip4);
 					LOG_D("Created ICMP flow for ID %u (fd=%d) [redirected to "
-					      "%u.%u.%u.%u]",
-					    ntohs(key4.id), fd, rip[0], rip[1], rip[2], rip[3]);
+					      "%s]",
+					    ntohs(key4.id), fd,
+					    ip4_to_string(rule.redirect_ip4).c_str());
 				} else {
 					LOG_D("Created ICMP flow for ID %u (fd=%d)", ntohs(key4.id),
 					    fd);
@@ -362,8 +378,8 @@ void handle_icmp4(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_
 			dest_addr.sin_addr.s_addr =
 			    (rule.redirect_ip4 != 0) ? rule.redirect_ip4 : ip->daddr;
 
-			ssize_t sent = sendto(flow->host_fd, payload, len, MSG_NOSIGNAL,
-			    (struct sockaddr*)&dest_addr, sizeof(dest_addr));
+			ssize_t sent = sendto(flow->host_fd, payload.data(), payload.size(),
+			    MSG_NOSIGNAL, (struct sockaddr*)&dest_addr, sizeof(dest_addr));
 			if (sent == -1) {
 				PLOG_E("sendto(fd=%d) ICMP failed", flow->host_fd);
 			}

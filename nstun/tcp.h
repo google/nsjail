@@ -2,6 +2,7 @@
 #define NSTUN_TCP_H_
 
 #include <deque>
+#include <span>
 #include <vector>
 
 #include "core.h"
@@ -9,7 +10,6 @@
 namespace nstun {
 
 enum class TcpState {
-	CLOSED,
 	SYN_SENT,	   /* host connecting */
 	SOCKS5_INIT,	   /* sent SOCKS5 greeting */
 	SOCKS5_CONNECTING, /* sent SOCKS5 connect request */
@@ -20,7 +20,6 @@ enum class TcpState {
 	CLOSING,
 	TIME_WAIT,
 	CLOSE_WAIT,
-	LAST_ACK
 };
 
 struct TcpFlow {
@@ -48,6 +47,8 @@ struct TcpFlow {
 	uint32_t ack_to_guest;
 
 	uint16_t guest_window;
+	uint16_t guest_mss;
+	uint8_t guest_wscale;
 
 	/* Buffer for data from host to guest (not yet ACKed) */
 	/* In a real TCP stack, this would handle retransmissions. */
@@ -56,7 +57,7 @@ struct TcpFlow {
 	size_t tx_acked_offset;
 
 	/* Buffer for accumulating proxy handshake responses (SOCKS5/HTTP CONNECT) */
-	std::vector<uint8_t> socks5_rx_buffer;
+	std::vector<uint8_t> proxy_rx_buffer;
 
 	/* Buffer for data from guest to host to avoid dropping packets on EAGAIN */
 	std::vector<uint8_t> rx_buffer;
@@ -66,6 +67,10 @@ struct TcpFlow {
 	bool epoll_in_disabled;
 	bool inbound; /* true if flow is HOST_TO_GUEST */
 	time_t last_active;
+
+	~TcpFlow() {
+		if (host_fd != -1) ::close(host_fd);
+	}
 };
 
 void tcp_send_packet4(
@@ -75,8 +80,8 @@ void tcp_send_packet6(
 void tcp_destroy_flow(Context* ctx, TcpFlow* flow);
 void push_to_guest(Context* ctx, TcpFlow* flow);
 
-void handle_tcp4(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t len);
-void handle_tcp6(Context* ctx, const ip6_hdr* ip, const uint8_t* payload, size_t len);
+void handle_tcp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> payload);
+void handle_tcp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> payload);
 void handle_host_tcp(Context* ctx, int fd, uint32_t events);
 void handle_host_tcp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rule);
 

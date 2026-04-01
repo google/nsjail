@@ -61,7 +61,7 @@ ifneq ($(PASTA_BIN_PATH),)
 	CXXFLAGS += -DPASTA_BIN_PATH='"$(PASTA_BIN_PATH)"'
 endif
 
-SRCS_CXX = caps.cc cgroup.cc cgroup2.cc cmdline.cc config.cc contain.cc cpu.cc logs.cc mnt.cc mnt_legacy.cc mnt_newapi.cc net.cc nsjail.cc pid.cc sandbox.cc subproc.cc uts.cc user.cc util.cc nstun/nstun.cc nstun/iface.cc nstun/tun.cc nstun/ip.cc nstun/icmp.cc nstun/udp.cc nstun/tcp.cc
+SRCS_CXX = caps.cc cgroup.cc cgroup2.cc cmdline.cc config.cc contain.cc cpu.cc logs.cc mnt.cc mnt_legacy.cc mnt_newapi.cc net.cc nsjail.cc pid.cc sandbox.cc subproc.cc uts.cc user.cc util.cc nstun/nstun.cc nstun/policy.cc nstun/encap.cc nstun/iface.cc nstun/tun.cc nstun/ip.cc nstun/icmp.cc nstun/udp.cc nstun/tcp.cc
 SRCS_PROTO = config.proto
 
 SRCS_PB_CXX = $(SRCS_PROTO:.proto=.pb.cc)
@@ -164,7 +164,7 @@ test: $(BIN)
 	$(call run_test, ./nsjail --config tests/traffic-mixed.cfg -q -t 1 -- /bin/bash -c 'sleep 10', 137)
 
 	# --- IPv4-only NAT tests ---
-	$(call run_test, ./nsjail --config tests/nat-ip4-only.cfg -q -t 3 --cap CAP_NET_RAW -- /bin/bash -c 'sleep 0.2; ping -4 -W 1 -c 1 8.8.8.8 && exit 77', 77)
+	$(call run_test, ./nsjail --config tests/nat-ip4-only.cfg -q -t 3 --cap CAP_NET_RAW -- /bin/bash -c 'ping -4 -W 1 -c 1 8.8.8.8 && exit 77', 77)
 
 	# --- IPv6-only NAT tests ---
 	$(call run_test, ./nsjail --config tests/nat-ip6-only.cfg -q -t 3 -- /bin/true, 0)
@@ -178,8 +178,8 @@ test: $(BIN)
 	$(call run_test, ./nsjail --config tests/connect.cfg -q -t 3 -- /bin/bash -c 'wget -6 https://dns.google -O /dev/null && exit 77', 77)
 
 	# --- HOST_TO_GUEST proxy test ---
-	$(call run_test, ./nsjail --config tests/dns_http_host_to_guest.cfg -q -t 3 -- /bin/bash -c 'sleep 0.2; nc -v -z -w 2 127.0.0.1 8080 || exit 77', 77)
-	$(call run_test, ./nsjail --config tests/dns_http_host_to_guest.cfg -q -t 3 -- /bin/bash -c 'sleep 0.2; nc -v -z -w 2 ::1 8081 || exit 77', 77)
+	$(call run_test, ./nsjail --config tests/dns_http_host_to_guest.cfg -q -t 3 -- /bin/bash -c 'nc -v -z -w 2 127.0.0.1 8080 || exit 77', 77)
+	$(call run_test, ./nsjail --config tests/dns_http_host_to_guest.cfg -q -t 3 -- /bin/bash -c 'nc -v -z -w 2 ::1 8081 || exit 77', 77)
 
 	# --- --experimental_mnt=old ---
 	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --rw --chroot / --user 99999 --group 99999 -- /bin/bash -c 'touch $(HOME)/nsjail_test && exit 77', 77)
@@ -259,17 +259,23 @@ user.o: user.h nsjail.h config.pb.h logs.h macros.h subproc.h util.h
 util.o: util.h nsjail.h config.pb.h logs.h macros.h
 nstun/nstun.o: nstun/nstun.h nstun/core.h nstun/net_defs.h nstun/icmp.h
 nstun/nstun.o: nstun/iface.h nstun/ip.h logs.h macros.h nstun/tcp.h
-nstun/nstun.o: nstun/tun.h nstun/udp.h util.h nsjail.h config.pb.h
+nstun/nstun.o: nstun/policy.h nstun/tun.h nstun/udp.h util.h nsjail.h
+nstun/nstun.o: config.pb.h
+nstun/policy.o: nstun/policy.h nstun/core.h nstun/net_defs.h nstun/nstun.h
+nstun/policy.o: logs.h nstun/tcp.h nsjail.h config.pb.h
+nstun/encap.o: nstun/encap.h logs.h
 nstun/iface.o: nstun/iface.h logs.h macros.h nstun/net_defs.h nsjail.h
 nstun/iface.o: config.pb.h nstun/nstun.h
 nstun/tun.o: nstun/tun.h nstun/core.h nstun/net_defs.h nstun/nstun.h
 nstun/tun.o: nstun/icmp.h nstun/ip.h logs.h
 nstun/ip.o: nstun/ip.h nstun/core.h nstun/net_defs.h nstun/nstun.h
 nstun/ip.o: nstun/icmp.h logs.h nstun/tcp.h nstun/udp.h
-nstun/icmp.o: nstun/icmp.h nstun/core.h nstun/net_defs.h nstun/nstun.h logs.h
-nstun/icmp.o: macros.h nstun/tun.h
+nstun/icmp.o: nstun/icmp.h nstun/core.h nstun/net_defs.h nstun/nstun.h
+nstun/icmp.o: nstun/policy.h logs.h macros.h nstun/tun.h
 nstun/udp.o: nstun/udp.h nstun/core.h nstun/net_defs.h nstun/nstun.h
-nstun/udp.o: nstun/icmp.h logs.h macros.h nstun/socks5.h nstun/tun.h
-nstun/tcp.o: nstun/tcp.h nstun/core.h nstun/net_defs.h nstun/nstun.h logs.h
-nstun/tcp.o: macros.h nstun/socks5.h nstun/tun.h util.h nsjail.h config.pb.h
+nstun/udp.o: nstun/policy.h nstun/icmp.h logs.h macros.h nstun/encap.h
+nstun/udp.o: nstun/tun.h
+nstun/tcp.o: nstun/tcp.h nstun/core.h nstun/net_defs.h nstun/nstun.h
+nstun/tcp.o: nstun/policy.h logs.h macros.h nstun/encap.h nstun/tun.h util.h
+nstun/tcp.o: nsjail.h config.pb.h
 config.pb.o: config.pb.h

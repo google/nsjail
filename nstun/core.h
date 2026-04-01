@@ -6,7 +6,10 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <compare>
+#include <deque>
 #include <map>
+#include <memory>
 #include <vector>
 
 #include "net_defs.h"
@@ -16,18 +19,15 @@ namespace nstun {
 
 constexpr size_t NSTUN_MAX_FLOWS = 1024;
 
-struct MemcmpLess {
-	template <typename T>
-	bool operator()(const T& a, const T& b) const {
-		return memcmp(&a, &b, sizeof(T)) < 0;
-	}
-};
+// Removed MemcmpLess in favor of C++20 operator<=>
 
 struct __attribute__((packed)) FlowKey4 {
 	uint32_t saddr4;
 	uint32_t daddr4;
 	uint16_t sport;
 	uint16_t dport;
+
+	auto operator<=>(const FlowKey4&) const = default;
 };
 
 struct __attribute__((packed)) FlowKey6 {
@@ -35,18 +35,24 @@ struct __attribute__((packed)) FlowKey6 {
 	uint8_t daddr6[16];
 	uint16_t sport;
 	uint16_t dport;
+
+	auto operator<=>(const FlowKey6&) const = default;
 };
 
 struct __attribute__((packed)) IcmpFlowKey4 {
 	uint32_t saddr4;
 	uint32_t daddr4;
 	uint16_t id;
+
+	auto operator<=>(const IcmpFlowKey4&) const = default;
 };
 
 struct __attribute__((packed)) IcmpFlowKey6 {
 	uint8_t saddr6[16];
 	uint8_t daddr6[16];
 	uint16_t id;
+
+	auto operator<=>(const IcmpFlowKey6&) const = default;
 };
 
 enum class UdpSocks5State {
@@ -57,45 +63,54 @@ enum class UdpSocks5State {
 };
 
 struct UdpFlow {
-	int host_fd;
-	int tcp_fd; /* For SOCKS5 UDP associate */
-	bool is_ipv6;
+	int host_fd = -1;
+	int tcp_fd = -1; /* For SOCKS5 UDP associate */
+	bool is_ipv6 = false;
 	union {
 		FlowKey4 key4;
 		FlowKey6 key6;
 	};
-	time_t last_active;
-	bool is_redirected;
+	time_t last_active = 0;
+	bool is_redirected = false;
 	union {
 		uint32_t orig_dest_ip4;
 		uint8_t orig_dest_ip6[16];
 	};
-	uint16_t orig_dest_port;
+	uint16_t orig_dest_port = 0;
 
-	bool use_socks5;
-	UdpSocks5State state;
-	uint32_t bnd_ip;
-	uint16_t bnd_port;
+	bool use_socks5 = false;
+	UdpSocks5State state = UdpSocks5State::ESTABLISHED;
+	uint32_t bnd_ip = 0;
+	uint16_t bnd_port = 0;
 
-	bool host_fd_is_listener;
-	std::vector<std::vector<uint8_t>> tx_queue;
+	bool host_fd_is_listener = false;
+	std::deque<std::vector<uint8_t>> tx_queue;
+
+	~UdpFlow() {
+		if (host_fd != -1 && !host_fd_is_listener) ::close(host_fd);
+		if (tcp_fd != -1) ::close(tcp_fd);
+	}
 };
 
 struct TcpFlow;
 
 struct IcmpFlow {
-	int host_fd;
-	bool is_ipv6;
+	int host_fd = -1;
+	bool is_ipv6 = false;
 	union {
 		IcmpFlowKey4 key4;
 		IcmpFlowKey6 key6;
 	};
-	time_t last_active;
-	bool is_redirected;
+	time_t last_active = 0;
+	bool is_redirected = false;
 	union {
 		uint32_t orig_dest_ip4;
 		uint8_t orig_dest_ip6[16];
 	};
+
+	~IcmpFlow() {
+		if (host_fd != -1) ::close(host_fd);
+	}
 };
 
 struct Context {
@@ -112,20 +127,20 @@ struct Context {
 	uint8_t host_ip6[16];
 
 	std::vector<nstun_rule_t> rules;
-	std::map<FlowKey4, UdpFlow*, MemcmpLess> ipv4_udp_flows_by_key;
-	std::map<int, UdpFlow*> udp_flows_by_host_fd;
-	std::map<int, UdpFlow*> udp_flows_by_tcp_fd; /* For SOCKS5 control socket */
+	std::map<FlowKey4, std::unique_ptr<UdpFlow>> ipv4_udp_flows_by_key;
+	std::map<int, UdpFlow*> udp_flows_by_host_fd; // Observer pointer
+	std::map<int, UdpFlow*> udp_flows_by_tcp_fd; // Observer pointer
 
-	std::map<FlowKey4, TcpFlow*, MemcmpLess> ipv4_tcp_flows_by_key;
-	std::map<int, TcpFlow*> tcp_flows_by_host_fd;
+	std::map<FlowKey4, std::unique_ptr<TcpFlow>> ipv4_tcp_flows_by_key;
+	std::map<int, TcpFlow*> tcp_flows_by_host_fd; // Observer pointer
 
-	std::map<IcmpFlowKey4, IcmpFlow*, MemcmpLess> ipv4_icmp_flows_by_key;
-	std::map<int, IcmpFlow*> icmp_flows_by_host_fd;
+	std::map<IcmpFlowKey4, std::unique_ptr<IcmpFlow>> ipv4_icmp_flows_by_key;
+	std::map<int, IcmpFlow*> icmp_flows_by_host_fd; // Observer pointer
 
-	/* IPv6 maps */
-	std::map<FlowKey6, UdpFlow*, MemcmpLess> ipv6_udp_flows_by_key;
-	std::map<FlowKey6, TcpFlow*, MemcmpLess> ipv6_tcp_flows_by_key;
-	std::map<IcmpFlowKey6, IcmpFlow*, MemcmpLess> ipv6_icmp_flows_by_key;
+	/* IPv6 maps (Owning) */
+	std::map<FlowKey6, std::unique_ptr<UdpFlow>> ipv6_udp_flows_by_key;
+	std::map<FlowKey6, std::unique_ptr<TcpFlow>> ipv6_tcp_flows_by_key;
+	std::map<IcmpFlowKey6, std::unique_ptr<IcmpFlow>> ipv6_icmp_flows_by_key;
 
 	std::map<int, nstun_rule_t> host_listener_fd_to_rule;
 
@@ -140,11 +155,7 @@ struct RuleResult {
 	uint8_t redirect_ip6[16];
 };
 
-RuleResult evaluate_rules4(Context* ctx, nstun_direction_t dir, nstun_proto_t proto,
-    uint32_t src_ip4, uint32_t dst_ip4, uint16_t sport, uint16_t dport);
 
-RuleResult evaluate_rules6(Context* ctx, nstun_direction_t dir, nstun_proto_t proto,
-    const uint8_t* src_ip6, const uint8_t* dst_ip6, uint16_t sport, uint16_t dport);
 
 } /* namespace nstun */
 

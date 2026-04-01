@@ -11,10 +11,11 @@
 #include <unistd.h>
 
 #include "core.h"
+#include "encap.h"
 #include "icmp.h"
 #include "logs.h"
 #include "macros.h"
-#include "socks5.h"
+#include "policy.h"
 #include "tun.h"
 
 namespace nstun {
@@ -22,28 +23,27 @@ namespace nstun {
 void udp_destroy_flow(Context* ctx, UdpFlow* flow) {
 	if (flow->host_fd != -1 && !flow->host_fd_is_listener) {
 		epoll_ctl(ctx->epoll_fd, EPOLL_CTL_DEL, flow->host_fd, nullptr);
-		close(flow->host_fd);
+		ctx->udp_flows_by_host_fd.erase(flow->host_fd);
 	}
 	if (flow->tcp_fd != -1) {
 		epoll_ctl(ctx->epoll_fd, EPOLL_CTL_DEL, flow->tcp_fd, nullptr);
-		close(flow->tcp_fd);
+		ctx->udp_flows_by_tcp_fd.erase(flow->tcp_fd);
 	}
+	/* Erase from owning map last — unique_ptr runs ~UdpFlow() which closes fds */
 	if (flow->is_ipv6) {
 		ctx->ipv6_udp_flows_by_key.erase(flow->key6);
 	} else {
 		ctx->ipv4_udp_flows_by_key.erase(flow->key4);
 	}
-	if (flow->host_fd != -1 && !flow->host_fd_is_listener) {
-		ctx->udp_flows_by_host_fd.erase(flow->host_fd);
-	}
-	if (flow->tcp_fd != -1) {
-		ctx->udp_flows_by_tcp_fd.erase(flow->tcp_fd);
-	}
-	delete flow;
 }
 
 static void udp_send_packet4(Context* ctx, uint32_t saddr, uint32_t daddr, uint16_t sport,
     uint16_t dport, const uint8_t* data, size_t len) {
+	if (len > NSTUN_MTU) {
+		LOG_W("udp_send_packet4: data length too large");
+		return;
+	}
+
 	static thread_local uint8_t header_buf[sizeof(ip4_hdr) + sizeof(udp_hdr)];
 
 	ip4_hdr* r_ip = reinterpret_cast<ip4_hdr*>(header_buf);
@@ -118,13 +118,7 @@ void handle_host_udp_control(Context* ctx, int fd, uint32_t events) {
 		epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, fd, &ev);
 
 		flow->state = UdpSocks5State::SOCKS5_GREETING;
-		socks5_greeting greeting = {
-		    .ver = SOCKS5_VERSION,
-		    .num_auth = 1,
-		    .auth = {SOCKS5_AUTH_NONE},
-		};
-		if (send(fd, &greeting, sizeof(greeting), MSG_NOSIGNAL) !=
-		    (ssize_t)sizeof(greeting)) {
+		if (nstun::send_socks5_greeting(fd) < 0) {
 			udp_destroy_flow(ctx, flow);
 			return;
 		}
@@ -141,21 +135,13 @@ void handle_host_udp_control(Context* ctx, int fd, uint32_t events) {
 		}
 		if (n < (ssize_t)sizeof(reply)) return;
 		recv(fd, &reply, sizeof(reply), MSG_DONTWAIT);
-		if (reply.ver != SOCKS5_VERSION || reply.method != SOCKS5_AUTH_NONE) {
+		if (!nstun::parse_socks5_auth_reply(std::span<const uint8_t>(
+			reinterpret_cast<const uint8_t*>(&reply), sizeof(reply)))) {
 			udp_destroy_flow(ctx, flow);
 			return;
 		}
 		flow->state = UdpSocks5State::SOCKS5_ASSOCIATE;
-		/* UDP ASSOCIATE */
-		socks5_req req = {
-		    .ver = SOCKS5_VERSION,
-		    .cmd = SOCKS5_CMD_UDP_ASSOCIATE,
-		    .rsv = 0x00,
-		    .atyp = SOCKS5_ATYP_IPV4,
-		    .dst_ip4 = 0,
-		    .dst_port = 0,
-		};
-		if (send(fd, &req, sizeof(req), MSG_NOSIGNAL) != (ssize_t)sizeof(req)) {
+		if (nstun::send_socks5_udp_associate(fd) < 0) {
 			udp_destroy_flow(ctx, flow);
 			return;
 		}
@@ -197,10 +183,18 @@ void handle_host_udp_control(Context* ctx, int fd, uint32_t events) {
 		socks5_max_buf buf;
 		recv(fd, &buf, expected_len, MSG_DONTWAIT);
 
-		if (req.atyp == SOCKS5_ATYP_IPV4) {
-			socks5_req* r = reinterpret_cast<socks5_req*>(&buf);
-			memcpy(&flow->bnd_ip, &r->dst_ip4, sizeof(flow->bnd_ip));
-			memcpy(&flow->bnd_port, &r->dst_port, sizeof(flow->bnd_port));
+		nstun::Socks5Reply res;
+		if (!nstun::parse_socks5_connect_reply(
+			std::span<const uint8_t>(
+			    reinterpret_cast<const uint8_t*>(&buf), expected_len),
+			&res)) {
+			udp_destroy_flow(ctx, flow);
+			return;
+		}
+
+		if (res.atyp == SOCKS5_ATYP_IPV4) {
+			memcpy(&flow->bnd_ip, &res.bind_ip4, sizeof(flow->bnd_ip));
+			memcpy(&flow->bnd_port, &res.bind_port, sizeof(flow->bnd_port));
 		} else {
 			LOG_E("SOCKS5 UDP proxy returned unsupported address type");
 			udp_destroy_flow(ctx, flow);
@@ -281,14 +275,29 @@ void handle_host_udp_control(Context* ctx, int fd, uint32_t events) {
 	}
 }
 
-void handle_udp4(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t len) {
-	if (len < sizeof(udp_hdr)) {
+void handle_udp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> payload) {
+	if (payload.size() < sizeof(udp_hdr)) {
 		return;
 	}
 
-	const udp_hdr* udp = reinterpret_cast<const udp_hdr*>(payload);
+	const udp_hdr* udp = reinterpret_cast<const udp_hdr*>(payload.data());
 	uint16_t guest_port = ntohs(udp->source);
 	uint16_t dest_port = ntohs(udp->dest);
+
+	/* Validate UDP checksum (optional for IPv4 when field is 0) */
+	if (udp->check != 0) {
+		pseudo_hdr4 phdr = {.saddr = ip->saddr,
+		    .daddr = ip->daddr,
+		    .zero = 0,
+		    .protocol = IPPROTO_UDP,
+		    .len = htons(payload.size())};
+		uint32_t csum = compute_checksum_part(&phdr, sizeof(phdr), 0);
+		csum = compute_checksum_part(payload.data(), payload.size(), csum);
+		if (finalize_checksum(csum) != 0) {
+			LOG_D("Invalid IPv4 UDP checksum, dropping");
+			return;
+		}
+	}
 
 	FlowKey4 key4 = {ip->saddr, ip->daddr, udp->source, udp->dest};
 
@@ -296,15 +305,13 @@ void handle_udp4(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t
 	    ip->daddr, guest_port, dest_port);
 
 	if (rule.action == NSTUN_ACTION_DROP) {
-		char dst_str[INET_ADDRSTRLEN];
-		inet_ntop(AF_INET, &ip->daddr, dst_str, sizeof(dst_str));
-		LOG_D("UDP flow %u -> %s:%u dropped by policy", guest_port, dst_str, dest_port);
+		LOG_D("UDP flow %u -> %s:%u dropped by policy", guest_port,
+		    ip4_to_string(ip->daddr).c_str(), dest_port);
 		return;
 	} else if (rule.action == NSTUN_ACTION_REJECT) {
-		char rej_str[INET_ADDRSTRLEN];
-		inet_ntop(AF_INET, &ip->daddr, rej_str, sizeof(rej_str));
-		LOG_D("UDP flow %u -> %s:%u rejected by policy", guest_port, rej_str, dest_port);
-		send_icmp4_error(ctx, ip, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH);
+		LOG_D("UDP flow %u -> %s:%u rejected by policy", guest_port,
+		    ip4_to_string(ip->daddr).c_str(), dest_port);
+		send_icmp4_error(ctx, ip, ntohs(ip->tot_len), ICMP_DEST_UNREACH, ICMP_PORT_UNREACH);
 		return;
 	} else if (rule.action == NSTUN_ACTION_ENCAP_CONNECT) {
 		LOG_W("HTTP CONNECT proxy not supported for UDP, dropping packet to port %u",
@@ -316,7 +323,7 @@ void handle_udp4(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t
 	UdpFlow* flow = nullptr;
 	auto it = ctx->ipv4_udp_flows_by_key.find(key4);
 	if (it != ctx->ipv4_udp_flows_by_key.end()) {
-		flow = it->second;
+		flow = it->second.get();
 		flow->last_active = time(NULL);
 	} else {
 		if (ctx->ipv4_udp_flows_by_key.size() >= NSTUN_MAX_FLOWS) {
@@ -325,11 +332,8 @@ void handle_udp4(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t
 			return;
 		}
 
-		flow = new UdpFlow();
-		bool flow_success = false;
-		defer {
-			if (!flow_success) delete flow;
-		};
+		auto flow_ptr = std::make_unique<UdpFlow>();
+		flow = flow_ptr.get();
 
 		flow->host_fd = -1;
 		flow->tcp_fd = -1;
@@ -362,7 +366,7 @@ void handle_udp4(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t
 
 			flow->tcp_fd = tcp_fd;
 			flow->state = UdpSocks5State::TCP_CONNECTING;
-			ctx->ipv4_udp_flows_by_key[key4] = flow;
+			ctx->ipv4_udp_flows_by_key[key4] = std::move(flow_ptr);
 			ctx->udp_flows_by_tcp_fd[tcp_fd] = flow;
 			LOG_D("Created UDP SOCKS5 flow for guest port %u -> tcp fd %d%s",
 			    guest_port, tcp_fd, flow->is_redirected ? " [redirected]" : "");
@@ -394,23 +398,29 @@ void handle_udp4(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t
 
 			flow->host_fd = fd;
 			flow->state = UdpSocks5State::ESTABLISHED;
-			ctx->ipv4_udp_flows_by_key[key4] = flow;
+			ctx->ipv4_udp_flows_by_key[key4] = std::move(flow_ptr);
 			ctx->udp_flows_by_host_fd[fd] = flow;
 			LOG_D("Created UDP flow for guest port %u -> fd %d%s", guest_port, fd,
 			    flow->is_redirected ? " [redirected]" : "");
 		}
-		flow_success = true;
 	}
 
-	const uint8_t* data = payload + sizeof(udp_hdr);
-	size_t data_len = len - sizeof(udp_hdr);
+	auto data_span = payload.subspan(sizeof(udp_hdr));
+	const uint8_t* data = data_span.data();
+	size_t data_len = data_span.size();
 
 	if (flow->use_socks5 && flow->state != UdpSocks5State::ESTABLISHED) {
+		/* Cap queued packet size to prevent memory exhaustion:
+		 * 1024 flows * 50 packets * 1500 bytes = ~75MB worst case */
+		if (data_len > 1500) {
+			LOG_D("UDP SOCKS5 queue dropping oversized packet (%zu bytes)", data_len);
+			return;
+		}
 		std::vector<uint8_t> pkt(data, data + data_len);
 		flow->tx_queue.push_back(pkt);
 		if (flow->tx_queue.size() > 50) {
 			/* Do not buffer indefinitely */
-			flow->tx_queue.erase(flow->tx_queue.begin());
+			flow->tx_queue.pop_front();
 		}
 		return;
 	}
@@ -442,7 +452,8 @@ void handle_udp4(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t
 				real_dest_ip = htonl(INADDR_LOOPBACK);
 			} else if (IN_LOOPBACK(ntohl(real_dest_ip))) {
 				LOG_W("UDP SSRF blocked: Guest forged loopback destination");
-				send_icmp4_error(ctx, ip, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH);
+				send_icmp4_error(ctx, ip, ntohs(ip->tot_len), ICMP_DEST_UNREACH,
+				    ICMP_PORT_UNREACH);
 				return;
 			}
 			dest_addr.sin_addr.s_addr = real_dest_ip;
@@ -610,13 +621,8 @@ void handle_host_udp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 			}
 
 			FlowKey6 key6 = {};
-			bool has_redirect_ip6 = false;
-			for (int j = 0; j < 16; j++) {
-				if (rule.redirect_ip6[j] != 0) {
-					has_redirect_ip6 = true;
-					break;
-				}
-			}
+			bool has_redirect_ip6 =
+			    !IN6_IS_ADDR_UNSPECIFIED((const struct in6_addr*)rule.redirect_ip6);
 			if (has_redirect_ip6) {
 				memcpy(key6.saddr6, rule.redirect_ip6, sizeof(key6.saddr6));
 			} else {
@@ -630,14 +636,15 @@ void handle_host_udp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 			UdpFlow* flow = nullptr;
 			auto it = ctx->ipv6_udp_flows_by_key.find(key6);
 			if (it != ctx->ipv6_udp_flows_by_key.end()) {
-				flow = it->second;
+				flow = it->second.get();
 				flow->last_active = time(NULL);
 			} else {
 				if (ctx->ipv6_udp_flows_by_key.size() >= NSTUN_MAX_FLOWS) {
 					LOG_W("Maximum number of IPv6 UDP flows reached, dropping");
 					continue;
 				}
-				flow = new UdpFlow();
+				auto flow_ptr = std::make_unique<UdpFlow>();
+				flow = flow_ptr.get();
 				flow->host_fd = listen_fd;
 				flow->is_ipv6 = true;
 				flow->key6 = key6;
@@ -646,7 +653,7 @@ void handle_host_udp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 				flow->use_socks5 = false;
 				flow->state = UdpSocks5State::ESTABLISHED;
 				flow->host_fd_is_listener = true;
-				ctx->ipv6_udp_flows_by_key[key6] = flow;
+				ctx->ipv6_udp_flows_by_key[key6] = std::move(flow_ptr);
 			}
 
 			udp_send_packet6(ctx, key6.daddr6, key6.saddr6, key6.dport, key6.sport,
@@ -676,14 +683,16 @@ void handle_host_udp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 			UdpFlow* flow = nullptr;
 			auto it = ctx->ipv4_udp_flows_by_key.find(key4);
 			if (it != ctx->ipv4_udp_flows_by_key.end()) {
-				flow = it->second;
+				flow = it->second.get();
 				flow->last_active = time(NULL);
 			} else {
 				if (ctx->ipv4_udp_flows_by_key.size() >= NSTUN_MAX_FLOWS) {
 					LOG_W("Maximum number of UDP flows reached, dropping");
 					continue;
 				}
-				flow = new UdpFlow();
+				auto flow_ptr = std::make_unique<UdpFlow>();
+				flow = flow_ptr.get();
+				flow->is_ipv6 = false;
 				flow->host_fd = listen_fd;
 				flow->key4 = key4;
 				flow->last_active = time(NULL);
@@ -691,7 +700,7 @@ void handle_host_udp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 				flow->use_socks5 = false;
 				flow->state = UdpSocks5State::ESTABLISHED;
 				flow->host_fd_is_listener = true;
-				ctx->ipv4_udp_flows_by_key[key4] = flow;
+				ctx->ipv4_udp_flows_by_key[key4] = std::move(flow_ptr);
 			}
 
 			udp_send_packet4(ctx, key4.daddr4, key4.saddr4, key4.dport, key4.sport,
@@ -747,12 +756,27 @@ static void udp_send_packet6(Context* ctx, const uint8_t* saddr, const uint8_t* 
 	send_to_guest_v(ctx, header_buf, sizeof(header_buf), data, len);
 }
 
-void handle_udp6(Context* ctx, const ip6_hdr* ip, const uint8_t* payload, size_t len) {
-	if (len < sizeof(udp_hdr)) return;
+void handle_udp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> payload) {
+	if (payload.size() < sizeof(udp_hdr)) return;
 
-	const udp_hdr* udp = reinterpret_cast<const udp_hdr*>(payload);
+	const udp_hdr* udp = reinterpret_cast<const udp_hdr*>(payload.data());
 	uint16_t guest_port = ntohs(udp->source);
 	uint16_t dest_port = ntohs(udp->dest);
+
+	/* Validate UDP checksum (mandatory for IPv6 per RFC 8200 §8.1) */
+	{
+		pseudo_hdr6 phdr = {};
+		phdr.len = htonl(payload.size());
+		phdr.next_header = IPPROTO_UDP;
+		memcpy(phdr.saddr, ip->saddr, sizeof(phdr.saddr));
+		memcpy(phdr.daddr, ip->daddr, sizeof(phdr.daddr));
+		uint32_t csum = compute_checksum_part(&phdr, sizeof(phdr), 0);
+		csum = compute_checksum_part(payload.data(), payload.size(), csum);
+		if (finalize_checksum(csum) != 0) {
+			LOG_D("Invalid IPv6 UDP checksum, dropping");
+			return;
+		}
+	}
 
 	FlowKey6 key6 = {};
 	memcpy(key6.saddr6, ip->saddr, sizeof(key6.saddr6));
@@ -768,7 +792,8 @@ void handle_udp6(Context* ctx, const ip6_hdr* ip, const uint8_t* payload, size_t
 		return;
 	} else if (rule.action == NSTUN_ACTION_REJECT) {
 		LOG_D("IPv6 UDP flow %u -> %u rejected by policy", guest_port, dest_port);
-		send_icmp6_error(ctx, ip, ICMP6_DST_UNREACH, ICMP6_DST_UNREACH_NOPORT);
+		send_icmp6_error(ctx, ip, sizeof(ip6_hdr) + payload.size(), ICMP6_DST_UNREACH,
+		    ICMP6_DST_UNREACH_NOPORT);
 		return;
 	} else if (rule.action == NSTUN_ACTION_ENCAP_CONNECT) {
 		LOG_W("HTTP CONNECT proxy not supported for UDP, dropping packet to port %u",
@@ -779,7 +804,7 @@ void handle_udp6(Context* ctx, const ip6_hdr* ip, const uint8_t* payload, size_t
 	UdpFlow* flow = nullptr;
 	auto it = ctx->ipv6_udp_flows_by_key.find(key6);
 	if (it != ctx->ipv6_udp_flows_by_key.end()) {
-		flow = it->second;
+		flow = it->second.get();
 		flow->last_active = time(NULL);
 	} else {
 		if (ctx->ipv6_udp_flows_by_key.size() >= NSTUN_MAX_FLOWS) {
@@ -788,11 +813,8 @@ void handle_udp6(Context* ctx, const ip6_hdr* ip, const uint8_t* payload, size_t
 			return;
 		}
 
-		flow = new UdpFlow();
-		bool flow_success = false;
-		defer {
-			if (!flow_success) delete flow;
-		};
+		auto flow_ptr = std::make_unique<UdpFlow>();
+		flow = flow_ptr.get();
 
 		flow->host_fd = -1;
 		flow->tcp_fd = -1;
@@ -825,7 +847,7 @@ void handle_udp6(Context* ctx, const ip6_hdr* ip, const uint8_t* payload, size_t
 
 			flow->tcp_fd = tcp_fd;
 			flow->state = UdpSocks5State::TCP_CONNECTING;
-			ctx->ipv6_udp_flows_by_key[key6] = flow;
+			ctx->ipv6_udp_flows_by_key[key6] = std::move(flow_ptr);
 			ctx->udp_flows_by_tcp_fd[tcp_fd] = flow;
 			LOG_D("Created IPv6 UDP SOCKS5 flow for guest port %u -> tcp fd %d%s",
 			    guest_port, tcp_fd, flow->is_redirected ? " [redirected]" : "");
@@ -855,22 +877,28 @@ void handle_udp6(Context* ctx, const ip6_hdr* ip, const uint8_t* payload, size_t
 
 			flow->host_fd = fd;
 			flow->state = UdpSocks5State::ESTABLISHED;
-			ctx->ipv6_udp_flows_by_key[key6] = flow;
+			ctx->ipv6_udp_flows_by_key[key6] = std::move(flow_ptr);
 			ctx->udp_flows_by_host_fd[fd] = flow;
 			LOG_D("Created IPv6 UDP flow for guest port %u -> fd %d%s", guest_port, fd,
 			    flow->is_redirected ? " [redirected]" : "");
 		}
-		flow_success = true;
 	}
 
-	const uint8_t* data = payload + sizeof(udp_hdr);
-	size_t data_len = len - sizeof(udp_hdr);
+	auto data_span = payload.subspan(sizeof(udp_hdr));
+	const uint8_t* data = data_span.data();
+	size_t data_len = data_span.size();
 
 	if (flow->use_socks5 && flow->state != UdpSocks5State::ESTABLISHED) {
+		/* Cap queued packet size to prevent memory exhaustion */
+		if (data_len > 1500) {
+			LOG_D("IPv6 UDP SOCKS5 queue dropping oversized packet (%zu bytes)",
+			    data_len);
+			return;
+		}
 		std::vector<uint8_t> pkt(data, data + data_len);
 		flow->tx_queue.push_back(pkt);
 		if (flow->tx_queue.size() > 50) {
-			flow->tx_queue.erase(flow->tx_queue.begin());
+			flow->tx_queue.pop_front();
 		}
 		return;
 	}
@@ -907,8 +935,8 @@ void handle_udp6(Context* ctx, const ip6_hdr* ip, const uint8_t* payload, size_t
 				   IN6_IS_ADDR_V4MAPPED((const struct in6_addr*)ip->daddr)) {
 				LOG_W("IPv6 UDP SSRF blocked: Guest forged loopback/v4mapped "
 				      "destination");
-				send_icmp6_error(
-				    ctx, ip, ICMP6_DST_UNREACH, ICMP6_DST_UNREACH_NOPORT);
+				send_icmp6_error(ctx, ip, sizeof(ip6_hdr) + payload.size(),
+				    ICMP6_DST_UNREACH, ICMP6_DST_UNREACH_NOPORT);
 				return;
 			} else {
 				memcpy(
