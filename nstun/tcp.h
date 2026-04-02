@@ -10,10 +10,10 @@
 namespace nstun {
 
 enum class TcpState {
-	SYN_SENT,	   /* host connecting */
-	SOCKS5_INIT,	   /* sent SOCKS5 greeting */
-	SOCKS5_CONNECTING, /* sent SOCKS5 connect request */
-	HTTP_CONNECT_INIT, /* sent HTTP CONNECT request */
+	SYN_SENT,	   /* Host connecting to destination */
+	SOCKS5_INIT,	   /* Sent SOCKS5 greeting, awaiting auth reply */
+	SOCKS5_CONNECTING, /* Sent SOCKS5 CONNECT request, awaiting response */
+	HTTP_CONNECT_WAIT, /* Sent HTTP CONNECT, awaiting proxy 200 reply */
 	ESTABLISHED,
 	FIN_WAIT_1,
 	FIN_WAIT_2,

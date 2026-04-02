@@ -6,6 +6,8 @@
 #include <span>
 #include <vector>
 
+#include "net_defs.h"
+
 namespace nstun {
 
 /* SOCKS5 constants */
@@ -44,7 +46,7 @@ struct __attribute__((packed)) socks5_req6 {
 	uint8_t cmd;
 	uint8_t rsv;
 	uint8_t atyp;
-	uint8_t dst_ip6[16];
+	uint8_t dst_ip6[IPV6_ADDR_LEN];
 	uint16_t dst_port;
 };
 
@@ -68,7 +70,7 @@ struct __attribute__((packed)) socks5_udp_hdr6 {
 	uint16_t rsv;
 	uint8_t frag;
 	uint8_t atyp;
-	uint8_t dst_ip6[16];
+	uint8_t dst_ip6[IPV6_ADDR_LEN];
 	uint16_t dst_port;
 };
 

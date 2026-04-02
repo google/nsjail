@@ -10,6 +10,58 @@
 #include "udp.h"
 
 namespace nstun {
+
+/*
+ * Skip IPv6 extension headers to locate the first L4 header.
+ *
+ * Returns the L4 protocol number (e.g. IPPROTO_TCP) on success,
+ * or -1 if the chain is malformed, too deep, or contains a fragment
+ * (which nstun does not reassemble).
+ *
+ * `ptr` and `rem` are advanced past each extension header so the
+ * caller can read the L4 header directly from `ptr`.
+ */
+static int skip_ipv6_ext_headers(int next_header, const uint8_t*& ptr, size_t& rem) {
+	constexpr int MAX_EXT = 8; /* Defense: cap chain depth */
+	for (int i = 0; i < MAX_EXT; ++i) {
+		ssize_t ext_len;
+		switch (next_header) {
+		case IPPROTO_HOPOPTS: /* Hop-by-Hop Options */
+		case IPPROTO_DSTOPTS: /* Destination Options */
+		case IPPROTO_ROUTING: /* Routing */
+		case 139:	      /* Host Identity Protocol */
+		case 140: {	      /* Shim6 */
+			if (rem < 2) return -1;
+			size_t len = ((size_t)ptr[1] + 1) * 8;
+			ext_len = (len <= rem) ? (ssize_t)len : -1;
+			break;
+		}
+		case IPPROTO_FRAGMENT:
+			/* nstun does not reassemble fragments. Drop unconditionally
+			 * to match IPv4 behavior and prevent L4 port-based rule
+			 * bypass via non-first fragments. */
+			return -1;
+		case IPPROTO_AH: { /* Authentication Header */
+			if (rem < 2) return -1;
+			size_t len = ((size_t)ptr[1] + 2) * 4;
+			ext_len = (len <= rem) ? (ssize_t)len : -1;
+			break;
+		}
+		default:
+			ext_len = 0; /* Not an extension header: this is the L4 protocol */
+			break;
+		}
+
+		if (ext_len < 0) return -1;	      /* Malformed or unsupported */
+		if (ext_len == 0) return next_header; /* Reached L4 */
+
+		next_header = ptr[0]; /* Next Header field is first byte of ext header */
+		ptr += ext_len;
+		rem -= ext_len;
+	}
+	return -1; /* Extension header chain too deep */
+}
+
 void handle_ip4(Context* ctx, std::span<const uint8_t> payload) {
 	if (payload.size() < sizeof(ip4_hdr)) {
 		return;
@@ -33,7 +85,7 @@ void handle_ip4(Context* ctx, std::span<const uint8_t> payload) {
 	size_t l4_len = tot_len - ihl;
 
 	/* Drop IP fragments: nstun does not reassemble, and non-first
-	 * fragments have no L4 header — parsing them would bypass rules */
+	 * fragments have no L4 header - parsing them would bypass rules */
 	if (ntohs(ip->frag_off) & 0x3FFF) {
 		LOG_W("Dropping IPv4 fragment");
 		return;
@@ -51,7 +103,7 @@ void handle_ip4(Context* ctx, std::span<const uint8_t> payload) {
 	}
 
 	/* SSRF gate: reject packets to loopback, broadcast, or INADDR_ANY.
-	 * This is the single authoritative check — L4 handlers rely on this
+	 * This is the single authoritative check - L4 handlers rely on this
 	 * and do NOT duplicate it. Redirect rules in policy may still target
 	 * loopback intentionally (admin-controlled). */
 	if (IN_LOOPBACK(ntohl(ip->daddr)) || ip->daddr == htonl(INADDR_ANY) ||
@@ -111,7 +163,7 @@ void handle_ip6(Context* ctx, std::span<const uint8_t> payload) {
 	}
 
 	/* Source IP filtering */
-	if (memcmp(ip6->saddr, ctx->guest_ip6, 16) != 0) {
+	if (memcmp(ip6->saddr, ctx->guest_ip6, IPV6_ADDR_LEN) != 0) {
 		if (IN6_IS_ADDR_LINKLOCAL((const struct in6_addr*)ip6->saddr) ||
 		    IN6_IS_ADDR_SITELOCAL((const struct in6_addr*)ip6->saddr)) {
 			LOG_D("Dropping IPv6 packet with link/site-local source address: %s",
@@ -125,7 +177,7 @@ void handle_ip6(Context* ctx, std::span<const uint8_t> payload) {
 	}
 
 	/* SSRF gate: reject packets to loopback, v4-mapped, link-local, or site-local.
-	 * This is the single authoritative check — L4 handlers rely on this
+	 * This is the single authoritative check - L4 handlers rely on this
 	 * and do NOT duplicate it. Redirect rules in policy may still target
 	 * ::1 intentionally (admin-controlled). */
 	if (IN6_IS_ADDR_LOOPBACK((const struct in6_addr*)ip6->daddr)) {
@@ -134,6 +186,11 @@ void handle_ip6(Context* ctx, std::span<const uint8_t> payload) {
 	}
 	if (IN6_IS_ADDR_V4MAPPED((const struct in6_addr*)ip6->daddr)) {
 		LOG_D("Dropping IPv6 packet to v4-mapped address (use IPv4 directly): %s",
+		    ip6_to_string(ip6->daddr).c_str());
+		return;
+	}
+	if (IN6_IS_ADDR_V4COMPAT((const struct in6_addr*)ip6->daddr)) {
+		LOG_D("Dropping IPv6 packet to v4-compatible address (deprecated): %s",
 		    ip6_to_string(ip6->daddr).c_str());
 		return;
 	}
@@ -150,49 +207,10 @@ void handle_ip6(Context* ctx, std::span<const uint8_t> payload) {
 	 * Each header's "Next Header" field identifies what follows.
 	 * We only need to find the L4 header, not process the extensions.
 	 */
-	auto skip_ext_headers = [](int next_header, const uint8_t*& ptr, size_t& rem) -> int {
-		constexpr int MAX_EXT = 8; /* Defense: cap chain depth */
-		for (int i = 0; i < MAX_EXT; ++i) {
-			auto ext_len = [&]() -> ssize_t {
-				switch (next_header) {
-				case IPPROTO_HOPOPTS: /* Hop-by-Hop */
-				case IPPROTO_DSTOPTS: /* Destination Options */
-				case IPPROTO_ROUTING: /* Routing */
-				case 139:	      /* Host Identity Protocol */
-				case 140: {	      /* Shim6 */
-					if (rem < 2) return -1;
-					size_t len = ((size_t)ptr[1] + 1) * 8;
-					return len <= rem ? (ssize_t)len : -1;
-				}
-				case IPPROTO_FRAGMENT:
-					/* nstun does not reassemble fragments. Drop unconditionally
-					 * to match IPv4 behavior and prevent L4 port inspection
-					 * bypass. */
-					return -1;
-				case IPPROTO_AH: { /* Authentication Header */
-					if (rem < 2) return -1;
-					size_t len = ((size_t)ptr[1] + 2) * 4;
-					return len <= rem ? (ssize_t)len : -1;
-				}
-				default:
-					return 0;
-				}
-			}();
-
-			if (ext_len < 0) return -1;	      /* Malformed or unsupported */
-			if (ext_len == 0) return next_header; /* Reached L4 */
-
-			next_header = ptr[0]; /* Next Header field */
-			ptr += ext_len;
-			rem -= ext_len;
-		}
-		return -1; /* Chain too deep */
-	};
-
 	const uint8_t* l4_payload = payload.data() + sizeof(ip6_hdr);
 	size_t remaining = payload_len;
 
-	int l4_proto = skip_ext_headers(ip6->next_header, l4_payload, remaining);
+	int l4_proto = skip_ipv6_ext_headers(ip6->next_header, l4_payload, remaining);
 	if (l4_proto < 0) {
 		LOG_D("Failed to parse IPv6 extension headers");
 		return;

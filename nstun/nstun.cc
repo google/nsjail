@@ -103,7 +103,9 @@ static void networkLoop(Context* ctx) {
 		return;
 	}
 
-	uint8_t buf[65536];
+	/* TUN frames: 4-byte header + up to NSTUN_MTU bytes of L3 payload */
+	static constexpr size_t TUN_FRAME_BUF_SIZE = NSTUN_MTU + 4;
+	auto buf = std::make_unique<uint8_t[]>(TUN_FRAME_BUF_SIZE);
 	struct epoll_event events[64];
 	time_t last_gc = time(NULL);
 
@@ -125,7 +127,8 @@ static void networkLoop(Context* ctx) {
 			int fd = events[i].data.fd;
 
 			if (fd == ctx->tap_fd) {
-				ssize_t n = TEMP_FAILURE_RETRY(read(ctx->tap_fd, buf, sizeof(buf)));
+				ssize_t n = TEMP_FAILURE_RETRY(
+				    read(ctx->tap_fd, buf.get(), TUN_FRAME_BUF_SIZE));
 				if (n <= 0) {
 					if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
 						continue;
@@ -133,7 +136,7 @@ static void networkLoop(Context* ctx) {
 					PLOG_E("read(tap_fd) failed or EOF");
 					return;
 				}
-				handle_tun_frame(ctx, buf, n);
+				handle_tun_frame(ctx, buf.get(), n);
 			} else {
 				handle_host_events(ctx, fd, events[i].events);
 			}
@@ -250,12 +253,12 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 	auto parse_ip6 = [](const std::string& str, uint8_t* ip6, uint8_t* mask6) {
 		struct nl_addr* addr;
 		if (nl_addr_parse(str.c_str(), AF_INET6, &addr) == 0) {
-			if (nl_addr_get_len(addr) == 16) {
-				memcpy(ip6, nl_addr_get_binary_addr(addr), 16);
+			if (nl_addr_get_len(addr) == nstun::IPV6_ADDR_LEN) {
+				memcpy(ip6, nl_addr_get_binary_addr(addr), nstun::IPV6_ADDR_LEN);
 			}
 			int bits = nl_addr_get_prefixlen(addr);
-			memset(mask6, 0, 16);
-			for (int i = 0; i < 16; i++) {
+			memset(mask6, 0, nstun::IPV6_ADDR_LEN);
+			for (int i = 0; i < (int)nstun::IPV6_ADDR_LEN; i++) {
 				if (bits >= 8) {
 					mask6[i] = 0xFF;
 					bits -= 8;

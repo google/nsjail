@@ -20,16 +20,24 @@
 
 namespace nstun {
 
+static constexpr size_t UDP_QUEUE_PACKET_MAX = 1500; /* Typ. Ethernet MTU: cap queued packets */
+
+/* UDP idle timeouts (seconds) */
+static constexpr time_t UDP_TIMEOUT_ESTABLISHED = 60;
+static constexpr time_t UDP_TIMEOUT_CONNECTING = 5; /* SOCKS5 TCP setup */
 static void udp_destroy_flow(Context* ctx, UdpFlow* flow) {
 	if (flow->host_fd != -1 && !flow->host_fd_is_listener) {
 		epoll_ctl(ctx->epoll_fd, EPOLL_CTL_DEL, flow->host_fd, nullptr);
+		/* Only remove from flows_by_fd if we registered it there.
+		 * Listener fds are tracked exclusively in host_listener_fd_to_rule
+		 * and are never inserted into flows_by_fd. */
 		ctx->flows_by_fd.erase(flow->host_fd);
 	}
 	if (flow->tcp_fd != -1) {
 		epoll_ctl(ctx->epoll_fd, EPOLL_CTL_DEL, flow->tcp_fd, nullptr);
 		ctx->flows_by_fd.erase(flow->tcp_fd);
 	}
-	/* Erase from owning map last — unique_ptr runs ~UdpFlow() which closes fds */
+	/* Erase from owning map last - unique_ptr runs ~UdpFlow() which closes fds */
 	if (flow->is_ipv6) {
 		ctx->ipv6_udp_flows_by_key.erase(flow->key6);
 	} else {
@@ -95,8 +103,8 @@ static void udp_send_packet6(Context* ctx, const uint8_t* saddr, const uint8_t* 
 static void udp_push_to_guest(Context* ctx, UdpFlow* flow, const uint8_t* data, size_t data_len,
     const struct sockaddr_storage* src_addr_storage) {
 	if (flow->is_ipv6) {
-		uint8_t saddr6[16];
-		uint8_t daddr6[16];
+		uint8_t saddr6[IPV6_ADDR_LEN];
+		uint8_t daddr6[IPV6_ADDR_LEN];
 		uint16_t sport, dport;
 
 		memcpy(daddr6, flow->key6.saddr6, sizeof(daddr6));
@@ -138,186 +146,199 @@ static void udp_push_to_guest(Context* ctx, UdpFlow* flow, const uint8_t* data, 
 	}
 }
 
-static void handle_host_udp_control(Context* ctx, UdpFlow* flow, uint32_t events) {
+typedef void (*UdpControlHandler)(Context* ctx, UdpFlow* flow, uint32_t events);
+
+struct UdpStateHandlers {
+	UdpControlHandler on_host_control;
+};
+
+static void handle_udp_tcp_connecting(Context* ctx, UdpFlow* flow, uint32_t events) {
 	int fd = flow->tcp_fd;
+	if (!(events & EPOLLOUT)) {
+		udp_destroy_flow(ctx, flow);
+		return;
+	}
+	int err = 0;
+	socklen_t errlen = sizeof(err);
+	getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &errlen);
+	if (err != 0) {
+		udp_destroy_flow(ctx, flow);
+		return;
+	}
+	struct epoll_event ev = {.events = EPOLLIN | EPOLLERR | EPOLLHUP, .data = {.fd = fd}};
+	epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, fd, &ev);
+
+	if (flow->use_socks5) {
+		flow->state = UdpSocks5State::SOCKS5_GREETING;
+		if (nstun::send_socks5_greeting(fd) < 0) {
+			udp_destroy_flow(ctx, flow);
+			return;
+		}
+	}
+}
+
+static void handle_udp_socks5_greeting(Context* ctx, UdpFlow* flow, uint32_t events) {
+	int fd = flow->tcp_fd;
+	socks5_auth_reply reply;
+	ssize_t n = recv(fd, &reply, sizeof(reply), MSG_PEEK | MSG_DONTWAIT);
+	if (n <= 0) {
+		if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return;
+		udp_destroy_flow(ctx, flow);
+		return;
+	}
+	if (n < (ssize_t)sizeof(reply)) return;
+	recv(fd, &reply, sizeof(reply), MSG_DONTWAIT);
+	if (!nstun::parse_socks5_auth_reply(std::span<const uint8_t>(
+		reinterpret_cast<const uint8_t*>(&reply), sizeof(reply)))) {
+		udp_destroy_flow(ctx, flow);
+		return;
+	}
+	flow->state = UdpSocks5State::SOCKS5_ASSOCIATE;
+	if (nstun::send_socks5_udp_associate(fd) < 0) {
+		udp_destroy_flow(ctx, flow);
+		return;
+	}
+}
+
+static void handle_udp_socks5_associate(Context* ctx, UdpFlow* flow, uint32_t events) {
+	int fd = flow->tcp_fd;
+	socks5_req req = {};
+	ssize_t n = recv(fd, &req, sizeof(req), MSG_PEEK | MSG_DONTWAIT);
+	if (n <= 0) {
+		if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return;
+		udp_destroy_flow(ctx, flow);
+		return;
+	}
+	if (n < 4) return;
+	if (req.ver != SOCKS5_VERSION || req.cmd != SOCKS5_REP_SUCCESS) {
+		udp_destroy_flow(ctx, flow);
+		return;
+	}
+
+	size_t expected_len = 0;
+	if (req.atyp == SOCKS5_ATYP_IPV4) {
+		expected_len = sizeof(socks5_req); /* header+ip4+port */
+	} else if (req.atyp == SOCKS5_ATYP_IPV6) {
+		expected_len = sizeof(socks5_req6); /* header+ip6+port */
+	} else if (req.atyp == SOCKS5_ATYP_DOMAIN) {
+		socks5_max_buf buf;
+		n = recv(fd, &buf, sizeof(buf), MSG_PEEK | MSG_DONTWAIT);
+		if (n < 5) return;
+		socks5_req_domain* dreq = reinterpret_cast<socks5_req_domain*>(&buf);
+		expected_len = 5 + dreq->domain_len + 2;
+	} else {
+		udp_destroy_flow(ctx, flow);
+		return;
+	}
+
+	if ((size_t)n < expected_len) return;
+
+	socks5_max_buf buf;
+	recv(fd, &buf, expected_len, MSG_DONTWAIT);
+
+	nstun::Socks5Reply res;
+	if (!nstun::parse_socks5_connect_reply(
+		std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(&buf), expected_len),
+		&res)) {
+		udp_destroy_flow(ctx, flow);
+		return;
+	}
+
+	if (res.atyp == SOCKS5_ATYP_IPV4) {
+		memcpy(&flow->bnd_ip, &res.bind_ip4, sizeof(flow->bnd_ip));
+		memcpy(&flow->bnd_port, &res.bind_port, sizeof(flow->bnd_port));
+	} else {
+		LOG_E("SOCKS5 UDP proxy returned unsupported address type");
+		udp_destroy_flow(ctx, flow);
+		return;
+	}
+
+	int udp_fd = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
+	if (udp_fd == -1) {
+		udp_destroy_flow(ctx, flow);
+		return;
+	}
+	struct sockaddr_in bind_addr = INIT_SOCKADDR_IN(AF_INET);
+	bind_addr.sin_addr.s_addr = INADDR_ANY;
+	bind_addr.sin_port = 0;
+	if (bind(udp_fd, (struct sockaddr*)&bind_addr, sizeof(bind_addr)) == -1) {
+		close(udp_fd);
+		udp_destroy_flow(ctx, flow);
+		return;
+	}
+	struct epoll_event ev = {.events = EPOLLIN, .data = {.fd = udp_fd}};
+	if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, udp_fd, &ev) == -1) {
+		close(udp_fd);
+		udp_destroy_flow(ctx, flow);
+		return;
+	}
+	flow->host_fd = udp_fd;
+	ctx->flows_by_fd[udp_fd] = flow;
+	flow->state = UdpSocks5State::ESTABLISHED;
+
+	for (const auto& pkt : flow->tx_queue) {
+		struct sockaddr_in dest_addr = INIT_SOCKADDR_IN(AF_INET);
+		dest_addr.sin_addr.s_addr = flow->bnd_ip;
+		dest_addr.sin_port = flow->bnd_port;
+
+		if (flow->is_ipv6) {
+			std::vector<uint8_t> s5_pkt(sizeof(socks5_udp_hdr6) + pkt.size());
+			socks5_udp_hdr6* hdr = reinterpret_cast<socks5_udp_hdr6*>(s5_pkt.data());
+			hdr->rsv = 0;
+			hdr->frag = 0;
+			hdr->atyp = SOCKS5_ATYP_IPV6;
+			memcpy(hdr->dst_ip6, flow->orig_dest_ip6, sizeof(hdr->dst_ip6));
+			hdr->dst_port = htons(flow->orig_dest_port);
+			memcpy(s5_pkt.data() + sizeof(socks5_udp_hdr6), pkt.data(), pkt.size());
+			sendto(flow->host_fd, s5_pkt.data(), s5_pkt.size(), MSG_NOSIGNAL,
+			    (struct sockaddr*)&dest_addr, sizeof(dest_addr));
+		} else {
+			std::vector<uint8_t> s5_pkt(sizeof(socks5_udp_hdr) + pkt.size());
+			socks5_udp_hdr* hdr = reinterpret_cast<socks5_udp_hdr*>(s5_pkt.data());
+			hdr->rsv = 0;
+			hdr->frag = 0;
+			hdr->atyp = SOCKS5_ATYP_IPV4;
+			hdr->dst_ip4 = flow->orig_dest_ip4;
+			hdr->dst_port = htons(flow->orig_dest_port);
+			memcpy(s5_pkt.data() + sizeof(socks5_udp_hdr), pkt.data(), pkt.size());
+			sendto(flow->host_fd, s5_pkt.data(), s5_pkt.size(), MSG_NOSIGNAL,
+			    (struct sockaddr*)&dest_addr, sizeof(dest_addr));
+		}
+	}
+	flow->tx_queue.clear();
+}
+
+static void handle_udp_established(Context* ctx, UdpFlow* flow, uint32_t events) {
+	int fd = flow->tcp_fd;
+	/* Detect SOCKS5 TCP control channel death */
+	if (events & (EPOLLERR | EPOLLHUP | EPOLLIN)) {
+		uint8_t buf[1];
+		ssize_t n = recv(fd, buf, 1, MSG_PEEK | MSG_DONTWAIT);
+		if (n <= 0) {
+			if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return;
+			LOG_D("SOCKS5 TCP control channel died, destroying UDP flow");
+			udp_destroy_flow(ctx, flow);
+		}
+	}
+}
+
+static const UdpStateHandlers kUdpStateTable[] = {
+    [(int)UdpSocks5State::ESTABLISHED] = {handle_udp_established},
+    [(int)UdpSocks5State::SOCKS5_GREETING] = {handle_udp_socks5_greeting},
+    [(int)UdpSocks5State::SOCKS5_ASSOCIATE] = {handle_udp_socks5_associate},
+    [(int)UdpSocks5State::TCP_CONNECTING] = {handle_udp_tcp_connecting},
+};
+
+static void handle_host_udp_control(Context* ctx, UdpFlow* flow, uint32_t events) {
 	flow->last_active = time(NULL);
 
-	switch (flow->state) {
-	case UdpSocks5State::TCP_CONNECTING: {
-		if (!(events & EPOLLOUT)) {
-			udp_destroy_flow(ctx, flow);
-			return;
-		}
-		int err = 0;
-		socklen_t errlen = sizeof(err);
-		getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &errlen);
-		if (err != 0) {
-			udp_destroy_flow(ctx, flow);
-			return;
-		}
-		struct epoll_event ev = {
-		    .events = EPOLLIN | EPOLLERR | EPOLLHUP, .data = {.fd = fd}};
-		epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, fd, &ev);
-
-		if (flow->use_socks5) {
-			flow->state = UdpSocks5State::SOCKS5_GREETING;
-			if (nstun::send_socks5_greeting(fd) < 0) {
-				udp_destroy_flow(ctx, flow);
-				return;
-			}
-		}
-		return;
+	size_t state_idx = static_cast<size_t>(flow->state);
+	if (state_idx >= sizeof(kUdpStateTable) / sizeof(kUdpStateTable[0])) {
+		LOG_F("Invalid UDP SOCKS5 state: %zu", state_idx);
+		abort();
 	}
 
-	case UdpSocks5State::SOCKS5_GREETING: {
-		socks5_auth_reply reply;
-		ssize_t n = recv(fd, &reply, sizeof(reply), MSG_PEEK | MSG_DONTWAIT);
-		if (n <= 0) {
-			if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return;
-			udp_destroy_flow(ctx, flow);
-			return;
-		}
-		if (n < (ssize_t)sizeof(reply)) return;
-		recv(fd, &reply, sizeof(reply), MSG_DONTWAIT);
-		if (!nstun::parse_socks5_auth_reply(std::span<const uint8_t>(
-			reinterpret_cast<const uint8_t*>(&reply), sizeof(reply)))) {
-			udp_destroy_flow(ctx, flow);
-			return;
-		}
-		flow->state = UdpSocks5State::SOCKS5_ASSOCIATE;
-		if (nstun::send_socks5_udp_associate(fd) < 0) {
-			udp_destroy_flow(ctx, flow);
-			return;
-		}
-		return;
-	}
-
-	case UdpSocks5State::SOCKS5_ASSOCIATE: {
-		socks5_req req = {};
-		ssize_t n = recv(fd, &req, sizeof(req), MSG_PEEK | MSG_DONTWAIT);
-		if (n <= 0) {
-			if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return;
-			udp_destroy_flow(ctx, flow);
-			return;
-		}
-		if (n < 4) return;
-		if (req.ver != SOCKS5_VERSION || req.cmd != SOCKS5_REP_SUCCESS) {
-			udp_destroy_flow(ctx, flow);
-			return;
-		}
-
-		size_t expected_len = 0;
-		if (req.atyp == SOCKS5_ATYP_IPV4) {
-			expected_len = 10;
-		} else if (req.atyp == SOCKS5_ATYP_IPV6) {
-			expected_len = 22;
-		} else if (req.atyp == SOCKS5_ATYP_DOMAIN) {
-			socks5_max_buf buf;
-			n = recv(fd, &buf, sizeof(buf), MSG_PEEK | MSG_DONTWAIT);
-			if (n < 5) return;
-			socks5_req_domain* dreq = reinterpret_cast<socks5_req_domain*>(&buf);
-			expected_len = 5 + dreq->domain_len + 2;
-		} else {
-			udp_destroy_flow(ctx, flow);
-			return;
-		}
-
-		if ((size_t)n < expected_len) return;
-
-		socks5_max_buf buf;
-		recv(fd, &buf, expected_len, MSG_DONTWAIT);
-
-		nstun::Socks5Reply res;
-		if (!nstun::parse_socks5_connect_reply(
-			std::span<const uint8_t>(
-			    reinterpret_cast<const uint8_t*>(&buf), expected_len),
-			&res)) {
-			udp_destroy_flow(ctx, flow);
-			return;
-		}
-
-		if (res.atyp == SOCKS5_ATYP_IPV4) {
-			memcpy(&flow->bnd_ip, &res.bind_ip4, sizeof(flow->bnd_ip));
-			memcpy(&flow->bnd_port, &res.bind_port, sizeof(flow->bnd_port));
-		} else {
-			LOG_E("SOCKS5 UDP proxy returned unsupported address type");
-			udp_destroy_flow(ctx, flow);
-			return;
-		}
-
-		int udp_fd = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
-		if (udp_fd == -1) {
-			udp_destroy_flow(ctx, flow);
-			return;
-		}
-		struct sockaddr_in bind_addr = INIT_SOCKADDR_IN(AF_INET);
-		bind_addr.sin_addr.s_addr = INADDR_ANY;
-		bind_addr.sin_port = 0;
-		if (bind(udp_fd, (struct sockaddr*)&bind_addr, sizeof(bind_addr)) == -1) {
-			close(udp_fd);
-			udp_destroy_flow(ctx, flow);
-			return;
-		}
-		struct epoll_event ev = {.events = EPOLLIN, .data = {.fd = udp_fd}};
-		if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, udp_fd, &ev) == -1) {
-			close(udp_fd);
-			udp_destroy_flow(ctx, flow);
-			return;
-		}
-		flow->host_fd = udp_fd;
-		ctx->flows_by_fd[udp_fd] = flow;
-		flow->state = UdpSocks5State::ESTABLISHED;
-
-		for (const auto& pkt : flow->tx_queue) {
-			struct sockaddr_in dest_addr = INIT_SOCKADDR_IN(AF_INET);
-			dest_addr.sin_addr.s_addr = flow->bnd_ip;
-			dest_addr.sin_port = flow->bnd_port;
-
-			if (flow->is_ipv6) {
-				std::vector<uint8_t> s5_pkt(sizeof(socks5_udp_hdr6) + pkt.size());
-				socks5_udp_hdr6* hdr =
-				    reinterpret_cast<socks5_udp_hdr6*>(s5_pkt.data());
-				hdr->rsv = 0;
-				hdr->frag = 0;
-				hdr->atyp = SOCKS5_ATYP_IPV6;
-				memcpy(hdr->dst_ip6, flow->orig_dest_ip6, sizeof(hdr->dst_ip6));
-				hdr->dst_port = htons(flow->orig_dest_port);
-				memcpy(s5_pkt.data() + sizeof(socks5_udp_hdr6), pkt.data(),
-				    pkt.size());
-				sendto(flow->host_fd, s5_pkt.data(), s5_pkt.size(), MSG_NOSIGNAL,
-				    (struct sockaddr*)&dest_addr, sizeof(dest_addr));
-			} else {
-				std::vector<uint8_t> s5_pkt(sizeof(socks5_udp_hdr) + pkt.size());
-				socks5_udp_hdr* hdr =
-				    reinterpret_cast<socks5_udp_hdr*>(s5_pkt.data());
-				hdr->rsv = 0;
-				hdr->frag = 0;
-				hdr->atyp = SOCKS5_ATYP_IPV4;
-				hdr->dst_ip4 = flow->orig_dest_ip4;
-				hdr->dst_port = htons(flow->orig_dest_port);
-				memcpy(
-				    s5_pkt.data() + sizeof(socks5_udp_hdr), pkt.data(), pkt.size());
-				sendto(flow->host_fd, s5_pkt.data(), s5_pkt.size(), MSG_NOSIGNAL,
-				    (struct sockaddr*)&dest_addr, sizeof(dest_addr));
-			}
-		}
-		flow->tx_queue.clear();
-		return;
-	}
-
-	case UdpSocks5State::ESTABLISHED:
-		/* Detect SOCKS5 TCP control channel death */
-		if (events & (EPOLLERR | EPOLLHUP | EPOLLIN)) {
-			uint8_t buf[1];
-			ssize_t n = recv(fd, buf, 1, MSG_PEEK | MSG_DONTWAIT);
-			if (n <= 0) {
-				if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return;
-				LOG_D("SOCKS5 TCP control channel died, destroying UDP flow");
-				udp_destroy_flow(ctx, flow);
-			}
-		}
-		break;
-	}
+	kUdpStateTable[state_idx].on_host_control(ctx, flow, events);
 }
 
 void handle_udp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> payload) {
@@ -389,6 +410,10 @@ void handle_udp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> paylo
 		flow->orig_dest_ip4 = ip->daddr;
 		flow->orig_dest_port = dest_port;
 		flow->use_socks5 = (rule.action == NSTUN_ACTION_ENCAP_SOCKS5);
+		/* Store redirect destination so the forwarding path never
+		 * re-evaluates the rule (which could yield stale results). */
+		flow->redirect_ip4 = rule.redirect_ip4;
+		flow->redirect_port = rule.redirect_port;
 
 		if (flow->use_socks5) {
 			int tcp_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
@@ -457,9 +482,10 @@ void handle_udp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> paylo
 
 	if (flow->use_socks5 && flow->state != UdpSocks5State::ESTABLISHED) {
 		/* Cap queued packet size to prevent memory exhaustion:
-		 * 1024 flows * 50 packets * 1500 bytes = ~75MB worst case */
-		if (data_len > 1500) {
-			LOG_D("UDP proxy queue dropping oversized packet (%zu bytes)", data_len);
+		 * NSTUN_MAX_FLOWS * 50 packets * UDP_QUEUE_PACKET_MAX = ~75MB worst case */
+		if (data_len > UDP_QUEUE_PACKET_MAX) {
+			LOG_D("UDP proxy queue dropping oversized packet (%zu > %zu bytes)",
+			    data_len, UDP_QUEUE_PACKET_MAX);
 			return;
 		}
 		std::vector<uint8_t> pkt(data, data + data_len);
@@ -489,9 +515,12 @@ void handle_udp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> paylo
 		sendto(flow->host_fd, s5_pkt.data(), s5_pkt.size(), MSG_NOSIGNAL,
 		    (struct sockaddr*)&dest_addr, sizeof(dest_addr));
 	} else {
-		if (rule.redirect_ip4 && rule.redirect_port) {
-			dest_addr.sin_addr.s_addr = rule.redirect_ip4;
-			dest_addr.sin_port = htons(rule.redirect_port);
+		/* Use the redirect destination stored in the flow at creation time.
+		 * Do NOT re-evaluate the rule - it may yield different results
+		 * for packets on an already-established flow. */
+		if (flow->redirect_ip4 && flow->redirect_port) {
+			dest_addr.sin_addr.s_addr = flow->redirect_ip4;
+			dest_addr.sin_port = htons(flow->redirect_port);
 		} else {
 			dest_addr.sin_addr.s_addr = ip->daddr;
 			dest_addr.sin_port = htons(dest_port);
@@ -508,8 +537,12 @@ static void handle_host_udp(Context* ctx, UdpFlow* flow) {
 	constexpr int VLEN = 64;
 	struct mmsghdr msgs[VLEN];
 	struct iovec iovecs[VLEN];
-	static uint8_t (*bufs)[NSTUN_MTU] = new uint8_t[VLEN][NSTUN_MTU];
-	static struct sockaddr_storage* src_addrs = new struct sockaddr_storage[VLEN];
+	static thread_local std::unique_ptr<uint8_t[]> bufs_ptr;
+	if (!bufs_ptr) {
+		bufs_ptr = std::make_unique<uint8_t[]>(VLEN * NSTUN_MTU);
+	}
+	uint8_t (*bufs)[NSTUN_MTU] = reinterpret_cast<uint8_t (*)[NSTUN_MTU]>(bufs_ptr.get());
+	static thread_local struct sockaddr_storage src_addrs[VLEN];
 
 	for (int i = 0; i < VLEN; ++i) {
 		iovecs[i].iov_base = bufs[i];
@@ -538,15 +571,16 @@ static void handle_host_udp(Context* ctx, UdpFlow* flow) {
 		struct sockaddr_storage* src_addr_storage = &src_addrs[i];
 
 		if (flow->use_socks5) {
-			if (data_len < 10) continue;
+			if (data_len < sizeof(socks5_udp_hdr))
+				continue; /* Too short for any SOCKS5 UDP */
 			socks5_udp_hdr* hdr = reinterpret_cast<socks5_udp_hdr*>(data_ptr);
 			if (hdr->rsv != 0 || hdr->frag != 0) continue;
 
 			size_t header_len = 0;
 			if (hdr->atyp == SOCKS5_ATYP_IPV4) {
-				header_len = 10;
+				header_len = sizeof(socks5_udp_hdr); /* rsv+frag+atyp+ip4+port */
 			} else if (hdr->atyp == SOCKS5_ATYP_IPV6) {
-				header_len = 22;
+				header_len = sizeof(socks5_udp_hdr6); /* rsv+frag+atyp+ip6+port */
 			} else if (hdr->atyp == SOCKS5_ATYP_DOMAIN) {
 				if (data_len < 5) continue;
 				socks5_udp_hdr_domain* dhdr =
@@ -572,8 +606,12 @@ void handle_host_udp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 	constexpr int VLEN = 64;
 	struct mmsghdr msgs[VLEN];
 	struct iovec iovecs[VLEN];
-	static uint8_t (*bufs)[NSTUN_MTU] = new uint8_t[VLEN][NSTUN_MTU];
-	static struct sockaddr_storage* client_addrs = new struct sockaddr_storage[VLEN];
+	static thread_local std::unique_ptr<uint8_t[][NSTUN_MTU]> bufs_ptr;
+	if (!bufs_ptr) {
+		bufs_ptr = std::make_unique<uint8_t[][NSTUN_MTU]>(VLEN);
+	}
+	uint8_t (*bufs)[NSTUN_MTU] = bufs_ptr.get();
+	static thread_local struct sockaddr_storage client_addrs[VLEN];
 
 	for (int i = 0; i < VLEN; ++i) {
 		iovecs[i].iov_base = bufs[i];
@@ -610,7 +648,7 @@ void handle_host_udp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 			}
 
 			/* Loopback→gateway rewrite for IPv6: prevent martian drops in guest */
-			uint8_t client_ip6[16];
+			uint8_t client_ip6[IPV6_ADDR_LEN];
 			memcpy(client_ip6, &client6->sin6_addr, sizeof(client_ip6));
 			if (IN6_IS_ADDR_LOOPBACK(&client6->sin6_addr)) {
 				memcpy(client_ip6, ctx->host_ip6, sizeof(client_ip6));
@@ -821,6 +859,13 @@ void handle_udp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> paylo
 		memcpy(flow->orig_dest_ip6, ip->daddr, sizeof(flow->orig_dest_ip6));
 		flow->orig_dest_port = dest_port;
 		flow->use_socks5 = (rule.action == NSTUN_ACTION_ENCAP_SOCKS5);
+		/* Store redirect destination so the forwarding path never
+		 * re-evaluates the rule (which could yield stale results). */
+		if (rule.has_redirect_ip6) {
+			memcpy(flow->redirect_ip6, rule.redirect_ip6, sizeof(flow->redirect_ip6));
+		}
+		flow->redirect_ip4 = rule.redirect_ip4; /* SOCKS5 proxy is IPv4 */
+		flow->redirect_port = rule.redirect_port;
 
 		if (flow->use_socks5) {
 			int tcp_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
@@ -888,9 +933,9 @@ void handle_udp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> paylo
 
 	if (flow->use_socks5 && flow->state != UdpSocks5State::ESTABLISHED) {
 		/* Cap queued packet size to prevent memory exhaustion */
-		if (data_len > 1500) {
-			LOG_D(
-			    "IPv6 UDP proxy queue dropping oversized packet (%zu bytes)", data_len);
+		if (data_len > UDP_QUEUE_PACKET_MAX) {
+			LOG_D("IPv6 UDP proxy queue dropping oversized packet (%zu > %zu bytes)",
+			    data_len, UDP_QUEUE_PACKET_MAX);
 			return;
 		}
 		std::vector<uint8_t> pkt(data, data + data_len);
@@ -920,10 +965,14 @@ void handle_udp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> paylo
 		sendto(flow->host_fd, s5_pkt.data(), s5_pkt.size(), MSG_NOSIGNAL,
 		    (struct sockaddr*)&dest_addr4, sizeof(dest_addr4));
 	} else {
-		if (rule.has_redirect_ip6 && rule.redirect_port) {
+		/* Use the redirect destination stored in the flow at creation time.
+		 * Do NOT re-evaluate the rule for packets on an existing flow. */
+		bool has_redirect = !std::equal(std::begin(flow->redirect_ip6),
+		    std::end(flow->redirect_ip6), std::begin(std::array<uint8_t, IPV6_ADDR_LEN>{}));
+		if (has_redirect && flow->redirect_port) {
 			memcpy(
-			    &dest_addr.sin6_addr, rule.redirect_ip6, sizeof(dest_addr.sin6_addr));
-			dest_addr.sin6_port = htons(rule.redirect_port);
+			    &dest_addr.sin6_addr, flow->redirect_ip6, sizeof(dest_addr.sin6_addr));
+			dest_addr.sin6_port = htons(flow->redirect_port);
 		} else {
 			memcpy(&dest_addr.sin6_addr, ip->daddr, sizeof(dest_addr.sin6_addr));
 			dest_addr.sin6_port = htons(dest_port);
@@ -945,9 +994,9 @@ void UdpFlow::handle_host_event(Context* ctx, int fd, uint32_t events) {
 }
 
 bool UdpFlow::is_stale(time_t now) const {
-	time_t timeout = 60;
+	time_t timeout = UDP_TIMEOUT_ESTABLISHED;
 	if (this->use_socks5 && this->state != UdpSocks5State::ESTABLISHED) {
-		timeout = 5;
+		timeout = UDP_TIMEOUT_CONNECTING;
 	}
 	return (now - this->last_active) > timeout;
 }

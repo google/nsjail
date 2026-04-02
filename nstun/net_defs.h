@@ -18,6 +18,9 @@ namespace nstun {
 
 constexpr size_t NSTUN_MTU = ((1024 * 64) - 1024);
 
+constexpr size_t IPV4_ADDR_LEN = sizeof(in_addr);
+constexpr size_t IPV6_ADDR_LEN = sizeof(in6_addr);
+
 struct __attribute__((packed)) ip4_hdr {
 	uint8_t ihl_version; /* version << 4 | ihl */
 	uint8_t tos;

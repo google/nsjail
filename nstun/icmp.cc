@@ -17,6 +17,10 @@
 
 namespace nstun {
 
+/* Maximum frame size for an ICMP error packet we will generate.
+ * RFC 792 / RFC 4443 require including the original IP header + 8 bytes
+ * of the triggering datagram. We cap total frame size conservatively. */
+static constexpr size_t ICMP_ERROR_MAX_FRAME = 128;
 static void icmp_destroy_flow(Context* ctx, IcmpFlow* flow) {
 	if (flow->host_fd != -1) {
 		epoll_ctl(ctx->epoll_fd, EPOLL_CTL_DEL, flow->host_fd, nullptr);
@@ -127,7 +131,7 @@ void send_icmp4_error(
 	size_t icmp_data_len = req_ihl + 8;
 	if (icmp_data_len > tot_len) icmp_data_len = tot_len;
 
-	if (sizeof(ip4_hdr) + sizeof(icmp4_hdr) + icmp_data_len > 128) return;
+	if (sizeof(ip4_hdr) + sizeof(icmp4_hdr) + icmp_data_len > ICMP_ERROR_MAX_FRAME) return;
 
 	icmp_send_packet4(ctx, req_ip->daddr, req_ip->saddr, type, code, 0, 0,
 	    reinterpret_cast<const uint8_t*>(req_ip), icmp_data_len);
@@ -140,7 +144,7 @@ void send_icmp6_error(
 	size_t icmp_data_len = sizeof(ip6_hdr) + 8;
 	if (icmp_data_len > tot_len) icmp_data_len = tot_len;
 
-	if (sizeof(ip6_hdr) + sizeof(icmp6_hdr) + icmp_data_len > 128) return;
+	if (sizeof(ip6_hdr) + sizeof(icmp6_hdr) + icmp_data_len > ICMP_ERROR_MAX_FRAME) return;
 
 	icmp_send_packet6(ctx, req_ip->daddr, req_ip->saddr, type, code, 0, 0,
 	    reinterpret_cast<const uint8_t*>(req_ip), icmp_data_len);
@@ -182,7 +186,7 @@ void handle_icmp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> payl
 			return;
 		}
 
-		if (memcmp(ip->daddr, ctx->host_ip6, 16) == 0 &&
+		if (memcmp(ip->daddr, ctx->host_ip6, IPV6_ADDR_LEN) == 0 &&
 		    rule.action != NSTUN_ACTION_REDIRECT) {
 			/* Construct reply (Type 129, Code 0) */
 			const uint8_t* icmp_payload = payload.data() + sizeof(icmp6_hdr);
@@ -396,8 +400,12 @@ static void handle_host_icmp(Context* ctx, IcmpFlow* flow) {
 	constexpr int VLEN = 64;
 	struct mmsghdr msgs[VLEN];
 	struct iovec iovecs[VLEN];
-	static uint8_t (*bufs)[NSTUN_MTU] = new uint8_t[VLEN][NSTUN_MTU];
-	static struct sockaddr_storage* src_addrs = new struct sockaddr_storage[VLEN];
+	static thread_local std::unique_ptr<uint8_t[][NSTUN_MTU]> bufs_ptr;
+	if (!bufs_ptr) {
+		bufs_ptr = std::make_unique<uint8_t[][NSTUN_MTU]>(VLEN);
+	}
+	uint8_t (*bufs)[NSTUN_MTU] = bufs_ptr.get();
+	static thread_local struct sockaddr_storage src_addrs[VLEN];
 
 	for (int i = 0; i < VLEN; ++i) {
 		iovecs[i].iov_base = bufs[i];
@@ -431,7 +439,7 @@ static void handle_host_icmp(Context* ctx, IcmpFlow* flow) {
 				const uint8_t* icmp_payload = data_ptr + sizeof(icmp6_hdr);
 				size_t icmp_payload_len = recv_len - sizeof(icmp6_hdr);
 
-				uint8_t saddr6[16];
+				uint8_t saddr6[IPV6_ADDR_LEN];
 				if (flow->is_redirected) {
 					memcpy(saddr6, flow->orig_dest_ip6, sizeof(saddr6));
 				} else {

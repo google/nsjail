@@ -31,8 +31,8 @@ struct __attribute__((packed)) FlowKey4 {
 };
 
 struct __attribute__((packed)) FlowKey6 {
-	uint8_t saddr6[16];
-	uint8_t daddr6[16];
+	uint8_t saddr6[IPV6_ADDR_LEN];
+	uint8_t daddr6[IPV6_ADDR_LEN];
 	uint16_t sport;
 	uint16_t dport;
 
@@ -48,8 +48,8 @@ struct __attribute__((packed)) IcmpFlowKey4 {
 };
 
 struct __attribute__((packed)) IcmpFlowKey6 {
-	uint8_t saddr6[16];
-	uint8_t daddr6[16];
+	uint8_t saddr6[IPV6_ADDR_LEN];
+	uint8_t daddr6[IPV6_ADDR_LEN];
 	uint16_t id;
 
 	auto operator<=> (const IcmpFlowKey6&) const = default;
@@ -86,11 +86,24 @@ struct UdpFlow : public Flow {
 		FlowKey6 key6;
 	};
 	bool is_redirected = false;
+	/*
+	 * Original destination (before redirect/SOCKS5 rewrite).
+	 * Used when forwarding host replies back to the guest.
+	 */
 	union {
 		uint32_t orig_dest_ip4;
 		uint8_t orig_dest_ip6[16];
 	};
 	uint16_t orig_dest_port = 0;
+
+	/*
+	 * Redirect destination - stored at flow creation so the forwarding
+	 * path never needs to re-evaluate the rule. For SOCKS5 flows this
+	 * is the proxy address; for plain REDIRECT rules it is the target.
+	 */
+	uint32_t redirect_ip4 = 0;
+	uint8_t  redirect_ip6[IPV6_ADDR_LEN] = {};
+	uint16_t redirect_port = 0;
 
 	bool use_socks5 = false;
 	UdpSocks5State state = UdpSocks5State::ESTABLISHED;
@@ -121,7 +134,7 @@ struct IcmpFlow : public Flow {
 	bool is_redirected = false;
 	union {
 		uint32_t orig_dest_ip4;
-		uint8_t orig_dest_ip6[16];
+		uint8_t orig_dest_ip6[IPV6_ADDR_LEN];
 	};
 
 	~IcmpFlow() override {
@@ -143,8 +156,8 @@ struct Context {
 	uint32_t host_ip4;
 
 	/* IPv6 addresses */
-	uint8_t guest_ip6[16];
-	uint8_t host_ip6[16];
+	uint8_t guest_ip6[IPV6_ADDR_LEN];
+	uint8_t host_ip6[IPV6_ADDR_LEN];
 
 	std::vector<nstun_rule_t> rules;
 	std::map<FlowKey4, std::unique_ptr<UdpFlow>> ipv4_udp_flows_by_key;
@@ -169,7 +182,7 @@ struct RuleResult {
 	uint32_t redirect_ip4;
 	uint16_t redirect_port;
 	bool has_redirect_ip6;
-	uint8_t redirect_ip6[16];
+	uint8_t redirect_ip6[IPV6_ADDR_LEN];
 };
 
 

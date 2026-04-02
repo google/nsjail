@@ -36,7 +36,7 @@ int send_socks5_connect(int fd, const uint8_t* addr, uint16_t port_nbo, bool is_
 		    .dst_ip6 = {},
 		    .dst_port = port_nbo, /* Already in network byte order */
 		};
-		memcpy(req.dst_ip6, addr, 16);
+		memcpy(req.dst_ip6, addr, sizeof(req.dst_ip6));
 		if (send(fd, &req, sizeof(req), MSG_NOSIGNAL) != (ssize_t)sizeof(req)) {
 			return -1;
 		}
@@ -76,20 +76,23 @@ int send_socks5_udp_associate(int fd) {
 bool parse_socks5_connect_reply(std::span<const uint8_t> data, Socks5Reply* out) {
 	if (data.size() < 4) return false;
 
-	/* data[0] == ver, data[1] == rep, data[2] == rsv, data[3] == atyp */
+	/* data[0]=ver, data[1]=rep, data[2]=rsv, data[3]=atyp */
 	if (data[0] != SOCKS5_VERSION) return false;
 	if (data[1] != SOCKS5_REP_SUCCESS) return false;
 
 	out->atyp = data[3];
 
 	if (out->atyp == SOCKS5_ATYP_IPV4) {
-		if (data.size() < 10) return false;
-		memcpy(&out->bind_ip4, &data[4], 4);
-		memcpy(&out->bind_port, &data[8], 2);
+		/* Full reply: 4-byte header + 4-byte IPv4 + 2-byte port */
+		if (data.size() < sizeof(socks5_req)) return false;
+		const auto* reply = reinterpret_cast<const socks5_req*>(data.data());
+		memcpy(&out->bind_ip4, &reply->dst_ip4, sizeof(reply->dst_ip4));
+		memcpy(&out->bind_port, &reply->dst_port, sizeof(reply->dst_port));
 	} else if (out->atyp == SOCKS5_ATYP_IPV6) {
-		if (data.size() < 22) return false;
-		/* For now, just accept */
-		memcpy(&out->bind_port, &data[20], 2);
+		/* Full reply: 4-byte header + 16-byte IPv6 + 2-byte port */
+		if (data.size() < sizeof(socks5_req6)) return false;
+		const auto* reply = reinterpret_cast<const socks5_req6*>(data.data());
+		memcpy(&out->bind_port, &reply->dst_port, sizeof(reply->dst_port));
 	}
 
 	return true;
@@ -100,6 +103,8 @@ int send_http_connect(int fd, const uint8_t* addr, uint16_t port_nbo, bool is_ip
 	    is_ipv6 ? ip6_to_string(addr) : ip4_to_string(*(const uint32_t*)addr);
 	uint16_t port = ntohs(port_nbo);
 
+	/* Max: "CONNECT [" + 39-char IPv6 + "]:65535 HTTP/1.1\r\nHost: [" + 39 + "]:65535\r\n\r\n"
+	 */
 	char buf[256];
 	int n;
 	if (is_ipv6) {
@@ -126,11 +131,20 @@ size_t find_end_of_headers(const std::vector<uint8_t>& buf) {
 }
 
 bool parse_http_connect_reply(const std::vector<uint8_t>& buf) {
-	if (buf.size() < 12) return false; /* "HTTP/1.x 200" */
-	/* Check for "HTTP/1." prefix and 2xx status code */
-	if (memcmp(buf.data(), "HTTP/1.", 7) != 0) return false;
-	/* Status code starts at offset 9 */
-	if (buf[9] != '2') return false;
+	/* Minimum valid response: "HTTP/1.x 2xx" = 12 chars.
+	 * We only check the version prefix and status class (2xx). */
+	static constexpr std::string_view HTTP_VERSION_PREFIX = "HTTP/1.";
+	/* Offset of the first status digit in "HTTP/1.x NNN": H(0)T(1)T(2)P(3)/(4)1(5).(6)x(7)
+	 * (8)N(9) */
+	static constexpr size_t HTTP_STATUS_DIGIT_OFFSET = 9;
+	static constexpr size_t HTTP_RESPONSE_MIN_LEN =
+	    HTTP_STATUS_DIGIT_OFFSET + 3; /* digit + two more chars of status */
+
+	if (buf.size() < HTTP_RESPONSE_MIN_LEN) return false;
+	if (memcmp(buf.data(), HTTP_VERSION_PREFIX.data(), HTTP_VERSION_PREFIX.size()) != 0)
+		return false;
+	/* Accept any 2xx status code */
+	if (buf[HTTP_STATUS_DIGIT_OFFSET] != '2') return false;
 	return true;
 }
 
