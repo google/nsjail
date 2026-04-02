@@ -444,6 +444,7 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 				if (nr.proto == NSTUN_PROTO_TCP)
 					setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt));
 				setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+				setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &opt, sizeof(opt));
 
 				struct sockaddr_in6 addr = INIT_SOCKADDR_IN6(AF_INET6);
 				addr.sin6_port = htons(port);
