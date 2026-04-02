@@ -126,15 +126,24 @@ static int tryMountRW(mount_t* mpt, const char* src, const char* dst) {
 static bool createMountTarget(const std::string& path, bool is_dir) {
 	if (is_dir) {
 		if (mkdir(path.c_str(), 0711) == -1 && errno != EEXIST) {
-			PLOG_W("mkdir('%s')", path.c_str());
-			return false;
+			struct stat st;
+			if (errno != EROFS || stat(path.c_str(), &st) != 0 ||
+			    !S_ISDIR(st.st_mode)) {
+				PLOG_W("mkdir('%s')", path.c_str());
+				return false;
+			}
 		}
 	} else {
 		int fd =
 		    TEMP_FAILURE_RETRY(open(path.c_str(), O_CREAT | O_RDONLY | O_CLOEXEC, 0644));
 		if (fd == -1) {
-			PLOG_W("open('%s', O_CREAT)", path.c_str());
-			return false;
+			struct stat st;
+			if (errno != EROFS || stat(path.c_str(), &st) != 0 ||
+			    !S_ISREG(st.st_mode)) {
+				PLOG_W("open('%s', O_CREAT)", path.c_str());
+				return false;
+			}
+			return true;
 		}
 		close(fd);
 	}
