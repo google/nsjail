@@ -1134,6 +1134,7 @@ void handle_host_tcp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 		LOG_D("Accepted inbound TCP6 %s:%u -> %s:%u (fd=%d)",
 		    ip6_to_string(key6.daddr6).c_str(), ntohs(key6.dport),
 		    ip6_to_string(key6.saddr6).c_str(), ntohs(key6.sport), fd);
+		flow_success = true;
 	} else {
 		struct sockaddr_in* client4 = reinterpret_cast<struct sockaddr_in*>(&client_ss);
 		struct sockaddr_in server4 = INIT_SOCKADDR_IN(AF_INET);
@@ -1169,6 +1170,7 @@ void handle_host_tcp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 		LOG_D("Accepted inbound TCP %s:%u -> %s:%u (fd=%d)",
 		    ip4_to_string(key4.daddr4).c_str(), ntohs(key4.dport),
 		    ip4_to_string(key4.saddr4).c_str(), ntohs(key4.sport), fd);
+		flow_success = true;
 	}
 }
 
