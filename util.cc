@@ -225,9 +225,7 @@ bool createDirRecursively(const char* dir) {
 		*next = '\0';
 
 		if (mkdirat(prev_dir_fd, curr, 0755) == -1 && errno != EEXIST) {
-			struct stat st;
-			if (errno != EROFS || fstatat(prev_dir_fd, curr, &st, 0) != 0 ||
-			    !S_ISDIR(st.st_mode)) {
+			if (errno != EROFS || !util::existsAsDirAt(prev_dir_fd, curr)) {
 				PLOG_W("mkdir(%s, 0755)", QC(curr));
 				close(prev_dir_fd);
 				return false;

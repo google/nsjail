@@ -212,9 +212,7 @@ static bool createDirAt(int dir_fd, const char* path, mode_t mode) {
 		cumulative += component;
 
 		if (mkdirat(dir_fd, cumulative.c_str(), mode) == -1 && errno != EEXIST) {
-			struct stat st;
-			if (errno != EROFS || fstatat(dir_fd, cumulative.c_str(), &st, 0) != 0 ||
-			    !S_ISDIR(st.st_mode)) {
+			if (errno != EROFS || !util::existsAsDirAt(dir_fd, cumulative.c_str())) {
 				PLOG_W("mkdirat(%d, '%s')", dir_fd, cumulative.c_str());
 				return false;
 			}
@@ -433,14 +431,16 @@ static bool mountSinglePointAt(mount_t* mpt, int root_fd) {
 
 	if (mpt->is_dir) {
 		if (strcmp(rel_dst, ".") != 0 && mkdirat(root_fd, rel_dst, 0711) == -1 &&
-		    errno != EEXIST && errno != EROFS) {
-			PLOG_W("mkdirat(root_fd, '%s')", rel_dst);
+		    errno != EEXIST) {
+			if (errno != EROFS || !util::existsAsDirAt(root_fd, rel_dst)) {
+				PLOG_W("mkdirat(root_fd, '%s')", rel_dst);
+			}
 		}
 	} else {
 		int fd = openat(root_fd, rel_dst, O_CREAT | O_RDONLY | O_CLOEXEC, 0644);
 		if (fd >= 0) {
 			close(fd);
-		} else if (errno != EROFS) {
+		} else if (errno != EROFS || !util::existsAsRegAt(root_fd, rel_dst)) {
 			PLOG_W("openat(root_fd, '%s', O_CREAT)", rel_dst);
 		}
 	}

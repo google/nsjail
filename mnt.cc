@@ -140,8 +140,7 @@ namespace fs = std::filesystem;
 
 static bool tryCreateDir(const std::string& path, bool log_errors = true) {
 	if (mkdir(path.c_str(), 0755) == -1 && errno != EEXIST) {
-		struct stat st;
-		if (errno != EROFS || stat(path.c_str(), &st) != 0 || !S_ISDIR(st.st_mode)) {
+		if (errno != EROFS || !util::existsAsDir(path.c_str())) {
 			if (log_errors) {
 				PLOG_D("mkdir('%s')", path.c_str());
 			}

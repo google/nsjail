@@ -22,11 +22,13 @@
 #ifndef NS_UTIL_H
 #define NS_UTIL_H
 
+#include <errno.h>
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <sys/resource.h>
+#include <sys/stat.h>
 
 #include <string>
 #include <vector>
@@ -79,6 +81,54 @@ long getrlimit(int res, struct rlimit64* curlim);
 bool makeRangeCOE(unsigned int first, unsigned int last);
 const char* stripLeadingSlashes(const char* path);
 bool kernelVersionAtLeast(int major, int minor, int patch);
+
+/*
+ * EROFS fallback helpers for read-only filesystems (e.g. NFS).
+ *
+ * On NFSv3/v4 with a cold dentry cache, mkdir()/open(O_CREAT) can return
+ * EROFS instead of EEXIST for entries that already exist.  These helpers
+ * verify the entry exists with the expected type, preserving the original
+ * errno for accurate PLOG logging on failure.
+ */
+inline bool existsAsDir(const char* path) {
+	int saved = errno;
+	struct stat st;
+	if (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) {
+		return true;
+	}
+	errno = saved;
+	return false;
+}
+
+inline bool existsAsDirAt(int dir_fd, const char* path) {
+	int saved = errno;
+	struct stat st;
+	if (fstatat(dir_fd, path, &st, 0) == 0 && S_ISDIR(st.st_mode)) {
+		return true;
+	}
+	errno = saved;
+	return false;
+}
+
+inline bool existsAsReg(const char* path) {
+	int saved = errno;
+	struct stat st;
+	if (stat(path, &st) == 0 && S_ISREG(st.st_mode)) {
+		return true;
+	}
+	errno = saved;
+	return false;
+}
+
+inline bool existsAsRegAt(int dir_fd, const char* path) {
+	int saved = errno;
+	struct stat st;
+	if (fstatat(dir_fd, path, &st, 0) == 0 && S_ISREG(st.st_mode)) {
+		return true;
+	}
+	errno = saved;
+	return false;
+}
 
 }  // namespace util
 
