@@ -338,9 +338,18 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 				}
 
 				int opt = 1;
-				if (nr.proto == NSTUN_PROTO_TCP)
-					setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt));
-				setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+				if (nr.proto == NSTUN_PROTO_TCP) {
+					if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt,
+						sizeof(opt)) == -1) {
+						PLOG_W("setsockopt(TCP_NODELAY)");
+					}
+				}
+				if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) ==
+				    -1) {
+					PLOG_E("setsockopt(SO_REUSEADDR)");
+					close(fd);
+					return cleanup_and_fail();
+				}
 
 				struct sockaddr_in addr = INIT_SOCKADDR_IN(AF_INET);
 				addr.sin_port = htons(port);
@@ -441,10 +450,24 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 				}
 
 				int opt = 1;
-				if (nr.proto == NSTUN_PROTO_TCP)
-					setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt));
-				setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
-				setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &opt, sizeof(opt));
+				if (nr.proto == NSTUN_PROTO_TCP) {
+					if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt,
+						sizeof(opt)) == -1) {
+						PLOG_W("setsockopt(TCP_NODELAY)");
+					}
+				}
+				if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) ==
+				    -1) {
+					PLOG_E("setsockopt(SO_REUSEADDR)");
+					close(fd);
+					return cleanup_and_fail();
+				}
+				if (setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &opt, sizeof(opt)) ==
+				    -1) {
+					PLOG_E("setsockopt(IPV6_V6ONLY)");
+					close(fd);
+					return cleanup_and_fail();
+				}
 
 				struct sockaddr_in6 addr = INIT_SOCKADDR_IN6(AF_INET6);
 				addr.sin6_port = htons(port);

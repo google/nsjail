@@ -854,7 +854,9 @@ void handle_tcp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> paylo
 		}
 
 		int opt = 1;
-		setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt));
+		if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) == -1) {
+			PLOG_W("setsockopt(TCP_NODELAY)");
+		}
 
 		struct sockaddr_in dest_addr = INIT_SOCKADDR_IN(AF_INET);
 		if (rule.redirect_ip4 && rule.redirect_port) {
@@ -1057,7 +1059,9 @@ void handle_host_tcp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 	LOG_D("Accepted fd=%d", fd);
 
 	int opt = 1;
-	setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt));
+	if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) == -1) {
+		PLOG_W("setsockopt(TCP_NODELAY)");
+	}
 
 	TcpFlow* flow;
 	std::unique_ptr<TcpFlow> flow_ptr(new TcpFlow());
@@ -1244,7 +1248,9 @@ void handle_tcp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> paylo
 		}
 
 		int opt = 1;
-		setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt));
+		if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) == -1) {
+			PLOG_W("setsockopt(TCP_NODELAY)");
+		}
 
 		struct epoll_event ev = {
 		    .events = EPOLLIN | EPOLLOUT | EPOLLERR | EPOLLHUP, .data = {.fd = fd}};
