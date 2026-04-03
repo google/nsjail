@@ -1,0 +1,72 @@
+syntax = "proto2";
+
+package unotify;
+
+message Stat {
+	message Syscall {
+		optional string name = 1;
+		// Human-readable stringified arguments (e.g. parsed flags or mode changes)
+		repeated string args = 2;
+		optional uint64 count = 6 [default = 0];
+	}
+
+	message Path {
+		enum Type {
+			UNKNOWN = 0;
+			NONEXISTENT = 1;
+			REGULAR = 2;
+			DIR = 3;
+			CHR = 4;
+			BLK = 5;
+			FIFO = 6;
+			LINK = 7;
+			SOCK = 8;
+		}
+
+		// Resolved absolute path
+		optional string path = 1;
+		// Whether this path maps to a valid inode inside the jailed mount namespace
+		optional bool exists_in_jail = 7 [default = false];
+		// Whether this path maps to a valid inode in the host's initial mount namespace
+		optional bool exists_in_main = 8 [default = false];
+		optional Type jail_type = 2 [default = UNKNOWN];
+		optional Type main_type = 3 [default = UNKNOWN];
+
+		enum Mode {
+			UNSPECIFIED = 0;
+			RDONLY = 1;
+			WRONLY = 2;
+			RDWR = 3;
+		}
+		// Aggregated access intent based on syscall flags (e.g., O_RDONLY vs O_RDWR)
+		optional Mode mode = 4 [default = UNSPECIFIED];
+
+		optional uint64 count = 5 [default = 0];
+		repeated Syscall syscall = 6;
+	}
+
+	message NetResource {
+		enum Type {
+			UNKNOWN = 0;
+			IPV4 = 1;
+			IPV6 = 2;
+			UNIX = 3;
+			NETLINK = 4;
+		}
+		// Network protocol domain
+		optional Type type = 1 [default = UNKNOWN];
+		// Stringified IP address or generic identifier
+		optional string endpoint = 2;
+		optional uint32 port = 6;
+		// Associated filesystem path for AF_UNIX sockets
+		optional Path socket_path = 3;
+
+		optional uint64 count = 4 [default = 0];
+		repeated Syscall syscall = 5;
+	}
+
+	repeated Path fs_access = 1;
+	repeated NetResource net_access = 2;
+}
+
+// vim: set noexpandtab ts=4 sw=4:

@@ -47,6 +47,7 @@
 #include "net.h"
 #include "sandbox.h"
 #include "subproc.h"
+#include "unotify/unotify.h"
 #include "util.h"
 
 namespace nsjail {
@@ -186,7 +187,7 @@ static bool pipeTraffic(nsj_t* nsj, int listenfd) {
 				fds[i].events &= ~POLLOUT;
 			}
 		}
-		for (size_t i = 0; i < fds.size() - 3; i += 3) {
+		for (size_t i = 0; i < nsj->pipes.size() * 3; i += 3) {
 			const size_t pipe_no = i / 3;
 			int in, out;
 			const char* direction;
@@ -394,6 +395,7 @@ int main(int argc, char* argv[]) {
 
 	subproc::killAndReapAll(nsj.get(), SIGKILL);
 	sandbox::closePolicy(nsj.get());
+	unotify::stop(nsj.get());
 	/* Try to restore the underlying console's params in case some program has changed it */
 	if (!nsj->njc.daemon()) {
 		nsjail::setTC(STDIN_FILENO, trm.get());

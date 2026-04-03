@@ -144,6 +144,8 @@ static const struct custom_option custom_opts[] = {
     { { "seccomp_policy", required_argument, nullptr, 'P' }, "Path to file containing seccomp-bpf policy (see kafel/)" },
     { { "seccomp_string", required_argument, nullptr, 0x0901 }, "String with kafel seccomp-bpf policy (see kafel/)" },
     { { "seccomp_log", no_argument, nullptr, 0x0902 }, "Use SECCOMP_FILTER_FLAG_LOG. Log all actions except SECCOMP_RET_ALLOW). Supported since kernel version 4.14" },
+    { { "seccomp_unotify", no_argument, nullptr, 0x0905 }, "Use SECCOMP_RET_USER_NOTIF and trace accessed files and network sockets" },
+    { { "seccomp_unotify_report", required_argument, nullptr, 0x0906 }, "File to write the seccomp_unotify report to" },
     { { "nice_level", required_argument, nullptr, 0x0903 }, "Set jailed process niceness (-20 is highest -priority, 19 is lowest). By default, set to 19" },
     { { "cgroup_mem_max", required_argument, nullptr, 0x0801 }, "Maximum number of bytes to use in the group (default: '0' - disabled)" },
     { { "cgroup_mem_memsw_max", required_argument, nullptr, 0x0804 }, "Maximum number of memory+swap bytes to use (default: '0' - disabled)" },
@@ -973,6 +975,12 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 			break;
 		case 0x902:
 			nsj->njc.set_seccomp_log(true);
+			break;
+		case 0x905:
+			nsj->njc.set_seccomp_unotify(true);
+			break;
+		case 0x906:
+			nsj->njc.set_seccomp_unotify_report(optarg);
 			break;
 		case 0x903:
 			nsj->njc.set_nice_level((int)strtol(optarg, NULL, 0));

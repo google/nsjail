@@ -220,6 +220,11 @@ message NsJailConfig {
 	/* Setting it to true makes audit write seccomp logs to dmesg */
 	optional bool seccomp_log = 70 [default = false];
 
+	/* Use SECCOMP_RET_USER_NOTIF and trace accessed files and network sockets */
+	optional bool seccomp_unotify = 99 [default = false];
+	/* File to write the seccomp_unotify report to */
+	optional string seccomp_unotify_report = 100;
+
 	/* If > 0, maximum cumulative size of RAM used inside any jail */
 	optional uint64 cgroup_mem_max = 71 [default = 0]; /* In bytes */
 	/* If > 0, maximum cumulative size of RAM + swap used inside any jail */

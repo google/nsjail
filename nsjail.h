@@ -101,6 +101,7 @@ struct nsj_t {
 	bool mnt_newapi;
 	bool is_proc_rw;
 	struct sock_fprog seccomp_fprog;
+	struct sock_fprog seccomp_unotify_fprog;
 };
 
 #endif /* _NSJAIL_H */

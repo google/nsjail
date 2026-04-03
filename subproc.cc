@@ -52,6 +52,7 @@
 #include "net.h"
 #include "nstun/nstun.h"
 #include "sandbox.h"
+#include "unotify/unotify.h"
 #include "user.h"
 #include "util.h"
 
@@ -145,7 +146,6 @@ static bool resetEnv(void) {
 	return true;
 }
 
-static const char kSubprocDoneChar = 'D';
 static const char kSubprocErrorChar = 'E';
 
 static const std::string concatArgs(const std::vector<const char*>& argv) {
@@ -196,14 +196,14 @@ static void newProc(nsj_t* nsj, int netfd, int fd_in, int fd_out, int fd_err, in
 			if (!net::initChildPreSync(nsj, pipefd)) {
 				return;
 			}
-		}
-
-		char doneChar;
-		if (util::readFromFd(pipefd, &doneChar, sizeof(doneChar)) != sizeof(doneChar)) {
-			return;
-		}
-		if (doneChar != kSubprocDoneChar) {
-			return;
+			char doneChar;
+			if (util::readFromFd(pipefd, &doneChar, sizeof(doneChar)) !=
+			    sizeof(doneChar)) {
+				return;
+			}
+			if (doneChar != kSubprocDoneChar) {
+				return;
+			}
 		}
 	}
 	if (!contain::containProc(nsj)) {
@@ -228,8 +228,18 @@ static void newProc(nsj_t* nsj, int netfd, int fd_in, int fd_out, int fd_err, in
 	LOG_D("Exec: %s, Args: [%s]", QC(nsj->njc.exec_bin().path()), concatArgs(argv).c_str());
 
 	/* Should be the last one in the sequence */
-	if (!sandbox::applyPolicy(nsj)) {
+	if (!sandbox::applyPolicy(nsj, pipefd)) {
 		return;
+	}
+
+	if (pipefd != -1 && nsj->njc.seccomp_unotify()) {
+		char doneChar;
+		if (util::readFromFd(pipefd, &doneChar, sizeof(doneChar)) != sizeof(doneChar)) {
+			return;
+		}
+		if (doneChar != kSubprocDoneChar) {
+			return;
+		}
 	}
 
 	if (nsj->njc.exec_bin().exec_fd()) {
@@ -477,6 +487,25 @@ static bool initParent(nsj_t* nsj, pid_t pid, int pipefd) {
 		LOG_E("Couldn't signal the new process via a socketpair");
 		return false;
 	}
+
+	if (nsj->njc.seccomp_unotify()) {
+		int unotif_fd = util::recvFd(pipefd);
+		if (unotif_fd == -1) {
+			LOG_E("Failed to receive unotif_fd from child");
+			return false;
+		}
+		LOG_D("Received unotif_fd=%d from child", unotif_fd);
+		if (!unotify::start(nsj, unotif_fd)) {
+			LOG_E("Failed to start unotify thread");
+			close(unotif_fd);
+			return false;
+		}
+		if (!util::writeToFd(pipefd, &kSubprocDoneChar, sizeof(kSubprocDoneChar))) {
+			LOG_E("Couldn't signal the new process via a socketpair");
+			return false;
+		}
+	}
+
 	return true;
 }
 
@@ -537,11 +566,13 @@ pid_t runChild(nsj_t* nsj, int netfd, int fd_in, int fd_out, int fd_err) {
 	}
 
 	char rcvChar;
-	if (util::readFromFd(parent_fd, &rcvChar, sizeof(rcvChar)) == sizeof(rcvChar) &&
-	    rcvChar == kSubprocErrorChar) {
-		LOG_W("Received error message from the child process before it has been executed");
-		close(parent_fd);
-		return -1;
+	while (util::readFromFd(parent_fd, &rcvChar, sizeof(rcvChar)) == sizeof(rcvChar)) {
+		if (rcvChar == kSubprocErrorChar) {
+			LOG_W("Received error message from the child process before it has been "
+			      "executed");
+			close(parent_fd);
+			return -1;
+		}
 	}
 
 	close(parent_fd);

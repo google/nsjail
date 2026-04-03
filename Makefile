@@ -61,8 +61,8 @@ ifneq ($(PASTA_BIN_PATH),)
 	CXXFLAGS += -DPASTA_BIN_PATH='"$(PASTA_BIN_PATH)"'
 endif
 
-SRCS_CXX = caps.cc cgroup.cc cgroup2.cc cmdline.cc config.cc contain.cc cpu.cc logs.cc mnt.cc mnt_legacy.cc mnt_newapi.cc net.cc nsjail.cc pid.cc sandbox.cc subproc.cc uts.cc user.cc util.cc nstun/nstun.cc nstun/policy.cc nstun/encap.cc nstun/iface.cc nstun/tun.cc nstun/ip.cc nstun/icmp.cc nstun/udp.cc nstun/tcp.cc
-SRCS_PROTO = config.proto
+SRCS_CXX = caps.cc cgroup.cc cgroup2.cc cmdline.cc config.cc contain.cc cpu.cc logs.cc mnt.cc mnt_legacy.cc mnt_newapi.cc net.cc nsjail.cc pid.cc sandbox.cc subproc.cc uts.cc user.cc unotify/unotify.cc unotify/stats.cc unotify/syscall.cc util.cc nstun/nstun.cc nstun/policy.cc nstun/encap.cc nstun/iface.cc nstun/tun.cc nstun/ip.cc nstun/icmp.cc nstun/udp.cc nstun/tcp.cc
+SRCS_PROTO = config.proto unotify/unotify.proto
 
 SRCS_PB_CXX = $(SRCS_PROTO:.proto=.pb.cc)
 SRCS_PB_H = $(SRCS_PROTO:.proto=.pb.h)
@@ -256,13 +256,23 @@ mnt_legacy.o: mnt_legacy.h mnt.h nsjail.h config.pb.h logs.h macros.h util.h
 mnt_newapi.o: mnt_newapi.h mnt.h nsjail.h config.pb.h logs.h util.h
 net.o: net.h nsjail.h config.pb.h logs.h macros.h nstun/nstun.h util.h
 nsjail.o: nsjail.h config.pb.h cgroup2.h cmdline.h logs.h macros.h net.h
-nsjail.o: sandbox.h subproc.h util.h
+nsjail.o: sandbox.h subproc.h unotify/unotify.h util.h
 pid.o: pid.h nsjail.h config.pb.h logs.h subproc.h
-sandbox.o: sandbox.h nsjail.h config.pb.h kafel/include/kafel.h logs.h util.h
+sandbox.o: sandbox.h nsjail.h config.pb.h subproc.h kafel/include/kafel.h
+sandbox.o: logs.h unotify/syscall_defs.h util.h
 subproc.o: subproc.h nsjail.h config.pb.h cgroup.h cgroup2.h contain.h logs.h
-subproc.o: macros.h net.h nstun/nstun.h sandbox.h user.h util.h
+subproc.o: macros.h net.h nstun/nstun.h sandbox.h unotify/unotify.h user.h
+subproc.o: util.h
 uts.o: uts.h nsjail.h config.pb.h logs.h
 user.o: user.h nsjail.h config.pb.h logs.h macros.h subproc.h util.h
+unotify/unotify.o: unotify/unotify.h nsjail.h config.pb.h logs.h
+unotify/unotify.o: unotify/record.h unotify/unotify.pb.h unotify/stats.h
+unotify/unotify.o: unotify/syscall.h util.h
+unotify/stats.o: unotify/stats.h nsjail.h config.pb.h unotify/record.h
+unotify/stats.o: unotify/unotify.pb.h logs.h util.h
+unotify/syscall.o: unotify/syscall.h unotify/record.h unotify/unotify.pb.h
+unotify/syscall.o: logs.h macros.h unotify/syscall_defs.h util.h nsjail.h
+unotify/syscall.o: config.pb.h
 util.o: util.h nsjail.h config.pb.h logs.h macros.h
 nstun/nstun.o: nstun/nstun.h nstun/core.h nstun/net_defs.h nstun/icmp.h
 nstun/nstun.o: nstun/iface.h nstun/ip.h logs.h macros.h nstun/policy.h
@@ -286,3 +296,4 @@ nstun/tcp.o: nstun/tcp.h nstun/core.h nstun/net_defs.h nstun/nstun.h
 nstun/tcp.o: nstun/encap.h logs.h macros.h nstun/policy.h nstun/tun.h util.h
 nstun/tcp.o: nsjail.h config.pb.h
 config.pb.o: config.pb.h
+unotify/unotify.pb.o: unotify/unotify.pb.h

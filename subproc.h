@@ -32,6 +32,7 @@
 #include "nsjail.h"
 
 namespace subproc {
+constexpr char kSubprocDoneChar = 'D';
 
 /* 0 - network connection limit reached, -1 - error */
 pid_t runChild(nsj_t* nsj, int netfd, int fd_in, int fd_out, int fd_err);
