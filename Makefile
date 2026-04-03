@@ -185,9 +185,8 @@ test: $(BIN)
 	$(call run_test, ./nsjail --config tests/connect.cfg -q -t 3 -- /bin/bash -c 'host -T dns.google 8.8.8.8 && exit 77', 77)
 	$(call run_test, ./nsjail --config tests/connect.cfg -q -t 3 -- /bin/bash -c 'host -T dns.google 2001:4860:4860::8888 && exit 77', 77)
 
-	# --- HOST_TO_GUEST proxy test ---
-	$(call run_test, ./nsjail --config tests/dns_http_host_to_guest.cfg -q -t 3 -- /bin/bash -c 'nc -v -z -w 2 127.0.0.1 8080 || exit 77', 77)
-	$(call run_test, ./nsjail --config tests/dns_http_host_to_guest.cfg -q -t 3 -- /bin/bash -c 'nc -v -z -w 2 ::1 8081 || exit 77', 77)
+	# --- HOST_TO_GUEST TCP inbound proxy test (IPv4 + IPv6) ---
+	$(call run_test, { ./nsjail --config tests/dns_http_host_to_guest.cfg -q -t 3 & }; sleep 1; wget -4 -q -O /dev/null --timeout=5 http://127.0.0.1:8080/ && wget -6 -q -O /dev/null --timeout=5 http://[::1]:8080/ && exit 77, 77)
 
 	# --- --experimental_mnt=old ---
 	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --rw --chroot / --user 99999 --group 99999 -- /bin/bash -c 'touch $(HOME)/nsjail_test && exit 77', 77)
