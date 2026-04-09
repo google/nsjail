@@ -51,11 +51,14 @@ static const int nssigs[] = {
 };
 
 struct pids_t {
+	pid_t pid;
 	time_t start;
+	int pidfd;
 	std::string remote_txt;
 	struct sockaddr_in6 remote_addr;
-	int pid_syscall_fd;
+
 	pid_t pasta_pid;
+	pthread_t monitor_tid;
 };
 
 struct idmap_t {
@@ -65,23 +68,6 @@ struct idmap_t {
 	bool is_newidmap;
 };
 
-enum ns_mode_t {
-	MODE_LISTEN_TCP = 0,
-	MODE_STANDALONE_ONCE,
-	MODE_STANDALONE_EXECVE,
-	MODE_STANDALONE_RERUN
-};
-
-struct pipemap_t {
-	int sock_fd;
-	int pipe_in;
-	int pipe_out;
-	pid_t pid;
-	bool operator==(const pipemap_t& o) {
-		return sock_fd == o.sock_fd && pipe_in == o.pipe_in && pipe_out == o.pipe_out;
-	}
-};
-
 struct nsj_t {
 	nsjail::NsJailConfig njc;
 
@@ -89,12 +75,18 @@ struct nsj_t {
 	std::vector<std::string> argv;
 	uid_t orig_uid;
 	uid_t orig_euid;
+	/*
+	 * Map of active child processes.
+	 * Thread-safety: Mutated exclusively by the main thread.
+	 * Monitor threads receive required context by-value at startup and do not access this map.
+	 * See "The Data Isolation Law" in goal.md.
+	 */
 	std::map<pid_t, pids_t> pids;
 	std::vector<idmap_t> uids;
 	std::vector<idmap_t> gids;
 	std::vector<int> openfds;
 
-	std::vector<pipemap_t> pipes;
+	int exit_status;
 	std::string chroot;
 	std::string proc_path;
 	bool is_root_rw;
@@ -104,4 +96,10 @@ struct nsj_t {
 	struct sock_fprog seccomp_unotify_fprog;
 };
 
-#endif /* _NSJAIL_H */
+namespace nsjail {
+int getSigFatal();
+bool shouldShowProc();
+void clearShowProc();
+}  // namespace nsjail
+
+#endif /* NS_NSJAIL_H */

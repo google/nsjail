@@ -73,6 +73,10 @@ bool logSet() {
 	return _log_set;
 }
 
+int logFd() {
+	return _log_fd;
+}
+
 void setLogLevel(enum llevel_t ll) {
 	_log_level = ll;
 }
@@ -96,7 +100,9 @@ void logFile(const std::string& log_file, int log_fd) {
 		close(_log_fd);
 	}
 	setDupLogFdOr(newlogfd, log_fd);
-	close(newlogfd);
+	if (newlogfd >= 0) {
+		close(newlogfd);
+	}
 }
 
 void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt, ...) {
@@ -134,9 +140,13 @@ void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt
 	if (logLevels[ll].print_time) {
 		msg.append("[").append(util::timeToStr(time(NULL))).append("]");
 	}
+
+	int pid = getpid();
+	int tid = gettid();
 	if (logLevels[ll].print_funcline) {
 		msg.append("[")
-		    .append(std::to_string(getpid()))
+		    .append(std::to_string(pid))
+		    .append(pid == tid ? "" : ("/" + std::to_string(tid)))
 		    .append("] ")
 		    .append(fn)
 		    .append("():")
@@ -166,7 +176,7 @@ void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt
 	TEMP_FAILURE_RETRY(write(_log_fd, msg.c_str(), msg.size()));
 
 	if (ll == FATAL) {
-		exit(0xff);
+		_exit(0xff);
 	}
 }
 
