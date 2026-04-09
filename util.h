@@ -44,22 +44,19 @@
 
 #define QC(x) (util::StrQuote(x).c_str())
 
-#if !defined(RLIM64_INFINITY)
-#define RLIM64_INFINITY (~0ULL)
-struct rlimit64 {
-	uint64_t rlim_cur;
-	uint64_t rlim_max;
-};
-#endif /* !defined(RLIM64_INFINITY) */
-
 namespace util {
 
 ssize_t readFromFd(int fd, void* buf, size_t len);
 ssize_t readFromFile(const char* fname, void* buf, size_t len);
 bool readFromFileToStr(const char* fname, std::string* str);
 bool writeToFd(int fd, const void* buf, size_t len);
+
+bool sendMsg(int sock, uint32_t msg, int fd = -1);
+bool recvMsg(int sock, uint32_t* msg, int* fd = nullptr);
+
 bool sendFd(int sock, int fd);
 int recvFd(int sock);
+
 bool writeBufToFile(
     const char* filename, const void* buf, size_t len, int open_flags, bool log_errors = true);
 bool createDirRecursively(const char* dir);
@@ -72,6 +69,7 @@ bool isANumber(const char* s);
 uint64_t rnd64(void);
 const std::string sigName(int signo);
 const std::string rLimName(int res);
+uint64_t timeUsec(void);
 const std::string timeToStr(time_t t);
 std::vector<std::string> strSplit(const std::string str, char delim);
 long syscall(long sysno, uintptr_t a0 = 0, uintptr_t a1 = 0, uintptr_t a2 = 0, uintptr_t a3 = 0,
@@ -81,6 +79,9 @@ long getrlimit(int res, struct rlimit64* curlim);
 bool makeRangeCOE(unsigned int first, unsigned int last);
 const char* stripLeadingSlashes(const char* path);
 bool kernelVersionAtLeast(int major, int minor, int patch);
+void detachFromTTY(void);
+bool setNonBlock(int fd);
+bool setNoDelay(int fd);
 
 /*
  * EROFS fallback helpers for read-only filesystems (e.g. NFS).

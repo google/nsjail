@@ -25,9 +25,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
-#if __has_include(<linux/close_range.h>)
-#include <linux/close_range.h>
-#endif	// __has_include(<linux/close_range.h>)
 #include <pthread.h>
 #include <signal.h>
 #include <stdarg.h>
@@ -36,6 +33,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
@@ -44,7 +42,6 @@
 #include <time.h>
 #include <unistd.h>
 
-#include <fstream>
 #include <iomanip>
 #include <sstream>
 #include <string>
@@ -52,6 +49,7 @@
 
 #include "logs.h"
 #include "macros.h"
+#include "missing_defs.h"
 
 namespace util {
 
@@ -61,7 +59,10 @@ ssize_t readFromFd(int fd, void* buf, size_t len) {
 	size_t readSz = 0;
 	while (readSz < len) {
 		ssize_t sz = TEMP_FAILURE_RETRY(read(fd, &charbuf[readSz], len - readSz));
-		if (sz <= 0) {
+		if (sz < 0) {
+			return readSz > 0 ? (ssize_t)readSz : -1;
+		}
+		if (sz == 0) {
 			break;
 		}
 		readSz += sz;
@@ -86,7 +87,7 @@ bool writeToFd(int fd, const void* buf, size_t len) {
 	size_t writtenSz = 0;
 	while (writtenSz < len) {
 		ssize_t sz = TEMP_FAILURE_RETRY(write(fd, &charbuf[writtenSz], len - writtenSz));
-		if (sz < 0) {
+		if (sz <= 0) {
 			return false;
 		}
 		writtenSz += sz;
@@ -94,31 +95,40 @@ bool writeToFd(int fd, const void* buf, size_t len) {
 	return true;
 }
 
-bool sendFd(int sock, int fd) {
+bool sendMsg(int sock, uint32_t msg_val, int fd) {
 	struct msghdr msg = {};
-	char buf[CMSG_SPACE(sizeof(fd))] = {};
-	struct iovec io = {.iov_base = (void*)"", .iov_len = 1};
+	struct iovec io = {
+	    .iov_base = &msg_val,
+	    .iov_len = sizeof(msg_val),
+	};
 
 	msg.msg_iov = &io;
 	msg.msg_iovlen = 1;
-	msg.msg_control = buf;
-	msg.msg_controllen = sizeof(buf);
 
-	struct cmsghdr* cmsg = CMSG_FIRSTHDR(&msg);
-	cmsg->cmsg_level = SOL_SOCKET;
-	cmsg->cmsg_type = SCM_RIGHTS;
-	cmsg->cmsg_len = CMSG_LEN(sizeof(fd));
-	*((int*)CMSG_DATA(cmsg)) = fd;
+	char buf[CMSG_SPACE(sizeof(fd))] = {};
+	if (fd >= 0) {
+		msg.msg_control = buf;
+		msg.msg_controllen = sizeof(buf);
 
-	msg.msg_controllen = cmsg->cmsg_len;
+		struct cmsghdr* cmsg = CMSG_FIRSTHDR(&msg);
+		cmsg->cmsg_level = SOL_SOCKET;
+		cmsg->cmsg_type = SCM_RIGHTS;
+		cmsg->cmsg_len = CMSG_LEN(sizeof(fd));
+		*((int*)CMSG_DATA(cmsg)) = fd;
 
-	return (TEMP_FAILURE_RETRY(sendmsg(sock, &msg, 0)) >= 0);
+		msg.msg_controllen = cmsg->cmsg_len;
+	}
+
+	return (TEMP_FAILURE_RETRY(sendmsg(sock, &msg, 0)) == sizeof(msg_val));
 }
 
-int recvFd(int sock) {
+bool recvMsg(int sock, uint32_t* msg_val, int* fd) {
 	struct msghdr msg = {};
-	char m_buffer[256] = {};
-	struct iovec io = {.iov_base = m_buffer, .iov_len = sizeof(m_buffer)};
+	uint32_t local_msg = 0;
+	struct iovec io = {
+	    .iov_base = &local_msg,
+	    .iov_len = sizeof(local_msg),
+	};
 	char c_buffer[256] = {};
 
 	msg.msg_iov = &io;
@@ -126,52 +136,77 @@ int recvFd(int sock) {
 	msg.msg_control = c_buffer;
 	msg.msg_controllen = sizeof(c_buffer);
 
-	if (TEMP_FAILURE_RETRY(recvmsg(sock, &msg, 0)) < 0) {
-		return -1;
+	ssize_t ret = TEMP_FAILURE_RETRY(recvmsg(sock, &msg, 0));
+	if (ret < 0 || (size_t)ret != sizeof(local_msg)) {
+		return false;
 	}
 
-	struct cmsghdr* cmsg = CMSG_FIRSTHDR(&msg);
-	if (cmsg && cmsg->cmsg_len == CMSG_LEN(sizeof(int))) {
-		if (cmsg->cmsg_level != SOL_SOCKET || cmsg->cmsg_type != SCM_RIGHTS) {
-			return -1;
+	if (msg_val) {
+		*msg_val = local_msg;
+	}
+	if (fd) {
+		*fd = -1;
+	}
+
+	for (struct cmsghdr* cmsg = CMSG_FIRSTHDR(&msg); cmsg != nullptr;
+	    cmsg = CMSG_NXTHDR(&msg, cmsg)) {
+		if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
+			size_t num_fds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
+			int* fds = (int*)CMSG_DATA(cmsg);
+			for (size_t i = 0; i < num_fds; ++i) {
+				if (fd && *fd == -1) {
+					*fd = fds[i];
+				} else {
+					close(fds[i]);
+				}
+			}
 		}
-		return *((int*)CMSG_DATA(cmsg));
+	}
+	return true;
+}
+
+bool sendFd(int sock, int fd) {
+	return sendMsg(sock, 0, fd);
+}
+
+int recvFd(int sock) {
+	int fd = -1;
+	if (recvMsg(sock, nullptr, &fd)) {
+		return fd;
 	}
 	return -1;
 }
 
 bool readFromFileToStr(const char* fname, std::string* str) {
-	std::fstream fs(fname, std::ios::in | std::ios::binary);
-	if (!fs.is_open()) {
+	int fd = TEMP_FAILURE_RETRY(open(fname, O_RDONLY | O_CLOEXEC));
+	if (fd == -1) {
 		PLOG_W("Couldn't open file %s", QC(fname));
 		return false;
 	}
+	defer {
+		close(fd);
+	};
 
 	str->clear();
-
-	while (fs) {
-		char buf[4096];
-		fs.read(buf, sizeof(buf));
-		std::streamsize sz = fs.gcount();
-		if (sz > 0) {
-			str->append(buf, sz);
-		}
-		if (fs.eof()) {
-			return true;
-		}
-		if (fs.bad() || fs.fail()) {
+	char buf[4096];
+	for (;;) {
+		ssize_t sz = TEMP_FAILURE_RETRY(read(fd, buf, sizeof(buf)));
+		if (sz < 0) {
 			PLOG_W("Reading from %s failed", QC(fname));
 			return false;
 		}
+		if (sz == 0) {
+			break;
+		}
+		str->append(buf, sz);
 	}
-
 	return true;
 }
 
 bool writeBufToFile(
     const char* filename, const void* buf, size_t len, int open_flags, bool log_errors) {
 	int fd;
-	TEMP_FAILURE_RETRY(fd = open(filename, open_flags, 0644));
+	TEMP_FAILURE_RETRY(fd = open(filename, open_flags | O_CLOEXEC, 0644));
 	if (fd == -1) {
 		if (log_errors) {
 			PLOG_E("Couldn't open %s for writing", QC(filename));
@@ -210,7 +245,11 @@ bool createDirRecursively(const char* dir) {
 	}
 
 	char path[PATH_MAX];
-	snprintf(path, sizeof(path), "%s", dir);
+	if (snprintf(path, sizeof(path), "%s", dir) >= (int)sizeof(path)) {
+		LOG_W("Directory path is too long: '%s'", dir);
+		close(prev_dir_fd);
+		return false;
+	}
 	char* curr = path;
 	for (;;) {
 		while (*curr == '/') {
@@ -288,8 +327,8 @@ const std::string StrQuote(const std::string& str) {
 }
 
 bool isANumber(const char* s) {
-	for (size_t i = 0; s[i]; s++) {
-		if (!isdigit(s[i]) && s[i] != 'x') {
+	for (; *s; s++) {
+		if (!isdigit(*s) && *s != 'x') {
 			return false;
 		}
 	}
@@ -308,12 +347,10 @@ static const uint64_t a = 6364136223846793005ULL;
 static const uint64_t c = 1442695040888963407ULL;
 
 static void rndInitThread(void) {
-#if defined(__NR_getrandom)
 	if (TEMP_FAILURE_RETRY(util::syscall(__NR_getrandom, (uintptr_t)&rndX, sizeof(rndX), 0)) ==
 	    sizeof(rndX)) {
 		return;
 	}
-#endif /* defined(__NR_getrandom) */
 	int fd = TEMP_FAILURE_RETRY(open("/dev/urandom", O_RDONLY | O_CLOEXEC));
 	if (fd == -1) {
 		PLOG_D("Couldn't open /dev/urandom for reading. Using gettimeofday "
@@ -325,7 +362,6 @@ static void rndInitThread(void) {
 	}
 	if (readFromFd(fd, (uint8_t*)&rndX, sizeof(rndX)) != sizeof(rndX)) {
 		PLOG_F("Couldn't read '%zu' bytes from /dev/urandom", sizeof(rndX));
-		close(fd);
 	}
 	close(fd);
 }
@@ -436,6 +472,12 @@ const std::string rLimName(int res) {
 	return ret;
 }
 
+uint64_t timeUsec(void) {
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return (uint64_t)ts.tv_sec * 1000000ULL + ts.tv_nsec / 1000ULL;
+}
+
 const std::string timeToStr(time_t t) {
 	char timestr[128];
 	struct tm utctime;
@@ -469,8 +511,7 @@ long getrlimit(int res, struct rlimit64* curlim) {
 	return util::syscall(__NR_prlimit64, 0, res, (uintptr_t)nullptr, (uintptr_t)curlim);
 }
 
-bool makeRangeCOE(unsigned int first [[maybe_unused]], unsigned int last [[maybe_unused]]) {
-#if defined(CLOSE_RANGE_CLOEXEC) && defined(__NR_close_range)
+bool makeRangeCOE(unsigned int first, unsigned int last) {
 	if (util::syscall(__NR_close_range, first, last, CLOSE_RANGE_CLOEXEC) == -1) {
 		if (errno != ENOSYS) {
 			PLOG_E("close_range(first=%u, last=%u, CLOSE_RANGE_CLOEXEC)", first, last);
@@ -478,8 +519,6 @@ bool makeRangeCOE(unsigned int first [[maybe_unused]], unsigned int last [[maybe
 		return false;
 	}
 	return true;
-#endif	// defined(CLOSE_RANGE_CLOEXEC) && defined(__NR_close_range)
-	return false;
 }
 
 const char* stripLeadingSlashes(const char* path) {
@@ -509,6 +548,31 @@ bool kernelVersionAtLeast(int major, int minor, int patch) {
 		return kminor > minor;
 	}
 	return kpatch >= patch;
+}
+
+void detachFromTTY(void) {
+	int fd = open("/dev/tty", O_RDWR | O_NOCTTY | O_CLOEXEC);
+	if (fd == -1) {
+		LOG_D("Could not open /dev/tty (expected if no controlling terminal)");
+		return;
+	}
+	defer {
+		close(fd);
+	};
+	if (ioctl(fd, TIOCNOTTY) == -1) {
+		PLOG_W("ioctl(TIOCNOTTY) failed");
+		return;
+	}
+	LOG_D("Successfully detached from controlling terminal via TIOCNOTTY");
+}
+
+bool setNonBlock(int fd) {
+	int fl = fcntl(fd, F_GETFL, 0);
+	if (fl == -1 || fcntl(fd, F_SETFL, fl | O_NONBLOCK) == -1) {
+		PLOG_W("fcntl(fd=%d, O_NONBLOCK)", fd);
+		return false;
+	}
+	return true;
 }
 
 }  // namespace util
