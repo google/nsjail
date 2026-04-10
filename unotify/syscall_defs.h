@@ -139,6 +139,10 @@ static constexpr SyscallDef kTracedSyscalls[] = {
     {__NR_newfstatat, "newfstatat", "newfstatat", SyscallCategory::FS,
 	{A::DIRFD, A::PATH, A::SKIP, A::SKIP, A::SKIP, A::SKIP}},
 #endif /* __NR_newfstatat */
+#ifdef __NR_statx
+    {__NR_statx, "statx", "statx", SyscallCategory::FS,
+	{A::DIRFD, A::PATH, A::SKIP, A::SKIP, A::SKIP, A::SKIP}},
+#endif /* __NR_statx */
 #ifdef __NR_faccessat
     {__NR_faccessat, "faccessat", "faccessat", SyscallCategory::FS,
 	{A::DIRFD, A::PATH, A::ACCESS, A::SKIP, A::SKIP, A::SKIP}},
