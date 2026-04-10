@@ -5,29 +5,31 @@
 #include <stdint.h>
 #include <time.h>
 #include <unistd.h>
+#include <sys/socket.h>
+#include <sys/uio.h>
 
 #include <compare>
-#include <deque>
-#include <map>
-#include <memory>
-#include <vector>
 
 #include "net_defs.h"
 #include "nstun.h"
+#include "encap.h"
 
 namespace nstun {
 
 constexpr size_t NSTUN_MAX_FLOWS = 1024;
+constexpr size_t NSTUN_MAX_FDS = 2048;
+constexpr size_t NSTUN_MAX_RULES = 128;
+constexpr size_t UDP_QUEUE_PACKET_MAX = 1500;
+constexpr size_t UDP_QUEUE_MAX_PACKETS = 50;
+constexpr int VLEN = 64;
 
-// Removed MemcmpLess in favor of C++20 operator<=>
+/* Removed MemcmpLess in favor of C++20 operator<=> */
 
 struct __attribute__((packed)) FlowKey4 {
 	uint32_t saddr4;
 	uint32_t daddr4;
 	uint16_t sport;
 	uint16_t dport;
-
-	auto operator<=> (const FlowKey4&) const = default;
 };
 
 struct __attribute__((packed)) FlowKey6 {
@@ -35,119 +37,128 @@ struct __attribute__((packed)) FlowKey6 {
 	uint8_t daddr6[IPV6_ADDR_LEN];
 	uint16_t sport;
 	uint16_t dport;
-
-	auto operator<=> (const FlowKey6&) const = default;
 };
 
 struct __attribute__((packed)) IcmpFlowKey4 {
 	uint32_t saddr4;
 	uint32_t daddr4;
 	uint16_t id;
-
-	auto operator<=> (const IcmpFlowKey4&) const = default;
 };
 
 struct __attribute__((packed)) IcmpFlowKey6 {
 	uint8_t saddr6[IPV6_ADDR_LEN];
 	uint8_t daddr6[IPV6_ADDR_LEN];
 	uint16_t id;
-
-	auto operator<=> (const IcmpFlowKey6&) const = default;
 };
 
 struct Context;
 
-class Flow {
-public:
-	time_t last_active = 0;
-	bool is_ipv6 = false;
-
-	virtual ~Flow() = default;
-	virtual void handle_host_event(Context* ctx, int fd, uint32_t events) = 0;
-	virtual void periodic_check(Context* ctx, time_t now) {}
-	virtual bool is_stale(time_t now) const = 0;
-	virtual void destroy(Context* ctx) = 0;
-};
-
+enum class FlowType { TCP, UDP, ICMP };
 enum class ProxyMode : uint8_t { NONE, SOCKS5, HTTP_CONNECT };
 
-enum class UdpSocks5State {
-	ESTABLISHED,	  /* Direct or SOCKS5 ready */
-	SOCKS5_GREETING,  /* Sent SOCKS5 greeting, awaiting auth reply */
-	SOCKS5_ASSOCIATE, /* Sent UDP ASSOCIATE, awaiting BND addr */
-	TCP_CONNECTING,	  /* TCP connect() to SOCKS5 proxy in progress */
+enum UdpSocks5State {
+	UDP_S5_ESTABLISHED,	  /* Direct or SOCKS5 ready */
+	UDP_S5_GREETING,  /* Sent SOCKS5 greeting, awaiting auth reply */
+	UDP_S5_ASSOCIATE, /* Sent UDP ASSOCIATE, awaiting BND addr */
+	UDP_S5_TCP_CONNECTING,	  /* TCP connect() to SOCKS5 proxy in progress */
 };
 
-struct UdpFlow : public Flow {
-	int host_fd = -1;
-	int tcp_fd = -1; /* For SOCKS5 UDP associate */
+enum class TcpState {
+	SYN_SENT,	   /* Host connecting to destination */
+	SOCKS5_INIT,	   /* Sent SOCKS5 greeting, awaiting auth reply */
+	SOCKS5_CONNECTING, /* Sent SOCKS5 CONNECT request, awaiting response */
+	HTTP_CONNECT_WAIT, /* Sent HTTP CONNECT, awaiting proxy 200 reply */
+	ESTABLISHED,
+	FIN_WAIT_1,
+	FIN_WAIT_2,
+	CLOSING,
+	TIME_WAIT,
+	CLOSE_WAIT,
+};
+
+struct FlowHeader {
+	bool active;
+	FlowType type;
+	time_t last_active;
+	bool is_ipv6;
+	int host_fd;
 	union {
 		FlowKey4 key4;
 		FlowKey6 key6;
+		IcmpFlowKey4 icmp_key4;
+		IcmpFlowKey6 icmp_key6;
 	};
-	bool is_redirected = false;
-	/*
-	 * Original destination (before redirect/SOCKS5 rewrite).
-	 * Used when forwarding host replies back to the guest.
-	 */
-	union {
-		uint32_t orig_dest_ip4;
-		uint8_t orig_dest_ip6[16];
-	};
-	uint16_t orig_dest_port = 0;
-
-	/*
-	 * Redirect destination - stored at flow creation so the forwarding
-	 * path never needs to re-evaluate the rule. For SOCKS5 flows this
-	 * is the proxy address; for plain REDIRECT rules it is the target.
-	 */
-	uint32_t redirect_ip4 = 0;
-	uint8_t  redirect_ip6[IPV6_ADDR_LEN] = {};
-	uint16_t redirect_port = 0;
-
-	bool use_socks5 = false;
-	UdpSocks5State state = UdpSocks5State::ESTABLISHED;
-	uint32_t bnd_ip = 0;
-	uint16_t bnd_port = 0;
-
-	bool host_fd_is_listener = false;
-	std::deque<std::vector<uint8_t>> tx_queue;
-
-	~UdpFlow() override {
-		if (host_fd != -1 && !host_fd_is_listener) ::close(host_fd);
-		if (tcp_fd != -1) ::close(tcp_fd);
-	}
-
-	void handle_host_event(Context* ctx, int fd, uint32_t events) override;
-	bool is_stale(time_t now) const override;
-	void destroy(Context* ctx) override;
-};
-
-struct TcpFlow;
-
-struct IcmpFlow : public Flow {
-	int host_fd = -1;
-	union {
-		IcmpFlowKey4 key4;
-		IcmpFlowKey6 key6;
-	};
-	bool is_redirected = false;
+	bool is_redirected;
 	union {
 		uint32_t orig_dest_ip4;
 		uint8_t orig_dest_ip6[IPV6_ADDR_LEN];
 	};
-
-	~IcmpFlow() override {
-		if (host_fd != -1) ::close(host_fd);
-	}
-
-	void handle_host_event(Context* ctx, int fd, uint32_t events) override;
-	bool is_stale(time_t now) const override;
-	void destroy(Context* ctx) override;
+	uint16_t orig_dest_port;
+	uint32_t redirect_ip4;
+	uint8_t redirect_ip6[IPV6_ADDR_LEN];
+	uint16_t redirect_port;
 };
 
+struct UdpFlow {
+	struct FlowHeader header;
+
+	/* UDP specific */
+	int tcp_fd;
+	bool use_socks5;
+	UdpSocks5State state;
+	uint32_t bnd_ip;
+	uint16_t bnd_port;
+	bool host_fd_is_listener;
+
+	struct {
+		uint8_t data[UDP_QUEUE_PACKET_MAX];
+		size_t len;
+	} c_tx_queue[UDP_QUEUE_MAX_PACKETS];
+	size_t c_tx_queue_head;
+	size_t c_tx_queue_tail;
+	size_t c_tx_queue_count;
+};
+
+struct TcpFlow {
+	struct FlowHeader header;
+
+	/* TCP specific */
+	TcpState tcp_state;
+	ProxyMode proxy_mode;
+	bool host_eof;
+	bool guest_eof;
+	bool fin_sent;
+	bool syn_acked;
+	bool fin_acked;
+
+	uint32_t seq_to_guest;
+	uint32_t ack_from_guest;
+
+	uint32_t seq_from_guest;
+	uint32_t ack_to_guest;
+
+	size_t tx_acked_offset;
+	size_t rx_sent_offset;
+
+	/* C-style buffers for migration */
+	uint8_t c_tcp_tx_buf[4096];
+	size_t c_tcp_tx_len;
+	uint8_t c_proxy_rx_buf[8192];
+	size_t c_proxy_rx_len;
+	uint8_t c_tcp_rx_buf[4096];
+	size_t c_tcp_rx_len;
+
+	bool epoll_out_registered;
+	bool epoll_in_disabled;
+	bool inbound;
+};
+
+struct IcmpFlow {
+	struct FlowHeader header;
+};
+
+
 struct Context {
-	int epoll_fd;
 	int tap_fd;
 	struct nsj_t* nsj;
 
@@ -159,23 +170,50 @@ struct Context {
 	uint8_t guest_ip6[IPV6_ADDR_LEN];
 	uint8_t host_ip6[IPV6_ADDR_LEN];
 
-	std::vector<nstun_rule_t> rules;
-	std::map<FlowKey4, std::unique_ptr<UdpFlow>> ipv4_udp_flows_by_key;
-	std::map<FlowKey4, std::unique_ptr<TcpFlow>> ipv4_tcp_flows_by_key;
-	std::map<IcmpFlowKey4, std::unique_ptr<IcmpFlow>> ipv4_icmp_flows_by_key;
 
-	/* Unified host mapping for all encapsulated flows */
-	std::map<int, Flow*> flows_by_fd; // Observer pointer
+	nstun_rule_t c_rules[NSTUN_MAX_RULES];
+	size_t c_rules_count;
 
-	/* IPv6 maps (Owning) */
-	std::map<FlowKey6, std::unique_ptr<UdpFlow>> ipv6_udp_flows_by_key;
-	std::map<FlowKey6, std::unique_ptr<TcpFlow>> ipv6_tcp_flows_by_key;
-	std::map<IcmpFlowKey6, std::unique_ptr<IcmpFlow>> ipv6_icmp_flows_by_key;
+	TcpFlow c_ipv4_tcp_flows[NSTUN_MAX_FLOWS];
+	size_t num_c_ipv4_tcp_flows;
+	UdpFlow c_ipv4_udp_flows[NSTUN_MAX_FLOWS];
+	size_t num_c_ipv4_udp_flows;
+	UdpFlow c_ipv6_udp_flows[NSTUN_MAX_FLOWS];
+	size_t num_c_ipv6_udp_flows;
+	TcpFlow c_ipv6_tcp_flows[NSTUN_MAX_FLOWS];
+	size_t num_c_ipv6_tcp_flows;
+	IcmpFlow c_ipv4_icmp_flows[NSTUN_MAX_FLOWS];
+	size_t num_c_ipv4_icmp_flows;
+	IcmpFlow c_ipv6_icmp_flows[NSTUN_MAX_FLOWS];
+	size_t num_c_ipv6_icmp_flows;
+	struct {
+		int fd;
+		nstun_rule_t rule;
+	} c_host_listener_rules[NSTUN_MAX_RULES];
+	size_t num_c_host_listener_rules;
 
-	std::map<int, nstun_rule_t> host_listener_fd_to_rule;
+	/* Buffer for TUN frames, moved from TLS to avoid stack/TLS pressure */
+	uint8_t tun_buf[NSTUN_MTU + 4];
 
-	~Context();
+	/* Buffers for recvmmsg, moved from TLS to avoid stack/TLS pressure */
+	struct mmsghdr recvmmsg_msgs[VLEN];
+	struct iovec recvmmsg_iovecs[VLEN];
+	uint8_t recvmmsg_bufs[VLEN][NSTUN_MTU];
+	struct sockaddr_storage recvmmsg_addrs[VLEN];
+	bool recvmmsg_initialized;
+
+	/* Buffer for SOCKS5 UDP control channel reads */
+	socks5_max_buf udp_socks5_buf;
+
+	/* Specific lookup tables for type safety */
+	TcpFlow* c_tcp_flows_by_fd[NSTUN_MAX_FDS] = {};
+	UdpFlow* c_udp_flows_by_fd[NSTUN_MAX_FDS] = {};
+	IcmpFlow* c_icmp_flows_by_fd[NSTUN_MAX_FDS] = {};
+
 };
+
+void handle_host_events(Context* ctx, int fd, uint32_t events);
+void host_callback(int fd, uint32_t events, void* data);
 
 struct RuleResult {
 	nstun_action_t action;
@@ -185,7 +223,50 @@ struct RuleResult {
 	uint8_t redirect_ip6[IPV6_ADDR_LEN];
 };
 
+inline TcpFlow* get_tcp_flow_by_fd(const Context* ctx, int fd) {
+	if (fd < 0 || fd >= (int)NSTUN_MAX_FDS) {
+		return nullptr;
+	}
+	return ctx->c_tcp_flows_by_fd[fd];
+}
 
+inline bool set_tcp_flow_by_fd(Context* ctx, int fd, TcpFlow* flow) {
+	if (fd < 0 || fd >= (int)NSTUN_MAX_FDS) {
+		return false;
+	}
+	ctx->c_tcp_flows_by_fd[fd] = flow;
+	return true;
+}
+
+inline UdpFlow* get_udp_flow_by_fd(const Context* ctx, int fd) {
+	if (fd < 0 || fd >= (int)NSTUN_MAX_FDS) {
+		return nullptr;
+	}
+	return ctx->c_udp_flows_by_fd[fd];
+}
+
+inline bool set_udp_flow_by_fd(Context* ctx, int fd, UdpFlow* flow) {
+	if (fd < 0 || fd >= (int)NSTUN_MAX_FDS) {
+		return false;
+	}
+	ctx->c_udp_flows_by_fd[fd] = flow;
+	return true;
+}
+
+inline IcmpFlow* get_icmp_flow_by_fd(const Context* ctx, int fd) {
+	if (fd < 0 || fd >= (int)NSTUN_MAX_FDS) {
+		return nullptr;
+	}
+	return ctx->c_icmp_flows_by_fd[fd];
+}
+
+inline bool set_icmp_flow_by_fd(Context* ctx, int fd, IcmpFlow* flow) {
+	if (fd < 0 || fd >= (int)NSTUN_MAX_FDS) {
+		return false;
+	}
+	ctx->c_icmp_flows_by_fd[fd] = flow;
+	return true;
+}
 
 } /* namespace nstun */
 

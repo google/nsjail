@@ -30,9 +30,18 @@ COMMON_FLAGS += -O2 -c \
 	-Ikafel/include
 
 CXXFLAGS += $(USER_DEFINES) $(COMMON_FLAGS) $(PROTOBUF_CFLAGS) -I. \
-	-std=c++20 -fno-exceptions -Wno-unused -Wno-unused-parameter -Wno-c99-designator
+	-std=c++20 -fno-exceptions -Wno-unused -Wno-unused-parameter
+
+ifneq ($(findstring clang,$(CXX)),)
+	CXXFLAGS += -Wno-c99-designator
+endif
 
 LDFLAGS += -pie -Wl,-z,noexecstack -lpthread $(PROTOBUF_LIBS)
+
+ifdef USE_ASAN
+	COMMON_FLAGS += -fsanitize=address
+	LDFLAGS += -fsanitize=address
+endif
 
 ifeq ($(NL3_EXISTS), yes)
 	CXXFLAGS += $(shell pkg-config --cflags libnl-route-3.0)
@@ -61,7 +70,7 @@ ifneq ($(PASTA_BIN_PATH),)
 	CXXFLAGS += -DPASTA_BIN_PATH='"$(PASTA_BIN_PATH)"'
 endif
 
-SRCS_CXX = caps.cc cgroup.cc cgroup2.cc cmdline.cc config.cc contain.cc cpu.cc logs.cc mnt.cc mnt_legacy.cc mnt_newapi.cc net.cc nsjail.cc pid.cc sandbox.cc subproc.cc uts.cc user.cc unotify/unotify.cc unotify/stats.cc unotify/syscall.cc util.cc nstun/nstun.cc nstun/policy.cc nstun/encap.cc nstun/iface.cc nstun/tun.cc nstun/ip.cc nstun/icmp.cc nstun/udp.cc nstun/tcp.cc
+SRCS_CXX = monitor.cc sockproxy/sockproxy.cc caps.cc cgroup.cc cgroup2.cc cmdline.cc config.cc contain.cc cpu.cc logs.cc mnt.cc mnt_legacy.cc mnt_newapi.cc net.cc nsjail.cc pid.cc sandbox.cc subproc.cc uts.cc user.cc unotify/unotify.cc unotify/stats.cc unotify/syscall.cc util.cc nstun/nstun.cc nstun/policy.cc nstun/encap.cc nstun/iface.cc nstun/tun.cc nstun/ip.cc nstun/icmp.cc nstun/udp.cc nstun/tcp.cc
 SRCS_PROTO = config.proto unotify/unotify.proto
 
 SRCS_PB_CXX = $(SRCS_PROTO:.proto=.pb.cc)
@@ -185,8 +194,12 @@ test: $(BIN)
 	$(call run_test, ./nsjail --config tests/connect.cfg -q -t 3 -- /bin/bash -c 'host -T dns.google 8.8.8.8 && exit 77', 77)
 	$(call run_test, ./nsjail --config tests/connect.cfg -q -t 3 -- /bin/bash -c 'host -T dns.google 2001:4860:4860::8888 && exit 77', 77)
 
+	# --- Nstun standalone / proxy mode tests ---
+	$(call run_test, ./nsjail --config tests/nstun.cfg -Mo -q -t 2 --seccomp_unotify -- /bin/bash -c 'exit 77', 77)
+	$(call run_test, { ./nsjail --config tests/nstun.cfg -Ml --port 31338 -q -t 5 --seccomp_unotify -- /bin/bash -c "sleep 10" & }; sleep 2; echo -n "GET / HTTP/1.0\r\n\r\n" | nc 127.0.0.1 31338 >/dev/null 2>&1 && exit 77, 77)
+
 	# --- HOST_TO_GUEST TCP inbound proxy test (IPv4 + IPv6) ---
-	$(call run_test, { ./nsjail --config tests/dns_http_host_to_guest.cfg -q -t 3 & }; sleep 1; wget -4 -q -O /dev/null --timeout=5 http://127.0.0.1:8080/ && wget -6 -q -O /dev/null --timeout=5 http://[::1]:8080/ && exit 77, 77)
+	$(call run_test, { ./nsjail --config tests/dns_http_host_to_guest.cfg -q -t 5 & }; sleep 2; wget -4 -q -O /dev/null --timeout=5 http://127.0.0.1:8080/ && wget -6 -q -O /dev/null --timeout=5 http://[::1]:8080/ && exit 77, 77)
 
 	# --- --experimental_mnt=old ---
 	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --rw --chroot / --user 99999 --group 99999 -- /bin/bash -c 'touch $(HOME)/nsjail_test && exit 77', 77)
@@ -202,12 +215,12 @@ test: $(BIN)
 	$(call run_test, rm -f /run/user/$(UID)/nsjail_test2, 0)
 	$(call run_test, ./nsjail $(OLD_EF) --config configs/bash-with-fake-geteuid.cfg -q -t 1 < /dev/null, 0)
 	$(call run_test, ./nsjail $(OLD_EF) --config configs/bash-with-fake-geteuid.json -q -t 1 < /dev/null, 0)
-	$(call run_test, ./nsjail $(OLD_EF) --config configs/static-busybox-with-execveat.cfg -q -t 1, 137)
+	$(call run_test, ./nsjail $(OLD_EF) --config configs/static-busybox-with-execveat.cfg -q -t 1 < /dev/null, 0)
 	$(call run_test, ./nsjail $(OLD_EF) --config configs/home-documents-with-xorg-no-net.cfg -q -- /bin/true, 0)
 	$(call run_test, ./nsjail $(OLD_EF) --config configs/home-documents-with-xorg-no-net.cfg -q -- /bin/false, 1)
-	$(call run_test, ./nsjail $(OLD_EF) --config configs/firefox-with-net-X11.cfg -q -t 2, 137)
-	$(call run_test, ./nsjail $(OLD_EF) --config configs/firefox-with-net-wayland.cfg -q -t 2, 137)
-	$(call run_test, ./nsjail $(OLD_EF) --config configs/chromium-with-net-wayland.cfg -q -t 2, 137)
+	$(call run_test, ./nsjail $(OLD_EF) --config configs/firefox-with-net-X11.cfg -q -t 3, 137)
+	$(call run_test, ./nsjail $(OLD_EF) --config configs/firefox-with-net-wayland.cfg -q -t 3, 137)
+	$(call run_test, ./nsjail $(OLD_EF) --config configs/chromium-with-net-wayland.cfg -q -t 5, 137)
 
 	# --- --experimental_mnt=new ---
 	$(call run_test, ./nsjail $(NEW_EF) -q -Mo --rw --chroot / --user 99999 --group 99999 -- /bin/bash -c 'touch $(HOME)/nsjail_test && exit 77', 77)
@@ -223,12 +236,12 @@ test: $(BIN)
 	$(call run_test, rm -f /run/user/$(UID)/nsjail_test2, 0)
 	$(call run_test, ./nsjail $(NEW_EF) --config configs/bash-with-fake-geteuid.cfg -q -t 1 < /dev/null, 0)
 	$(call run_test, ./nsjail $(NEW_EF) --config configs/bash-with-fake-geteuid.json -q -t 1 < /dev/null, 0)
-	$(call run_test, ./nsjail $(NEW_EF) --config configs/static-busybox-with-execveat.cfg -q -t 1, 137)
+	$(call run_test, ./nsjail $(NEW_EF) --config configs/static-busybox-with-execveat.cfg -q -t 1 < /dev/null, 0)
 	$(call run_test, ./nsjail $(NEW_EF) --config configs/home-documents-with-xorg-no-net.cfg -q -- /bin/true, 0)
 	$(call run_test, ./nsjail $(NEW_EF) --config configs/home-documents-with-xorg-no-net.cfg -q -- /bin/false, 1)
-	$(call run_test, ./nsjail $(NEW_EF) --config configs/firefox-with-net-X11.cfg -q -t 2, 137)
-	$(call run_test, ./nsjail $(NEW_EF) --config configs/firefox-with-net-wayland.cfg -q -t 2, 137)
-	$(call run_test, ./nsjail $(NEW_EF) --config configs/chromium-with-net-wayland.cfg -q -t 2, 137)
+	$(call run_test, ./nsjail $(NEW_EF) --config configs/firefox-with-net-X11.cfg -q -t 3, 137)
+	$(call run_test, ./nsjail $(NEW_EF) --config configs/firefox-with-net-wayland.cfg -q -t 3, 137)
+	$(call run_test, ./nsjail $(NEW_EF) --config configs/chromium-with-net-wayland.cfg -q -t 5, 137)
 
 	@echo ""
 	@echo "========================================"
@@ -239,61 +252,75 @@ test: $(BIN)
 # Dependencies (Generated by makedepend)
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 
-caps.o: caps.h nsjail.h config.pb.h logs.h macros.h util.h
-cgroup.o: cgroup.h nsjail.h config.pb.h logs.h util.h
-cgroup2.o: cgroup2.h nsjail.h config.pb.h logs.h util.h
+monitor.o: monitor.h logs.h macros.h missing_defs.h net.h nsjail.h
+monitor.o: config.pb.h nstun/nstun.h sockproxy/sockproxy.h subproc.h
+monitor.o: unotify/unotify.h util.h
+sockproxy/sockproxy.o: sockproxy/sockproxy.h logs.h monitor.h util.h
+sockproxy/sockproxy.o: missing_defs.h nsjail.h config.pb.h
+caps.o: caps.h nsjail.h config.pb.h logs.h macros.h missing_defs.h util.h
+cgroup.o: cgroup.h nsjail.h config.pb.h logs.h util.h missing_defs.h
+cgroup2.o: cgroup2.h nsjail.h config.pb.h logs.h util.h missing_defs.h
 cmdline.o: cmdline.h nsjail.h config.pb.h caps.h config.h logs.h macros.h
-cmdline.o: mnt.h mnt_newapi.h user.h util.h
+cmdline.o: missing_defs.h mnt.h mnt_newapi.h user.h util.h
 config.o: config.h nsjail.h config.pb.h caps.h cmdline.h logs.h macros.h
-config.o: mnt.h user.h util.h
+config.o: missing_defs.h mnt.h user.h util.h
 contain.o: contain.h nsjail.h config.pb.h caps.h cgroup.h cgroup2.h config.h
-contain.o: cpu.h logs.h macros.h mnt.h net.h pid.h user.h util.h uts.h
-cpu.o: cpu.h nsjail.h config.pb.h logs.h util.h
-logs.o: logs.h macros.h util.h nsjail.h config.pb.h
-mnt.o: mnt.h nsjail.h config.pb.h logs.h macros.h mnt_legacy.h mnt_newapi.h
-mnt.o: subproc.h util.h
-mnt_legacy.o: mnt_legacy.h mnt.h nsjail.h config.pb.h logs.h macros.h util.h
-mnt_newapi.o: mnt_newapi.h mnt.h nsjail.h config.pb.h logs.h util.h
-net.o: net.h nsjail.h config.pb.h logs.h macros.h nstun/nstun.h util.h
-nsjail.o: nsjail.h config.pb.h cgroup2.h cmdline.h logs.h macros.h net.h
-nsjail.o: sandbox.h subproc.h unotify/unotify.h util.h
-pid.o: pid.h nsjail.h config.pb.h logs.h subproc.h
-sandbox.o: sandbox.h nsjail.h config.pb.h subproc.h kafel/include/kafel.h
-sandbox.o: logs.h unotify/syscall_defs.h util.h
-subproc.o: subproc.h nsjail.h config.pb.h cgroup.h cgroup2.h contain.h logs.h
-subproc.o: macros.h net.h nstun/nstun.h sandbox.h unotify/unotify.h user.h
-subproc.o: util.h
+contain.o: cpu.h logs.h macros.h missing_defs.h mnt.h net.h monitor.h pid.h
+contain.o: user.h util.h uts.h
+cpu.o: cpu.h nsjail.h config.pb.h logs.h util.h missing_defs.h
+logs.o: logs.h macros.h util.h missing_defs.h nsjail.h config.pb.h
+mnt.o: mnt.h missing_defs.h nsjail.h config.pb.h logs.h macros.h mnt_legacy.h
+mnt.o: mnt_newapi.h subproc.h monitor.h util.h
+mnt_legacy.o: mnt_legacy.h mnt.h missing_defs.h nsjail.h config.pb.h logs.h
+mnt_legacy.o: macros.h util.h
+mnt_newapi.o: mnt_newapi.h mnt.h missing_defs.h nsjail.h config.pb.h logs.h
+mnt_newapi.o: macros.h util.h
+net.o: net.h monitor.h nsjail.h config.pb.h logs.h macros.h missing_defs.h
+net.o: nstun/nstun.h subproc.h util.h
+nsjail.o: nsjail.h config.pb.h cgroup2.h cmdline.h logs.h macros.h
+nsjail.o: missing_defs.h monitor.h net.h sandbox.h subproc.h unotify/stats.h
+nsjail.o: unotify/record.h unotify/unotify.pb.h util.h
+pid.o: pid.h nsjail.h config.pb.h logs.h subproc.h monitor.h
+sandbox.o: sandbox.h nsjail.h config.pb.h subproc.h monitor.h
+sandbox.o: kafel/include/kafel.h logs.h missing_defs.h unotify/syscall_defs.h
+sandbox.o: missing_defs.h util.h
+subproc.o: subproc.h monitor.h nsjail.h config.pb.h cgroup.h cgroup2.h
+subproc.o: contain.h logs.h macros.h missing_defs.h net.h nstun/nstun.h
+subproc.o: sandbox.h user.h util.h
 uts.o: uts.h nsjail.h config.pb.h logs.h
-user.o: user.h nsjail.h config.pb.h logs.h macros.h subproc.h util.h
+user.o: user.h nsjail.h config.pb.h logs.h macros.h subproc.h monitor.h
+user.o: util.h missing_defs.h
 unotify/unotify.o: unotify/unotify.h nsjail.h config.pb.h logs.h
-unotify/unotify.o: unotify/record.h unotify/unotify.pb.h unotify/stats.h
-unotify/unotify.o: unotify/syscall.h util.h
+unotify/unotify.o: missing_defs.h monitor.h unotify/record.h
+unotify/unotify.o: unotify/unotify.pb.h unotify/stats.h unotify/syscall.h
+unotify/unotify.o: util.h
 unotify/stats.o: unotify/stats.h nsjail.h config.pb.h unotify/record.h
-unotify/stats.o: unotify/unotify.pb.h logs.h util.h
+unotify/stats.o: unotify/unotify.pb.h logs.h util.h missing_defs.h
 unotify/syscall.o: unotify/syscall.h unotify/record.h unotify/unotify.pb.h
-unotify/syscall.o: logs.h macros.h unotify/syscall_defs.h util.h nsjail.h
-unotify/syscall.o: config.pb.h
-util.o: util.h nsjail.h config.pb.h logs.h macros.h
-nstun/nstun.o: nstun/nstun.h nstun/core.h nstun/net_defs.h nstun/icmp.h
-nstun/nstun.o: nstun/iface.h nstun/ip.h logs.h macros.h nstun/policy.h
-nstun/nstun.o: nstun/tcp.h nstun/tun.h nstun/udp.h util.h nsjail.h
-nstun/nstun.o: config.pb.h
-nstun/policy.o: nstun/policy.h nstun/core.h nstun/net_defs.h nstun/nstun.h
-nstun/policy.o: logs.h config.pb.h nsjail.h
-nstun/encap.o: nstun/encap.h nstun/net_defs.h logs.h
+unotify/syscall.o: logs.h macros.h missing_defs.h unotify/syscall_defs.h
+unotify/syscall.o: missing_defs.h util.h nsjail.h config.pb.h
+util.o: util.h missing_defs.h nsjail.h config.pb.h logs.h macros.h
+nstun/nstun.o: nstun/nstun.h monitor.h nstun/core.h nstun/net_defs.h
+nstun/nstun.o: nstun/encap.h nstun/icmp.h nstun/iface.h nstun/ip.h logs.h
+nstun/nstun.o: macros.h nsjail.h config.pb.h nstun/policy.h nstun/tcp.h
+nstun/nstun.o: nstun/tun.h nstun/udp.h util.h missing_defs.h
+nstun/policy.o: nstun/policy.h config.pb.h nstun/core.h nstun/net_defs.h
+nstun/policy.o: nstun/nstun.h monitor.h nstun/encap.h logs.h nsjail.h
+nstun/encap.o: nstun/encap.h nstun/net_defs.h logs.h macros.h
 nstun/iface.o: nstun/iface.h logs.h macros.h nstun/net_defs.h nsjail.h
-nstun/iface.o: config.pb.h nstun/nstun.h
+nstun/iface.o: config.pb.h nstun/nstun.h monitor.h
 nstun/tun.o: nstun/tun.h nstun/core.h nstun/net_defs.h nstun/nstun.h
-nstun/tun.o: nstun/icmp.h nstun/ip.h logs.h
-nstun/ip.o: nstun/ip.h nstun/core.h nstun/net_defs.h nstun/nstun.h
-nstun/ip.o: nstun/icmp.h logs.h nstun/tcp.h nstun/udp.h
-nstun/icmp.o: nstun/icmp.h nstun/core.h nstun/net_defs.h nstun/nstun.h logs.h
-nstun/icmp.o: macros.h nstun/policy.h nstun/tun.h
+nstun/tun.o: monitor.h nstun/encap.h nstun/icmp.h nstun/ip.h logs.h
+nstun/ip.o: nstun/ip.h nstun/core.h nstun/net_defs.h nstun/nstun.h monitor.h
+nstun/ip.o: nstun/encap.h nstun/icmp.h logs.h nstun/tcp.h nstun/udp.h
+nstun/icmp.o: nstun/icmp.h nstun/core.h nstun/net_defs.h nstun/nstun.h
+nstun/icmp.o: monitor.h nstun/encap.h logs.h macros.h nstun/policy.h
+nstun/icmp.o: config.pb.h nstun/tun.h
 nstun/udp.o: nstun/udp.h nstun/core.h nstun/net_defs.h nstun/nstun.h
-nstun/udp.o: nstun/encap.h nstun/icmp.h logs.h macros.h nstun/policy.h
-nstun/udp.o: nstun/tun.h
+nstun/udp.o: monitor.h nstun/encap.h nstun/icmp.h logs.h macros.h
+nstun/udp.o: nstun/policy.h config.pb.h nstun/tun.h
 nstun/tcp.o: nstun/tcp.h nstun/core.h nstun/net_defs.h nstun/nstun.h
-nstun/tcp.o: nstun/encap.h logs.h macros.h nstun/policy.h nstun/tun.h util.h
-nstun/tcp.o: nsjail.h config.pb.h
+nstun/tcp.o: monitor.h nstun/encap.h logs.h macros.h nstun/policy.h
+nstun/tcp.o: config.pb.h nstun/tun.h util.h missing_defs.h nsjail.h
 config.pb.o: config.pb.h
 unotify/unotify.pb.o: unotify/unotify.pb.h

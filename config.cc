@@ -39,6 +39,7 @@
 #include "config.pb.h"
 #include "logs.h"
 #include "macros.h"
+#include "missing_defs.h"
 #include "mnt.h"
 #include "user.h"
 #include "util.h"
@@ -156,7 +157,7 @@ static void logHandler(
 #endif /* NSJAIL_HAS_PROTOBUF_LOG_HANDLER */
 
 static void flushLog() {
-	for (auto message : error_messages) {
+	for (const auto& message : error_messages) {
 		LOG_W("ProtoTextFormat: %s", message.c_str());
 	}
 	error_messages.clear();

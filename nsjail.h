@@ -34,6 +34,7 @@
 
 #include <map>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "config.pb.h"
@@ -58,7 +59,7 @@ struct pids_t {
 	struct sockaddr_in6 remote_addr;
 
 	pid_t pasta_pid;
-	pthread_t monitor_tid;
+	std::thread thread;
 };
 
 struct idmap_t {

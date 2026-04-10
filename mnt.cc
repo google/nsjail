@@ -47,6 +47,7 @@
 
 #include "logs.h"
 #include "macros.h"
+#include "missing_defs.h"
 #include "mnt_legacy.h"
 #include "mnt_newapi.h"
 #include "subproc.h"
@@ -362,17 +363,20 @@ bool initNs(nsj_t* nsj) {
 		return initNsInternal(nsj);
 	}
 
-	pid_t pid = subproc::cloneProc(CLONE_FS, SIGCHLD);
+	pid_t pid = subproc::cloneProcNoPidfd(CLONE_FS, SIGCHLD);
 	if (pid == -1) {
 		return false;
 	}
 
 	if (pid == 0) {
-		exit(initNsInternal(nsj) ? 0 : 0xff);
+		_exit(initNsInternal(nsj) ? 0 : 0xff);
 	}
 
 	int status;
-	while (wait4(pid, &status, 0, NULL) != pid);
+	if (TEMP_FAILURE_RETRY(waitpid(pid, &status, 0)) == -1) {
+		PLOG_W("waitpid(pid=%d)", pid);
+		return false;
+	}
 	if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
 		return true;
 	}

@@ -6,8 +6,7 @@
 namespace unotify {
 
 bool start(nsj_t* nsj, int unotif_fd);
-void stop(nsj_t* nsj);
-/* Note: printStats is in unotify/stats.h, exposed to nsjail.cc */
+void stop(void);
 
 }  // namespace unotify
 

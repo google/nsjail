@@ -1,21 +1,32 @@
 /*
  * Seccomp Unotify subsystem for nsjail.
- * This module allows nsjail to observe and log syscalls made by the sandboxed
- * process using the SECCOMP_USER_NOTIF feature. It runs a background thread
- * that reads notifications, decodes arguments, and aggregates statistics.
+ * -----------------------------------------
+ *
+ * This module allows nsjail to observe and log syscalls made by the
+ * sandboxed process using the SECCOMP_USER_NOTIF feature. It registers
+ * the unotify fd with the per-child epoll loop and processes
+ * notifications in-line (no dedicated thread).
+ *
+ * Ownership: start() only takes ownership of the passed fd on success.
+ * On success, the fd is managed by the event loop (freed via unotify::stop()).
+ * On failure, the fd is untouched and remains the caller's responsibility to close.
  */
 
-#include "unotify.h"
+#include "unotify/unotify.h"
 
+#include <fcntl.h>
 #include <linux/seccomp.h>
 #include <poll.h>
+#include <stdlib.h>
+#include <sys/epoll.h>
 #include <sys/ioctl.h>
-#include <sys/types.h>
+#include <sys/syscall.h>
+#include <time.h>
 #include <unistd.h>
 
-#include <thread>
-
 #include "logs.h"
+#include "missing_defs.h"
+#include "monitor.h"
 #include "unotify/record.h"
 #include "unotify/stats.h"
 #include "unotify/syscall.h"
@@ -23,104 +34,172 @@
 
 namespace unotify {
 
-#ifndef SECCOMP_IOCTL_NOTIF_RECV
-#define SECCOMP_IOCTL_NOTIF_RECV SECCOMP_IOWR(0, struct seccomp_notif)
-#define SECCOMP_IOCTL_NOTIF_SEND SECCOMP_IOWR(1, struct seccomp_notif_resp)
-#define SECCOMP_IOCTL_NOTIF_ID_VALID SECCOMP_IOWR(2, __u64)
-#endif
-
 #ifndef SECCOMP_USER_NOTIF_FLAG_CONTINUE
 #define SECCOMP_USER_NOTIF_FLAG_CONTINUE (1UL << 0)
 #endif
 
-static int unotif_fd = -1;
-static std::thread* worker_thread = nullptr;
-
+/*
+ * Checks if the target process is still alive and the notification ID is valid.
+ * Returns true if valid, false otherwise.
+ */
 static bool isTargetAlive(int fd, __u64 last_id) {
-	return ioctl(fd, SECCOMP_IOCTL_NOTIF_ID_VALID, &last_id) == 0;
-}
-
-static void threadMain() {
-	LOG_I("Started unotify loop");
-	/*
-	 * When last_id is 0 (no notification received yet), NOTIF_ID_VALID
-	 * will always fail since ID 0 is never valid. This correctly exits
-	 * the loop when NOTIF_RECV has never succeeded (child died before
-	 * making any traced syscall).
-	 */
-	__u64 last_id = 0;
-
-	while (true) {
-		struct pollfd pfd = {.fd = unotif_fd, .events = POLLIN, .revents = 0};
-
-		int ret = poll(&pfd, 1, -1);
-		if (ret == -1) {
-			if (errno == EINTR) continue;
-			PLOG_E("poll failed");
-			if (!isTargetAlive(unotif_fd, last_id)) break;
-			continue;
-		}
-
-		struct seccomp_notif req = {};
-		if (ioctl(unotif_fd, SECCOMP_IOCTL_NOTIF_RECV, &req) == -1) {
-			if (errno == EINTR) continue;
-			PLOG_D("SECCOMP_IOCTL_NOTIF_RECV");
-			if (!isTargetAlive(unotif_fd, last_id)) break;
-			continue;
-		}
-		last_id = req.id;
-
-		LOG_D("Received seccomp notification for syscall %d", req.data.nr);
-
-		SyscallRecord rec;
-		parseSyscall(&req, &rec);
-		addStat(rec);
-
-		if (!isTargetAlive(unotif_fd, req.id)) {
-			break;
-		}
-
-		struct seccomp_notif_resp resp = {};
-		resp.id = req.id;
-		resp.flags = SECCOMP_USER_NOTIF_FLAG_CONTINUE;
-
-		if (ioctl(unotif_fd, SECCOMP_IOCTL_NOTIF_SEND, &resp) == -1) {
-			if (errno != ENOENT) {
-				PLOG_E("SECCOMP_IOCTL_NOTIF_SEND failed");
-			}
-			if (!isTargetAlive(unotif_fd, req.id)) break;
-		}
-	}
-}
-
-bool start(nsj_t* nsj, int fd) {
-	if (worker_thread) {
-		LOG_W("unotify::start() called while already running. "
-		      "Concurrent tracing in LISTEN mode is not yet supported. "
-		      "Closing notification fd for this process.");
-		close(fd);
-		return true;
-	}
-	unotif_fd = fd;
-	worker_thread = new std::thread(threadMain);
-	return true;
+	return TEMP_FAILURE_RETRY(ioctl(fd, SECCOMP_IOCTL_NOTIF_ID_VALID, &last_id)) == 0;
 }
 
 /*
- * Called after killAndReapAll(). The worker thread exits its loop when
- * isTargetAlive() (SECCOMP_IOCTL_NOTIF_ID_VALID) reports the target is dead.
+ * Per-fd context holding the notification fd and kernel-reported structure
+ * sizes for seccomp_notif / seccomp_notif_resp.
  */
-void stop(nsj_t* nsj) {
-	if (worker_thread) {
-		worker_thread->join();
-		delete worker_thread;
-		worker_thread = nullptr;
+struct unotifyCtx_t {
+	int fd = -1;
+	uint16_t req_size;
+	uint16_t resp_size;
+	uint8_t* req_buf = nullptr;
+	uint8_t* resp_buf = nullptr;
+};
+
+static thread_local unotifyCtx_t current_ctx;
+
+static void closeAndUnregister(int fd) {
+	if (fd >= 0) {
+		monitor::removeFd(fd);
+		close(fd);
+		current_ctx.fd = -1;
 	}
-	if (unotif_fd != -1) {
-		close(unotif_fd);
-		unotif_fd = -1;
+}
+
+void stop() {
+	closeAndUnregister(current_ctx.fd);
+	free(current_ctx.req_buf);
+	free(current_ctx.resp_buf);
+	current_ctx.req_buf = nullptr;
+	current_ctx.resp_buf = nullptr;
+}
+
+/*
+ * Epoll callback that processes pending seccomp notifications from the
+ * kernel. For each notification, it records statistics and sends a CONTINUE
+ * response so the traced syscall proceeds in the child.
+ *
+ * We process one notification per callback to avoid event starvation,
+ * yielding control back to the event loop.
+ */
+static void unotifyCb(int fd, uint32_t events, void* /* data */) {
+	if (events & (EPOLLHUP | EPOLLERR)) {
+		LOG_D("unotif_fd=%d hung up or error, removing from epoll", fd);
+		closeAndUnregister(fd);
+		return;
 	}
-	printStats(nsj);
+
+	struct seccomp_notif* req = reinterpret_cast<struct seccomp_notif*>(current_ctx.req_buf);
+	struct seccomp_notif_resp* resp =
+	    reinterpret_cast<struct seccomp_notif_resp*>(current_ctx.resp_buf);
+
+	memset(req, 0, current_ctx.req_size);
+	if (TEMP_FAILURE_RETRY(ioctl(fd, SECCOMP_IOCTL_NOTIF_RECV, req)) == -1) {
+		/* EAGAIN/EWOULDBLOCK = no more pending */
+		if (errno == EAGAIN || errno == EWOULDBLOCK) {
+			return;
+		}
+		if (errno == ENOENT) {
+			LOG_D("unotif_fd=%d returned ENOENT, child likely gone. Removing "
+			      "from epoll.",
+			    fd);
+			closeAndUnregister(fd);
+			return;
+		}
+		PLOG_W("SECCOMP_IOCTL_NOTIF_RECV failed unexpectedly");
+		closeAndUnregister(fd);
+		return;
+	}
+
+	SyscallRecord rec;
+	LOG_D("unotifyCb: before parseSyscall, nr=%d", req->data.nr);
+	parseSyscall(req, &rec);
+	LOG_D("unotifyCb: after parseSyscall");
+	LOG_D("unotify: syscall=%s id=%llx", rec.name.c_str(), (unsigned long long)req->id);
+	addStat(rec);
+
+	if (!isTargetAlive(fd, req->id)) {
+		return;
+	}
+
+	memset(resp, 0, current_ctx.resp_size);
+	resp->id = req->id;
+
+	if (rec.name == "connect" && rec.res.has_net &&
+	    (rec.res.net_type == Stat_NetResource_Type_IPV4 ||
+		rec.res.net_type == Stat_NetResource_Type_IPV6)) {
+		resp->flags = 0;
+		resp->error = -ECONNREFUSED;
+		resp->val = -1;
+		LOG_D("unotify: failing network connect with ECONNREFUSED");
+	} else {
+		resp->flags = SECCOMP_USER_NOTIF_FLAG_CONTINUE;
+	}
+
+	if (TEMP_FAILURE_RETRY(ioctl(fd, SECCOMP_IOCTL_NOTIF_SEND, resp)) == -1) {
+		if (errno != ENOENT) {
+			PLOG_W("SECCOMP_IOCTL_NOTIF_SEND");
+		}
+	}
+}
+
+/*
+ * Initializes the unotify monitoring for one child process.
+ *
+ * Queries SECCOMP_GET_NOTIF_SIZES from the kernel to learn the correct
+ * allocation sizes, sets the fd non-blocking, and registers it with the
+ * epoll loop.
+ *
+ * Returns true if the fd was successfully absorbed by the loop. On failure,
+ * the fd is untouched and remains the caller's responsibility to close.
+ */
+bool start(nsj_t* nsj, int fd) {
+	thread_local struct seccomp_notif_sizes sizes = {0, 0, 0};
+	if (sizes.seccomp_notif == 0) {
+		if (util::syscall(__NR_seccomp, SECCOMP_GET_NOTIF_SIZES, 0, (uintptr_t)&sizes) ==
+		    -1) {
+			PLOG_W("seccomp(SECCOMP_GET_NOTIF_SIZES)");
+			return false;
+		}
+	}
+
+	current_ctx.fd = fd;
+	current_ctx.req_size = sizes.seccomp_notif;
+	current_ctx.resp_size = sizes.seccomp_notif_resp;
+
+	current_ctx.req_buf = static_cast<uint8_t*>(malloc(sizes.seccomp_notif));
+	current_ctx.resp_buf = static_cast<uint8_t*>(malloc(sizes.seccomp_notif_resp));
+
+	if (!current_ctx.req_buf || !current_ctx.resp_buf) {
+		LOG_E("Failed to allocate unotify buffers");
+		free(current_ctx.req_buf);
+		free(current_ctx.resp_buf);
+		current_ctx.req_buf = nullptr;
+		current_ctx.resp_buf = nullptr;
+		return false;
+	}
+
+	if (!util::setNonBlock(fd)) {
+		free(current_ctx.req_buf);
+		free(current_ctx.resp_buf);
+		current_ctx.req_buf = nullptr;
+		current_ctx.resp_buf = nullptr;
+		current_ctx.fd = -1;
+		return false;
+	}
+
+	if (!monitor::addFd(fd, EPOLLIN, unotifyCb, nullptr)) {
+		PLOG_W("monitor::addFd for unotify failed");
+		free(current_ctx.req_buf);
+		free(current_ctx.resp_buf);
+		current_ctx.req_buf = nullptr;
+		current_ctx.resp_buf = nullptr;
+		current_ctx.fd = -1;
+		return false;
+	}
+	return true;
 }
 
 }  // namespace unotify

@@ -30,7 +30,6 @@
 #include <netinet/in.h>
 #include <netinet/ip6.h>
 #include <netinet/tcp.h>
-#include <netlink/route/nexthop.h>
 #include <netlink/route/route.h>
 #include <netlink/route/rule.h>
 #include <stdint.h>
@@ -55,7 +54,9 @@
 
 #include "logs.h"
 #include "macros.h"
+#include "missing_defs.h"
 #include "nstun/nstun.h"
+#include "subproc.h"
 #include "util.h"
 
 #define STR_(x) #x
@@ -136,13 +137,15 @@ static bool cloneIface(nsj_t* nsj, struct nl_sock* sk, struct nl_cache* link_cac
 		LOG_E("rtnl_link_macvlan_alloc()");
 		return false;
 	}
+	defer {
+		rtnl_link_put(rmv);
+	};
 
 	int err;
 	int master_index = rtnl_link_name2i(link_cache, nsj->njc.macvlan_iface().c_str());
 	if (!master_index) {
 		LOG_E("rtnl_link_name2i(): Did not find '%s' interface",
 		    nsj->njc.macvlan_iface().c_str());
-		rtnl_link_put(rmv);
 		return false;
 	}
 
@@ -170,29 +173,32 @@ static bool cloneIface(nsj_t* nsj, struct nl_sock* sk, struct nl_cache* link_cac
 	if ((err = rtnl_link_add(sk, rmv, NLM_F_CREATE)) < 0) {
 		LOG_E("rtnl_link_add(name:'%s' link:'%s'): %s", IFACE_NAME,
 		    nsj->njc.macvlan_iface().c_str(), nl_geterror(err));
-		rtnl_link_put(rmv);
 		return false;
 	}
 
-	rtnl_link_put(rmv);
 	return true;
 }
 
 static bool moveToNs(
     const std::string& iface, struct nl_sock* sk, struct nl_cache* link_cache, pid_t pid) {
 	LOG_D("Moving interface '%s' into netns=%d", iface.c_str(), (int)pid);
-
 	struct rtnl_link* orig_link = rtnl_link_get_by_name(link_cache, iface.c_str());
 	if (!orig_link) {
 		LOG_E("Couldn't find interface '%s'", iface.c_str());
 		return false;
 	}
+	defer {
+		rtnl_link_put(orig_link);
+	};
+
 	struct rtnl_link* new_link = rtnl_link_alloc();
 	if (!new_link) {
 		LOG_E("Couldn't allocate new link");
-		rtnl_link_put(orig_link);
 		return false;
 	}
+	defer {
+		rtnl_link_put(new_link);
+	};
 
 	rtnl_link_set_ns_pid(new_link, pid);
 
@@ -200,13 +206,9 @@ static bool moveToNs(
 	if (err < 0) {
 		LOG_E("rtnl_link_change(): set NS of interface '%s' to pid=%d: %s", iface.c_str(),
 		    (int)pid, nl_geterror(err));
-		rtnl_link_put(new_link);
-		rtnl_link_put(orig_link);
 		return false;
 	}
 
-	rtnl_link_put(new_link);
-	rtnl_link_put(orig_link);
 	return true;
 }
 
@@ -324,9 +326,9 @@ static void pastaProcess(nsj_t* nsj, int pid, int err_pipe) {
 	argv.push_back(pid_str.c_str());
 	argv.push_back(nullptr);
 
-	int nullfd = TEMP_FAILURE_RETRY(open("/dev/null", O_RDWR));
+	int nullfd = TEMP_FAILURE_RETRY(open("/dev/null", O_RDWR | O_CLOEXEC));
 	if (nullfd == -1) {
-		PLOG_E("Cannot open '/dev/null' - O_RDWR");
+		PLOG_E("Cannot open '/dev/null' - O_RDWR | O_CLOEXEC");
 		_exit(EXIT_FAILURE);
 	}
 	if (TEMP_FAILURE_RETRY(dup2(nullfd, STDIN_FILENO)) == -1) {
@@ -379,11 +381,10 @@ static bool spawnPasta(nsj_t* nsj, int pid) {
 		return false;
 	}
 
-	pid_t ppid = fork();
+	pid_t ppid = subproc::cloneProcNoPidfd(0, SIGCHLD);
 	if (ppid == -1) {
 		close(sv[0]);
 		close(sv[1]);
-		PLOG_E("fork()");
 		return false;
 	}
 
@@ -398,7 +399,7 @@ static bool spawnPasta(nsj_t* nsj, int pid) {
 	if (util::readFromFd(sv[0], &err, sizeof(err)) > 0) {
 		close(sv[0]);
 		LOG_E("Pasta execution failed, error: %s", strerror(err));
-		while (waitpid(ppid, nullptr, 0) == -1 && errno == EINTR);
+		TEMP_FAILURE_RETRY(waitpid(ppid, nullptr, 0));
 		return false;
 	}
 
@@ -408,7 +409,7 @@ static bool spawnPasta(nsj_t* nsj, int pid) {
 	return true;
 }
 
-bool initParent(nsj_t* nsj, pid_t pid, int pipefd) {
+bool initParent(nsj_t* nsj, pid_t pid, int ipc_fd) {
 	if (nsj->njc.has_user_net()) {
 		if (!nsj->njc.clone_newnet()) {
 			LOG_E("Support for User-Mode Networking requested but CLONE_NEWNET "
@@ -416,10 +417,7 @@ bool initParent(nsj_t* nsj, pid_t pid, int pipefd) {
 			return false;
 		}
 		if (nsj->njc.user_net().backend() == nsjail::NsJailConfig_UserNet_Backend_NSTUN) {
-			if (!nstun_init_parent(pipefd, nsj)) {
-				LOG_E("nstun_init_parent() failed");
-				return false;
-			}
+			/* Context creation is delegated to the monitor thread */
 		} else if (nsj->njc.user_net().backend() ==
 			       nsjail::NsJailConfig_UserNet_Backend_PASTA &&
 			   nsj->njc.user_net().has_pasta()) {
@@ -457,12 +455,10 @@ bool initParent(nsj_t* nsj, pid_t pid, int pipefd) {
 
 	for (const auto& iface : nsj->njc.iface_own()) {
 		if (!moveToNs(iface, sk, link_cache, pid)) {
-			nl_cache_free(link_cache);
 			return false;
 		}
 	}
 	if (!nsj->njc.macvlan_iface().empty() && !cloneIface(nsj, sk, link_cache, pid)) {
-		nl_cache_free(link_cache);
 		return false;
 	}
 
@@ -535,18 +531,15 @@ int getRecvSocket(const nsj_t* nsj) {
 		return -1;
 	}
 
-	int sockfd = socket(AF_INET6, SOCK_STREAM, 0);
+	int sockfd = socket(AF_INET6, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
 	if (sockfd == -1) {
 		PLOG_E("socket(AF_INET6)");
-		return -1;
-	}
-	if (fcntl(sockfd, F_SETFL, O_NONBLOCK)) {
-		PLOG_E("fcntl(%d, F_SETFL, O_NONBLOCK)", sockfd);
 		return -1;
 	}
 	int so = 1;
 	if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &so, sizeof(so)) == -1) {
 		PLOG_E("setsockopt(%d, SO_REUSEADDR)", sockfd);
+		close(sockfd);
 		return -1;
 	}
 	struct sockaddr_in6 addr = {
@@ -576,9 +569,10 @@ int getRecvSocket(const nsj_t* nsj) {
 int acceptConn(int listenfd) {
 	struct sockaddr_in6 cli_addr = {};
 	socklen_t socklen = sizeof(cli_addr);
-	int connfd = accept4(listenfd, (struct sockaddr*)&cli_addr, &socklen, SOCK_NONBLOCK);
+	int connfd = TEMP_FAILURE_RETRY(
+	    accept4(listenfd, (struct sockaddr*)&cli_addr, &socklen, SOCK_NONBLOCK | SOCK_CLOEXEC));
 	if (connfd == -1) {
-		if (errno != EINTR) {
+		if (errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK) {
 			PLOG_E("accept(%d)", listenfd);
 		}
 		return -1;
@@ -630,7 +624,7 @@ const std::string connToText(int fd, bool remote, struct sockaddr_in6* addr_or_n
 }
 
 static bool ifaceUp(const char* ifacename) {
-	int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+	int sock = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, IPPROTO_IP);
 	if (sock == -1) {
 		PLOG_E("socket(AF_INET, SOCK_STREAM, IPPROTO_IP)");
 		return false;
@@ -640,7 +634,10 @@ static bool ifaceUp(const char* ifacename) {
 	};
 
 	struct ifreq ifr = {};
-	snprintf(ifr.ifr_name, IF_NAMESIZE, "%s", ifacename);
+	if (snprintf(ifr.ifr_name, IF_NAMESIZE, "%s", ifacename) >= IF_NAMESIZE) {
+		LOG_W("Interface name '%s' is too long", ifacename);
+		return false;
+	}
 
 	if (ioctl(sock, SIOCGIFFLAGS, &ifr) == -1) {
 		PLOG_E("ioctl(iface='%s', SIOCGIFFLAGS, IFF_UP)", ifacename);
@@ -662,21 +659,22 @@ static bool ifaceUp(const char* ifacename) {
 
 static bool ifaceConfig(const std::string& iface, const std::string& ip, const std::string& mask,
     const std::string& gw) {
-	int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+	int sock = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, IPPROTO_IP);
 	if (sock == -1) {
 		PLOG_E("socket(AF_INET, SOCK_STREAM, IPPROTO_IP)");
 		return false;
 	}
+	defer {
+		close(sock);
+	};
 
 	struct in_addr addr;
 	if (inet_pton(AF_INET, ip.c_str(), &addr) != 1) {
 		PLOG_E("Cannot convert '%s' into an IPv4 address", ip.c_str());
-		close(sock);
 		return false;
 	}
 	if (addr.s_addr == INADDR_ANY) {
 		LOG_D("IPv4 address for interface '%s' not set", iface.c_str());
-		close(sock);
 		return true;
 	}
 
@@ -687,36 +685,30 @@ static bool ifaceConfig(const std::string& iface, const std::string& ip, const s
 	sa->sin_addr = addr;
 	if (ioctl(sock, SIOCSIFADDR, &ifr) == -1) {
 		PLOG_E("ioctl(iface='%s', SIOCSIFADDR, '%s')", iface.c_str(), ip.c_str());
-		close(sock);
 		return false;
 	}
 
 	if (inet_pton(AF_INET, mask.c_str(), &addr) != 1) {
 		PLOG_E("Cannot convert '%s' into a IPv4 netmask", mask.c_str());
-		close(sock);
 		return false;
 	}
 	sa->sin_family = AF_INET;
 	sa->sin_addr = addr;
 	if (ioctl(sock, SIOCSIFNETMASK, &ifr) == -1) {
 		PLOG_E("ioctl(iface='%s', SIOCSIFNETMASK, '%s')", iface.c_str(), mask.c_str());
-		close(sock);
 		return false;
 	}
 
 	if (!ifaceUp(iface.c_str())) {
-		close(sock);
 		return false;
 	}
 
 	if (inet_pton(AF_INET, gw.c_str(), &addr) != 1) {
 		PLOG_E("Cannot convert '%s' into a IPv4 GW address", gw.c_str());
-		close(sock);
 		return false;
 	}
 	if (addr.s_addr == INADDR_ANY) {
 		LOG_D("Gateway address for '%s' is not set", iface.c_str());
-		close(sock);
 		return true;
 	}
 
@@ -738,11 +730,9 @@ static bool ifaceConfig(const std::string& iface, const std::string& ip, const s
 
 	if (ioctl(sock, SIOCADDRT, &rt) == -1) {
 		PLOG_E("ioctl(SIOCADDRT, '%s')", gw.c_str());
-		close(sock);
 		return false;
 	}
 
-	close(sock);
 	return true;
 }
 
@@ -895,10 +885,10 @@ bool initNsFromChild(nsj_t* nsj) {
 	return true;
 }
 
-bool initChildPreSync(nsj_t* nsj, int pipefd) {
+bool initChildPreSync(nsj_t* nsj, int ipc_fd) {
 	if (nsj->njc.has_user_net()) {
 		if (nsj->njc.user_net().backend() == nsjail::NsJailConfig_UserNet_Backend_NSTUN) {
-			if (!nstun_init_child(pipefd, nsj)) {
+			if (!nstun_init_child(ipc_fd, nsj)) {
 				LOG_E("nstun_init_child() failed");
 				return false;
 			}

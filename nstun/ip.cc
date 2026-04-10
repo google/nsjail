@@ -1,6 +1,8 @@
 #include "ip.h"
 
+#include <arpa/inet.h>
 #include <netinet/in.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "core.h"
@@ -62,42 +64,61 @@ static int skip_ipv6_ext_headers(int next_header, const uint8_t*& ptr, size_t& r
 	return -1; /* Extension header chain too deep */
 }
 
-void handle_ip4(Context* ctx, std::span<const uint8_t> payload) {
-	if (payload.size() < sizeof(ip4_hdr)) {
+static bool extract_l4_ports(
+    int proto, const uint8_t* payload, size_t len, uint16_t* src_port, uint16_t* dest_port) {
+	if (proto == IPPROTO_TCP && len >= sizeof(tcp_hdr)) {
+		tcp_hdr tcp;
+		memcpy(&tcp, payload, sizeof(tcp));
+		*src_port = ntohs(tcp.source);
+		*dest_port = ntohs(tcp.dest);
+		return true;
+	} else if (proto == IPPROTO_UDP && len >= sizeof(udp_hdr)) {
+		udp_hdr udp;
+		memcpy(&udp, payload, sizeof(udp));
+		*src_port = ntohs(udp.source);
+		*dest_port = ntohs(udp.dest);
+		return true;
+	}
+	return false;
+}
+
+void handle_ip4(Context* ctx, const uint8_t* payload, size_t len) {
+	if (len < sizeof(ip4_hdr)) {
 		return;
 	}
 
-	const ip4_hdr* ip = reinterpret_cast<const ip4_hdr*>(payload.data());
-	uint8_t ihl = ip4_ihl(ip) * 4;
+	ip4_hdr ip;
+	memcpy(&ip, payload, sizeof(ip));
+	uint8_t ihl = ip4_ihl(&ip) * 4;
 
-	if (ihl < sizeof(ip4_hdr) || ihl > payload.size()) {
+	if (ihl < sizeof(ip4_hdr) || ihl > len) {
 		LOG_D("Invalid IPv4 IHL");
 		return;
 	}
 
-	uint16_t tot_len = ntohs(ip->tot_len);
-	if (tot_len < ihl || tot_len > payload.size()) {
+	uint16_t tot_len = ntohs(ip.tot_len);
+	if (tot_len < ihl || tot_len > len) {
 		LOG_D("Invalid IPv4 tot_len");
 		return;
 	}
 
-	const uint8_t* l4_payload = payload.data() + ihl;
+	const uint8_t* l4_payload = payload + ihl;
 	size_t l4_len = tot_len - ihl;
 
 	/* Drop IP fragments: nstun does not reassemble, and non-first
 	 * fragments have no L4 header - parsing them would bypass rules */
-	if (ntohs(ip->frag_off) & 0x3FFF) {
+	if (ntohs(ip.frag_off) & 0x3FFF) {
 		LOG_W("Dropping IPv4 fragment");
 		return;
 	}
 
 	/* Validate IPv4 header checksum */
-	if (compute_checksum(ip, ihl) != 0) {
+	if (compute_checksum(payload, ihl) != 0) {
 		LOG_W("Invalid IPv4 header checksum, dropping");
 		return;
 	}
 
-	if (ip->saddr != ctx->guest_ip4 && ip->saddr != 0) {
+	if (ip.saddr != ctx->guest_ip4 && ip.saddr != 0) {
 		LOG_W("Dropping packet with invalid source IP");
 		return;
 	}
@@ -106,72 +127,86 @@ void handle_ip4(Context* ctx, std::span<const uint8_t> payload) {
 	 * This is the single authoritative check - L4 handlers rely on this
 	 * and do NOT duplicate it. Redirect rules in policy may still target
 	 * loopback intentionally (admin-controlled). */
-	if (IN_LOOPBACK(ntohl(ip->daddr)) || ip->daddr == htonl(INADDR_ANY) ||
-	    ip->daddr == htonl(INADDR_BROADCAST)) {
-		LOG_W("Dropping packet destined to loopback, ANY, or broadcast: %s",
-		    ip4_to_string(ip->daddr).c_str());
+	if (IN_LOOPBACK(ntohl(ip.daddr)) || ip.daddr == htonl(INADDR_ANY) ||
+	    ip.daddr == htonl(INADDR_BROADCAST)) {
+		char daddr_str[INET_ADDRSTRLEN];
+		inet_ntop(AF_INET, &ip.daddr, daddr_str, sizeof(daddr_str));
+		LOG_W("Dropping packet destined to loopback, ANY, or broadcast: %s", daddr_str);
 		return;
 	}
 	uint16_t src_port = 0, dest_port = 0;
-	auto l4_span = payload.subspan(ihl, l4_len);
-	if (ip->protocol == IPPROTO_TCP && l4_span.size() >= sizeof(tcp_hdr)) {
-		const tcp_hdr* tcp = reinterpret_cast<const tcp_hdr*>(l4_span.data());
-		src_port = ntohs(tcp->source);
-		dest_port = ntohs(tcp->dest);
-	} else if (ip->protocol == IPPROTO_UDP && l4_span.size() >= sizeof(udp_hdr)) {
-		const udp_hdr* udp = reinterpret_cast<const udp_hdr*>(l4_span.data());
-		src_port = ntohs(udp->source);
-		dest_port = ntohs(udp->dest);
+	extract_l4_ports(ip.protocol, l4_payload, l4_len, &src_port, &dest_port);
+
+	if (logs::getLogLevel() <= logs::DEBUG) {
+		char saddr_str[INET_ADDRSTRLEN];
+		char daddr_str[INET_ADDRSTRLEN];
+		inet_ntop(AF_INET, &ip.saddr, saddr_str, sizeof(saddr_str));
+		inet_ntop(AF_INET, &ip.daddr, daddr_str, sizeof(daddr_str));
+		if (src_port != 0 && dest_port != 0) {
+			LOG_D("IP packet: proto=%u, %s:%u -> %s:%u, len=%zu", ip.protocol,
+			    saddr_str, src_port, daddr_str, dest_port, l4_len);
+		} else {
+			LOG_D("IP packet: proto=%u, %s -> %s, len=%zu", ip.protocol, saddr_str,
+			    daddr_str, l4_len);
+		}
 	}
 
-	if (src_port != 0 && dest_port != 0) {
-		LOG_D("IP packet: proto=%u, %s:%u -> %s:%u, len=%zu", ip->protocol,
-		    ip4_to_string(ip->saddr).c_str(), src_port, ip4_to_string(ip->daddr).c_str(),
-		    dest_port, l4_len);
-	} else {
-		LOG_D("IP packet: proto=%u, %s -> %s, len=%zu", ip->protocol,
-		    ip4_to_string(ip->saddr).c_str(), ip4_to_string(ip->daddr).c_str(), l4_len);
-	}
-
-	switch (ip->protocol) {
+	switch (ip.protocol) {
 	case IPPROTO_ICMP:
-		handle_icmp4(ctx, ip, payload.subspan(ihl, l4_len));
+		LOG_D("Calling handle_icmp4");
+		LOG_D("about to call handle_icmp4: ctx=%p, ip=%p, l4=%p, len=%zu", (void*)ctx,
+		    (void*)&ip, (void*)l4_payload, l4_len);
+		handle_icmp4(ctx, &ip, l4_payload, l4_len);
 		break;
 	case IPPROTO_UDP:
-		handle_udp4(ctx, ip, payload.subspan(ihl, l4_len));
+		handle_udp4(ctx, &ip, l4_payload, l4_len);
 		break;
 	case IPPROTO_TCP:
-		handle_tcp4(ctx, ip, payload.subspan(ihl, l4_len));
+		handle_tcp4(ctx, &ip, l4_payload, l4_len);
 		break;
 	default:
-		LOG_D("Unknown IPv4 protocol: %u", ip->protocol);
+		LOG_D("Unknown IPv4 protocol: %u", ip.protocol);
 		break;
 	}
 }
 
-void handle_ip6(Context* ctx, std::span<const uint8_t> payload) {
-	if (payload.size() < sizeof(ip6_hdr)) {
+void handle_ip6(Context* ctx, const uint8_t* payload, size_t len) {
+	if (len < sizeof(ip6_hdr)) {
 		return;
 	}
 
-	const ip6_hdr* ip6 = reinterpret_cast<const ip6_hdr*>(payload.data());
-	uint16_t payload_len = ntohs(ip6->payload_len);
+	ip6_hdr ip6;
+	memcpy(&ip6, payload, sizeof(ip6));
+	uint16_t payload_len = ntohs(ip6.payload_len);
 
-	if (payload_len + sizeof(ip6_hdr) > payload.size()) {
+	if (payload_len + sizeof(ip6_hdr) > len) {
 		LOG_D("Invalid IPv6 payload_len");
 		return;
 	}
 
 	/* Source IP filtering */
-	if (memcmp(ip6->saddr, ctx->guest_ip6, IPV6_ADDR_LEN) != 0) {
-		if (IN6_IS_ADDR_LINKLOCAL((const struct in6_addr*)ip6->saddr) ||
-		    IN6_IS_ADDR_SITELOCAL((const struct in6_addr*)ip6->saddr)) {
-			LOG_D("Dropping IPv6 packet with link/site-local source address: %s",
-			    ip6_to_string(ip6->saddr).c_str());
+	if (memcmp(ip6.saddr, ctx->guest_ip6, IPV6_ADDR_LEN) != 0) {
+		struct in6_addr saddr;
+		memcpy(&saddr, ip6.saddr, sizeof(saddr));
+		if (IN6_IS_ADDR_LINKLOCAL(&saddr)) {
+			/* Allow link-local addresses from guest on the local link */
+			if (logs::getLogLevel() <= logs::DEBUG) {
+				char saddr_str[INET6_ADDRSTRLEN];
+				inet_ntop(AF_INET6, ip6.saddr, saddr_str, sizeof(saddr_str));
+				LOG_D("Allowing link-local source address: %s", saddr_str);
+			}
+		} else if (IN6_IS_ADDR_SITELOCAL(&saddr)) {
+			if (logs::getLogLevel() <= logs::DEBUG) {
+				char saddr_str[INET6_ADDRSTRLEN];
+				inet_ntop(AF_INET6, ip6.saddr, saddr_str, sizeof(saddr_str));
+				LOG_D("Dropping IPv6 packet with site-local source address: %s",
+				    saddr_str);
+			}
 			return;
 		} else {
-			LOG_W("Dropping IPv6 packet with spoofed source address: %s",
-			    ip6_to_string(ip6->saddr).c_str());
+			char saddr_str[INET6_ADDRSTRLEN];
+			inet_ntop(AF_INET6, ip6.saddr, saddr_str, sizeof(saddr_str));
+			LOG_W("Dropping IPv6 packet with spoofed source address: %s", saddr_str);
 			return;
 		}
 	}
@@ -180,24 +215,40 @@ void handle_ip6(Context* ctx, std::span<const uint8_t> payload) {
 	 * This is the single authoritative check - L4 handlers rely on this
 	 * and do NOT duplicate it. Redirect rules in policy may still target
 	 * ::1 intentionally (admin-controlled). */
-	if (IN6_IS_ADDR_LOOPBACK((const struct in6_addr*)ip6->daddr)) {
-		LOG_D("Dropping IPv6 packet to loopback: %s", ip6_to_string(ip6->daddr).c_str());
+	struct in6_addr daddr;
+	memcpy(&daddr, ip6.daddr, sizeof(daddr));
+	if (IN6_IS_ADDR_LOOPBACK(&daddr)) {
+		if (logs::getLogLevel() <= logs::DEBUG) {
+			char daddr_str[INET6_ADDRSTRLEN];
+			inet_ntop(AF_INET6, ip6.daddr, daddr_str, sizeof(daddr_str));
+			LOG_D("Dropping IPv6 packet to loopback: %s", daddr_str);
+		}
 		return;
 	}
-	if (IN6_IS_ADDR_V4MAPPED((const struct in6_addr*)ip6->daddr)) {
-		LOG_D("Dropping IPv6 packet to v4-mapped address (use IPv4 directly): %s",
-		    ip6_to_string(ip6->daddr).c_str());
+	if (IN6_IS_ADDR_V4MAPPED(&daddr)) {
+		if (logs::getLogLevel() <= logs::DEBUG) {
+			char daddr_str[INET6_ADDRSTRLEN];
+			inet_ntop(AF_INET6, ip6.daddr, daddr_str, sizeof(daddr_str));
+			LOG_D("Dropping IPv6 packet to v4-mapped address (use IPv4 directly): %s",
+			    daddr_str);
+		}
 		return;
 	}
-	if (IN6_IS_ADDR_V4COMPAT((const struct in6_addr*)ip6->daddr)) {
-		LOG_D("Dropping IPv6 packet to v4-compatible address (deprecated): %s",
-		    ip6_to_string(ip6->daddr).c_str());
+	if (IN6_IS_ADDR_V4COMPAT(&daddr)) {
+		if (logs::getLogLevel() <= logs::DEBUG) {
+			char daddr_str[INET6_ADDRSTRLEN];
+			inet_ntop(AF_INET6, ip6.daddr, daddr_str, sizeof(daddr_str));
+			LOG_D("Dropping IPv6 packet to v4-compatible address (deprecated): %s",
+			    daddr_str);
+		}
 		return;
 	}
-	if (IN6_IS_ADDR_LINKLOCAL((const struct in6_addr*)ip6->daddr) ||
-	    IN6_IS_ADDR_SITELOCAL((const struct in6_addr*)ip6->daddr)) {
-		LOG_D("Dropping IPv6 packet to link/site-local address: %s",
-		    ip6_to_string(ip6->daddr).c_str());
+	if (IN6_IS_ADDR_LINKLOCAL(&daddr) || IN6_IS_ADDR_SITELOCAL(&daddr)) {
+		if (logs::getLogLevel() <= logs::DEBUG) {
+			char daddr_str[INET6_ADDRSTRLEN];
+			inet_ntop(AF_INET6, ip6.daddr, daddr_str, sizeof(daddr_str));
+			LOG_D("Dropping IPv6 packet to link/site-local address: %s", daddr_str);
+		}
 		return;
 	}
 	/*
@@ -207,45 +258,41 @@ void handle_ip6(Context* ctx, std::span<const uint8_t> payload) {
 	 * Each header's "Next Header" field identifies what follows.
 	 * We only need to find the L4 header, not process the extensions.
 	 */
-	const uint8_t* l4_payload = payload.data() + sizeof(ip6_hdr);
+	const uint8_t* l4_payload = payload + sizeof(ip6_hdr);
 	size_t remaining = payload_len;
 
-	int l4_proto = skip_ipv6_ext_headers(ip6->next_header, l4_payload, remaining);
+	int l4_proto = skip_ipv6_ext_headers(ip6.next_header, l4_payload, remaining);
 	if (l4_proto < 0) {
 		LOG_D("Failed to parse IPv6 extension headers");
 		return;
 	}
 
 	uint16_t src_port = 0, dest_port = 0;
-	if (l4_proto == IPPROTO_TCP && remaining >= sizeof(tcp_hdr)) {
-		const tcp_hdr* tcp = reinterpret_cast<const tcp_hdr*>(l4_payload);
-		src_port = ntohs(tcp->source);
-		dest_port = ntohs(tcp->dest);
-	} else if (l4_proto == IPPROTO_UDP && remaining >= sizeof(udp_hdr)) {
-		const udp_hdr* udp = reinterpret_cast<const udp_hdr*>(l4_payload);
-		src_port = ntohs(udp->source);
-		dest_port = ntohs(udp->dest);
-	}
+	extract_l4_ports(l4_proto, l4_payload, remaining, &src_port, &dest_port);
 
-	if (src_port != 0 && dest_port != 0) {
-		LOG_D("IPv6 packet: next_header=%u, %s:%u -> %s:%u, len=%u", l4_proto,
-		    ip6_to_string(ip6->saddr).c_str(), src_port, ip6_to_string(ip6->daddr).c_str(),
-		    dest_port, payload_len);
-	} else {
-		LOG_D("IPv6 packet: next_header=%u, %s -> %s, len=%u", l4_proto,
-		    ip6_to_string(ip6->saddr).c_str(), ip6_to_string(ip6->daddr).c_str(),
-		    payload_len);
+	if (logs::getLogLevel() <= logs::DEBUG) {
+		char saddr_str[INET6_ADDRSTRLEN];
+		char daddr_str[INET6_ADDRSTRLEN];
+		inet_ntop(AF_INET6, ip6.saddr, saddr_str, sizeof(saddr_str));
+		inet_ntop(AF_INET6, ip6.daddr, daddr_str, sizeof(daddr_str));
+		if (src_port != 0 && dest_port != 0) {
+			LOG_D("IPv6 packet: next_header=%u, %s:%u -> %s:%u, len=%u", l4_proto,
+			    saddr_str, src_port, daddr_str, dest_port, payload_len);
+		} else {
+			LOG_D("IPv6 packet: next_header=%u, %s -> %s, len=%u", l4_proto, saddr_str,
+			    daddr_str, payload_len);
+		}
 	}
 
 	switch (l4_proto) {
 	case IPPROTO_ICMPV6:
-		handle_icmp6(ctx, ip6, std::span<const uint8_t>(l4_payload, remaining));
+		handle_icmp6(ctx, &ip6, l4_payload, remaining);
 		break;
 	case IPPROTO_UDP:
-		handle_udp6(ctx, ip6, std::span<const uint8_t>(l4_payload, remaining));
+		handle_udp6(ctx, &ip6, l4_payload, remaining);
 		break;
 	case IPPROTO_TCP:
-		handle_tcp6(ctx, ip6, std::span<const uint8_t>(l4_payload, remaining));
+		handle_tcp6(ctx, &ip6, l4_payload, remaining);
 		break;
 	default:
 		LOG_D("Unknown IPv6 next_header: %u", l4_proto);

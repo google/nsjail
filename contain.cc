@@ -26,6 +26,9 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <limits.h>
+#if __has_include(<linux/close_range.h>)
+#include <linux/close_range.h>
+#endif
 #include <signal.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -46,6 +49,7 @@
 #include "cpu.h"
 #include "logs.h"
 #include "macros.h"
+#include "missing_defs.h"
 #include "mnt.h"
 #include "net.h"
 #include "pid.h"
@@ -76,9 +80,6 @@ static bool containInitCgroupNs(void) {
 }
 
 static bool containDropPrivs(nsj_t* nsj) {
-#ifndef PR_SET_NO_NEW_PRIVS
-#define PR_SET_NO_NEW_PRIVS 38
-#endif
 	if (!nsj->njc.disable_no_new_privs()) {
 		if (prctl(PR_SET_NO_NEW_PRIVS, 1UL, 0UL, 0UL, 0UL) == -1) {
 			/* Only new kernels support it */
@@ -98,24 +99,24 @@ static bool containPrepareEnv(nsj_t* nsj) {
 		PLOG_E("prctl(PR_SET_PDEATHSIG, SIGKILL)");
 		return false;
 	}
-	unsigned long personality = 0;
+	unsigned long pers = 0;
 	if (nsj->njc.persona_addr_compat_layout()) {
-		personality |= ADDR_COMPAT_LAYOUT;
+		pers |= ADDR_COMPAT_LAYOUT;
 	}
 	if (nsj->njc.persona_mmap_page_zero()) {
-		personality |= MMAP_PAGE_ZERO;
+		pers |= MMAP_PAGE_ZERO;
 	}
 	if (nsj->njc.persona_read_implies_exec()) {
-		personality |= READ_IMPLIES_EXEC;
+		pers |= READ_IMPLIES_EXEC;
 	}
 	if (nsj->njc.persona_addr_limit_3gb()) {
-		personality |= ADDR_LIMIT_3GB;
+		pers |= ADDR_LIMIT_3GB;
 	}
 	if (nsj->njc.persona_addr_no_randomize()) {
-		personality |= ADDR_NO_RANDOMIZE;
+		pers |= ADDR_NO_RANDOMIZE;
 	}
-	if (personality && ::personality(personality) == -1) {
-		PLOG_E("personality(%lx)", personality);
+	if (pers && personality(pers) == -1) {
+		PLOG_E("personality(%lx)", pers);
 		return false;
 	}
 	LOG_D("setpriority(%d)", nsj->njc.nice_level());
@@ -126,6 +127,7 @@ static bool containPrepareEnv(nsj_t* nsj) {
 	if (!nsj->njc.skip_setsid()) {
 		setsid();
 	}
+
 	return true;
 }
 
@@ -221,10 +223,10 @@ static bool containSetLimits(nsj_t* nsj) {
 	return true;
 }
 
-static bool containPassFd(nsj_t* nsj, int fd) {
-	return (std::find(nsj->openfds.begin(), nsj->openfds.end(), fd) != nsj->openfds.end());
-}
-
+/*
+ * Marks FDs for close-on-exec, or clears it for FDs that should be passed.
+ * exec(2) handles the actual closing.
+ */
 static bool containMakeFdCOE(int fd, bool pass_fd) {
 	int flags = TEMP_FAILURE_RETRY(fcntl(fd, F_GETFD, 0));
 	if (flags == -1) {
@@ -252,100 +254,104 @@ static bool containMakeFdCOE(int fd, bool pass_fd) {
 	return true;
 }
 
-static bool containMakeFdsCOECloseRange(nsj_t* nsj) {
-	RETURN_ON_FAILURE(util::makeRangeCOE(0U, ~0U));
-	for (const auto fd : nsj->openfds) {
-		RETURN_ON_FAILURE(containMakeFdCOE(fd, /* pass_fd= */ true));
-	}
-	return true;
-}
-
-static bool containMakeFdsCOENaive(nsj_t* nsj) {
-	/*
-	 * Don't use getrlimit(RLIMIT_NOFILE) here, as it can return an artifically small value
-	 * (e.g. 32), which could be smaller than a maximum assigned number to file-descriptors
-	 * in this process. Just use some reasonably sane value (e.g. 1024)
-	 */
-	for (unsigned fd = 0; fd < 1024; fd++) {
-		RETURN_ON_FAILURE(containMakeFdCOE(fd, containPassFd(nsj, fd)));
-	}
-	return true;
-}
-
-static bool containMakeFdsCOEProc(nsj_t* nsj) {
-	int dirfd = open("/proc/self/fd", O_DIRECTORY | O_RDONLY | O_CLOEXEC);
-	if (dirfd == -1) {
-		PLOG_D("open('/proc/self/fd', O_DIRECTORY|O_RDONLY|O_CLOEXEC)");
-		return false;
-	}
-	DIR* dir = fdopendir(dirfd);
-	if (dir == nullptr) {
-		PLOG_W("fdopendir(fd=%d)", dirfd);
-		close(dirfd);
-		return false;
-	}
-	/* Make all fds above stderr close-on-exec */
-	for (;;) {
-		errno = 0;
-		struct dirent* entry = readdir(dir);
-		if (entry == nullptr && errno != 0) {
-			PLOG_D("readdir('/proc/self/fd')");
-			closedir(dir);
-			return false;
-		}
-		if (entry == nullptr) {
-			break;
-		}
-		if (util::StrEq(".", entry->d_name)) {
-			continue;
-		}
-		if (util::StrEq("..", entry->d_name)) {
-			continue;
-		}
-		errno = 0;
-		int fd = strtoimax(entry->d_name, NULL, 10);
-		if (errno != 0) {
-			PLOG_W("Cannot convert /proc/self/fd/%s to a number", entry->d_name);
-			continue;
-		}
-		int flags = TEMP_FAILURE_RETRY(fcntl(fd, F_GETFD, 0));
-		if (flags == -1) {
-			PLOG_D("fcntl(fd=%d, F_GETFD, 0)", fd);
-			closedir(dir);
-			return false;
-		}
-		RETURN_ON_FAILURE(containMakeFdCOE(fd, containPassFd(nsj, fd)));
-	}
-	closedir(dir);
-	return true;
-}
-
+/*
+ * Sets the Close-On-Exec (COE) flag on all file descriptors except those explicitly
+ * marked to be passed to the sandbox.
+ *
+ * To optimize performance, we utilize the close_range() syscall. Because we are
+ * single-threaded in the child process just before execve(), we can be _cheeky_ -
+ * we blanket-apply CLOSE_RANGE_CLOEXEC to the entire descriptor table (0 to ~0U),
+ * and then simply clear the flag on the exact FDs we wish to pass.
+ */
 static bool containMakeFdsCOE(nsj_t* nsj) {
-	if (containMakeFdsCOECloseRange(nsj)) {
-		return true;
+	if (util::syscall(__NR_close_range, 0, ~0U, CLOSE_RANGE_CLOEXEC) == -1) {
+		PLOG_E("close_range(0, ~0U, CLOSE_RANGE_CLOEXEC)");
+		return false;
 	}
-	if (containMakeFdsCOEProc(nsj)) {
-		return true;
+
+	for (const auto fd : nsj->openfds) {
+		if (fd >= 0) {
+			containMakeFdCOE(fd, /* pass_fd= */ true);
+		}
 	}
-	if (containMakeFdsCOENaive(nsj)) {
-		return true;
-	}
-	LOG_E("Couldn't mark relevant file-descriptors as close-on-exec with any known method");
-	return false;
+	return true;
 }
 
-bool setupFD(nsj_t* nsj, int fd_in, int fd_out, int fd_err) {
+/*
+ * (Violently) closes all file descriptors that are not explicitly required to survive
+ * the containment boundary.
+ *
+ * Unlike COE above, closing an FD is a destructive and irreversible operation.
+ * We cannot "close everything and revert". We must build a sorted list of critical
+ * FDs (standard I/O, IPC sockets, logging, etc.) and safely jump over them by
+ * calling close_range() on the numerical "gaps" between our preserved FDs.
+ */
+static bool containCloseFDs(nsj_t* nsj, int ipc_fd) {
+	std::vector<unsigned int> keep_fds;
+
+	/* Core standard I/O */
+	keep_fds.push_back(STDIN_FILENO);
+	keep_fds.push_back(STDOUT_FILENO);
+	keep_fds.push_back(STDERR_FILENO);
+
+	/* Crucial infrastructure */
+	if (logs::logFd() > STDERR_FILENO) keep_fds.push_back(logs::logFd());
+	if (ipc_fd >= 0) keep_fds.push_back(ipc_fd);
+	if (nsj->njc.exec_bin().exec_fd() && nsj->exec_fd >= 0) {
+		keep_fds.push_back(nsj->exec_fd);
+	}
+
+	/* User-requested passthrough FDs */
+	for (const auto fd : nsj->openfds) {
+		if (fd >= 0) keep_fds.push_back(fd);
+	}
+
+	/* Sort and deduplicate to safely iterate through the gaps */
+	std::sort(keep_fds.begin(), keep_fds.end());
+	keep_fds.erase(std::unique(keep_fds.begin(), keep_fds.end()), keep_fds.end());
+
+	unsigned int range_start = 0;
+	for (unsigned int target_fd : keep_fds) {
+		/* If there is a gap between the start of our range and the target FD, close the gap
+		 */
+		if (target_fd > range_start) {
+			if (util::syscall(__NR_close_range, range_start, target_fd - 1, 0) == -1) {
+				PLOG_E("close_range(%u, %u, 0)", range_start, target_fd - 1);
+				return false;
+			}
+		}
+
+		/* Advance the start of the next range to be immediately after our target FD */
+		range_start = target_fd + 1;
+	}
+
+	/* Finally, close all remaining file descriptors from the last target FD up to the system
+	 * max */
+	if (range_start < ~0U) {
+		if (util::syscall(__NR_close_range, range_start, ~0U, 0) == -1) {
+			PLOG_E("close_range(%u, ~0U, 0)", range_start);
+			return false;
+		}
+	}
+	return true;
+}
+
+bool setupFD(nsj_t* nsj, int fd_in, int fd_out, int fd_err, int ipc_fd) {
+	if (nsj->njc.mode() == nsjail::Mode::LISTEN) {
+		util::detachFromTTY();
+	}
 	if (nsj->njc.stderr_to_null()) {
 		LOG_D("Redirecting fd=2 (STDERR_FILENO) to /dev/null");
-		if ((fd_err = TEMP_FAILURE_RETRY(open("/dev/null", O_RDWR))) == -1) {
-			PLOG_E("open('/dev/null', O_RDWR");
+		if ((fd_err = TEMP_FAILURE_RETRY(open("/dev/null", O_RDWR | O_CLOEXEC))) == -1) {
+			PLOG_E("open('/dev/null', O_RDWR | O_CLOEXEC");
 			return false;
 		}
 	}
 	if (nsj->njc.silent()) {
 		LOG_D("Redirecting fd=0-2 (STDIN/OUT/ERR_FILENO) to /dev/null");
-		if (TEMP_FAILURE_RETRY(fd_in = fd_out = fd_err = open("/dev/null", O_RDWR)) == -1) {
-			PLOG_E("open('/dev/null', O_RDWR)");
+		if (TEMP_FAILURE_RETRY(
+			fd_in = fd_out = fd_err = open("/dev/null", O_RDWR | O_CLOEXEC)) == -1) {
+			PLOG_E("open('/dev/null', O_RDWR | O_CLOEXEC)");
 			return false;
 		}
 	}
@@ -362,6 +368,9 @@ bool setupFD(nsj_t* nsj, int fd_in, int fd_out, int fd_err) {
 		PLOG_E("dup2(%d, STDERR_FILENO)", fd_err);
 		return false;
 	}
+	if (!contain::containCloseFDs(nsj, ipc_fd)) {
+		return false;
+	}
 	return true;
 }
 
@@ -373,8 +382,7 @@ bool containProc(nsj_t* nsj) {
 	RETURN_ON_FAILURE(containInitUtsNs(nsj));
 	RETURN_ON_FAILURE(containInitCgroupNs());
 	RETURN_ON_FAILURE(containDropPrivs(nsj));
-	;
-	/* */
+
 	/* As non-root */
 	RETURN_ON_FAILURE(containCPU(nsj));
 	RETURN_ON_FAILURE(containTSC(nsj));

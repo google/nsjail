@@ -6,8 +6,6 @@
 #include <sys/uio.h>
 #include <unistd.h>
 
-#include <span>
-
 #include "core.h"
 #include "icmp.h"
 #include "ip.h"
@@ -23,9 +21,9 @@ bool send_to_guest_v(
 	}
 
 	struct iovec iov[2];
-	iov[0].iov_base = (void*)header;
+	iov[0].iov_base = const_cast<void*>(header);
 	iov[0].iov_len = header_len;
-	iov[1].iov_base = (void*)payload;
+	iov[1].iov_base = const_cast<void*>(payload);
 	iov[1].iov_len = payload_len;
 
 	size_t total_len = header_len + payload_len;
@@ -54,10 +52,10 @@ void handle_tun_frame(Context* ctx, const uint8_t* buf, size_t len) {
 
 	switch (version) {
 	case 4:
-		handle_ip4(ctx, std::span(buf, len));
+		handle_ip4(ctx, buf, len);
 		break;
 	case 6:
-		handle_ip6(ctx, std::span(buf, len));
+		handle_ip6(ctx, buf, len);
 		break;
 	default:
 		LOG_D("Unknown IP version: %u", version);

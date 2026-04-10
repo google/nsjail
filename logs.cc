@@ -110,9 +110,9 @@ void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt
 		return;
 	}
 
-	char strerr[512];
+	std::string strerr;
 	if (perr) {
-		snprintf(strerr, sizeof(strerr), "%s", strerror(errno));
+		strerr = strerror(errno);
 	}
 	struct {
 		const char* const descr;

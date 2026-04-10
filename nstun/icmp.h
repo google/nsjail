@@ -4,14 +4,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <span>
-
 #include "core.h"
 
 namespace nstun {
 
-void handle_icmp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> payload);
-void handle_icmp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> payload);
+void handle_icmp4(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t len);
+void handle_icmp6(Context* ctx, const ip6_hdr* ip, const uint8_t* payload, size_t len);
 
 void send_icmp4_error(
     Context* ctx, const ip4_hdr* req_ip, size_t tot_len, uint8_t type, uint8_t code);

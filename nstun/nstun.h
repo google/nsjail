@@ -5,9 +5,9 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <memory>
+
+#include "monitor.h"
 
 typedef enum {
 	NSTUN_ACTION_DROP,
@@ -50,11 +50,9 @@ typedef struct {
 } nstun_rule_t;
 struct nsj_t;
 
-bool nstun_init_child(int sock, struct nsj_t* nsj);
-bool nstun_init_parent(int sock, struct nsj_t* nsj);
-
-#ifdef __cplusplus
-}
-#endif
+bool nstun_init_child(int ipc_fd, struct nsj_t* nsj);
+bool nstun_init_parent(int tap_fd, struct nsj_t* nsj, pid_t pid);
+void nstun_destroy_parent();
+void nstun_periodic();
 
 #endif /* NSTUN_H_ */

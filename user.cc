@@ -73,7 +73,7 @@ static bool setResGid(gid_t gid) {
 		PLOG_W("setresgid(%d)", gid);
 		return false;
 	}
-#endif /* defined(__NR_setresuid32) */
+#endif /* defined(__NR_setresgid32) */
 	return true;
 }
 
@@ -111,11 +111,10 @@ static bool setGroupsDeny(nsj_t* nsj, pid_t pid) {
 		return true;
 	}
 
-	char fname[PATH_MAX];
-	snprintf(fname, sizeof(fname), "/proc/%d/setgroups", pid);
+	std::string fname = "/proc/" + std::to_string(pid) + "/setgroups";
 	const char* const denystr = "deny";
-	if (!util::writeBufToFile(fname, denystr, strlen(denystr), O_WRONLY | O_CLOEXEC)) {
-		LOG_E("util::writeBufToFile('%s', '%s') failed", fname, denystr);
+	if (!util::writeBufToFile(fname.c_str(), denystr, strlen(denystr), O_WRONLY | O_CLOEXEC)) {
+		LOG_E("util::writeBufToFile('%s', '%s') failed", fname.c_str(), denystr);
 		return false;
 	}
 	return true;
@@ -138,11 +137,10 @@ static bool uidMapSelf(nsj_t* nsj, pid_t pid) {
 		return true;
 	}
 
-	char fname[PATH_MAX];
-	snprintf(fname, sizeof(fname), "/proc/%d/uid_map", pid);
-	LOG_D("Writing '%s' to '%s'", map.c_str(), fname);
-	if (!util::writeBufToFile(fname, map.data(), map.length(), O_WRONLY | O_CLOEXEC)) {
-		LOG_E("util::writeBufToFile('%s', '%s') failed", fname, map.c_str());
+	std::string fname = "/proc/" + std::to_string(pid) + "/uid_map";
+	LOG_D("Writing '%s' to '%s'", map.c_str(), fname.c_str());
+	if (!util::writeBufToFile(fname.c_str(), map.data(), map.length(), O_WRONLY | O_CLOEXEC)) {
+		LOG_E("util::writeBufToFile('%s', '%s') failed", fname.c_str(), map.c_str());
 		return false;
 	}
 
@@ -166,11 +164,10 @@ static bool gidMapSelf(nsj_t* nsj, pid_t pid) {
 		return true;
 	}
 
-	char fname[PATH_MAX];
-	snprintf(fname, sizeof(fname), "/proc/%d/gid_map", pid);
-	LOG_D("Writing '%s' to '%s'", map.c_str(), fname);
-	if (!util::writeBufToFile(fname, map.data(), map.length(), O_WRONLY | O_CLOEXEC)) {
-		LOG_E("util::writeBufToFile('%s', '%s') failed", fname, map.c_str());
+	std::string fname = "/proc/" + std::to_string(pid) + "/gid_map";
+	LOG_D("Writing '%s' to '%s'", map.c_str(), fname.c_str());
+	if (!util::writeBufToFile(fname.c_str(), map.data(), map.length(), O_WRONLY | O_CLOEXEC)) {
+		LOG_E("util::writeBufToFile('%s', '%s') failed", fname.c_str(), map.c_str());
 		return false;
 	}
 

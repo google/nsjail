@@ -28,8 +28,8 @@
 
 namespace sandbox {
 
-bool installUnotifyFilter(nsj_t* nsj, int pipefd);
-bool applyPolicy(nsj_t* nsj, int pipefd);
+bool installUnotifyFilter(nsj_t* nsj, int ipc_fd);
+bool applyPolicy(nsj_t* nsj, int ipc_fd);
 bool preparePolicy(nsj_t* nsj);
 void closePolicy(nsj_t* nsj);
 

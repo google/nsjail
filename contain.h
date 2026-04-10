@@ -28,7 +28,7 @@
 
 namespace contain {
 
-bool setupFD(nsj_t* nsj, int fd_in, int fd_out, int fd_err);
+bool setupFD(nsj_t* nsj, int fd_in, int fd_out, int fd_err, int ipc_fd);
 bool containProc(nsj_t* nsj);
 
 }  // namespace contain

@@ -1,13 +1,13 @@
 #ifndef NSTUN_NET_DEFS_H_
 #define NSTUN_NET_DEFS_H_
 
-#include <string>
-
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+
+#include <string>
 
 /* From <linux/in.h>, can't include directly due to conflicts with <netinet/in.h> */
 #ifndef IN_LOOPBACK
@@ -109,7 +109,6 @@ struct __attribute__((packed)) pseudo_hdr6 {
 inline uint8_t ip_version(const uint8_t* ptr) {
 	return ptr[0] >> 4;
 }
-
 
 inline uint8_t ip4_version(const ip4_hdr* h) {
 	return h->ihl_version >> 4;

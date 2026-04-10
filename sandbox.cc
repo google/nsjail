@@ -36,28 +36,14 @@ extern "C" {
 #include "kafel.h"
 }
 #include "logs.h"
+#include "missing_defs.h"
+#include "monitor.h"
 #include "unotify/syscall_defs.h"
 #include "util.h"
 
 namespace sandbox {
 
-#ifndef PR_SET_NO_NEW_PRIVS /* in prctl.h since Linux 3.5 */
-#define PR_SET_NO_NEW_PRIVS 38
-#endif /* PR_SET_NO_NEW_PRIVS */
-
-#ifndef SECCOMP_FILTER_FLAG_TSYNC
-#define SECCOMP_FILTER_FLAG_TSYNC (1UL << 0)
-#endif /* SECCOMP_FILTER_FLAG_TSYNC */
-
-#ifndef SECCOMP_FILTER_FLAG_LOG
-#define SECCOMP_FILTER_FLAG_LOG (1UL << 1)
-#endif /* SECCOMP_FILTER_FLAG_LOG */
-
-#ifndef SECCOMP_FILTER_FLAG_NEW_LISTENER
-#define SECCOMP_FILTER_FLAG_NEW_LISTENER (1UL << 3)
-#endif /* SECCOMP_FILTER_FLAG_NEW_LISTENER */
-
-bool installUnotifyFilter(nsj_t* nsj, int pipefd) {
+bool installUnotifyFilter(nsj_t* nsj, int ipc_fd) {
 	if (!nsj->njc.seccomp_unotify()) {
 		return true;
 	}
@@ -85,8 +71,8 @@ bool installUnotifyFilter(nsj_t* nsj, int pipefd) {
 		return false;
 	}
 
-	if (!util::sendFd(pipefd, unotif_fd)) {
-		PLOG_E("sendFd(unotif_fd) to parent failed");
+	if (!util::sendMsg(ipc_fd, monitor::MSG_TAG_UNOTIFY, unotif_fd)) {
+		PLOG_E("sendMsg(unotif_fd) to parent failed");
 		close(unotif_fd);
 		return false;
 	}
@@ -127,9 +113,9 @@ static bool prepareAndCommit(nsj_t* nsj) {
 	return true;
 }
 
-bool applyPolicy(nsj_t* nsj, int pipefd) {
-	if (pipefd != -1 && nsj->njc.seccomp_unotify()) {
-		if (!installUnotifyFilter(nsj, pipefd)) {
+bool applyPolicy(nsj_t* nsj, int ipc_fd) {
+	if (ipc_fd != -1 && nsj->njc.seccomp_unotify()) {
+		if (!installUnotifyFilter(nsj, ipc_fd)) {
 			return false;
 		}
 	}
@@ -171,8 +157,9 @@ bool preparePolicy(nsj_t* nsj) {
 
 	kafel_ctxt_t ctxt = kafel_ctxt_create();
 	std::string combined_seccomp_policy;
+	FILE* f = nullptr;
 	if (!nsj->njc.seccomp_policy_file().empty()) {
-		FILE* f = fopen(nsj->njc.seccomp_policy_file().c_str(), "r");
+		f = fopen(nsj->njc.seccomp_policy_file().c_str(), "re");
 		if (!f) {
 			PLOG_W("Couldn't open the kafel seccomp policy file '%s'",
 			    nsj->njc.seccomp_policy_file().c_str());
@@ -197,9 +184,11 @@ bool preparePolicy(nsj_t* nsj) {
 	if (kafel_compile(ctxt, &nsj->seccomp_fprog) != 0) {
 		LOG_E("Could not compile policy: %s", kafel_error_msg(ctxt));
 		kafel_ctxt_destroy(&ctxt);
+		if (f) fclose(f);
 		return false;
 	}
 	kafel_ctxt_destroy(&ctxt);
+	if (f) fclose(f);
 
 	return true;
 }

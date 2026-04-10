@@ -33,6 +33,7 @@
 #include <string>
 #include <vector>
 
+#include "missing_defs.h"
 #include "nsjail.h"
 
 #define RETURN_ON_FAILURE(expr)                                                                    \
@@ -53,10 +54,6 @@ bool writeToFd(int fd, const void* buf, size_t len);
 
 bool sendMsg(int sock, uint32_t msg, int fd = -1);
 bool recvMsg(int sock, uint32_t* msg, int* fd = nullptr);
-
-bool sendFd(int sock, int fd);
-int recvFd(int sock);
-
 bool writeBufToFile(
     const char* filename, const void* buf, size_t len, int open_flags, bool log_errors = true);
 bool createDirRecursively(const char* dir);

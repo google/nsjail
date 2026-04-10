@@ -3,9 +3,6 @@
 
 #include <stdint.h>
 
-#include <span>
-#include <vector>
-
 #include "net_defs.h"
 
 namespace nstun {
@@ -93,15 +90,17 @@ struct Socks5Reply {
 };
 
 int send_socks5_greeting(int fd);
-bool parse_socks5_auth_reply(std::span<const uint8_t> data);
+bool parse_socks5_auth_reply(const uint8_t* data, size_t len);
 int send_socks5_connect(int fd, const uint8_t* addr, uint16_t port_nbo, bool is_ipv6);
 int send_socks5_udp_associate(int fd);
-bool parse_socks5_connect_reply(std::span<const uint8_t> data, Socks5Reply* out);
+bool parse_socks5_connect_reply(const uint8_t* data, size_t len, Socks5Reply* out);
 
 /* HTTP CONNECT helpers */
 int send_http_connect(int fd, const uint8_t* addr, uint16_t port_nbo, bool is_ipv6);
-size_t find_end_of_headers(const std::vector<uint8_t>& buf);
-bool parse_http_connect_reply(const std::vector<uint8_t>& buf);
+
+size_t find_end_of_headers(const uint8_t* data, size_t len);
+
+bool parse_http_connect_reply(const uint8_t* data, size_t len);
 
 } /* namespace nstun */
 

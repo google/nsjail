@@ -9,6 +9,7 @@
 #include <netlink/addr.h>
 #include <netlink/netlink.h>
 #include <sched.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,6 +19,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <new>
 #include <thread>
 
 #include "core.h"
@@ -26,6 +28,8 @@
 #include "ip.h"
 #include "logs.h"
 #include "macros.h"
+#include "monitor.h"
+#include "nsjail.h"
 #include "policy.h"
 #include "tcp.h"
 #include "tun.h"
@@ -34,52 +38,136 @@
 
 namespace nstun {
 
-Context::~Context() {
-	/* Owning maps (ipv4_udp_flows_by_key, etc.) will self-clean via std::unique_ptr */
-	for (auto& [fd, _] : host_listener_fd_to_rule) {
-		::close(fd);
+bool icmp_is_stale(const IcmpFlow* flow, time_t now);
+void icmp_destroy(Context* ctx, IcmpFlow* flow);
+void icmp_handle_host_event(Context* ctx, IcmpFlow* flow, int fd, uint32_t events);
+
+static void context_cleanup(Context* ctx) {
+	for (size_t i = 0; i < NSTUN_MAX_FLOWS; ++i) {
+		if (ctx->c_ipv4_udp_flows[i].header.active) {
+			udp_destroy_flow(ctx, &ctx->c_ipv4_udp_flows[i]);
+		}
+		if (ctx->c_ipv6_udp_flows[i].header.active) {
+			udp_destroy_flow(ctx, &ctx->c_ipv6_udp_flows[i]);
+		}
+		if (ctx->c_ipv4_tcp_flows[i].header.active) {
+			tcp_destroy_flow(ctx, &ctx->c_ipv4_tcp_flows[i]);
+		}
+		if (ctx->c_ipv6_tcp_flows[i].header.active) {
+			tcp_destroy_flow(ctx, &ctx->c_ipv6_tcp_flows[i]);
+		}
+		if (ctx->c_ipv4_icmp_flows[i].header.active) {
+			icmp_destroy(ctx, &ctx->c_ipv4_icmp_flows[i]);
+		}
+		if (ctx->c_ipv6_icmp_flows[i].header.active) {
+			icmp_destroy(ctx, &ctx->c_ipv6_icmp_flows[i]);
+		}
+	}
+
+	for (size_t i = 0; i < ctx->num_c_host_listener_rules; ++i) {
+		monitor::removeFd(ctx->c_host_listener_rules[i].fd);
+		close(ctx->c_host_listener_rules[i].fd);
+	}
+	ctx->num_c_host_listener_rules = 0;
+	if (ctx->tap_fd != -1) {
+		monitor::removeFd(ctx->tap_fd);
+		close(ctx->tap_fd);
+	}
+}
+
+static void gc_destroy_tcp_flow(Context* ctx, TcpFlow* flow) {
+	if (flow->header.is_ipv6) {
+		LOG_D("GC: stale TCP flow (IPv6, sport=%u, state=%d)",
+		    ntohs(flow->header.key6.sport), static_cast<int>(flow->tcp_state));
+	} else {
+		LOG_D("GC: stale TCP flow (sport=%u, state=%d)", ntohs(flow->header.key4.sport),
+		    static_cast<int>(flow->tcp_state));
+	}
+	tcp_destroy_flow(ctx, flow);
+}
+
+static void gc_tcp_flows(Context* ctx, TcpFlow* flows, time_t now) {
+	for (size_t i = 0; i < NSTUN_MAX_FLOWS; ++i) {
+		TcpFlow* flow = &flows[i];
+		if (flow->header.active) {
+			tcp_periodic_check(ctx, flow, now);
+			if (is_stale_tcp(flow, now)) {
+				gc_destroy_tcp_flow(ctx, flow);
+			}
+		}
+	}
+}
+
+static void gc_udp_flows(Context* ctx, UdpFlow* flows, time_t now) {
+	for (size_t i = 0; i < NSTUN_MAX_FLOWS; ++i) {
+		UdpFlow* flow = &flows[i];
+		if (flow->header.active) {
+			if (is_stale_udp(flow, now)) {
+				udp_destroy_flow(ctx, flow);
+			}
+		}
+	}
+}
+
+static void gc_icmp_flows(Context* ctx, IcmpFlow* flows, time_t now) {
+	for (size_t i = 0; i < NSTUN_MAX_FLOWS; ++i) {
+		IcmpFlow* flow = &flows[i];
+		if (flow->header.active) {
+			if (icmp_is_stale(flow, now)) {
+				icmp_destroy(ctx, flow);
+			}
+		}
 	}
 }
 
 static void garbage_collect(Context* ctx) {
-	time_t now = time(NULL);
+	time_t now = time(nullptr);
 
-	auto do_gc = [&](auto& map) {
-		std::vector<Flow*> stale_flows;
-		for (auto const& pair : map) {
-			Flow* flow = pair.second.get();
-			flow->periodic_check(ctx, now);
-			if (flow->is_stale(now)) {
-				stale_flows.push_back(flow);
-			}
-		}
-		for (Flow* flow : stale_flows) {
-			flow->destroy(ctx);
-		}
-	};
-
-	do_gc(ctx->ipv4_tcp_flows_by_key);
-	do_gc(ctx->ipv4_udp_flows_by_key);
-	do_gc(ctx->ipv4_icmp_flows_by_key);
-	do_gc(ctx->ipv6_tcp_flows_by_key);
-	do_gc(ctx->ipv6_udp_flows_by_key);
-	do_gc(ctx->ipv6_icmp_flows_by_key);
+	gc_tcp_flows(ctx, ctx->c_ipv4_tcp_flows, now);
+	gc_tcp_flows(ctx, ctx->c_ipv6_tcp_flows, now);
+	gc_udp_flows(ctx, ctx->c_ipv4_udp_flows, now);
+	gc_udp_flows(ctx, ctx->c_ipv6_udp_flows, now);
+	gc_icmp_flows(ctx, ctx->c_ipv4_icmp_flows, now);
+	gc_icmp_flows(ctx, ctx->c_ipv6_icmp_flows, now);
 }
 
-static void handle_host_events(Context* ctx, int fd, uint32_t events) {
-	auto it_listener = ctx->host_listener_fd_to_rule.find(fd);
-	if (it_listener != ctx->host_listener_fd_to_rule.end()) {
-		if (it_listener->second.proto == NSTUN_PROTO_TCP) {
-			handle_host_tcp_accept(ctx, fd, it_listener->second);
-		} else if (it_listener->second.proto == NSTUN_PROTO_UDP) {
-			handle_host_udp_accept(ctx, fd, it_listener->second);
+void handle_host_events(Context* ctx, int fd, uint32_t events) {
+	LOG_D("handle_host_events: fd=%d, events=0x%x", fd, events);
+	for (size_t i = 0; i < ctx->num_c_host_listener_rules; ++i) {
+		if (ctx->c_host_listener_rules[i].fd == fd) {
+			const nstun_rule_t& rule = ctx->c_host_listener_rules[i].rule;
+			switch (rule.proto) {
+			case NSTUN_PROTO_TCP:
+				handle_host_tcp_accept(ctx, fd, rule);
+				break;
+			case NSTUN_PROTO_UDP:
+				handle_host_udp_accept(ctx, fd, rule);
+				break;
+			default:
+				break;
+			}
+			return;
 		}
+	}
+
+	TcpFlow* tcp_flow = get_tcp_flow_by_fd(ctx, fd);
+	if (tcp_flow) {
+		handle_host_tcp_event(ctx, tcp_flow, fd, events);
+		return;
+	}
+	UdpFlow* udp_flow = get_udp_flow_by_fd(ctx, fd);
+	if (udp_flow) {
+		handle_host_udp_event(ctx, udp_flow, fd, events);
+		return;
+	}
+	IcmpFlow* icmp_flow = get_icmp_flow_by_fd(ctx, fd);
+	if (icmp_flow) {
+		icmp_handle_host_event(ctx, icmp_flow, fd, events);
 		return;
 	}
 
-	auto it = ctx->flows_by_fd.find(fd);
-	if (it != ctx->flows_by_fd.end()) {
-		it->second->handle_host_event(ctx, fd, events);
+	if (fd < 0 || fd >= static_cast<int>(NSTUN_MAX_FDS)) {
+		LOG_W("FD %d is out of bounds for lookup table (max %zu)", fd, NSTUN_MAX_FDS);
 		return;
 	}
 
@@ -88,65 +176,15 @@ static void handle_host_events(Context* ctx, int fd, uint32_t events) {
 	LOG_D("Stale epoll event for fd %d (already closed), skipping", fd);
 }
 
-static void networkLoop(Context* ctx) {
-	LOG_D("nstun network loop started on tap_fd=%d", ctx->tap_fd);
-
-	defer {
-		close(ctx->tap_fd);
-		close(ctx->epoll_fd);
-		delete ctx;
-	};
-
-	struct epoll_event ev = {.events = EPOLLIN, .data = {.fd = ctx->tap_fd}};
-	if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, ctx->tap_fd, &ev) == -1) {
-		PLOG_E("epoll_ctl(EPOLL_CTL_ADD, tap_fd)");
-		return;
-	}
-
-	/* TUN frames: 4-byte header + up to NSTUN_MTU bytes of L3 payload */
-	static constexpr size_t TUN_FRAME_BUF_SIZE = NSTUN_MTU + 4;
-	auto buf = std::make_unique<uint8_t[]>(TUN_FRAME_BUF_SIZE);
-	struct epoll_event events[64];
-	time_t last_gc = time(NULL);
-
-	while (true) {
-		int nfds = epoll_wait(ctx->epoll_fd, events, 64, 1000); /* 1s timeout */
-		if (nfds == -1) {
-			if (errno == EINTR) continue;
-			PLOG_E("epoll_wait");
-			break;
-		}
-
-		time_t now = time(NULL);
-		if (now - last_gc >= 2) {
-			garbage_collect(ctx);
-			last_gc = now;
-		}
-
-		for (int i = 0; i < nfds; ++i) {
-			int fd = events[i].data.fd;
-
-			if (fd == ctx->tap_fd) {
-				ssize_t n = TEMP_FAILURE_RETRY(
-				    read(ctx->tap_fd, buf.get(), TUN_FRAME_BUF_SIZE));
-				if (n <= 0) {
-					if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
-						continue;
-					}
-					PLOG_E("read(tap_fd) failed or EOF");
-					return;
-				}
-				handle_tun_frame(ctx, buf.get(), n);
-			} else {
-				handle_host_events(ctx, fd, events[i].events);
-			}
-		}
-	}
+void host_callback(int fd, uint32_t events, void* data) {
+	Context* ctx = static_cast<Context*>(data);
+	LOG_D("host_callback: ctx=%p", ctx);
+	handle_host_events(ctx, fd, events);
 }
 
 } /* namespace nstun */
 
-bool nstun_init_child(int sock, nsj_t* nsj) {
+bool nstun_init_child(int ipc_fd, nsj_t* nsj) {
 	/* Create TUN device. */
 	int tap_fd = open("/dev/net/tun", O_RDWR | O_CLOEXEC | O_NONBLOCK);
 	if (tap_fd < 0) {
@@ -154,252 +192,315 @@ bool nstun_init_child(int sock, nsj_t* nsj) {
 		return false;
 	}
 
-	bool success = false;
-	defer {
-		if (!success) {
-			close(tap_fd);
-		}
-	};
-
 	struct ifreq ifr = {};
 	ifr.ifr_flags = IFF_TUN | IFF_NO_PI; /* TUN, no packet info */
 	snprintf(ifr.ifr_name, IFNAMSIZ, "%s", nsj->njc.user_net().ns_iface().c_str());
 
 	if (ioctl(tap_fd, TUNSETIFF, &ifr) < 0) {
 		PLOG_E("ioctl(TUNSETIFF)");
+		close(tap_fd);
 		return false;
 	}
 
 	/* Configure IP, MAC, UP, route. */
 	if (!nstun::configIface(nsj)) {
 		LOG_E("nstun::configIface() failed");
+		close(tap_fd);
 		return false;
 	}
 
 	/* Send FD to parent */
-	if (!util::sendFd(sock, tap_fd)) {
-		PLOG_E("util::sendFd(tap_fd)");
+	if (!util::sendMsg(ipc_fd, monitor::MSG_TAG_TAP, tap_fd)) {
+		PLOG_E("util::sendMsg(tap_fd)");
+		close(tap_fd);
 		return false;
 	}
 
-	success = true;
 	close(tap_fd);
 
 	return true;
 }
 
-bool nstun_init_parent(int sock, nsj_t* nsj) {
-	int tap_fd = util::recvFd(sock);
-	if (tap_fd < 0) {
-		LOG_E("Failed to receive TAP fd from child");
+static void tapCb(int fd, uint32_t /* events */, void* data) {
+	nstun::Context* ctx = static_cast<nstun::Context*>(data);
+
+	/* Rule 21: Avoid infinite loop to prevent event starvation.
+	 * Level-triggered epoll will wake us up again if more data is available. */
+	ssize_t n = TEMP_FAILURE_RETRY(read(fd, ctx->tun_buf, nstun::NSTUN_MTU + 4));
+	if (n <= 0) {
+		if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+			return;
+		}
+		PLOG_E("read(tap_fd) failed or EOF, removing FD");
+		monitor::removeFd(fd);
+		close(fd);
+		ctx->tap_fd = -1;
+		return;
+	}
+	handle_tun_frame(ctx, ctx->tun_buf, n);
+}
+
+static thread_local nstun::Context* tls_nstun_ctx = nullptr;
+
+void nstun_periodic() {
+	if (tls_nstun_ctx) {
+		garbage_collect(tls_nstun_ctx);
+	}
+}
+
+static bool assign_ip(const std::string& str, uint32_t* ip) {
+	struct nl_addr* addr;
+	if (nl_addr_parse(str.c_str(), AF_INET, &addr) != 0) {
+		LOG_E("Failed to parse IP string: %s", str.c_str());
 		return false;
 	}
-
-	LOG_I("nstun initialized successfully, tap_fd=%d", tap_fd);
-
-	std::unique_ptr<nstun::Context> ctx = std::make_unique<nstun::Context>();
-	ctx->epoll_fd = -1; /* Not used yet */
-	ctx->tap_fd = tap_fd;
-	ctx->nsj = nsj;
-
-	auto assign_ip = [](const std::string& str, uint32_t* ip) {
-		struct nl_addr* addr;
-		if (nl_addr_parse(str.c_str(), AF_INET, &addr) == 0) {
-			if (nl_addr_get_len(addr) == 4) {
-				memcpy(ip, nl_addr_get_binary_addr(addr), 4);
-			}
-			nl_addr_put(addr);
-		}
-	};
-
-	if (!nsj->njc.user_net().ip4().empty()) {
-		assign_ip(nsj->njc.user_net().ip4(), &ctx->guest_ip4);
-	}
-	if (!nsj->njc.user_net().gw4().empty()) {
-		assign_ip(nsj->njc.user_net().gw4(), &ctx->host_ip4);
-	}
-
-	if (!nsj->njc.user_net().ip6().empty()) {
-		if (inet_pton(AF_INET6, nsj->njc.user_net().ip6().c_str(), ctx->guest_ip6) != 1) {
-			LOG_E("Cannot convert '%s' into an IPv6 address",
-			    nsj->njc.user_net().ip6().c_str());
-			close(tap_fd);
-			return false;
-		}
-	}
-	if (!nsj->njc.user_net().gw6().empty()) {
-		if (inet_pton(AF_INET6, nsj->njc.user_net().gw6().c_str(), ctx->host_ip6) != 1) {
-			LOG_E("Cannot convert '%s' into an IPv6 address",
-			    nsj->njc.user_net().gw6().c_str());
-			close(tap_fd);
-			return false;
-		}
-	}
-
-	auto parse_ip = [](const std::string& str, uint32_t* ip, uint32_t* mask) {
-		struct nl_addr* addr;
-		if (nl_addr_parse(str.c_str(), AF_INET, &addr) == 0) {
-			if (nl_addr_get_len(addr) == 4) {
-				memcpy(ip, nl_addr_get_binary_addr(addr), 4);
-			}
-			int bits = nl_addr_get_prefixlen(addr);
-			*mask = (bits == 0) ? 0 : htonl(~((1ULL << (32 - bits)) - 1));
-			nl_addr_put(addr);
-		} else {
-			LOG_E("Failed to parse IP/CIDR string: %s", str.c_str());
-		}
-	};
-
-	auto parse_ip6 = [](const std::string& str, uint8_t* ip6, uint8_t* mask6) {
-		struct nl_addr* addr;
-		if (nl_addr_parse(str.c_str(), AF_INET6, &addr) == 0) {
-			if (nl_addr_get_len(addr) == nstun::IPV6_ADDR_LEN) {
-				memcpy(ip6, nl_addr_get_binary_addr(addr), nstun::IPV6_ADDR_LEN);
-			}
-			int bits = nl_addr_get_prefixlen(addr);
-			memset(mask6, 0, nstun::IPV6_ADDR_LEN);
-			for (int i = 0; i < (int)nstun::IPV6_ADDR_LEN; i++) {
-				if (bits >= 8) {
-					mask6[i] = 0xFF;
-					bits -= 8;
-				} else if (bits > 0) {
-					mask6[i] = (uint8_t)(0xFF << (8 - bits));
-					bits = 0;
-				} else {
-					mask6[i] = 0;
-				}
-			}
-			nl_addr_put(addr);
-		} else {
-			LOG_E("Failed to parse IPv6/CIDR string: %s", str.c_str());
-		}
-	};
-
-	ctx->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
-	if (ctx->epoll_fd == -1) {
-		PLOG_E("epoll_create1(EPOLL_CLOEXEC)");
-		close(ctx->tap_fd);
+	if (nl_addr_get_len(addr) != 4) {
+		LOG_E("IP string is not IPv4: %s", str.c_str());
+		nl_addr_put(addr);
 		return false;
 	}
+	memcpy(ip, nl_addr_get_binary_addr(addr), 4);
+	nl_addr_put(addr);
+	return true;
+}
 
-	auto cleanup_and_fail = [&ctx]() -> bool {
-		for (auto& [fd, _] : ctx->host_listener_fd_to_rule) {
+static bool parse_ip(const std::string& str, uint32_t* ip, uint32_t* mask) {
+	struct nl_addr* addr;
+	if (nl_addr_parse(str.c_str(), AF_INET, &addr) != 0) {
+		LOG_E("Failed to parse IP/CIDR string: %s", str.c_str());
+		return false;
+	}
+	if (nl_addr_get_len(addr) != 4) {
+		LOG_E("IP/CIDR string is not IPv4: %s", str.c_str());
+		nl_addr_put(addr);
+		return false;
+	}
+	memcpy(ip, nl_addr_get_binary_addr(addr), 4);
+	int bits = nl_addr_get_prefixlen(addr);
+	*mask = (bits == 0) ? 0 : htonl(~((1ULL << (32 - bits)) - 1));
+	nl_addr_put(addr);
+	return true;
+}
+
+static bool parse_ip6(const std::string& str, uint8_t* ip6, uint8_t* mask6) {
+	struct nl_addr* addr;
+	if (nl_addr_parse(str.c_str(), AF_INET6, &addr) != 0) {
+		LOG_E("Failed to parse IPv6/CIDR string: %s", str.c_str());
+		return false;
+	}
+	if (nl_addr_get_len(addr) != nstun::IPV6_ADDR_LEN) {
+		LOG_E("IPv6/CIDR string is not IPv6: %s", str.c_str());
+		nl_addr_put(addr);
+		return false;
+	}
+	memcpy(ip6, nl_addr_get_binary_addr(addr), nstun::IPV6_ADDR_LEN);
+	int bits = nl_addr_get_prefixlen(addr);
+	memset(mask6, 0, nstun::IPV6_ADDR_LEN);
+	for (size_t i = 0; i < nstun::IPV6_ADDR_LEN; i++) {
+		if (bits >= 8) {
+			mask6[i] = 0xFF;
+			bits -= 8;
+		} else if (bits > 0) {
+			mask6[i] = (uint8_t)(0xFF << (8 - bits));
+			bits = 0;
+		} else {
+			mask6[i] = 0;
+		}
+	}
+	nl_addr_put(addr);
+	return true;
+}
+
+static int create_host_listener(int domain, int type, const struct sockaddr* addr,
+    socklen_t addrlen, nstun::Context* ctx, bool is_tcp, uint32_t port) {
+	int fd = socket(domain, type | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
+	if (fd == -1) {
+		PLOG_E("socket() for HOST_TO_GUEST");
+		return -1;
+	}
+
+	int opt = 1;
+	if (is_tcp) {
+		if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) == -1) {
+			PLOG_W("setsockopt(TCP_NODELAY)");
+		}
+	}
+	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1) {
+		PLOG_E("setsockopt(SO_REUSEADDR)");
+		close(fd);
+		return -1;
+	}
+	if (domain == AF_INET6) {
+		if (setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &opt, sizeof(opt)) == -1) {
+			PLOG_E("setsockopt(IPV6_V6ONLY)");
 			close(fd);
+			return -1;
 		}
-		close(ctx->epoll_fd);
-		close(ctx->tap_fd);
-		return false;
-	};
+	}
 
+	if (bind(fd, addr, addrlen) == -1) {
+		PLOG_E("bind() for HOST_TO_GUEST on port %u", port);
+		close(fd);
+		return -1;
+	}
+
+	if (is_tcp) {
+		if (listen(fd, SOMAXCONN) == -1) {
+			PLOG_E("listen() for HOST_TO_GUEST on port %u", port);
+			close(fd);
+			return -1;
+		}
+	}
+
+	if (!monitor::addFd(fd, EPOLLIN, nstun::host_callback, ctx)) {
+		LOG_E("monitor::addFd(host_listener_fd) failed");
+		close(fd);
+		return -1;
+	}
+
+	LOG_D("create_host_listener returning fd=%d", fd);
+	return fd;
+}
+
+static bool setup_host_redirect(nstun::Context* ctx, const nstun_rule_t& nr) {
+	if (nr.direction != NSTUN_DIR_HOST_TO_GUEST || nr.action != NSTUN_ACTION_REDIRECT) {
+		return true;
+	}
+	if (nr.proto != NSTUN_PROTO_TCP && nr.proto != NSTUN_PROTO_UDP) {
+		LOG_E("HOST_TO_GUEST REDIRECT only supported for TCP/UDP");
+		return false;
+	}
+	if (nr.dport_start == 0) {
+		LOG_E("HOST_TO_GUEST REDIRECT requires 'dport' to be specified");
+		return false;
+	}
+	if (nr.dport_end < nr.dport_start) {
+		LOG_E("Invalid port range: %u - %u", nr.dport_start, nr.dport_end);
+		return false;
+	}
+	if (nr.dport_end - nr.dport_start >= 1024) {
+		LOG_E("Port range too large (%u - %u). Max range is 1024.", nr.dport_start,
+		    nr.dport_end);
+		return false;
+	}
+
+	uint32_t num_ports = nr.dport_end - nr.dport_start + 1;
+	if (ctx->num_c_host_listener_rules + num_ports > nstun::NSTUN_MAX_RULES) {
+		LOG_E("Not enough space for %u host listener rules (current: %zu, max: %zu)",
+		    num_ports, ctx->num_c_host_listener_rules, nstun::NSTUN_MAX_RULES);
+		return false;
+	}
+
+	int type = (nr.proto == NSTUN_PROTO_TCP) ? SOCK_STREAM : SOCK_DGRAM;
+	bool is_tcp = (nr.proto == NSTUN_PROTO_TCP);
+
+	for (uint32_t port = nr.dport_start; port <= nr.dport_end; port++) {
+		int fd = -1;
+		if (nr.is_ipv6) {
+			struct sockaddr_in6 addr = INIT_SOCKADDR_IN6(AF_INET6);
+			addr.sin6_port = htons(port);
+			memcpy(addr.sin6_addr.s6_addr, nr.src_ip6, sizeof(nr.src_ip6));
+			fd = create_host_listener(AF_INET6, type, (struct sockaddr*)&addr,
+			    sizeof(addr), ctx, is_tcp, port);
+		} else {
+			struct sockaddr_in addr = INIT_SOCKADDR_IN(AF_INET);
+			addr.sin_port = htons(port);
+			addr.sin_addr.s_addr = nr.src_ip4;
+			fd = create_host_listener(AF_INET, type, (struct sockaddr*)&addr,
+			    sizeof(addr), ctx, is_tcp, port);
+		}
+		if (fd == -1) {
+			return false;
+		}
+
+		ctx->c_host_listener_rules[ctx->num_c_host_listener_rules].fd = fd;
+		ctx->c_host_listener_rules[ctx->num_c_host_listener_rules].rule = nr;
+		ctx->num_c_host_listener_rules++;
+
+		LOG_I("Listening on host %s port %u for inbound %s redirection to guest",
+		    nr.is_ipv6 ? "IPv6" : "IPv4", port,
+		    (nr.proto == NSTUN_PROTO_TCP) ? "TCP" : "UDP");
+	}
+	return true;
+}
+
+static bool parse_rules4(nstun::Context* ctx, nsj_t* nsj) {
 	for (int i = 0; i < nsj->njc.user_net().rule4_size(); i++) {
 		const auto& r = nsj->njc.user_net().rule4(i);
 
 		nstun_rule_t nr = {};
 		nstun::RuleParseStatus status = nstun::fill_rule_common(r, &nr);
-		if (status == nstun::RuleParseStatus::ABORT) return cleanup_and_fail();
-		if (status == nstun::RuleParseStatus::IGNORE) continue;
+		if (status == nstun::RuleParseStatus::ABORT) {
+			return false;
+		}
+		if (status == nstun::RuleParseStatus::IGNORE) {
+			continue;
+		}
 
 		if (r.has_src_ip()) {
-			parse_ip(r.src_ip(), &nr.src_ip4, &nr.src_mask4);
+			if (!parse_ip(r.src_ip(), &nr.src_ip4, &nr.src_mask4)) {
+				return false;
+			}
 		}
 		if (r.has_dst_ip()) {
-			parse_ip(r.dst_ip(), &nr.dst_ip4, &nr.dst_mask4);
+			if (!parse_ip(r.dst_ip(), &nr.dst_ip4, &nr.dst_mask4)) {
+				return false;
+			}
 		}
 
 		if (r.has_redirect_ip()) {
 			struct nl_addr* addr;
-			if (nl_addr_parse(r.redirect_ip().c_str(), AF_INET, &addr) == 0) {
-				if (nl_addr_get_len(addr) == 4) {
-					memcpy(&nr.redirect_ip4, nl_addr_get_binary_addr(addr),
-					    sizeof(nr.redirect_ip4));
-				}
-				nl_addr_put(addr);
+			if (nl_addr_parse(r.redirect_ip().c_str(), AF_INET, &addr) != 0) {
+				LOG_E("Failed to parse redirect IP: %s", r.redirect_ip().c_str());
+				return false;
 			}
+			if (nl_addr_get_len(addr) != 4) {
+				LOG_E("Redirect IP is not IPv4: %s", r.redirect_ip().c_str());
+				nl_addr_put(addr);
+				return false;
+			}
+			memcpy(&nr.redirect_ip4, nl_addr_get_binary_addr(addr),
+			    sizeof(nr.redirect_ip4));
+			nl_addr_put(addr);
 		}
 		nr.redirect_port = r.has_redirect_port() ? r.redirect_port() : 0;
 
-		ctx->rules.push_back(nr);
+		if (ctx->c_rules_count >= nstun::NSTUN_MAX_RULES) {
+			LOG_E("Too many rules (max %zu)", nstun::NSTUN_MAX_RULES);
+			return false;
+		}
+		ctx->c_rules[ctx->c_rules_count++] = nr;
 
-		if (nr.direction == NSTUN_DIR_HOST_TO_GUEST && nr.action == NSTUN_ACTION_REDIRECT) {
-			if (nr.proto != NSTUN_PROTO_TCP && nr.proto != NSTUN_PROTO_UDP) {
-				LOG_E("HOST_TO_GUEST REDIRECT only supported for TCP/UDP");
-				return cleanup_and_fail();
-			}
-			if (nr.dport_start == 0) {
-				LOG_E("HOST_TO_GUEST REDIRECT requires 'dport' to be specified");
-				return cleanup_and_fail();
-			}
-			for (uint32_t port = nr.dport_start; port <= nr.dport_end; port++) {
-				int type = (nr.proto == NSTUN_PROTO_TCP) ? SOCK_STREAM : SOCK_DGRAM;
-				int fd = socket(AF_INET, type | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
-				if (fd == -1) {
-					PLOG_E("socket(AF_INET) for HOST_TO_GUEST");
-					return cleanup_and_fail();
-				}
-
-				int opt = 1;
-				if (nr.proto == NSTUN_PROTO_TCP) {
-					if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt,
-						sizeof(opt)) == -1) {
-						PLOG_W("setsockopt(TCP_NODELAY)");
-					}
-				}
-				if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) ==
-				    -1) {
-					PLOG_E("setsockopt(SO_REUSEADDR)");
-					close(fd);
-					return cleanup_and_fail();
-				}
-
-				struct sockaddr_in addr = INIT_SOCKADDR_IN(AF_INET);
-				addr.sin_port = htons(port);
-				addr.sin_addr.s_addr = nr.src_ip4;
-
-				if (bind(fd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
-					PLOG_E("bind() for HOST_TO_GUEST on port %u", port);
-					close(fd);
-					return cleanup_and_fail();
-				}
-
-				if (nr.proto == NSTUN_PROTO_TCP) {
-					if (listen(fd, SOMAXCONN) == -1) {
-						PLOG_E(
-						    "listen() for HOST_TO_GUEST on port %u", port);
-						close(fd);
-						return cleanup_and_fail();
-					}
-				}
-
-				struct epoll_event ev = {.events = EPOLLIN, .data = {.fd = fd}};
-				if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1) {
-					PLOG_E("epoll_ctl(EPOLL_CTL_ADD) for HOST_TO_GUEST");
-					close(fd);
-					return cleanup_and_fail();
-				}
-
-				ctx->host_listener_fd_to_rule[fd] = nr;
-				LOG_I(
-				    "Listening on host port %u for inbound %s redirection to guest",
-				    port, (nr.proto == NSTUN_PROTO_TCP) ? "TCP" : "UDP");
-			}
+		if (!setup_host_redirect(ctx, nr)) {
+			return false;
 		}
 	}
+	return true;
+}
 
-	/* Process IPv6 rules - same NstunRule message, but src_ip4/dst_ip4 parsed as IPv6 */
+static bool parse_rules6(nstun::Context* ctx, nsj_t* nsj) {
 	for (int i = 0; i < nsj->njc.user_net().rule6_size(); i++) {
 		const auto& r = nsj->njc.user_net().rule6(i);
 
 		nstun_rule_t nr = {};
 		nr.is_ipv6 = true;
 		nstun::RuleParseStatus status = nstun::fill_rule_common(r, &nr);
-		if (status == nstun::RuleParseStatus::ABORT) return cleanup_and_fail();
-		if (status == nstun::RuleParseStatus::IGNORE) continue;
+		if (status == nstun::RuleParseStatus::ABORT) {
+			return false;
+		}
+		if (status == nstun::RuleParseStatus::IGNORE) {
+			continue;
+		}
 
 		if (r.has_src_ip()) {
-			parse_ip6(r.src_ip(), nr.src_ip6, nr.src_mask6);
+			if (!parse_ip6(r.src_ip(), nr.src_ip6, nr.src_mask6)) {
+				return false;
+			}
 		}
 		if (r.has_dst_ip()) {
-			parse_ip6(r.dst_ip(), nr.dst_ip6, nr.dst_mask6);
+			if (!parse_ip6(r.dst_ip(), nr.dst_ip6, nr.dst_mask6)) {
+				return false;
+			}
 		}
 
 		if (r.has_redirect_ip()) {
@@ -407,105 +508,148 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 			    nr.action == NSTUN_ACTION_ENCAP_CONNECT) {
 				/* Proxy is always IPv4 */
 				struct nl_addr* addr;
-				if (nl_addr_parse(r.redirect_ip().c_str(), AF_INET, &addr) == 0) {
-					if (nl_addr_get_len(addr) == 4) {
-						memcpy(&nr.redirect_ip4,
-						    nl_addr_get_binary_addr(addr),
-						    sizeof(nr.redirect_ip4));
-					}
-					nl_addr_put(addr);
+				if (nl_addr_parse(r.redirect_ip().c_str(), AF_INET, &addr) != 0) {
+					LOG_E("Failed to parse proxy IP: %s",
+					    r.redirect_ip().c_str());
+					return false;
 				}
+				if (nl_addr_get_len(addr) != 4) {
+					LOG_E("Proxy IP is not IPv4: %s", r.redirect_ip().c_str());
+					nl_addr_put(addr);
+					return false;
+				}
+				memcpy(&nr.redirect_ip4, nl_addr_get_binary_addr(addr),
+				    sizeof(nr.redirect_ip4));
+				nl_addr_put(addr);
 			} else {
 				/* REDIRECT: target is IPv6 */
 				struct nl_addr* addr;
-				if (nl_addr_parse(r.redirect_ip().c_str(), AF_INET6, &addr) == 0) {
-					if (nl_addr_get_len(addr) == 16) {
-						memcpy(nr.redirect_ip6,
-						    nl_addr_get_binary_addr(addr),
-						    sizeof(nr.redirect_ip6));
-					}
-					nl_addr_put(addr);
+				if (nl_addr_parse(r.redirect_ip().c_str(), AF_INET6, &addr) != 0) {
+					LOG_E("Failed to parse redirect IPv6: %s",
+					    r.redirect_ip().c_str());
+					return false;
 				}
+				if (nl_addr_get_len(addr) != 16) {
+					LOG_E(
+					    "Redirect IP is not IPv6: %s", r.redirect_ip().c_str());
+					nl_addr_put(addr);
+					return false;
+				}
+				memcpy(nr.redirect_ip6, nl_addr_get_binary_addr(addr),
+				    sizeof(nr.redirect_ip6));
+				nl_addr_put(addr);
 			}
 		}
 		nr.redirect_port = r.has_redirect_port() ? r.redirect_port() : 0;
 
-		ctx->rules.push_back(nr);
+		if (ctx->c_rules_count >= nstun::NSTUN_MAX_RULES) {
+			LOG_E("Too many rules (max %zu)", nstun::NSTUN_MAX_RULES);
+			return false;
+		}
+		ctx->c_rules[ctx->c_rules_count++] = nr;
 
-		if (nr.direction == NSTUN_DIR_HOST_TO_GUEST && nr.action == NSTUN_ACTION_REDIRECT) {
-			if (nr.proto != NSTUN_PROTO_TCP && nr.proto != NSTUN_PROTO_UDP) {
-				LOG_E("HOST_TO_GUEST REDIRECT only supported for TCP/UDP");
-				return cleanup_and_fail();
-			}
-			if (nr.dport_start == 0) {
-				LOG_E("HOST_TO_GUEST REDIRECT requires 'dport' to be specified");
-				return cleanup_and_fail();
-			}
-			for (uint32_t port = nr.dport_start; port <= nr.dport_end; port++) {
-				int type = (nr.proto == NSTUN_PROTO_TCP) ? SOCK_STREAM : SOCK_DGRAM;
-				int fd = socket(AF_INET6, type | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
-				if (fd == -1) {
-					PLOG_E("socket(AF_INET6) for HOST_TO_GUEST");
-					return cleanup_and_fail();
-				}
-
-				int opt = 1;
-				if (nr.proto == NSTUN_PROTO_TCP) {
-					if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt,
-						sizeof(opt)) == -1) {
-						PLOG_W("setsockopt(TCP_NODELAY)");
-					}
-				}
-				if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) ==
-				    -1) {
-					PLOG_E("setsockopt(SO_REUSEADDR)");
-					close(fd);
-					return cleanup_and_fail();
-				}
-				if (setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &opt, sizeof(opt)) ==
-				    -1) {
-					PLOG_E("setsockopt(IPV6_V6ONLY)");
-					close(fd);
-					return cleanup_and_fail();
-				}
-
-				struct sockaddr_in6 addr = INIT_SOCKADDR_IN6(AF_INET6);
-				addr.sin6_port = htons(port);
-				memcpy(addr.sin6_addr.s6_addr, nr.src_ip6, sizeof(nr.src_ip6));
-
-				if (bind(fd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
-					PLOG_E("bind() for HOST_TO_GUEST IPv6 on port %u", port);
-					close(fd);
-					return cleanup_and_fail();
-				}
-
-				if (nr.proto == NSTUN_PROTO_TCP) {
-					if (listen(fd, SOMAXCONN) == -1) {
-						PLOG_E("listen() for HOST_TO_GUEST IPv6 on port %u",
-						    port);
-						close(fd);
-						return cleanup_and_fail();
-					}
-				}
-
-				struct epoll_event ev = {.events = EPOLLIN, .data = {.fd = fd}};
-				if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1) {
-					PLOG_E("epoll_ctl(EPOLL_CTL_ADD) for HOST_TO_GUEST IPv6");
-					close(fd);
-					return cleanup_and_fail();
-				}
-
-				ctx->host_listener_fd_to_rule[fd] = nr;
-				LOG_I("Listening on host IPv6 port %u for inbound %s redirection "
-				      "to guest",
-				    port, (nr.proto == NSTUN_PROTO_TCP) ? "TCP" : "UDP");
-			}
+		if (!setup_host_redirect(ctx, nr)) {
+			return false;
 		}
 	}
-
-	/* Spawn network loop thread */
-	std::thread t(nstun::networkLoop, ctx.release());
-	t.detach();
-
 	return true;
+}
+
+static bool setup_ip4(const std::string& config_ip, const char* default_ip, uint32_t* out_ip) {
+	if (!config_ip.empty()) {
+		return assign_ip(config_ip, out_ip);
+	}
+	if (inet_pton(AF_INET, default_ip, out_ip) != 1) {
+		LOG_E("Failed to parse default IP4: %s", default_ip);
+		return false;
+	}
+	return true;
+}
+
+static bool setup_ip6(const std::string& config_ip, const char* default_ip, uint8_t* out_ip6) {
+	if (!config_ip.empty()) {
+		if (inet_pton(AF_INET6, config_ip.c_str(), out_ip6) != 1) {
+			LOG_E("Cannot convert '%s' into an IPv6 address", config_ip.c_str());
+			return false;
+		}
+		return true;
+	}
+	if (inet_pton(AF_INET6, default_ip, out_ip6) != 1) {
+		LOG_E("Failed to parse default IP6: %s", default_ip);
+		return false;
+	}
+	return true;
+}
+
+bool nstun_init_parent(int tap_fd, nsj_t* nsj, pid_t pid) {
+	LOG_D("nstun initialized successfully, tap_fd=%d", tap_fd);
+
+	nstun::Context* ctx = new (std::nothrow) nstun::Context();
+	if (!ctx) {
+		LOG_E("Failed to allocate Context");
+		return false;
+	}
+	LOG_D("nstun_init_parent: allocated ctx=%p", ctx);
+	ctx->tap_fd = tap_fd;
+
+	bool success = false;
+	defer {
+		if (!success) {
+			/* Caller (monitorThread) closes tap_fd on failure, so detach it to prevent
+			 * double-close */
+			ctx->tap_fd = -1;
+			context_cleanup(ctx);
+			delete ctx;
+		}
+	};
+
+	if (!setup_ip4(nsj->njc.user_net().ip4(), "192.168.0.2", &ctx->guest_ip4)) {
+		return false;
+	}
+	if (!setup_ip4(nsj->njc.user_net().gw4(), "192.168.0.1", &ctx->host_ip4)) {
+		return false;
+	}
+	if (!setup_ip6(nsj->njc.user_net().ip6(), "fd00::2", ctx->guest_ip6)) {
+		return false;
+	}
+	if (!setup_ip6(nsj->njc.user_net().gw6(), "fd00::1", ctx->host_ip6)) {
+		return false;
+	}
+
+	if (!parse_rules4(ctx, nsj)) {
+		return false;
+	}
+
+	if (!parse_rules6(ctx, nsj)) {
+		return false;
+	}
+
+	/* Register with monitor loop */
+	if (!monitor::addFd(ctx->tap_fd, EPOLLIN, tapCb, ctx)) {
+		LOG_E("monitor::addFd(tap_fd) failed");
+		return false;
+	}
+
+	for (int i = 0; i < nstun::VLEN; ++i) {
+		ctx->recvmmsg_iovecs[i].iov_base = ctx->recvmmsg_bufs[i];
+		ctx->recvmmsg_iovecs[i].iov_len = sizeof(ctx->recvmmsg_bufs[i]);
+		ctx->recvmmsg_msgs[i].msg_hdr.msg_iov = &ctx->recvmmsg_iovecs[i];
+		ctx->recvmmsg_msgs[i].msg_hdr.msg_iovlen = 1;
+		ctx->recvmmsg_msgs[i].msg_hdr.msg_name = &ctx->recvmmsg_addrs[i];
+		ctx->recvmmsg_msgs[i].msg_hdr.msg_control = nullptr;
+		ctx->recvmmsg_msgs[i].msg_hdr.msg_controllen = 0;
+	}
+	ctx->recvmmsg_initialized = true;
+
+	tls_nstun_ctx = ctx;
+	success = true;
+	return true;
+}
+
+void nstun_destroy_parent() {
+	if (tls_nstun_ctx) {
+		context_cleanup(tls_nstun_ctx);
+		delete tls_nstun_ctx;
+		tls_nstun_ctx = nullptr;
+	}
 }

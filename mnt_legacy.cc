@@ -37,6 +37,7 @@
 
 #include "logs.h"
 #include "macros.h"
+#include "missing_defs.h"
 #include "mnt.h"
 #include "util.h"
 

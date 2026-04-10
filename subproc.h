@@ -29,20 +29,25 @@
 #include <string>
 #include <vector>
 
+#include "monitor.h"
 #include "nsjail.h"
 
 namespace subproc {
-constexpr char kSubprocDoneChar = 'D';
-
 /* 0 - network connection limit reached, -1 - error */
-pid_t runChild(nsj_t* nsj, int netfd, int fd_in, int fd_out, int fd_err);
+pid_t runChild(
+    nsj_t* nsj, int netfd, int fd_in, int fd_out, int fd_err, int* pidfd_out, int* ipc_fd_out);
 int countProc(nsj_t* nsj);
 void displayProc(nsj_t* nsj);
-void killAndReapAll(nsj_t* nsj, int signal);
+void killAll(nsj_t* nsj, int signal);
 /* Returns the exit code of the first failing subprocess, or 0 if none fail */
-int reapProc(nsj_t* nsj);
+int reapAll(nsj_t* nsj);
+int reapProc(nsj_t* nsj, pid_t pid, bool should_wait = false);
+uint64_t checkTimeouts(
+    nsj_t* nsj, pid_t target_pid, time_t start_time, const std::string& remote_txt, int pidfd);
 int systemExe(const std::vector<std::string>& args, char** env);
-pid_t cloneProc(uint64_t flags, int exit_signal);
+pid_t cloneProc(uint64_t flags, int exit_signal, int* pidfd);
+
+pid_t cloneProcNoPidfd(uint64_t flags, int exit_signal);
 
 }  // namespace subproc
 

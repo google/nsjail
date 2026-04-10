@@ -1,6 +1,7 @@
 #ifndef NSTUN_POLICY_H_
 #define NSTUN_POLICY_H_
 
+#include "config.pb.h"
 #include "core.h"
 #include "nstun.h"
 
@@ -18,8 +19,7 @@ RuleResult evaluate_rules4(Context* ctx, nstun_direction_t dir, nstun_proto_t pr
 RuleResult evaluate_rules6(Context* ctx, nstun_direction_t dir, nstun_proto_t proto,
     const uint8_t* src_ip6, const uint8_t* dst_ip6, uint16_t sport, uint16_t dport);
 
-template <typename RuleMsg>
-RuleParseStatus fill_rule_common(const RuleMsg& r, nstun_rule_t* nr);
+RuleParseStatus fill_rule_common(const nsjail::NsJailConfig_UserNet_NstunRule& r, nstun_rule_t* nr);
 
 } /* namespace nstun */
 

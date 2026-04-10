@@ -52,6 +52,7 @@
 #include "config.h"
 #include "logs.h"
 #include "macros.h"
+#include "missing_defs.h"
 #include "mnt.h"
 #include "mnt_newapi.h"
 #include "user.h"
@@ -405,13 +406,6 @@ static bool setupArgv(nsj_t* nsj, int argc, char** argv, int optind) {
 	}
 
 	if (nsj->njc.exec_bin().exec_fd()) {
-#if !defined(__NR_execveat)
-		LOG_E("Your nsjail is compiled without support for the execveat() "
-		      "syscall, "
-		      "yet you "
-		      "specified the --execute_fd flag");
-		return false;
-#endif /* !defined(__NR_execveat) */
 		if ((nsj->exec_fd = TEMP_FAILURE_RETRY(open(nsj->njc.exec_bin().path().c_str(),
 			 O_RDONLY | O_PATH | O_CLOEXEC))) == -1) {
 			PLOG_W("Couldn't open %s file", QC(nsj->njc.exec_bin().path()));
@@ -493,18 +487,18 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 
 	/* Generate options array for getopt_long. */
 	const size_t options_length = ARR_SZ(custom_opts) + 1;
-	struct option opts[options_length];
+	std::vector<struct option> opts(options_length);
 	for (unsigned i = 0; i < ARR_SZ(custom_opts); i++) {
 		opts[i] = custom_opts[i].opt;
 	}
 	/* Lastly, NULL option as a terminator */
-	struct option terminator = {NULL, 0, NULL, 0};
-	memcpy(&opts[options_length - 1].name, &terminator, sizeof(terminator));
+	opts[options_length - 1] = {nullptr, 0, nullptr, 0};
 
 	int opt_index = 0;
 	for (;;) {
 		int c = getopt_long(argc, argv,
-		    "x:H:D:C:c:p:i:u:g:l:L:t:M:NdvqQeh?E:R:B:T:m:s:P:I:U:G:", opts, &opt_index);
+		    "x:H:D:C:c:p:i:u:g:l:L:t:M:NdvqQeh?E:R:B:T:m:s:P:I:U:G:", opts.data(),
+		    &opt_index);
 		if (c == -1) {
 			break;
 		}

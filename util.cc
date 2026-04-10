@@ -165,18 +165,6 @@ bool recvMsg(int sock, uint32_t* msg_val, int* fd) {
 	return true;
 }
 
-bool sendFd(int sock, int fd) {
-	return sendMsg(sock, 0, fd);
-}
-
-int recvFd(int sock) {
-	int fd = -1;
-	if (recvMsg(sock, nullptr, &fd)) {
-		return fd;
-	}
-	return -1;
-}
-
 bool readFromFileToStr(const char* fname, std::string* str) {
 	int fd = TEMP_FAILURE_RETRY(open(fname, O_RDONLY | O_CLOEXEC));
 	if (fd == -1) {

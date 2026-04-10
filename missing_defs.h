@@ -1,6 +1,6 @@
 /*
 
-   nsjail - missing definitions used across the code
+   nsjail - missing syscall/constant/struct definitions
    -----------------------------------------
 
    Copyright 2026 Google Inc. All Rights Reserved.

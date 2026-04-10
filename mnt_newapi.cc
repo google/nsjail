@@ -21,55 +21,14 @@
 
 #include "mnt_newapi.h"
 
+#include <dirent.h>
+#include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 // clang-format off
 /* https://github.com/google/nsjail/issues/250 */
 #include <sys/mount.h>
 // clang-format on
-#include <linux/mount.h>
-#include <sys/syscall.h>
-
-#include "logs.h"
-#include "util.h"
-
-/*
- * Compile-time feature detection for the new mount API.
- * Requires kernel headers with fsopen/fsconfig/fsmount/move_mount support.
- */
-#if defined(__NR_fsopen) && defined(__NR_fsconfig) && defined(__NR_fsmount) &&                     \
-    defined(__NR_move_mount) && defined(__NR_open_tree) && defined(__NR_mount_setattr) &&          \
-    defined(FSOPEN_CLOEXEC) && defined(FSMOUNT_CLOEXEC) && defined(MOVE_MOUNT_F_EMPTY_PATH) &&     \
-    defined(MOUNT_ATTR_RDONLY) && defined(MOUNT_ATTR_NOSUID) && defined(MOUNT_ATTR_NODEV) &&       \
-    defined(MOUNT_ATTR_NOEXEC) && defined(AT_EMPTY_PATH) && defined(AT_RECURSIVE)
-#define MNT_NEWAPI_SUPPORTED 1
-#endif
-
-#if !defined(MNT_NEWAPI_SUPPORTED)
-
-namespace mnt {
-namespace newapi {
-
-bool isAvailable() {
-	LOG_W("New mount API unavailable: missing compile-time support");
-	return false;
-}
-
-bool remountPt(mnt::mount_t&) {
-	return false;
-}
-
-std::unique_ptr<std::string> buildMountTree(nsj_t*, std::vector<mnt::mount_t>*) {
-	return nullptr;
-}
-
-}  // namespace newapi
-}  // namespace mnt
-
-#else /* MNT_NEWAPI_SUPPORTED */
-
-#include <dirent.h>
-#include <errno.h>
-#include <inttypes.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <unistd.h>
@@ -78,8 +37,11 @@ std::unique_ptr<std::string> buildMountTree(nsj_t*, std::vector<mnt::mount_t>*) 
 #include <string>
 #include <vector>
 
+#include "logs.h"
 #include "macros.h"
+#include "missing_defs.h"
 #include "mnt.h"
+#include "util.h"
 
 namespace mnt {
 namespace newapi {
@@ -345,8 +307,8 @@ static bool mountDynamicContentAt(mount_t* mpt, int root_fd, const char* rel_dst
 		return false;
 	}
 
-	int mnt_fd =
-	    syscall(__NR_open_tree, root_fd, src_rel.c_str(), OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC);
+	int mnt_fd = util::syscall(__NR_open_tree, (uintptr_t)root_fd, (uintptr_t)src_rel.c_str(),
+	    (uintptr_t)(OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC));
 	if (mnt_fd < 0) {
 		PLOG_W("open_tree('%s')", src_rel.c_str());
 		unlinkat(root_fd, src_rel.c_str(), 0);
@@ -370,7 +332,8 @@ static bool mountDynamicContentAt(mount_t* mpt, int root_fd, const char* rel_dst
 		PLOG_W("unlinkat(root_fd, '%s')", src_rel.c_str());
 	}
 
-	mpt->fd = syscall(__NR_open_tree, root_fd, rel_dst, (unsigned int)OPEN_TREE_CLOEXEC);
+	mpt->fd = util::syscall(__NR_open_tree, (uintptr_t)root_fd, (uintptr_t)rel_dst,
+	    (uintptr_t)(unsigned int)OPEN_TREE_CLOEXEC);
 	if (mpt->fd < 0) {
 		PLOG_W("open_tree(root_fd, '%s')", rel_dst);
 		return false;
@@ -386,7 +349,8 @@ static bool doBindMountAt(mount_t* mpt, int root_fd, const char* rel_dst) {
 	}
 
 	LOG_D("open_tree('%s', flags=0x%x)", mpt->src.c_str(), flags);
-	int mnt_fd = syscall(__NR_open_tree, AT_FDCWD, mpt->src.c_str(), flags);
+	int mnt_fd = util::syscall(
+	    __NR_open_tree, (uintptr_t)AT_FDCWD, (uintptr_t)mpt->src.c_str(), (uintptr_t)flags);
 	if (mnt_fd < 0) {
 		PLOG_W("open_tree('%s')", mpt->src.c_str());
 		return false;
@@ -644,5 +608,3 @@ std::unique_ptr<std::string> buildMountTree(nsj_t* nsj, std::vector<mnt::mount_t
 
 }  // namespace newapi
 }  // namespace mnt
-
-#endif /* MNT_NEWAPI_SUPPORTED */

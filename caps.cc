@@ -33,20 +33,8 @@
 
 #include "logs.h"
 #include "macros.h"
+#include "missing_defs.h"
 #include "util.h"
-
-#if !defined(CAP_AUDIT_READ)
-#define CAP_AUDIT_READ 37
-#endif /* !defined(CAP_AUDIT_READ) */
-#if !defined(CAP_PERFMON)
-#define CAP_PERFMON 38
-#endif /* !defined(CAP_PERFMON) */
-#if !defined(CAP_BPF)
-#define CAP_BPF 39
-#endif /* !defined(CAP_BPF) */
-#if !defined(CAP_CHECKPOINT_RESTORE)
-#define CAP_CHECKPOINT_RESTORE 40
-#endif /* !defined(CAP_CHECKPOINT_RESTORE) */
 
 namespace caps {
 
@@ -174,11 +162,6 @@ static void setInheritable(cap_user_data_t cap_data, unsigned int cap) {
 	cap_data[off_byte].inheritable |= mask;
 }
 
-#if !defined(PR_CAP_AMBIENT)
-#define PR_CAP_AMBIENT 47
-#define PR_CAP_AMBIENT_RAISE 2
-#define PR_CAP_AMBIENT_CLEAR_ALL 4
-#endif /* !defined(PR_CAP_AMBIENT) */
 static bool initNsKeepCaps(cap_user_data_t cap_data) {
 	/* Copy all permitted caps to the inheritable set */
 	std::string dbgmsg1;

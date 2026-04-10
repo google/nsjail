@@ -27,7 +27,18 @@ struct in6_ifreq {
 };
 
 bool configIface(nsj_t* nsj) {
-	int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+	struct ifreq ifr = {};
+	struct in_addr addr;
+	struct rtentry rt = {};
+	char rt_dev[IFNAMSIZ];
+
+	if (nsj->njc.user_net().ns_iface().length() >= IFNAMSIZ) {
+		LOG_E("Interface name '%s' is too long (max %d)",
+		    nsj->njc.user_net().ns_iface().c_str(), IFNAMSIZ - 1);
+		return false;
+	}
+
+	int sock = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, IPPROTO_IP);
 	if (sock == -1) {
 		PLOG_E("socket(AF_INET, SOCK_STREAM, IPPROTO_IP)");
 		return false;
@@ -36,12 +47,7 @@ bool configIface(nsj_t* nsj) {
 		close(sock);
 	};
 
-	struct ifreq ifr = {};
 	snprintf(ifr.ifr_name, IFNAMSIZ, "%s", nsj->njc.user_net().ns_iface().c_str());
-
-	struct in_addr addr;
-	struct sockaddr_in* sa = (struct sockaddr_in*)(&ifr.ifr_addr);
-
 	/* Set IP Address */
 	if (!nsj->njc.user_net().ip4().empty()) {
 		if (inet_pton(AF_INET, nsj->njc.user_net().ip4().c_str(), &addr) != 1) {
@@ -49,8 +55,10 @@ bool configIface(nsj_t* nsj) {
 			    nsj->njc.user_net().ip4().c_str());
 			return false;
 		}
-		sa->sin_family = AF_INET;
-		sa->sin_addr = addr;
+		struct sockaddr_in sa = {};
+		sa.sin_family = AF_INET;
+		sa.sin_addr = addr;
+		memcpy(&ifr.ifr_addr, &sa, sizeof(sa));
 		if (ioctl(sock, SIOCSIFADDR, &ifr) == -1) {
 			PLOG_E("ioctl(SIOCSIFADDR, '%s')", nsj->njc.user_net().ip4().c_str());
 			return false;
@@ -59,14 +67,17 @@ bool configIface(nsj_t* nsj) {
 
 	/* Set Point-to-Point Destination Address (Host/GW) */
 	if (!nsj->njc.user_net().gw4().empty()) {
-		struct sockaddr_in* dst = (struct sockaddr_in*)(&ifr.ifr_dstaddr);
+		ifr = {};
+		snprintf(ifr.ifr_name, IFNAMSIZ, "%s", nsj->njc.user_net().ns_iface().c_str());
 		if (inet_pton(AF_INET, nsj->njc.user_net().gw4().c_str(), &addr) != 1) {
 			LOG_E("Cannot convert '%s' into an IPv4 GW address",
 			    nsj->njc.user_net().gw4().c_str());
 			return false;
 		}
-		dst->sin_family = AF_INET;
-		dst->sin_addr = addr;
+		struct sockaddr_in dst_sa = {};
+		dst_sa.sin_family = AF_INET;
+		dst_sa.sin_addr = addr;
+		memcpy(&ifr.ifr_dstaddr, &dst_sa, sizeof(dst_sa));
 		if (ioctl(sock, SIOCSIFDSTADDR, &ifr) == -1) {
 			PLOG_E("ioctl(SIOCSIFDSTADDR, '%s')", nsj->njc.user_net().gw4().c_str());
 			return false;
@@ -74,9 +85,12 @@ bool configIface(nsj_t* nsj) {
 	}
 
 	/* Set Netmask to /32 for PtP link */
-	struct sockaddr_in* netmask = (struct sockaddr_in*)(&ifr.ifr_netmask);
-	netmask->sin_family = AF_INET;
-	netmask->sin_addr.s_addr = 0xFFFFFFFF;	// 255.255.255.255
+	ifr = {};
+	snprintf(ifr.ifr_name, IFNAMSIZ, "%s", nsj->njc.user_net().ns_iface().c_str());
+	struct sockaddr_in netmask_sa = {};
+	netmask_sa.sin_family = AF_INET;
+	netmask_sa.sin_addr.s_addr = 0xFFFFFFFF; /* 255.255.255.255 */
+	memcpy(&ifr.ifr_netmask, &netmask_sa, sizeof(netmask_sa));
 	if (ioctl(sock, SIOCSIFNETMASK, &ifr) == -1) {
 		PLOG_E("ioctl(SIOCSIFNETMASK, 255.255.255.255)");
 		return false;
@@ -93,24 +107,26 @@ bool configIface(nsj_t* nsj) {
 		return false;
 	}
 
+	ifr = {};
+	snprintf(ifr.ifr_name, IFNAMSIZ, "%s", nsj->njc.user_net().ns_iface().c_str());
 	ifr.ifr_mtu = NSTUN_MTU;
 	if (ioctl(sock, SIOCSIFMTU, &ifr) == -1) {
-		PLOG_W("ioctl(SIOCSIFMTU, %zu)", NSTUN_MTU);
+		PLOG_E("ioctl(SIOCSIFMTU, %zu)", NSTUN_MTU);
 		return false;
 	}
 
 	/* Add default route out of interface */
-	struct rtentry rt = {};
-	struct sockaddr_in* sdest = (struct sockaddr_in*)(&rt.rt_dst);
-	struct sockaddr_in* smask = (struct sockaddr_in*)(&rt.rt_genmask);
+	struct sockaddr_in sdest_sa = {};
+	sdest_sa.sin_family = AF_INET;
+	sdest_sa.sin_addr.s_addr = INADDR_ANY;
+	memcpy(&rt.rt_dst, &sdest_sa, sizeof(sdest_sa));
 
-	sdest->sin_family = AF_INET;
-	sdest->sin_addr.s_addr = INADDR_ANY;
-	smask->sin_family = AF_INET;
-	smask->sin_addr.s_addr = INADDR_ANY;
+	struct sockaddr_in smask_sa = {};
+	smask_sa.sin_family = AF_INET;
+	smask_sa.sin_addr.s_addr = INADDR_ANY;
+	memcpy(&rt.rt_genmask, &smask_sa, sizeof(smask_sa));
 
 	rt.rt_flags = RTF_UP; /* Device route, no gateway necessary for PtP */
-	char rt_dev[IFNAMSIZ];
 	snprintf(rt_dev, sizeof(rt_dev), "%s", nsj->njc.user_net().ns_iface().c_str());
 	rt.rt_dev = rt_dev;
 
@@ -123,7 +139,7 @@ bool configIface(nsj_t* nsj) {
 
 	/* Configure IPv6 address and route */
 	if (!nsj->njc.user_net().ip6().empty()) {
-		int sock6 = socket(AF_INET6, SOCK_DGRAM, 0);
+		int sock6 = socket(AF_INET6, SOCK_DGRAM | SOCK_CLOEXEC, 0);
 		if (sock6 == -1) {
 			PLOG_E("socket(AF_INET6, SOCK_DGRAM)");
 			return false;

@@ -3,7 +3,6 @@
 
 #include <string>
 #include <tuple>
-#include <vector>
 
 #include "unotify/unotify.pb.h"
 
@@ -40,20 +39,21 @@ struct ResourceRecord {
 
 	/* Lexicographical comparison to support std::map usage in stats.cc */
 	bool operator<(const ResourceRecord& o) const {
-		return std::tie(has_path1, path1, has_path2, path2, has_net, net_type, net_endpoint, has_net_port, net_port, has_net_path, net_path) <
-		       std::tie(o.has_path1, o.path1, o.has_path2, o.path2, o.has_net, o.net_type, o.net_endpoint, o.has_net_port, o.net_port, o.has_net_path, o.net_path);
+		return std::tie(has_path1, path1, has_path2, path2, has_net, net_type, net_endpoint,
+			   has_net_port, net_port, has_net_path, net_path) <
+		       std::tie(o.has_path1, o.path1, o.has_path2, o.path2, o.has_net, o.net_type,
+			   o.net_endpoint, o.has_net_port, o.net_port, o.has_net_path, o.net_path);
 	}
 };
 
 struct SyscallRecord {
 	std::string name;
-	std::vector<std::string> args;
+	std::string args_str;
 	ResourceRecord res;
 
 	/* Lexicographical comparison to support std::map usage in stats.cc */
 	bool operator<(const SyscallRecord& other) const {
-		return std::tie(name, args, res) <
-		       std::tie(other.name, other.args, other.res);
+		return std::tie(name, args_str, res) < std::tie(other.name, other.args_str, other.res);
 	}
 };
 

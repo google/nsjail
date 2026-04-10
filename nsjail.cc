@@ -22,15 +22,19 @@
 #include "nsjail.h"
 
 #include <fcntl.h>
-#include <poll.h>
+#if __has_include(<linux/close_range.h>)
+#include <linux/close_range.h>
+#endif
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/prctl.h>
 #include <sys/resource.h>
 #include <sys/time.h>
+#include <sys/wait.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -38,22 +42,30 @@
 #include <atomic>
 #include <cerrno>
 #include <memory>
+#include <thread>
 #include <vector>
 
 #include "cgroup2.h"
 #include "cmdline.h"
 #include "logs.h"
 #include "macros.h"
+#include "missing_defs.h"
+#include "monitor.h"
 #include "net.h"
 #include "sandbox.h"
 #include "subproc.h"
-#include "unotify/unotify.h"
+#include "unotify/stats.h"
 #include "util.h"
 
 namespace nsjail {
 
-static __thread std::atomic<int> sigFatal(0);
-static __thread std::atomic<bool> showProc(false);
+/*
+ * Thread-local to the main thread. Signals are only delivered to the main thread
+ * (monitor threads block them), and only the main thread reads these in its poll loops.
+ * See "The Threading Model Comprehension Law" in goal.md.
+ */
+static __thread std::atomic<int> sigFatal{0};
+static __thread std::atomic<bool> showProc{false};
 
 static void sigHandler(int sig) {
 	if (sig == SIGALRM || sig == SIGCHLD || sig == SIGPIPE) {
@@ -88,6 +100,16 @@ static bool setSigHandler(int sig) {
 	return true;
 }
 
+int getSigFatal() {
+	return sigFatal;
+}
+bool shouldShowProc() {
+	return showProc;
+}
+void clearShowProc() {
+	showProc = false;
+}
+
 static bool setSigHandlers(void) {
 	for (const auto& i : nssigs) {
 		if (!setSigHandler(i)) {
@@ -98,7 +120,7 @@ static bool setSigHandlers(void) {
 }
 
 static bool setTimer(nsj_t* nsj) {
-	if (nsj->njc.mode() == nsjail::Mode::EXECVE) {
+	if (nsj->njc.mode() == ::nsjail::Mode::EXECVE) {
 		return true;
 	}
 
@@ -144,185 +166,6 @@ static bool setFDLimit() {
 	return true;
 }
 
-static bool pipeTraffic(nsj_t* nsj, int listenfd) {
-	std::vector<struct pollfd> fds;
-	fds.reserve(nsj->pipes.size() * 3 + 1);
-	for (const auto& p : nsj->pipes) {
-		fds.push_back({
-		    .fd = p.sock_fd,
-		    .events = POLLIN | POLLOUT,
-		    .revents = 0,
-		});
-		fds.push_back({
-		    .fd = p.pipe_in,
-		    .events = POLLOUT,
-		    .revents = 0,
-		});
-		fds.push_back({
-		    .fd = p.pipe_out,
-		    .events = POLLIN,
-		    .revents = 0,
-		});
-	}
-	fds.push_back({
-	    .fd = listenfd,
-	    .events = POLLIN,
-	    .revents = 0,
-	});
-	LOG_D("Waiting for fd activity");
-	while (poll(fds.data(), fds.size(), -1) > 0) {
-		if (sigFatal > 0 || showProc) {
-			return false;
-		}
-		if (fds.back().revents != 0) {
-			LOG_D("New connection ready");
-			return true;
-		}
-		bool cleanup = false;
-		for (size_t i = 0; i < fds.size() - 1; ++i) {
-			if (fds[i].revents & POLLIN) {
-				fds[i].events &= ~POLLIN;
-			}
-			if (fds[i].revents & POLLOUT) {
-				fds[i].events &= ~POLLOUT;
-			}
-		}
-		for (size_t i = 0; i < nsj->pipes.size() * 3; i += 3) {
-			const size_t pipe_no = i / 3;
-			int in, out;
-			const char* direction;
-			bool closed = false;
-			std::tuple<int, int, const char*> direction_map[] = {
-			    std::make_tuple(i, i + 1, "in"),
-			    std::make_tuple(i + 2, i, "out"),
-			};
-			for (const auto& entry : direction_map) {
-				std::tie(in, out, direction) = entry;
-				bool in_ready = (fds[in].events & POLLIN) == 0 ||
-						(fds[in].revents & POLLIN) == POLLIN;
-				bool out_ready = (fds[out].events & POLLOUT) == 0 ||
-						 (fds[out].revents & POLLOUT) == POLLOUT;
-				if (in_ready && out_ready) {
-					LOG_D("#%zu piping data %s", pipe_no, direction);
-					ssize_t rv = splice(fds[in].fd, nullptr, fds[out].fd,
-					    nullptr, 4096, SPLICE_F_NONBLOCK);
-					if (rv == -1 && errno != EAGAIN) {
-						PLOG_E("splice fd pair #%zu {%d, %d}\n", pipe_no,
-						    fds[in].fd, fds[out].fd);
-					}
-					if (rv == 0) {
-						closed = true;
-					}
-					fds[in].events |= POLLIN;
-					fds[out].events |= POLLOUT;
-				}
-				if ((fds[in].revents & (POLLERR | POLLHUP)) != 0 ||
-				    (fds[out].revents & (POLLERR | POLLHUP)) != 0) {
-					closed = true;
-				}
-			}
-			if (closed) {
-				LOG_D("#%zu connection closed", pipe_no);
-				cleanup = true;
-				close(nsj->pipes[pipe_no].sock_fd);
-				close(nsj->pipes[pipe_no].pipe_in);
-				close(nsj->pipes[pipe_no].pipe_out);
-				if (nsj->pipes[pipe_no].pid > 0) {
-					kill(nsj->pipes[pipe_no].pid, SIGKILL);
-				}
-				nsj->pipes[pipe_no] = {};
-			}
-		}
-		if (cleanup) {
-			break;
-		}
-	}
-	nsj->pipes.erase(
-	    std::remove(nsj->pipes.begin(), nsj->pipes.end(), pipemap_t{}), nsj->pipes.end());
-	return false;
-}
-
-static int listenMode(nsj_t* nsj) {
-	int listenfd = net::getRecvSocket(nsj);
-	if (listenfd == -1) {
-		return EXIT_FAILURE;
-	}
-	for (;;) {
-		if (sigFatal > 0) {
-			subproc::killAndReapAll(
-			    nsj, nsj->njc.forward_signals() ? sigFatal.load() : SIGKILL);
-			logs::logStop(sigFatal);
-			close(listenfd);
-			return EXIT_SUCCESS;
-		}
-		if (showProc) {
-			showProc = false;
-			subproc::displayProc(nsj);
-		}
-		if (pipeTraffic(nsj, listenfd)) {
-			int connfd = net::acceptConn(listenfd);
-			if (connfd >= 0) {
-				int in[2];
-				int out[2];
-				if (pipe(in) != 0 || pipe(out) != 0) {
-					PLOG_E("pipe");
-					continue;
-				}
-
-				pid_t pid = subproc::runChild(nsj, connfd, in[0], out[1], out[1]);
-
-				close(in[0]);
-				close(out[1]);
-
-				if (pid <= 0) {
-					close(in[1]);
-					close(out[0]);
-					close(connfd);
-				} else {
-					nsj->pipes.push_back({
-					    .sock_fd = connfd,
-					    .pipe_in = in[1],
-					    .pipe_out = out[0],
-					    .pid = pid,
-					});
-				}
-			}
-		}
-		subproc::reapProc(nsj);
-	}
-}
-
-static int standaloneMode(nsj_t* nsj) {
-	for (;;) {
-		if (subproc::runChild(
-			nsj, /* netfd= */ -1, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO) == -1) {
-			LOG_E("Couldn't launch the child process");
-			return 0xff;
-		}
-		for (;;) {
-			int child_status = subproc::reapProc(nsj);
-			if (subproc::countProc(nsj) == 0) {
-				if (nsj->njc.mode() == nsjail::Mode::ONCE) {
-					return child_status;
-				}
-				break;
-			}
-			if (showProc) {
-				showProc = false;
-				subproc::displayProc(nsj);
-			}
-			if (sigFatal > 0) {
-				subproc::killAndReapAll(
-				    nsj, nsj->njc.forward_signals() ? sigFatal.load() : SIGKILL);
-				logs::logStop(sigFatal);
-				return (128 + sigFatal);
-			}
-			pause();
-		}
-	}
-	// not reached
-}
-
 std::unique_ptr<struct termios> getTC(int fd) {
 	std::unique_ptr<struct termios> trm(new struct termios);
 
@@ -351,6 +194,19 @@ void setTC(int fd, const struct termios* trm) {
 }  // namespace nsjail
 
 int main(int argc, char* argv[]) {
+	/*
+	 * Hard minimum: clone3 (5.3), CLONE_PIDFD (5.4),
+	 * CLONE_CLEAR_SIGHAND (5.5), PIDFD_NONBLOCK (5.10),
+	 * CLOSE_RANGE_CLOEXEC (5.11).
+	 */
+	if (!util::kernelVersionAtLeast(5, 11, 0)) {
+		LOG_F("This version of nsjail requires Linux >= 5.11. "
+		      "Use an earlier version of nsjail for older kernels.");
+	}
+	if (!util::kernelVersionAtLeast(6, 0, 0)) {
+		LOG_D("Running on a kernel older than 6.0. Consider upgrading "
+		      "for best compatibility.");
+	}
 	std::unique_ptr<nsj_t> nsj = cmdline::parseArgs(argc, argv);
 	std::unique_ptr<struct termios> trm = nsjail::getTC(STDIN_FILENO);
 
@@ -387,15 +243,15 @@ int main(int argc, char* argv[]) {
 	}
 
 	int ret = 0;
-	if (nsj->njc.mode() == nsjail::Mode::LISTEN) {
-		ret = nsjail::listenMode(nsj.get());
+	if (nsj->njc.mode() == ::nsjail::Mode::LISTEN) {
+		ret = monitor::runListenMode(nsj.get());
 	} else {
-		ret = nsjail::standaloneMode(nsj.get());
+		ret = monitor::runStandaloneMode(nsj.get());
 	}
 
-	subproc::killAndReapAll(nsj.get(), SIGKILL);
+	subproc::killAll(nsj.get(), SIGKILL);
 	sandbox::closePolicy(nsj.get());
-	unotify::stop(nsj.get());
+	unotify::printStats(nsj.get());
 	/* Try to restore the underlying console's params in case some program has changed it */
 	if (!nsj->njc.daemon()) {
 		nsjail::setTC(STDIN_FILENO, trm.get());

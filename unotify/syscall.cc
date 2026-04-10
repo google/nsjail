@@ -15,6 +15,7 @@
 
 #include "logs.h"
 #include "macros.h"
+#include "missing_defs.h"
 #include "unotify/syscall_defs.h"
 #include "util.h"
 
@@ -26,15 +27,18 @@ constexpr size_t kMaxPathLen = 4096;
 /* Helper functions string/memory reading, path resolution, etc. */
 
 static std::string getSocketType(pid_t pid, int target_fd) {
-	int pidfd = syscall(__NR_pidfd_open, pid, 0);
+	int pidfd = util::syscall(__NR_pidfd_open, pid, 0);
 	if (pidfd < 0) {
 		return "";
 	}
-	int local_fd = syscall(__NR_pidfd_getfd, pidfd, target_fd, 0);
+	fcntl(pidfd, F_SETFD, FD_CLOEXEC);
+
+	int local_fd = util::syscall(__NR_pidfd_getfd, pidfd, target_fd, 0);
 	close(pidfd);
 	if (local_fd < 0) {
 		return "";
 	}
+	fcntl(local_fd, F_SETFD, FD_CLOEXEC);
 
 	int type = 0, proto = 0;
 	socklen_t len = sizeof(type);
@@ -57,7 +61,9 @@ static std::string getSocketType(pid_t pid, int target_fd) {
 				break;
 			}
 		}
-		if (!found) type_str = "SOCK_TYPE_" + std::to_string(type);
+		if (!found) {
+			type_str = "SOCK_TYPE_" + std::to_string(type);
+		}
 	}
 	len = sizeof(proto);
 	if (getsockopt(local_fd, SOL_SOCKET, SO_PROTOCOL, &proto, &len) == 0) {
@@ -80,62 +86,88 @@ static std::string getSocketType(pid_t pid, int target_fd) {
 				break;
 			}
 		}
-		if (!found && proto != 0) type_str += " (proto_" + std::to_string(proto) + ")";
+		if (!found && proto != 0) {
+			type_str += " (proto_" + std::to_string(proto) + ")";
+		}
 	}
 	close(local_fd);
 	return type_str;
 }
 
 static std::string readStringFromMem(pid_t pid, uint64_t addr) {
-	if (addr == 0) return "NULL";
-	char buf[kMaxPathLen];
-	struct iovec local = {buf, sizeof(buf) - 1};
-	struct iovec remote = {(void*)addr, sizeof(buf) - 1};
+	if (addr == 0) {
+		return "NULL";
+	}
+	/* Heap-allocate to avoid stack pressure, but avoid static buffer reuse
+	 * in case it causes subtle issues with event interleaving */
+	std::string buf(kMaxPathLen - 1, '\0');
+	struct iovec local = {.iov_base = buf.data(), .iov_len = buf.size()};
+	struct iovec remote = {.iov_base = (void*)addr, .iov_len = buf.size()};
 
 	ssize_t ret = process_vm_readv(pid, &local, 1, &remote, 1, 0);
 	if (ret <= 0) {
 		return "<invalid_ptr>";
 	}
-	buf[ret] = '\0';
-	return std::string(buf);
+	buf.resize(strnlen(buf.data(), ret));
+	return buf;
 }
 
-static std::vector<std::string> readStringArrayFromMem(pid_t pid, uint64_t addr, bool is_32bit) {
-	std::vector<std::string> arr;
-	if (addr == 0) return arr;
+static void appendStringArrayFromMem(
+    pid_t pid, uint64_t addr, bool is_32bit, const char* prefix, std::string& out) {
+	if (addr == 0) {
+		return;
+	}
 
+	/* Heap-allocate pointer arrays to avoid stack pressure */
 	if (is_32bit) {
-		uint32_t ptrs[kMaxArgs];
-		struct iovec local = {ptrs, sizeof(ptrs)};
-		struct iovec remote = {(void*)addr, sizeof(ptrs)};
+		std::vector<uint32_t> ptrs(kMaxArgs);
+		struct iovec local = {
+		    .iov_base = ptrs.data(), .iov_len = ptrs.size() * sizeof(uint32_t)};
+		struct iovec remote = {
+		    .iov_base = (void*)addr, .iov_len = ptrs.size() * sizeof(uint32_t)};
 
 		ssize_t ret = process_vm_readv(pid, &local, 1, &remote, 1, 0);
-		if (ret <= 0) return arr;
+		if (ret <= 0) {
+			return;
+		}
 
 		int num_ptrs = ret / sizeof(uint32_t);
 		for (int i = 0; i < num_ptrs; i++) {
-			if (ptrs[i] == 0) break;
-			arr.push_back(readStringFromMem(pid, ptrs[i]));
+			if (ptrs[i] == 0) {
+				break;
+			}
+			out += prefix;
+			out +=
+			    "[" + std::to_string(i) + "]=" + readStringFromMem(pid, ptrs[i]) + " ";
 		}
 	} else {
-		uint64_t ptrs[kMaxArgs];
-		struct iovec local = {ptrs, sizeof(ptrs)};
-		struct iovec remote = {(void*)addr, sizeof(ptrs)};
+		std::vector<uint64_t> ptrs(kMaxArgs);
+		struct iovec local = {
+		    .iov_base = ptrs.data(), .iov_len = ptrs.size() * sizeof(uint64_t)};
+		struct iovec remote = {
+		    .iov_base = (void*)addr, .iov_len = ptrs.size() * sizeof(uint64_t)};
 
 		ssize_t ret = process_vm_readv(pid, &local, 1, &remote, 1, 0);
-		if (ret <= 0) return arr;
+		if (ret <= 0) {
+			return;
+		}
 
 		int num_ptrs = ret / sizeof(uint64_t);
 		for (int i = 0; i < num_ptrs; i++) {
-			if (ptrs[i] == 0) break;
-			arr.push_back(readStringFromMem(pid, ptrs[i]));
+			if (ptrs[i] == 0) {
+				break;
+			}
+			out += prefix;
+			out +=
+			    "[" + std::to_string(i) + "]=" + readStringFromMem(pid, ptrs[i]) + " ";
 		}
 	}
-	return arr;
 }
 
 static std::string getAbsPath(pid_t pid, int dirfd, const std::string& raw_path) {
-	if (raw_path.empty() || raw_path[0] == '/') return raw_path;
+	if (raw_path.empty() || raw_path[0] == '/') {
+		return raw_path;
+	}
 
 	std::string link_path;
 	if (dirfd == AT_FDCWD || dirfd == -100) {
@@ -144,26 +176,31 @@ static std::string getAbsPath(pid_t pid, int dirfd, const std::string& raw_path)
 		link_path = "/proc/" + std::to_string(pid) + "/fd/" + std::to_string(dirfd);
 	}
 
-	char buf[PATH_MAX];
-	ssize_t len = readlink(link_path.c_str(), buf, sizeof(buf) - 1);
-	if (len <= 0) return raw_path;	// fallback
-	buf[len] = '\0';
+	/* Heap-allocate to avoid stack pressure */
+	std::string buf(PATH_MAX - 1, '\0');
+	ssize_t len = readlink(link_path.c_str(), buf.data(), buf.size());
+	if (len <= 0) {
+		return raw_path;  // fallback
+	}
 
-	std::string abs_path = buf;
-	if (abs_path.back() != '/') abs_path += '/';
+	std::string abs_path(buf.data(), len);
+	if (abs_path.back() != '/') {
+		abs_path += '/';
+	}
 	abs_path += raw_path;
 	return abs_path;
 }
 
 static void getFileMode(int flags, PathInfoRecord* out) {
-	if ((flags & O_ACCMODE) == O_RDONLY)
+	if ((flags & O_ACCMODE) == O_RDONLY) {
 		out->mode = Stat_Path_Mode_RDONLY;
-	else if ((flags & O_ACCMODE) == O_WRONLY)
+	} else if ((flags & O_ACCMODE) == O_WRONLY) {
 		out->mode = Stat_Path_Mode_WRONLY;
-	else if ((flags & O_ACCMODE) == O_RDWR)
+	} else if ((flags & O_ACCMODE) == O_RDWR) {
 		out->mode = Stat_Path_Mode_RDWR;
-	else
+	} else {
 		out->mode = Stat_Path_Mode_UNSPECIFIED;
+	}
 
 	std::string mode_extra;
 	struct {
@@ -200,12 +237,22 @@ static void getFileMode(int flags, PathInfoRecord* out) {
 }
 
 static std::string getAccessMode(int mode) {
-	if (mode == F_OK) return "F_OK";
+	if (mode == F_OK) {
+		return "F_OK";
+	}
 	std::string acc;
-	if (mode & R_OK) acc += "R_OK|";
-	if (mode & W_OK) acc += "W_OK|";
-	if (mode & X_OK) acc += "X_OK|";
-	if (!acc.empty()) acc.pop_back();
+	if (mode & R_OK) {
+		acc += "R_OK|";
+	}
+	if (mode & W_OK) {
+		acc += "W_OK|";
+	}
+	if (mode & X_OK) {
+		acc += "X_OK|";
+	}
+	if (!acc.empty()) {
+		acc.pop_back();
+	}
 	return acc;
 }
 
@@ -214,13 +261,27 @@ static Stat_Path_Type getStatInfo(const std::string& path) {
 	if (lstat(path.c_str(), &st) == -1) {
 		return Stat_Path_Type_NONEXISTENT;
 	}
-	if (S_ISREG(st.st_mode)) return Stat_Path_Type_REGULAR;
-	if (S_ISDIR(st.st_mode)) return Stat_Path_Type_DIR;
-	if (S_ISCHR(st.st_mode)) return Stat_Path_Type_CHR;
-	if (S_ISBLK(st.st_mode)) return Stat_Path_Type_BLK;
-	if (S_ISFIFO(st.st_mode)) return Stat_Path_Type_FIFO;
-	if (S_ISLNK(st.st_mode)) return Stat_Path_Type_LINK;
-	if (S_ISSOCK(st.st_mode)) return Stat_Path_Type_SOCK;
+	if (S_ISREG(st.st_mode)) {
+		return Stat_Path_Type_REGULAR;
+	}
+	if (S_ISDIR(st.st_mode)) {
+		return Stat_Path_Type_DIR;
+	}
+	if (S_ISCHR(st.st_mode)) {
+		return Stat_Path_Type_CHR;
+	}
+	if (S_ISBLK(st.st_mode)) {
+		return Stat_Path_Type_BLK;
+	}
+	if (S_ISFIFO(st.st_mode)) {
+		return Stat_Path_Type_FIFO;
+	}
+	if (S_ISLNK(st.st_mode)) {
+		return Stat_Path_Type_LINK;
+	}
+	if (S_ISSOCK(st.st_mode)) {
+		return Stat_Path_Type_SOCK;
+	}
 	return Stat_Path_Type_UNKNOWN;
 }
 
@@ -235,11 +296,13 @@ static void populatePathInfo(pid_t pid, int dirfd, uint64_t addr, PathInfoRecord
 
 static void parseSockaddr(struct seccomp_notif* req, SyscallRecord* rec, uint64_t addr,
     socklen_t addrlen, const std::string& socket_type_str) {
-	if (addrlen > sizeof(struct sockaddr_storage) || addr == 0) return;
+	if (addrlen > sizeof(struct sockaddr_storage) || addr == 0) {
+		return;
+	}
 
 	struct sockaddr_storage ss = {};
-	struct iovec local = {&ss, addrlen};
-	struct iovec remote = {(void*)addr, addrlen};
+	struct iovec local = {.iov_base = &ss, .iov_len = addrlen};
+	struct iovec remote = {.iov_base = (void*)addr, .iov_len = addrlen};
 	ssize_t read_bytes = process_vm_readv(req->pid, &local, 1, &remote, 1, 0);
 	if (read_bytes >= (ssize_t)sizeof(sa_family_t)) {
 		char host[INET6_ADDRSTRLEN] = "unknown";
@@ -334,7 +397,9 @@ static std::string getDomainStr(int domain) {
 	    NS_VALSTR_STRUCT(AF_VSOCK),
 	};
 	for (const auto& i : domains) {
-		if (domain == i.val) return i.name;
+		if (domain == i.val) {
+			return i.name;
+		}
 	}
 	return std::to_string(domain);
 }
@@ -362,14 +427,22 @@ static std::string getTypeStr(int type) {
 			break;
 		}
 	}
-	if (!found) res = std::to_string(base_type);
-	if (type & SOCK_CLOEXEC) res += "|SOCK_CLOEXEC";
-	if (type & SOCK_NONBLOCK) res += "|SOCK_NONBLOCK";
+	if (!found) {
+		res = std::to_string(base_type);
+	}
+	if (type & SOCK_CLOEXEC) {
+		res += "|SOCK_CLOEXEC";
+	}
+	if (type & SOCK_NONBLOCK) {
+		res += "|SOCK_NONBLOCK";
+	}
 	return res;
 }
 
 static std::string getProtocolStr(int proto) {
-	if (proto == 0) return "0";
+	if (proto == 0) {
+		return "0";
+	}
 	struct {
 		const int val;
 		const char* const name;
@@ -402,7 +475,9 @@ static std::string getProtocolStr(int proto) {
 	    NS_VALSTR_STRUCT(IPPROTO_ICMPV6),
 	};
 	for (const auto& i : protos) {
-		if (proto == i.val) return i.name;
+		if (proto == i.val) {
+			return i.name;
+		}
 	}
 	return std::to_string(proto);
 }
@@ -418,10 +493,14 @@ static void decodeSyscallArgs(
 
 	bool is_32bit = false;
 #ifdef AUDIT_ARCH_I386
-	if (req->data.arch == AUDIT_ARCH_I386) is_32bit = true;
+	if (req->data.arch == AUDIT_ARCH_I386) {
+		is_32bit = true;
+	}
 #endif
 #ifdef AUDIT_ARCH_ARM
-	if (req->data.arch == AUDIT_ARCH_ARM) is_32bit = true;
+	if (req->data.arch == AUDIT_ARCH_ARM) {
+		is_32bit = true;
+	}
 #endif
 
 	for (int i = 0; i < 6; i++) {
@@ -447,9 +526,10 @@ static void decodeSyscallArgs(
 
 		case ArgRole::DIRFD: {
 			int dirfd = (int)arg;
-			rec->args.push_back("dirfd=" + (dirfd == AT_FDCWD || dirfd == -100
-							       ? std::string("AT_FDCWD")
-							       : std::to_string(dirfd)));
+			std::string arg_str =
+			    "dirfd=" + (dirfd == AT_FDCWD || dirfd == -100 ? std::string("AT_FDCWD")
+									   : std::to_string(dirfd));
+			rec->args_str += arg_str + " ";
 			current_dirfd = dirfd;
 			break;
 		}
@@ -463,49 +543,54 @@ static void decodeSyscallArgs(
 		case ArgRole::OCTAL: {
 			char buf[32];
 			snprintf(buf, sizeof(buf), "0%o", (unsigned int)arg);
-			rec->args.push_back("mode=" + std::string(buf));
+			std::string arg_str = "mode=" + std::string(buf);
+			rec->args_str += arg_str + " ";
 			break;
 		}
 
-		case ArgRole::ACCESS:
-			rec->args.push_back("mode=" + getAccessMode((int)arg));
+		case ArgRole::ACCESS: {
+			std::string arg_str = "mode=" + getAccessMode((int)arg);
+			rec->args_str += arg_str + " ";
 			break;
+		}
 
-		case ArgRole::UID:
-			rec->args.push_back("owner=" + std::to_string((int)arg));
+		case ArgRole::UID: {
+			std::string arg_str = "owner=" + std::to_string((int)arg);
+			rec->args_str += arg_str + " ";
 			break;
+		}
 
-		case ArgRole::GID:
-			rec->args.push_back("group=" + std::to_string((int)arg));
+		case ArgRole::GID: {
+			std::string arg_str = "group=" + std::to_string((int)arg);
+			rec->args_str += arg_str + " ";
 			break;
+		}
 
 		case ArgRole::ARGV: {
-			auto argv = readStringArrayFromMem(req->pid, arg, is_32bit);
-			for (size_t j = 0; j < argv.size(); j++) {
-				rec->args.push_back("argv[" + std::to_string(j) + "]=" + argv[j]);
-			}
+			appendStringArrayFromMem(req->pid, arg, is_32bit, "argv", rec->args_str);
 			break;
 		}
 
 		case ArgRole::ENVP: {
-			auto envp = readStringArrayFromMem(req->pid, arg, is_32bit);
-			for (size_t j = 0; j < envp.size(); j++) {
-				rec->args.push_back("envp[" + std::to_string(j) + "]=" + envp[j]);
-			}
+			appendStringArrayFromMem(req->pid, arg, is_32bit, "envp", rec->args_str);
 			break;
 		}
 
 		case ArgRole::FD: {
-			rec->args.push_back("fd=" + std::to_string((int)arg));
+			std::string arg_str = "fd=" + std::to_string((int)arg);
+			rec->args_str += arg_str + " ";
 			last_socket_type = getSocketType(req->pid, (int)arg);
 			if (!last_socket_type.empty()) {
-				rec->args.push_back("type=" + last_socket_type);
+				std::string type_str = "type=" + last_socket_type;
+				rec->args_str += type_str + " ";
 			}
 			break;
 		}
 
 		case ArgRole::SADDR: {
-			if (arg == 0) break;
+			if (arg == 0) {
+				break;
+			}
 			socklen_t addrlen = (i + 1 < 6) ? (socklen_t)args[i + 1] : 0;
 			parseSockaddr(req, rec, arg, addrlen, last_socket_type);
 			break;
@@ -514,21 +599,29 @@ static void decodeSyscallArgs(
 		case ArgRole::ALEN:
 			break; /* consumed by preceding SADDR */
 
-		case ArgRole::IFLAGS:
-			rec->args.push_back("flags=" + std::to_string((int)arg));
+		case ArgRole::IFLAGS: {
+			std::string arg_str = "flags=" + std::to_string((int)arg);
+			rec->args_str += arg_str + " ";
 			break;
+		}
 
-		case ArgRole::DOMAIN:
-			rec->args.push_back("domain=" + getDomainStr((int)arg));
+		case ArgRole::DOMAIN: {
+			std::string arg_str = "domain=" + getDomainStr((int)arg);
+			rec->args_str += arg_str + " ";
 			break;
+		}
 
-		case ArgRole::STYPE:
-			rec->args.push_back("type=" + getTypeStr((int)arg));
+		case ArgRole::STYPE: {
+			std::string arg_str = "type=" + getTypeStr((int)arg);
+			rec->args_str += arg_str + " ";
 			break;
+		}
 
-		case ArgRole::PROTO:
-			rec->args.push_back("protocol=" + getProtocolStr((int)arg));
+		case ArgRole::PROTO: {
+			std::string arg_str = "protocol=" + getProtocolStr((int)arg);
+			rec->args_str += arg_str + " ";
 			break;
+		}
 
 		case ArgRole::OHOW: {
 			struct {
@@ -536,16 +629,17 @@ static void decodeSyscallArgs(
 				__u64 mode;
 				__u64 resolve;
 			} how = {};
-			struct iovec local = {&how, sizeof(how)};
-			struct iovec remote = {(void*)arg, sizeof(how)};
+			struct iovec local = {.iov_base = &how, .iov_len = sizeof(how)};
+			struct iovec remote = {.iov_base = (void*)arg, .iov_len = sizeof(how)};
 			if (process_vm_readv(req->pid, &local, 1, &remote, 1, 0) >=
 			    (ssize_t)sizeof(how.flags)) {
 				if (last_path) {
 					getFileMode((int)how.flags, last_path);
 				}
 				if (how.resolve != 0) {
-					rec->args.push_back(
-					    "resolve=" + std::to_string(how.resolve));
+					std::string arg_str =
+					    "resolve=" + std::to_string(how.resolve);
+					rec->args_str += arg_str + " ";
 				}
 			}
 			break;
