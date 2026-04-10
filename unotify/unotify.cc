@@ -27,7 +27,6 @@
 #include "logs.h"
 #include "missing_defs.h"
 #include "monitor.h"
-#include "unotify/record.h"
 #include "unotify/stats.h"
 #include "unotify/syscall.h"
 #include "util.h"
@@ -113,12 +112,9 @@ static void unotifyCb(int fd, uint32_t events, void* /* data */) {
 		return;
 	}
 
-	SyscallRecord rec;
 	LOG_D("unotifyCb: before parseSyscall, nr=%d", req->data.nr);
-	parseSyscall(req, &rec);
+	parseSyscall(req);
 	LOG_D("unotifyCb: after parseSyscall");
-	LOG_D("unotify: syscall=%s id=%llx", rec.name.c_str(), (unsigned long long)req->id);
-	addStat(rec);
 
 	if (!isTargetAlive(fd, req->id)) {
 		return;

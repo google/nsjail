@@ -3,11 +3,9 @@
 
 #include <linux/seccomp.h>
 
-#include "unotify/record.h"
-
 namespace unotify {
 
-void parseSyscall(struct seccomp_notif* req, SyscallRecord* rec);
+void parseSyscall(struct seccomp_notif* req);
 
 }  // namespace unotify
 

@@ -16,6 +16,7 @@
 #include "logs.h"
 #include "macros.h"
 #include "missing_defs.h"
+#include "unotify/stats.h"
 #include "unotify/syscall_defs.h"
 #include "util.h"
 
@@ -205,7 +206,7 @@ static std::string getAbsPath(pid_t pid, int dirfd, const std::string& raw_path)
 	return abs_path;
 }
 
-static void getFileMode(int flags, PathInfoRecord* out) {
+static void getFileMode(int flags, FsStatParams* out) {
 	if ((flags & O_ACCMODE) == O_RDONLY) {
 		out->mode = Stat_Path_Mode_RDONLY;
 	} else if ((flags & O_ACCMODE) == O_WRONLY) {
@@ -299,7 +300,7 @@ static Stat_Path_Type getStatInfo(const std::string& path) {
 	return Stat_Path_Type_UNKNOWN;
 }
 
-static void populatePathInfo(pid_t pid, int dirfd, uint64_t addr, PathInfoRecord* out_rec) {
+static void populatePathInfo(pid_t pid, int dirfd, uint64_t addr, FsStatParams* out_rec) {
 	std::string raw_path = readStringFromMem(pid, addr);
 	out_rec->path = getAbsPath(pid, dirfd, raw_path);
 	out_rec->jail_type = getStatInfo("/proc/" + std::to_string(pid) + "/root" + out_rec->path);
@@ -308,8 +309,8 @@ static void populatePathInfo(pid_t pid, int dirfd, uint64_t addr, PathInfoRecord
 
 /* sockaddr decoder */
 
-static void parseSockaddr(struct seccomp_notif* req, SyscallRecord* rec, uint64_t addr,
-    socklen_t addrlen, const std::string& socket_type_str) {
+static void parseSockaddr(struct seccomp_notif* req, NetStatParams* net_rec, bool* out_has_net,
+    uint64_t addr, socklen_t addrlen, const std::string& socket_type_str) {
 	if (addrlen > sizeof(struct sockaddr_storage) || addr == 0) {
 		return;
 	}
@@ -331,25 +332,25 @@ static void parseSockaddr(struct seccomp_notif* req, SyscallRecord* rec, uint64_
 			struct sockaddr_in* sin = (struct sockaddr_in*)&ss;
 			inet_ntop(AF_INET, &sin->sin_addr, host, sizeof(host));
 			port = ntohs(sin->sin_port);
-			rec->res.has_net = true;
-			rec->res.net_type = Stat_NetResource_Type_IPV4;
-			rec->res.net_endpoint = std::string(host);
+			*out_has_net = true;
+			net_rec->type = Stat_NetResource_Type_IPV4;
+			net_rec->endpoint = std::string(host);
 			if (socket_type_str.find("SOCK_STREAM") != std::string::npos ||
 			    socket_type_str.find("SOCK_DGRAM") != std::string::npos) {
-				rec->res.has_net_port = true;
-				rec->res.net_port = port;
+				net_rec->has_port = true;
+				net_rec->port = port;
 			}
 		} else if (ss.ss_family == AF_INET6) {
 			struct sockaddr_in6* sin6 = (struct sockaddr_in6*)&ss;
 			inet_ntop(AF_INET6, &sin6->sin6_addr, host, sizeof(host));
 			port = ntohs(sin6->sin6_port);
-			rec->res.has_net = true;
-			rec->res.net_type = Stat_NetResource_Type_IPV6;
-			rec->res.net_endpoint = std::string(host);
+			*out_has_net = true;
+			net_rec->type = Stat_NetResource_Type_IPV6;
+			net_rec->endpoint = std::string(host);
 			if (socket_type_str.find("SOCK_STREAM") != std::string::npos ||
 			    socket_type_str.find("SOCK_DGRAM") != std::string::npos) {
-				rec->res.has_net_port = true;
-				rec->res.net_port = port;
+				net_rec->has_port = true;
+				net_rec->port = port;
 			}
 		} else if (ss.ss_family == AF_UNIX) {
 			struct sockaddr_un* sun = (struct sockaddr_un*)&ss;
@@ -366,31 +367,31 @@ static void parseSockaddr(struct seccomp_notif* req, SyscallRecord* rec, uint64_
 			std::string raw_path(sun->sun_path, strnlen(sun->sun_path, path_len));
 
 			if (path_len == 0) {
-				rec->res.has_net = true;
-				rec->res.net_type = Stat_NetResource_Type_UNIX;
-				rec->res.net_endpoint = "anonymous unix socket";
+				*out_has_net = true;
+				net_rec->type = Stat_NetResource_Type_UNIX;
+				net_rec->endpoint = "anonymous unix socket";
 			} else if (sun->sun_path[0] != '\0') {
 				std::string abs_path = getAbsPath(req->pid, AT_FDCWD, raw_path);
-				rec->res.has_net = true;
-				rec->res.net_type = Stat_NetResource_Type_UNIX;
-				rec->res.net_endpoint = abs_path;
+				*out_has_net = true;
+				net_rec->type = Stat_NetResource_Type_UNIX;
+				net_rec->endpoint = abs_path;
 
 				/* Also populate FS tracking for UNIX socket paths */
-				rec->res.has_net_path = true;
-				rec->res.net_path.path = abs_path;
-				rec->res.net_path.jail_type = getStatInfo(
+				net_rec->has_path = true;
+				net_rec->path.path = abs_path;
+				net_rec->path.jail_type = getStatInfo(
 				    "/proc/" + std::to_string(req->pid) + "/root" + abs_path);
-				rec->res.net_path.main_type = getStatInfo(abs_path);
+				net_rec->path.main_type = getStatInfo(abs_path);
 			} else {
-				rec->res.has_net = true;
-				rec->res.net_type = Stat_NetResource_Type_UNIX;
-				rec->res.net_endpoint =
+				*out_has_net = true;
+				net_rec->type = Stat_NetResource_Type_UNIX;
+				net_rec->endpoint =
 				    "@" + std::string(sun->sun_path + 1, path_len - 1);
 			}
 		} else if (ss.ss_family == AF_NETLINK) {
-			rec->res.has_net = true;
-			rec->res.net_type = Stat_NetResource_Type_NETLINK;
-			rec->res.net_endpoint = "NETLINK";
+			*out_has_net = true;
+			net_rec->type = Stat_NetResource_Type_NETLINK;
+			net_rec->endpoint = "NETLINK";
 		}
 	}
 }
@@ -502,13 +503,25 @@ static std::string getProtocolStr(int proto) {
 	return std::to_string(proto);
 }
 
+/* Decoded syscall result — groups all out-params of decodeSyscallArgs */
+
+struct ParsedArgs {
+	std::string args_str;
+	bool has_p1 = false;
+	FsStatParams p1;
+	bool has_p2 = false;
+	FsStatParams p2;
+	bool has_net = false;
+	NetStatParams net;
+};
+
 /* Generic arg decoder driven by ArgRole metadata from the table */
 
-static void decodeSyscallArgs(
-    struct seccomp_notif* req, SyscallRecord* rec, const SyscallDef& def) {
+static ParsedArgs decodeSyscallArgs(struct seccomp_notif* req, const SyscallDef& def) {
+	ParsedArgs out;
 	__u64* args = req->data.args;
 	int current_dirfd = AT_FDCWD;
-	PathInfoRecord* last_path = nullptr;
+	FsStatParams* last_path = nullptr;
 	std::string last_socket_type;
 
 	bool is_32bit = false;
@@ -530,13 +543,13 @@ static void decodeSyscallArgs(
 			break;
 
 		case ArgRole::PATH: {
-			PathInfoRecord* target;
-			if (!rec->res.has_path1) {
-				rec->res.has_path1 = true;
-				target = &rec->res.path1;
+			FsStatParams* target;
+			if (!out.has_p1) {
+				out.has_p1 = true;
+				target = &out.p1;
 			} else {
-				rec->res.has_path2 = true;
-				target = &rec->res.path2;
+				out.has_p2 = true;
+				target = &out.p2;
 			}
 			populatePathInfo(req->pid, current_dirfd, arg, target);
 			last_path = target;
@@ -549,7 +562,7 @@ static void decodeSyscallArgs(
 			std::string arg_str =
 			    "dirfd=" + (dirfd == AT_FDCWD || dirfd == -100 ? std::string("AT_FDCWD")
 									   : std::to_string(dirfd));
-			rec->args_str += arg_str + " ";
+			out.args_str += arg_str + " ";
 			current_dirfd = dirfd;
 			break;
 		}
@@ -564,45 +577,45 @@ static void decodeSyscallArgs(
 			char buf[32];
 			snprintf(buf, sizeof(buf), "0%o", (unsigned int)arg);
 			std::string arg_str = "mode=" + std::string(buf);
-			rec->args_str += arg_str + " ";
+			out.args_str += arg_str + " ";
 			break;
 		}
 
 		case ArgRole::ACCESS: {
 			std::string arg_str = "mode=" + getAccessMode((int)arg);
-			rec->args_str += arg_str + " ";
+			out.args_str += arg_str + " ";
 			break;
 		}
 
 		case ArgRole::UID: {
 			std::string arg_str = "owner=" + std::to_string((int)arg);
-			rec->args_str += arg_str + " ";
+			out.args_str += arg_str + " ";
 			break;
 		}
 
 		case ArgRole::GID: {
 			std::string arg_str = "group=" + std::to_string((int)arg);
-			rec->args_str += arg_str + " ";
+			out.args_str += arg_str + " ";
 			break;
 		}
 
 		case ArgRole::ARGV: {
-			appendStringArrayFromMem(req->pid, arg, is_32bit, "argv", rec->args_str);
+			appendStringArrayFromMem(req->pid, arg, is_32bit, "argv", out.args_str);
 			break;
 		}
 
 		case ArgRole::ENVP: {
-			appendStringArrayFromMem(req->pid, arg, is_32bit, "envp", rec->args_str);
+			appendStringArrayFromMem(req->pid, arg, is_32bit, "envp", out.args_str);
 			break;
 		}
 
 		case ArgRole::FD: {
 			std::string arg_str = "fd=" + std::to_string((int)arg);
-			rec->args_str += arg_str + " ";
+			out.args_str += arg_str + " ";
 			last_socket_type = getSocketType(req->pid, (int)arg);
 			if (!last_socket_type.empty()) {
 				std::string type_str = "type=" + last_socket_type;
-				rec->args_str += type_str + " ";
+				out.args_str += type_str + " ";
 			}
 			break;
 		}
@@ -612,7 +625,7 @@ static void decodeSyscallArgs(
 				break;
 			}
 			socklen_t addrlen = (i + 1 < 6) ? (socklen_t)args[i + 1] : 0;
-			parseSockaddr(req, rec, arg, addrlen, last_socket_type);
+			parseSockaddr(req, &out.net, &out.has_net, arg, addrlen, last_socket_type);
 			break;
 		}
 
@@ -621,25 +634,25 @@ static void decodeSyscallArgs(
 
 		case ArgRole::IFLAGS: {
 			std::string arg_str = "flags=" + std::to_string((int)arg);
-			rec->args_str += arg_str + " ";
+			out.args_str += arg_str + " ";
 			break;
 		}
 
 		case ArgRole::DOMAIN: {
 			std::string arg_str = "domain=" + getDomainStr((int)arg);
-			rec->args_str += arg_str + " ";
+			out.args_str += arg_str + " ";
 			break;
 		}
 
 		case ArgRole::STYPE: {
 			std::string arg_str = "type=" + getTypeStr((int)arg);
-			rec->args_str += arg_str + " ";
+			out.args_str += arg_str + " ";
 			break;
 		}
 
 		case ArgRole::PROTO: {
 			std::string arg_str = "protocol=" + getProtocolStr((int)arg);
-			rec->args_str += arg_str + " ";
+			out.args_str += arg_str + " ";
 			break;
 		}
 
@@ -665,35 +678,48 @@ static void decodeSyscallArgs(
 				if (how.resolve != 0) {
 					std::string arg_str =
 					    "resolve=" + std::to_string(how.resolve);
-					rec->args_str += arg_str + " ";
+					out.args_str += arg_str + " ";
 				}
 			}
 			break;
 		}
 		}
 	}
+	return out;
 }
 
 /* Public API table-driven syscall name lookup + arg decoding */
 
-void parseSyscall(struct seccomp_notif* req, SyscallRecord* rec) {
+void parseSyscall(struct seccomp_notif* req) {
 	int nr = req->data.nr;
-
 	const SyscallDef* def = nullptr;
+	std::string sys_name;
+
 	for (size_t i = 0; i < kTracedSyscallCount; i++) {
 		if (kTracedSyscalls[i].nr == nr) {
-			rec->name = kTracedSyscalls[i].display_name;
+			sys_name = kTracedSyscalls[i].display_name;
 			def = &kTracedSyscalls[i];
 			break;
 		}
 	}
 
-	if (rec->name.empty()) {
-		rec->name = "sys_" + std::to_string(nr);
+	if (sys_name.empty()) {
+		sys_name = "sys_" + std::to_string(nr);
 	}
 
+	ParsedArgs pa;
 	if (def) {
-		decodeSyscallArgs(req, rec, *def);
+		pa = decodeSyscallArgs(req, *def);
+	}
+
+	if (pa.has_p1) {
+		addFsStat(pa.p1, sys_name, pa.args_str);
+	}
+	if (pa.has_p2) {
+		addFsStat(pa.p2, sys_name, pa.args_str);
+	}
+	if (pa.has_net) {
+		addNetStat(pa.net, sys_name, pa.args_str);
 	}
 }
 

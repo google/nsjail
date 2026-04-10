@@ -196,7 +196,7 @@ test: $(BIN)
 
 	# --- Nstun standalone / proxy mode tests ---
 	$(call run_test, ./nsjail --config tests/nstun.cfg -Mo -q -t 2 --seccomp_unotify -- /bin/bash -c 'exit 77', 77)
-	$(call run_test, { ./nsjail --config tests/nstun.cfg -Ml --port 31338 -q -t 5 --seccomp_unotify -- /bin/bash -c "sleep 10" & }; sleep 2; echo -n "GET / HTTP/1.0\r\n\r\n" | nc 127.0.0.1 31338 >/dev/null 2>&1 && exit 77, 77)
+	$(call run_test, { ./nsjail --config tests/nstun.cfg -Ml --port 31338 -q -t 5 --seccomp_unotify -- /bin/bash -c "sleep 10" & }; sleep 2; echo -ne 'GET / HTTP/1.0\r\n\r\n' | nc 127.0.0.1 31338 >/dev/null 2>&1 && exit 77, 77)
 
 	# --- HOST_TO_GUEST TCP inbound proxy test (IPv4 + IPv6) ---
 	$(call run_test, { ./nsjail --config tests/dns_http_host_to_guest.cfg -q -t 5 & }; sleep 2; wget -4 -q -O /dev/null --timeout=5 http://127.0.0.1:8080/ && wget -6 -q -O /dev/null --timeout=5 http://[::1]:8080/ && exit 77, 77)
@@ -279,7 +279,7 @@ net.o: net.h monitor.h nsjail.h config.pb.h logs.h macros.h missing_defs.h
 net.o: nstun/nstun.h subproc.h util.h
 nsjail.o: nsjail.h config.pb.h cgroup2.h cmdline.h logs.h macros.h
 nsjail.o: missing_defs.h monitor.h net.h sandbox.h subproc.h unotify/stats.h
-nsjail.o: unotify/record.h unotify/unotify.pb.h util.h
+nsjail.o: unotify/unotify.pb.h util.h
 pid.o: pid.h nsjail.h config.pb.h logs.h subproc.h monitor.h
 sandbox.o: sandbox.h nsjail.h config.pb.h subproc.h monitor.h
 sandbox.o: kafel/include/kafel.h logs.h missing_defs.h unotify/syscall_defs.h
@@ -291,14 +291,13 @@ uts.o: uts.h nsjail.h config.pb.h logs.h
 user.o: user.h nsjail.h config.pb.h logs.h macros.h subproc.h monitor.h
 user.o: util.h missing_defs.h
 unotify/unotify.o: unotify/unotify.h nsjail.h config.pb.h logs.h
-unotify/unotify.o: missing_defs.h monitor.h unotify/record.h
-unotify/unotify.o: unotify/unotify.pb.h unotify/stats.h unotify/syscall.h
-unotify/unotify.o: util.h
-unotify/stats.o: unotify/stats.h nsjail.h config.pb.h unotify/record.h
-unotify/stats.o: unotify/unotify.pb.h logs.h util.h missing_defs.h
-unotify/syscall.o: unotify/syscall.h unotify/record.h unotify/unotify.pb.h
-unotify/syscall.o: logs.h macros.h missing_defs.h unotify/syscall_defs.h
-unotify/syscall.o: missing_defs.h util.h nsjail.h config.pb.h
+unotify/unotify.o: missing_defs.h monitor.h unotify/stats.h
+unotify/unotify.o: unotify/unotify.pb.h unotify/syscall.h util.h
+unotify/stats.o: unotify/stats.h nsjail.h config.pb.h unotify/unotify.pb.h
+unotify/stats.o: logs.h util.h missing_defs.h
+unotify/syscall.o: unotify/syscall.h logs.h macros.h missing_defs.h
+unotify/syscall.o: unotify/stats.h nsjail.h config.pb.h unotify/unotify.pb.h
+unotify/syscall.o: unotify/syscall_defs.h missing_defs.h util.h
 util.o: util.h missing_defs.h nsjail.h config.pb.h logs.h macros.h
 nstun/nstun.o: nstun/nstun.h monitor.h nstun/core.h nstun/net_defs.h
 nstun/nstun.o: nstun/encap.h nstun/icmp.h nstun/iface.h nstun/ip.h logs.h

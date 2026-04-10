@@ -73,6 +73,10 @@ static constexpr SyscallDef kTracedSyscalls[] = {
     {__NR_stat, "newstat", "stat", SyscallCategory::FS,
 	{A::PATH, A::SKIP, A::SKIP, A::SKIP, A::SKIP, A::SKIP}},
 #endif /* __NR_stat */
+#ifdef __NR_statfs
+    {__NR_statfs, "statfs", "statfs", SyscallCategory::FS,
+	{A::PATH, A::SKIP, A::SKIP, A::SKIP, A::SKIP, A::SKIP}},
+#endif /* __NR_statfs */
 #ifdef __NR_lstat
     {__NR_lstat, "newlstat", "lstat", SyscallCategory::FS,
 	{A::PATH, A::SKIP, A::SKIP, A::SKIP, A::SKIP, A::SKIP}},
@@ -217,6 +221,7 @@ static constexpr SyscallDef kTracedSyscalls[] = {
     {__NR_symlinkat, "symlinkat", "symlinkat", SyscallCategory::FS,
 	{A::PATH, A::DIRFD, A::PATH, A::SKIP, A::SKIP, A::SKIP}},
 #endif /* __NR_symlinkat */
+
 
 /* NET - sockaddr-based */
 #ifdef __NR_connect
