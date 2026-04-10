@@ -110,10 +110,15 @@ bool addFd(int fd, uint32_t events, fdCb_t cb, void* data) {
 	if (fd < 0) {
 		return false;
 	}
-	current_ctx.fd_handlers[fd] = {.cb = cb, .data = data};
+	current_ctx.fd_handlers[fd] = {
+	    .cb = cb,
+	    .data = data,
+	};
 	struct epoll_event ev = {
 	    .events = events,
-	    .data = {.fd = fd},
+	    .data = {
+		.fd = fd,
+	    },
 	};
 	if (epoll_ctl(current_ctx.epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1) {
 		PLOG_W("epoll_ctl(EPOLL_CTL_ADD, fd=%d)", fd);
@@ -140,7 +145,9 @@ bool modFd(int fd, uint32_t events) {
 	}
 	struct epoll_event ev = {
 	    .events = events,
-	    .data = {.fd = fd},
+	    .data = {
+		.fd = fd,
+	    },
 	};
 	if (epoll_ctl(current_ctx.epoll_fd, EPOLL_CTL_MOD, fd, &ev) == -1) {
 		PLOG_W("epoll_ctl(EPOLL_CTL_MOD, fd=%d)", fd);
@@ -505,8 +512,8 @@ static void startMonitorThread(
 	auto it = nsj->pids.find(pid);
 	if (it != nsj->pids.end()) {
 		args.start_time = it->second.start;
-		snprintf(args.remote_txt, sizeof(args.remote_txt), "%s",
-		    it->second.remote_txt.c_str());
+		snprintf(
+		    args.remote_txt, sizeof(args.remote_txt), "%s", it->second.remote_txt.c_str());
 	}
 
 	*thread_out = std::thread(monitorThread, args);
@@ -681,7 +688,10 @@ int runStandaloneMode(nsj_t* nsj) {
 			time_t now = time(nullptr);
 			if (now - start_time < 1) {
 				LOG_I("Child exited too quickly, rate-limiting respawn");
-				struct timespec ts = {.tv_sec = 1, .tv_nsec = 0};
+				struct timespec ts = {
+				    .tv_sec = 1,
+				    .tv_nsec = 0,
+				};
 				ppoll(nullptr, 0, &ts, nullptr);
 			}
 

@@ -130,11 +130,10 @@ static bool setTimer(nsj_t* nsj) {
 		    .tv_sec = 1,
 		    .tv_usec = 0,
 		},
-	    .it_value =
-		{
-		    .tv_sec = 1,
-		    .tv_usec = 0,
-		},
+	    .it_value = {
+		.tv_sec = 1,
+		.tv_usec = 0,
+	    },
 	};
 	if (setitimer(ITIMER_REAL, &it, NULL) == -1) {
 		PLOG_E("setitimer(ITIMER_REAL)");

@@ -9,6 +9,8 @@ AlignEscapedNewlines: Right
 AlignOperands: true
 AllowShortFunctionsOnASingleLine: false
 AlwaysBreakBeforeMultilineStrings: false
+BreakBeforeCloseBracketBracedList: true
+Cpp11BracedListStyle: FunctionCall
 IndentCaseLabels: false
 ---
 Language: Proto

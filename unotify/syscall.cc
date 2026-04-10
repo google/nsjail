@@ -101,8 +101,14 @@ static std::string readStringFromMem(pid_t pid, uint64_t addr) {
 	/* Heap-allocate to avoid stack pressure, but avoid static buffer reuse
 	 * in case it causes subtle issues with event interleaving */
 	std::string buf(kMaxPathLen - 1, '\0');
-	struct iovec local = {.iov_base = buf.data(), .iov_len = buf.size()};
-	struct iovec remote = {.iov_base = (void*)addr, .iov_len = buf.size()};
+	struct iovec local = {
+	    .iov_base = buf.data(),
+	    .iov_len = buf.size(),
+	};
+	struct iovec remote = {
+	    .iov_base = (void*)addr,
+	    .iov_len = buf.size(),
+	};
 
 	ssize_t ret = process_vm_readv(pid, &local, 1, &remote, 1, 0);
 	if (ret <= 0) {
@@ -122,9 +128,13 @@ static void appendStringArrayFromMem(
 	if (is_32bit) {
 		std::vector<uint32_t> ptrs(kMaxArgs);
 		struct iovec local = {
-		    .iov_base = ptrs.data(), .iov_len = ptrs.size() * sizeof(uint32_t)};
+		    .iov_base = ptrs.data(),
+		    .iov_len = ptrs.size() * sizeof(uint32_t),
+		};
 		struct iovec remote = {
-		    .iov_base = (void*)addr, .iov_len = ptrs.size() * sizeof(uint32_t)};
+		    .iov_base = (void*)addr,
+		    .iov_len = ptrs.size() * sizeof(uint32_t),
+		};
 
 		ssize_t ret = process_vm_readv(pid, &local, 1, &remote, 1, 0);
 		if (ret <= 0) {
@@ -143,9 +153,13 @@ static void appendStringArrayFromMem(
 	} else {
 		std::vector<uint64_t> ptrs(kMaxArgs);
 		struct iovec local = {
-		    .iov_base = ptrs.data(), .iov_len = ptrs.size() * sizeof(uint64_t)};
+		    .iov_base = ptrs.data(),
+		    .iov_len = ptrs.size() * sizeof(uint64_t),
+		};
 		struct iovec remote = {
-		    .iov_base = (void*)addr, .iov_len = ptrs.size() * sizeof(uint64_t)};
+		    .iov_base = (void*)addr,
+		    .iov_len = ptrs.size() * sizeof(uint64_t),
+		};
 
 		ssize_t ret = process_vm_readv(pid, &local, 1, &remote, 1, 0);
 		if (ret <= 0) {
@@ -301,8 +315,14 @@ static void parseSockaddr(struct seccomp_notif* req, SyscallRecord* rec, uint64_
 	}
 
 	struct sockaddr_storage ss = {};
-	struct iovec local = {.iov_base = &ss, .iov_len = addrlen};
-	struct iovec remote = {.iov_base = (void*)addr, .iov_len = addrlen};
+	struct iovec local = {
+	    .iov_base = &ss,
+	    .iov_len = addrlen,
+	};
+	struct iovec remote = {
+	    .iov_base = (void*)addr,
+	    .iov_len = addrlen,
+	};
 	ssize_t read_bytes = process_vm_readv(req->pid, &local, 1, &remote, 1, 0);
 	if (read_bytes >= (ssize_t)sizeof(sa_family_t)) {
 		char host[INET6_ADDRSTRLEN] = "unknown";
@@ -629,8 +649,14 @@ static void decodeSyscallArgs(
 				__u64 mode;
 				__u64 resolve;
 			} how = {};
-			struct iovec local = {.iov_base = &how, .iov_len = sizeof(how)};
-			struct iovec remote = {.iov_base = (void*)arg, .iov_len = sizeof(how)};
+			struct iovec local = {
+			    .iov_base = &how,
+			    .iov_len = sizeof(how),
+			};
+			struct iovec remote = {
+			    .iov_base = (void*)arg,
+			    .iov_len = sizeof(how),
+			};
 			if (process_vm_readv(req->pid, &local, 1, &remote, 1, 0) >=
 			    (ssize_t)sizeof(how.flags)) {
 				if (last_path) {
