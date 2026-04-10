@@ -16,7 +16,7 @@
 #include "logs.h"
 #include "macros.h"
 #include "missing_defs.h"
-#include "unotify/stats.h"
+#include "unotify/stats_internal.h"
 #include "unotify/syscall_defs.h"
 #include "util.h"
 
@@ -610,12 +610,10 @@ static ParsedArgs decodeSyscallArgs(struct seccomp_notif* req, const SyscallDef&
 		}
 
 		case ArgRole::FD: {
-			std::string arg_str = "fd=" + std::to_string((int)arg);
-			out.args_str += arg_str + " ";
+			/* Don't emit raw fd number — it splits dedup unnecessarily */
 			last_socket_type = getSocketType(req->pid, (int)arg);
 			if (!last_socket_type.empty()) {
-				std::string type_str = "type=" + last_socket_type;
-				out.args_str += type_str + " ";
+				out.args_str += "type=" + last_socket_type + " ";
 			}
 			break;
 		}

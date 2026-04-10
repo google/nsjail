@@ -1,4 +1,5 @@
 #include "unotify/stats.h"
+#include "unotify/stats_internal.h"
 
 #include <fcntl.h>
 #include <google/protobuf/text_format.h>
