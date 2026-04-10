@@ -207,6 +207,8 @@ int main(int argc, char* argv[]) {
 		      "for best compatibility.");
 	}
 	std::unique_ptr<nsj_t> nsj = cmdline::parseArgs(argc, argv);
+	LOG_D("Config:\n%s",  nsj->njc.DebugString().c_str());
+
 	std::unique_ptr<struct termios> trm = nsjail::getTC(STDIN_FILENO);
 
 	if (!nsj) {
