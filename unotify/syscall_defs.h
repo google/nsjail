@@ -125,6 +125,10 @@ static constexpr SyscallDef kTracedSyscalls[] = {
     {__NR_chroot, "chroot", "chroot", SyscallCategory::FS,
 	{A::PATH, A::SKIP, A::SKIP, A::SKIP, A::SKIP, A::SKIP}},
 #endif /* __NR_chroot */
+#ifdef __NR_utimes
+    {__NR_utimes, "utimes", "utimes", SyscallCategory::FS,
+	{A::PATH, A::SKIP, A::SKIP, A::SKIP, A::SKIP, A::SKIP}},
+#endif /* __NR_utimes */
 
 /* FS - arg0 = dirfd, arg1 = path */
 #ifdef __NR_openat
@@ -143,6 +147,10 @@ static constexpr SyscallDef kTracedSyscalls[] = {
     {__NR_statx, "statx", "statx", SyscallCategory::FS,
 	{A::DIRFD, A::PATH, A::SKIP, A::SKIP, A::SKIP, A::SKIP}},
 #endif /* __NR_statx */
+#ifdef __NR_utimensat
+    {__NR_utimensat, "utimensat", "utimensat", SyscallCategory::FS,
+	{A::DIRFD, A::PATH, A::SKIP, A::SKIP, A::SKIP, A::SKIP}},
+#endif /* __NR_utimensat */
 #ifdef __NR_faccessat
     {__NR_faccessat, "faccessat", "faccessat", SyscallCategory::FS,
 	{A::DIRFD, A::PATH, A::ACCESS, A::SKIP, A::SKIP, A::SKIP}},
