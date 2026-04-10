@@ -127,17 +127,7 @@ static void unotifyCb(int fd, uint32_t events, void* /* data */) {
 	memset(resp, 0, current_ctx.resp_size);
 	resp->id = req->id;
 
-	if (rec.name == "connect" && rec.res.has_net &&
-	    (rec.res.net_type == Stat_NetResource_Type_IPV4 ||
-		rec.res.net_type == Stat_NetResource_Type_IPV6)) {
-		resp->flags = 0;
-		resp->error = -ECONNREFUSED;
-		resp->val = -1;
-		LOG_D("unotify: failing network connect with ECONNREFUSED");
-	} else {
-		resp->flags = SECCOMP_USER_NOTIF_FLAG_CONTINUE;
-	}
-
+	resp->flags = SECCOMP_USER_NOTIF_FLAG_CONTINUE;
 	if (TEMP_FAILURE_RETRY(ioctl(fd, SECCOMP_IOCTL_NOTIF_SEND, resp)) == -1) {
 		if (errno != ENOENT) {
 			PLOG_W("SECCOMP_IOCTL_NOTIF_SEND");
