@@ -30,9 +30,6 @@
 #include <sys/prctl.h>
 #include <unistd.h>
 
-#include <unordered_map>
-#include <vector>
-
 #include "logs.h"
 #include "macros.h"
 #include "missing_defs.h"
@@ -49,11 +46,11 @@ namespace monitor {
 /* --- pipe bundle for listen-mode proxy ----------------- */
 
 struct ProxyPipes {
-	int child_in;
-	int child_out;
-	int parent_in;
-	int parent_out;
-	int connfd;
+	int child_in = -1;
+	int child_out = -1;
+	int parent_in = -1;
+	int parent_out = -1;
+	int connfd = -1;
 
 	void closeAll() {
 		if (child_in >= 0) {
@@ -78,30 +75,58 @@ struct ProxyPipes {
 /* --- epoll handler types ------------------------------- */
 
 struct fdHandler_t {
+	int fd;
 	fdCb_t cb;
 	void* data;
 };
 
 /* --- per-thread context -------------------------------- */
 
-constexpr size_t MAX_EVENTS = 64;
+constexpr size_t MAX_EVENTS = 16;
+constexpr size_t MAX_HANDLERS = 2048;
+constexpr size_t MAX_PERIODICS = 16;
+constexpr int kSetupTimeoutSec = 10;
+constexpr int kShutdownEscalationSec = 2;
+constexpr int kPollTimeoutSec = 1;
+constexpr int kPeriodicIntervalMs = 1000;
 
 struct ThreadCtx {
 	/* child identity */
 	nsj_t* nsj = nullptr;
 	pid_t pid = -1;
 	int pidfd = -1;
+	int ipc_fd = -1;
 	time_t start_time = 0;
 	char remote_txt[128];
 
-	/* proxy pipe FDs (listen mode only, nullptr in standalone) */
-	ProxyPipes* pipes = nullptr;
+	/* proxy pipe FDs (listen mode only) */
+	ProxyPipes pipes;
 
 	/* epoll state */
 	int epoll_fd = -1;
-	std::unordered_map<int, fdHandler_t> fd_handlers;
-	std::vector<periodicCb_t> periodics;
+	fdHandler_t fd_handlers[MAX_HANDLERS];
+	size_t fd_handlers_count = 0;
+	periodicCb_t periodics[MAX_PERIODICS];
+	size_t periodics_count = 0;
 	bool stop_requested = false;
+
+	void reset() {
+		nsj = nullptr;
+		pid = -1;
+		pidfd = -1;
+		ipc_fd = -1;
+		start_time = 0;
+		remote_txt[0] = '\0';
+		pipes.child_in = -1;
+		pipes.child_out = -1;
+		pipes.parent_in = -1;
+		pipes.parent_out = -1;
+		pipes.connfd = -1;
+		epoll_fd = -1;
+		fd_handlers_count = 0;
+		periodics_count = 0;
+		stop_requested = false;
+	}
 };
 
 static thread_local ThreadCtx current_ctx;
@@ -110,7 +135,18 @@ bool addFd(int fd, uint32_t events, fdCb_t cb, void* data) {
 	if (fd < 0) {
 		return false;
 	}
-	current_ctx.fd_handlers[fd] = {
+	for (size_t i = 0; i < current_ctx.fd_handlers_count; ++i) {
+		if (current_ctx.fd_handlers[i].fd == fd) {
+			LOG_W("FD %d already registered in monitor", fd);
+			return false;
+		}
+	}
+	if (current_ctx.fd_handlers_count >= MAX_HANDLERS) {
+		LOG_W("Too many FD handlers in monitor");
+		return false;
+	}
+	current_ctx.fd_handlers[current_ctx.fd_handlers_count++] = {
+	    .fd = fd,
 	    .cb = cb,
 	    .data = data,
 	};
@@ -122,7 +158,7 @@ bool addFd(int fd, uint32_t events, fdCb_t cb, void* data) {
 	};
 	if (epoll_ctl(current_ctx.epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1) {
 		PLOG_W("epoll_ctl(EPOLL_CTL_ADD, fd=%d)", fd);
-		current_ctx.fd_handlers.erase(fd);
+		current_ctx.fd_handlers_count--;
 		return false;
 	}
 	return true;
@@ -132,7 +168,19 @@ bool removeFd(int fd) {
 	if (fd < 0) {
 		return false;
 	}
-	current_ctx.fd_handlers.erase(fd);
+	bool found = false;
+	for (size_t i = 0; i < current_ctx.fd_handlers_count; ++i) {
+		if (current_ctx.fd_handlers[i].fd == fd) {
+			current_ctx.fd_handlers[i] =
+			    current_ctx.fd_handlers[current_ctx.fd_handlers_count - 1];
+			current_ctx.fd_handlers_count--;
+			found = true;
+			break;
+		}
+	}
+	if (!found) {
+		LOG_W("FD %d not found in monitor", fd);
+	}
 	if (epoll_ctl(current_ctx.epoll_fd, EPOLL_CTL_DEL, fd, nullptr) == -1) {
 		PLOG_W("epoll_ctl(EPOLL_CTL_DEL, fd=%d)", fd);
 	}
@@ -157,32 +205,47 @@ bool modFd(int fd, uint32_t events) {
 }
 
 void addPeriodic(periodicCb_t cb) {
-	current_ctx.periodics.push_back(cb);
+	if (current_ctx.periodics_count >= MAX_PERIODICS) {
+		LOG_W("Too many periodic callbacks in monitor");
+		return;
+	}
+	current_ctx.periodics[current_ctx.periodics_count++] = cb;
 }
 
 void stop() {
 	current_ctx.stop_requested = true;
 }
 
+static fdHandler_t* findHandler(int fd) {
+	for (size_t j = 0; j < current_ctx.fd_handlers_count; ++j) {
+		if (current_ctx.fd_handlers[j].fd == fd) {
+			return &current_ctx.fd_handlers[j];
+		}
+	}
+	return nullptr;
+}
+
 static void dispatchEvents(struct epoll_event* events, int nfds) {
 	for (int i = 0; i < nfds; ++i) {
 		int fd = events[i].data.fd;
-		auto it = current_ctx.fd_handlers.find(fd);
-		if (it != current_ctx.fd_handlers.end() && it->second.cb) {
-			it->second.cb(fd, events[i].events, it->second.data);
+		fdHandler_t* h = findHandler(fd);
+		if (h && h->cb) {
+			h->cb(fd, events[i].events, h->data);
 		}
 	}
 }
 
-static void run() {
+void run() {
 	struct epoll_event events[MAX_EVENTS];
 	uint64_t last_periodic_ms = util::timeUsec() / 1000;
 
 	for (;;) {
 		uint64_t now_ms = util::timeUsec() / 1000;
-		int timeout_ms = current_ctx.periodics.empty()
-				     ? -1
-				     : std::max(0, (int)(1000 - (now_ms - last_periodic_ms)));
+		int timeout_ms = -1;
+		if (current_ctx.periodics_count > 0) {
+			timeout_ms =
+			    std::max(0, (int)(kPeriodicIntervalMs - (now_ms - last_periodic_ms)));
+		}
 
 		int nfds = epoll_wait(current_ctx.epoll_fd, events, MAX_EVENTS, timeout_ms);
 		if (nfds == -1) {
@@ -196,10 +259,12 @@ static void run() {
 		dispatchEvents(events, nfds);
 
 		now_ms = util::timeUsec() / 1000;
-		if (!current_ctx.periodics.empty() && now_ms - last_periodic_ms >= 1000) {
+		if (current_ctx.periodics_count > 0 &&
+		    now_ms - last_periodic_ms >= kPeriodicIntervalMs) {
 			last_periodic_ms = now_ms;
-			for (auto cb : current_ctx.periodics) {
-				cb();
+			size_t count = current_ctx.periodics_count;
+			for (size_t i = 0; i < count; ++i) {
+				current_ctx.periodics[i]();
 			}
 		}
 
@@ -250,13 +315,16 @@ static void timeoutCb() {
 	nstun_periodic();
 }
 
-static void cleanUpAndExit() {
+void cleanUpAndExit() {
 	nstun_destroy_parent();
 	unotify::stop();
 	sockproxy::stop();
 
-	if (current_ctx.pipes) {
-		current_ctx.pipes->closeAll();
+	current_ctx.pipes.closeAll();
+
+	if (current_ctx.ipc_fd >= 0) {
+		close(current_ctx.ipc_fd);
+		current_ctx.ipc_fd = -1;
 	}
 
 	if (current_ctx.epoll_fd != -1) {
@@ -264,12 +332,12 @@ static void cleanUpAndExit() {
 		current_ctx.epoll_fd = -1;
 	}
 
-	current_ctx.periodics.clear();
-	current_ctx.fd_handlers.clear();
+	current_ctx.periodics_count = 0;
+	current_ctx.fd_handlers_count = 0;
 	current_ctx.stop_requested = false;
 }
 
-static void killAndExit() {
+void killAndExit() {
 	if (current_ctx.pidfd >= 0) {
 		util::syscall(__NR_pidfd_send_signal, current_ctx.pidfd, SIGKILL, 0, 0);
 	}
@@ -313,6 +381,7 @@ static void ipcFdCb(int ipc_fd, uint32_t events, void* /* data */) {
 		LOG_D("ipc_fd=%d closed (child reached execve), unregistering", ipc_fd);
 		removeFd(ipc_fd);
 		close(ipc_fd);
+		current_ctx.ipc_fd = -1;
 	}
 }
 
@@ -324,80 +393,112 @@ static void ipcFdCb(int ipc_fd, uint32_t events, void* /* data */) {
  *
  * Returns true on success, false on error (caller should killAndExit).
  */
-static bool receiveChildFds(int ipc_fd, nsj_t* nsj, pid_t pid) {
+static bool receiveChildFds(int ipc_fd, nsj_t* nsj, pid_t pid, int pidfd) {
+	bool received_tap = false;
+	bool received_unotify = false;
+	int fd = -1;
+	bool fd_consumed = false;
+	bool success = false;
+
 	for (;;) {
-		struct pollfd pfd = {
-		    .fd = ipc_fd,
-		    .events = POLLIN,
-		    .revents = 0,
+		fd = -1;
+		fd_consumed = false;
+
+		struct pollfd pfds[2] = {
+		    {
+			.fd = ipc_fd,
+			.events = POLLIN,
+			.revents = 0,
+		    },
+		    {
+			.fd = pidfd,
+			.events = POLLIN,
+			.revents = 0,
+		    },
 		};
 		struct timespec ts = {
-		    .tv_sec = 10,
+		    .tv_sec = kSetupTimeoutSec,
 		    .tv_nsec = 0,
 		};
-		int res = ppoll(&pfd, 1, &ts, nullptr);
+		int res = ppoll(pfds, 2, &ts, nullptr);
 		if (res == -1) {
 			if (errno == EINTR) {
 				continue;
 			}
-			PLOG_W("ppoll(ipc_fd)");
-			return false;
+			PLOG_W("ppoll(ipc_fd, pidfd)");
+			goto cleanup;
 		}
 		if (res == 0) {
 			LOG_W("Timeout waiting for setup FDs from child");
-			return false;
+			goto cleanup;
+		}
+
+		if (pfds[1].revents & (POLLIN | POLLERR | POLLHUP)) {
+			LOG_W("Child died during setup");
+			goto cleanup;
+		}
+
+		if (!(pfds[0].revents & POLLIN)) {
+			continue;
 		}
 
 		uint32_t id = 0;
-		int fd = -1;
 		if (!util::recvMsg(ipc_fd, &id, &fd)) {
 			LOG_W("Failed to receive IPC message from child");
-			return false;
+			goto cleanup;
 		}
 
 		switch (id) {
 		case monitor::MSG_TAG_READY_J2H:
-			if (fd >= 0) {
-				close(fd);
-			}
-			return true;
+			success = true;
+			goto cleanup;
 
 		case monitor::MSG_TAG_TAP:
+			if (received_tap) {
+				LOG_W("Duplicate TAP message from child");
+				goto cleanup;
+			}
+			received_tap = true;
 			if (!nstun_init_parent(fd, nsj, pid)) {
 				LOG_W("nstun_init_parent failed");
-				if (fd >= 0) {
-					close(fd);
-				}
-				return false;
+				goto cleanup;
 			}
+			fd_consumed = true;
 			break;
 
 		case monitor::MSG_TAG_UNOTIFY:
+			if (received_unotify) {
+				LOG_W("Duplicate UNOTIFY message from child");
+				goto cleanup;
+			}
+			received_unotify = true;
 			LOG_D("Received unotif_fd=%d from child", fd);
 			if (!unotify::start(nsj, fd)) {
 				LOG_W("Failed to start unotify");
-				if (fd >= 0) {
-					close(fd);
-				}
-				return false;
+				goto cleanup;
 			}
+			fd_consumed = true;
 			break;
 
 		case monitor::MSG_TAG_ERROR:
 			LOG_W("Child failed to launch");
-			if (fd >= 0) {
-				close(fd);
-			}
-			return false;
+			goto cleanup;
 
 		default:
 			LOG_W("Unknown IPC message type 0x%08x from child", id);
-			if (fd >= 0) {
-				close(fd);
-			}
-			return false;
+			goto cleanup;
+		}
+
+		if (!fd_consumed && fd >= 0) {
+			close(fd);
 		}
 	}
+
+cleanup:
+	if (!fd_consumed && fd >= 0) {
+		close(fd);
+	}
+	return success;
 }
 
 static void proxyCloseCb(void* /* data */) {
@@ -419,6 +520,37 @@ struct MonitorArgs {
 	char remote_txt[128];
 };
 
+static bool setupJail(const MonitorArgs& args) {
+	if (!receiveChildFds(args.ipc_fd, args.nsj, args.pid, args.pidfd)) {
+		return false;
+	}
+	if (!util::sendMsg(args.ipc_fd, monitor::MSG_TAG_READY_H2J)) {
+		LOG_W("Failed to send READY to child");
+		return false;
+	}
+	return true;
+}
+
+static bool registerEventSources(const MonitorArgs& args) {
+	if (!addFd(args.pidfd, EPOLLIN, pidfdCb, nullptr)) {
+		return false;
+	}
+
+	if (current_ctx.pipes.connfd >= 0) {
+		if (!sockproxy::start(&current_ctx.pipes.connfd, &current_ctx.pipes.parent_out,
+			&current_ctx.pipes.parent_in, proxyCloseCb, nullptr)) {
+			return false;
+		}
+	}
+
+	if (!util::setNonBlock(args.ipc_fd) ||
+	    !addFd(args.ipc_fd, EPOLLIN | EPOLLRDHUP, ipcFdCb, nullptr)) {
+		return false;
+	}
+
+	return true;
+}
+
 static void monitorThread(MonitorArgs args) {
 	/* -- Thread identity -- */
 	char name[16];
@@ -433,11 +565,12 @@ static void monitorThread(MonitorArgs args) {
 	pthread_sigmask(SIG_BLOCK, &set, nullptr);
 
 	/* -- Initialize thread-local context -- */
-	current_ctx = ThreadCtx();
+	current_ctx.reset();
 	current_ctx.nsj = args.nsj;
 	current_ctx.pid = args.pid;
 	current_ctx.pidfd = args.pidfd;
-	current_ctx.pipes = (args.pipes.connfd >= 0) ? &args.pipes : nullptr;
+	current_ctx.ipc_fd = args.ipc_fd;
+	current_ctx.pipes = args.pipes;
 	current_ctx.start_time = args.start_time;
 	snprintf(current_ctx.remote_txt, sizeof(current_ctx.remote_txt), "%s", args.remote_txt);
 
@@ -452,35 +585,14 @@ static void monitorThread(MonitorArgs args) {
 		return;
 	}
 
-	/* -- Phase 1: receive setup FDs from child -- */
-	if (!receiveChildFds(args.ipc_fd, args.nsj, args.pid)) {
-		killAndExit();
-		return;
-	}
-
-	/* -- Phase 2: acknowledge child -- */
-	if (!util::sendMsg(args.ipc_fd, monitor::MSG_TAG_READY_H2J)) {
-		LOG_W("Failed to send READY to child");
+	/* -- Phase 1 & 2: setup and ack -- */
+	if (!setupJail(args)) {
 		killAndExit();
 		return;
 	}
 
 	/* -- Phase 3: register epoll sources -- */
-	if (!addFd(args.pidfd, EPOLLIN, pidfdCb, nullptr)) {
-		killAndExit();
-		return;
-	}
-
-	if (current_ctx.pipes) {
-		if (!sockproxy::start(&current_ctx.pipes->connfd, &current_ctx.pipes->parent_out,
-			&current_ctx.pipes->parent_in, proxyCloseCb, nullptr)) {
-			killAndExit();
-			return;
-		}
-	}
-
-	if (!util::setNonBlock(args.ipc_fd) ||
-	    !addFd(args.ipc_fd, EPOLLIN | EPOLLRDHUP, ipcFdCb, nullptr)) {
+	if (!registerEventSources(args)) {
 		killAndExit();
 		return;
 	}
@@ -503,7 +615,7 @@ static void startMonitorThread(
 	    .pid = pid,
 	    .ipc_fd = ipc_fd,
 	    .pidfd = pidfd,
-	    .pipes = pipes ? *pipes : ProxyPipes{-1, -1, -1, -1, -1},
+	    .pipes = pipes ? *pipes : ProxyPipes{},
 	    .start_time = 0,
 	    .remote_txt = {},
 	};
@@ -536,8 +648,9 @@ static bool handleShutdownSignal(nsj_t* nsj, int sig, time_t* shutdown_start, in
 			close(*listenfd);
 			*listenfd = -1;
 		}
-	} else if (time(nullptr) - *shutdown_start >= 2) {
-		LOG_W("Processes did not exit after 2s, escalating to SIGKILL");
+	} else if (time(nullptr) - *shutdown_start >= kShutdownEscalationSec) {
+		LOG_W("Processes did not exit after %ds, escalating to SIGKILL",
+		    kShutdownEscalationSec);
 		subproc::killAll(nsj, SIGKILL);
 	}
 
@@ -561,7 +674,7 @@ int runListenMode(nsj_t* nsj) {
 		    .revents = 0,
 		};
 		struct timespec ts = {
-		    .tv_sec = 1,
+		    .tv_sec = kPollTimeoutSec,
 		    .tv_nsec = 0,
 		};
 		int res = ppoll(&pfd, 1, &ts, nullptr);
@@ -583,13 +696,7 @@ int runListenMode(nsj_t* nsj) {
 		if (res > 0 && listenfd >= 0 && (pfd.revents & POLLIN)) {
 			int connfd = net::acceptConn(listenfd);
 			if (connfd >= 0) {
-				ProxyPipes pipes = {
-				    .child_in = -1,
-				    .child_out = -1,
-				    .parent_in = -1,
-				    .parent_out = -1,
-				    .connfd = -1,
-				};
+				ProxyPipes pipes;
 				if (createProxyPipes(connfd, &pipes)) {
 					int pidfd = -1;
 					int ipc_fd = -1;
@@ -629,6 +736,43 @@ int runListenMode(nsj_t* nsj) {
 
 /* --- standalone mode (-Mo / -Me) ----------------------- */
 
+static void waitForChild(nsj_t* nsj, int pidfd) {
+	time_t shutdown_start = 0;
+	for (;;) {
+		struct pollfd pfd = {
+		    .fd = pidfd,
+		    .events = POLLIN,
+		    .revents = 0,
+		};
+		struct timespec ts = {
+		    .tv_sec = kPollTimeoutSec,
+		    .tv_nsec = 0,
+		};
+		int res = ppoll(&pfd, 1, &ts, nullptr);
+		if (res == -1 && errno != EINTR) {
+			PLOG_W("ppoll");
+			break;
+		}
+
+		/* -- Shutdown path -- */
+		int sig = nsjail::getSigFatal();
+		if (sig > 0) {
+			if (handleShutdownSignal(nsj, sig, &shutdown_start, nullptr)) {
+				break;
+			}
+		}
+
+		if (res > 0 && (pfd.revents & (POLLIN | POLLERR | POLLHUP))) {
+			break;
+		}
+
+		if (nsjail::shouldShowProc()) {
+			nsjail::clearShowProc();
+			subproc::displayProc(nsj);
+		}
+	}
+}
+
 int runStandaloneMode(nsj_t* nsj) {
 	for (;;) {
 		int pidfd = -1;
@@ -643,39 +787,7 @@ int runStandaloneMode(nsj_t* nsj) {
 
 		startMonitorThread(nsj, pid, ipc_fd, pidfd, nullptr, &nsj->pids[pid].thread);
 
-		/* -- Wait for child on main thread -- */
-		time_t shutdown_start = 0;
-		for (;;) {
-			struct pollfd pfd = {
-			    .fd = pidfd,
-			    .events = POLLIN,
-			    .revents = 0,
-			};
-			struct timespec ts = {
-			    .tv_sec = 1,
-			    .tv_nsec = 0,
-			};
-			int res = ppoll(&pfd, 1, &ts, nullptr);
-			if (res == -1 && errno != EINTR) {
-				PLOG_W("ppoll");
-				break;
-			}
-
-			/* -- Shutdown path -- */
-			int sig = nsjail::getSigFatal();
-			if (sig > 0) {
-				handleShutdownSignal(nsj, sig, &shutdown_start, nullptr);
-			}
-
-			if (res > 0 && (pfd.revents & (POLLIN | POLLERR | POLLHUP))) {
-				break;
-			}
-
-			if (nsjail::shouldShowProc()) {
-				nsjail::clearShowProc();
-				subproc::displayProc(nsj);
-			}
-		}
+		waitForChild(nsj, pidfd);
 
 		/* Main thread reaps the child and joins its monitor thread */
 		subproc::reapProc(nsj, pid, true);
@@ -686,10 +798,10 @@ int runStandaloneMode(nsj_t* nsj) {
 			}
 
 			time_t now = time(nullptr);
-			if (now - start_time < 1) {
+			if (now - start_time < kPollTimeoutSec) {
 				LOG_I("Child exited too quickly, rate-limiting respawn");
 				struct timespec ts = {
-				    .tv_sec = 1,
+				    .tv_sec = kPollTimeoutSec,
 				    .tv_nsec = 0,
 				};
 				ppoll(nullptr, 0, &ts, nullptr);
