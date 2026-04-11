@@ -48,8 +48,8 @@ enum class ArgRole : uint8_t {
 
 struct SyscallDef {
 	int nr;			  /* __NR_xxx */
-	const char* kafel_name;	  /* name for kafel policy ("newstat", "sendmsg") */
-	const char* display_name; /* name for stats output ("stat", "sendmsg") */
+	const char* kafel_name;	  /* name for kafel policy ("newstat") */
+	const char* display_name; /* name for stats output ("stat") */
 	SyscallCategory category;
 	ArgRole args[6]; /* role of each syscall argument */
 };
@@ -250,10 +250,9 @@ constexpr size_t kTracedSyscallCount = sizeof(kTracedSyscalls) / sizeof(kTracedS
  * Build the kafel policy string from the table.
  * Called by sandbox.cc - no manual syscall list maintenance needed.
  */
-inline std::string buildKafelPolicy() {
+inline std::string buildKafelPolicy(int ipc_fd = -1) {
 	std::string p = "POLICY unotify {\n  USER_NOTIF {\n";
 	for (size_t i = 0; i < kTracedSyscallCount; i++) {
-		if (i > 0) p += ", ";
 		p += kTracedSyscalls[i].kafel_name;
 	}
 	p += "\n  }\n}\nUSE unotify DEFAULT ALLOW\n";

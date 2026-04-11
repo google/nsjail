@@ -25,6 +25,10 @@ namespace unotify {
 constexpr size_t kMaxArgs = 128;
 constexpr size_t kMaxPathLen = 4096;
 
+static thread_local std::string g_read_str_buf(kMaxPathLen - 1, '\0');
+static thread_local std::vector<uint32_t> g_ptrs32(kMaxArgs);
+static thread_local std::vector<uint64_t> g_ptrs64(kMaxArgs);
+
 /* Helper functions string/memory reading, path resolution, etc. */
 
 static std::string getSocketType(pid_t pid, int target_fd) {
@@ -45,10 +49,10 @@ static std::string getSocketType(pid_t pid, int target_fd) {
 	socklen_t len = sizeof(type);
 	std::string type_str;
 	if (getsockopt(local_fd, SOL_SOCKET, SO_TYPE, &type, &len) == 0) {
-		struct {
+		static const struct {
 			const int val;
 			const char* const name;
-		} static const sockTypes[] = {
+		} sockTypes[] = {
 		    NS_VALSTR_STRUCT(SOCK_STREAM),
 		    NS_VALSTR_STRUCT(SOCK_DGRAM),
 		    NS_VALSTR_STRUCT(SOCK_RAW),
@@ -68,10 +72,10 @@ static std::string getSocketType(pid_t pid, int target_fd) {
 	}
 	len = sizeof(proto);
 	if (getsockopt(local_fd, SOL_SOCKET, SO_PROTOCOL, &proto, &len) == 0) {
-		struct {
+		static const struct {
 			const int val;
 			const char* const name;
-		} static const protoTypes[] = {
+		} protoTypes[] = {
 		    NS_VALSTR_STRUCT(IPPROTO_TCP),
 		    NS_VALSTR_STRUCT(IPPROTO_UDP),
 		    NS_VALSTR_STRUCT(IPPROTO_ICMP),
@@ -99,24 +103,21 @@ static std::string readStringFromMem(pid_t pid, uint64_t addr) {
 	if (addr == 0) {
 		return "NULL";
 	}
-	/* Heap-allocate to avoid stack pressure, but avoid static buffer reuse
-	 * in case it causes subtle issues with event interleaving */
-	std::string buf(kMaxPathLen - 1, '\0');
 	struct iovec local = {
-	    .iov_base = buf.data(),
-	    .iov_len = buf.size(),
+	    .iov_base = g_read_str_buf.data(),
+	    .iov_len = g_read_str_buf.size(),
 	};
 	struct iovec remote = {
 	    .iov_base = (void*)addr,
-	    .iov_len = buf.size(),
+	    .iov_len = g_read_str_buf.size(),
 	};
 
 	ssize_t ret = process_vm_readv(pid, &local, 1, &remote, 1, 0);
 	if (ret <= 0) {
 		return "<invalid_ptr>";
 	}
-	buf.resize(strnlen(buf.data(), ret));
-	return buf;
+	size_t len = strnlen(g_read_str_buf.data(), ret);
+	return std::string(g_read_str_buf.data(), len);
 }
 
 static void appendStringArrayFromMem(
@@ -125,16 +126,14 @@ static void appendStringArrayFromMem(
 		return;
 	}
 
-	/* Heap-allocate pointer arrays to avoid stack pressure */
 	if (is_32bit) {
-		std::vector<uint32_t> ptrs(kMaxArgs);
 		struct iovec local = {
-		    .iov_base = ptrs.data(),
-		    .iov_len = ptrs.size() * sizeof(uint32_t),
+		    .iov_base = g_ptrs32.data(),
+		    .iov_len = g_ptrs32.size() * sizeof(uint32_t),
 		};
 		struct iovec remote = {
 		    .iov_base = (void*)addr,
-		    .iov_len = ptrs.size() * sizeof(uint32_t),
+		    .iov_len = g_ptrs32.size() * sizeof(uint32_t),
 		};
 
 		ssize_t ret = process_vm_readv(pid, &local, 1, &remote, 1, 0);
@@ -144,22 +143,21 @@ static void appendStringArrayFromMem(
 
 		int num_ptrs = ret / sizeof(uint32_t);
 		for (int i = 0; i < num_ptrs; i++) {
-			if (ptrs[i] == 0) {
+			if (g_ptrs32[i] == 0) {
 				break;
 			}
 			out += prefix;
-			out +=
-			    "[" + std::to_string(i) + "]=" + readStringFromMem(pid, ptrs[i]) + " ";
+			out += "[" + std::to_string(i) +
+			       "]=" + readStringFromMem(pid, g_ptrs32[i]) + " ";
 		}
 	} else {
-		std::vector<uint64_t> ptrs(kMaxArgs);
 		struct iovec local = {
-		    .iov_base = ptrs.data(),
-		    .iov_len = ptrs.size() * sizeof(uint64_t),
+		    .iov_base = g_ptrs64.data(),
+		    .iov_len = g_ptrs64.size() * sizeof(uint64_t),
 		};
 		struct iovec remote = {
 		    .iov_base = (void*)addr,
-		    .iov_len = ptrs.size() * sizeof(uint64_t),
+		    .iov_len = g_ptrs64.size() * sizeof(uint64_t),
 		};
 
 		ssize_t ret = process_vm_readv(pid, &local, 1, &remote, 1, 0);
@@ -169,12 +167,12 @@ static void appendStringArrayFromMem(
 
 		int num_ptrs = ret / sizeof(uint64_t);
 		for (int i = 0; i < num_ptrs; i++) {
-			if (ptrs[i] == 0) {
+			if (g_ptrs64[i] == 0) {
 				break;
 			}
 			out += prefix;
-			out +=
-			    "[" + std::to_string(i) + "]=" + readStringFromMem(pid, ptrs[i]) + " ";
+			out += "[" + std::to_string(i) +
+			       "]=" + readStringFromMem(pid, g_ptrs64[i]) + " ";
 		}
 	}
 }
@@ -207,21 +205,26 @@ static std::string getAbsPath(pid_t pid, int dirfd, const std::string& raw_path)
 }
 
 static void getFileMode(int flags, FsStatParams* out) {
-	if ((flags & O_ACCMODE) == O_RDONLY) {
+	switch (flags & O_ACCMODE) {
+	case O_RDONLY:
 		out->mode = Stat_Path_Mode_RDONLY;
-	} else if ((flags & O_ACCMODE) == O_WRONLY) {
+		break;
+	case O_WRONLY:
 		out->mode = Stat_Path_Mode_WRONLY;
-	} else if ((flags & O_ACCMODE) == O_RDWR) {
+		break;
+	case O_RDWR:
 		out->mode = Stat_Path_Mode_RDWR;
-	} else {
+		break;
+	default:
 		out->mode = Stat_Path_Mode_UNSPECIFIED;
+		break;
 	}
 
 	std::string mode_extra;
-	struct {
+	static const struct {
 		const int val;
 		const char* const name;
-	} static const openFlags[] = {
+	} openFlags[] = {
 	    NS_VALSTR_STRUCT(O_CREAT),
 	    NS_VALSTR_STRUCT(O_EXCL),
 	    NS_VALSTR_STRUCT(O_NOCTTY),
@@ -302,12 +305,112 @@ static Stat_Path_Type getStatInfo(const std::string& path) {
 
 static void populatePathInfo(pid_t pid, int dirfd, uint64_t addr, FsStatParams* out_rec) {
 	std::string raw_path = readStringFromMem(pid, addr);
+	if (raw_path == "<invalid_ptr>") {
+		out_rec->path = raw_path;
+		out_rec->jail_type = Stat_Path_Type_UNKNOWN;
+		out_rec->main_type = Stat_Path_Type_UNKNOWN;
+		return;
+	}
 	out_rec->path = getAbsPath(pid, dirfd, raw_path);
-	out_rec->jail_type = getStatInfo("/proc/" + std::to_string(pid) + "/root" + out_rec->path);
+
+	if (out_rec->path.empty() || out_rec->path[0] == '/') {
+		out_rec->jail_type =
+		    getStatInfo("/proc/" + std::to_string(pid) + "/root" + out_rec->path);
+	} else {
+		std::string rel_base;
+		if (dirfd == AT_FDCWD || dirfd == -100) {
+			rel_base = "/proc/" + std::to_string(pid) + "/cwd/";
+		} else {
+			rel_base =
+			    "/proc/" + std::to_string(pid) + "/fd/" + std::to_string(dirfd) + "/";
+		}
+		out_rec->jail_type = getStatInfo(rel_base + out_rec->path);
+	}
 	out_rec->main_type = getStatInfo(out_rec->path);
 }
 
 /* sockaddr decoder */
+
+static void parseInetAddr(const struct sockaddr_storage& ss, ssize_t read_bytes,
+    const std::string& socket_type_str, bool* out_has_net, NetStatParams* net_rec) {
+	if (read_bytes < (ssize_t)sizeof(struct sockaddr_in)) {
+		return;
+	}
+	char host[INET6_ADDRSTRLEN] = "unknown";
+	const struct sockaddr_in* sin = (const struct sockaddr_in*)&ss;
+	inet_ntop(AF_INET, &sin->sin_addr, host, sizeof(host));
+	int port = ntohs(sin->sin_port);
+	*out_has_net = true;
+	net_rec->type = Stat_NetResource_Type_IPV4;
+	net_rec->endpoint = std::string(host);
+	if (socket_type_str.find("SOCK_STREAM") != std::string::npos ||
+	    socket_type_str.find("SOCK_DGRAM") != std::string::npos) {
+		net_rec->has_port = true;
+		net_rec->port = port;
+	}
+}
+
+static void parseInet6Addr(const struct sockaddr_storage& ss, ssize_t read_bytes,
+    const std::string& socket_type_str, bool* out_has_net, NetStatParams* net_rec) {
+	if (read_bytes < (ssize_t)sizeof(struct sockaddr_in6)) {
+		return;
+	}
+	char host[INET6_ADDRSTRLEN] = "unknown";
+	const struct sockaddr_in6* sin6 = (const struct sockaddr_in6*)&ss;
+	inet_ntop(AF_INET6, &sin6->sin6_addr, host, sizeof(host));
+	int port = ntohs(sin6->sin6_port);
+	*out_has_net = true;
+	net_rec->type = Stat_NetResource_Type_IPV6;
+	net_rec->endpoint = std::string(host);
+	if (socket_type_str.find("SOCK_STREAM") != std::string::npos ||
+	    socket_type_str.find("SOCK_DGRAM") != std::string::npos) {
+		net_rec->has_port = true;
+		net_rec->port = port;
+	}
+}
+
+static void parseUnixAddr(const struct sockaddr_storage& ss, socklen_t addrlen, pid_t pid,
+    bool* out_has_net, NetStatParams* net_rec) {
+	struct sockaddr_un sun;
+	if (addrlen > sizeof(sun)) {
+		addrlen = sizeof(sun);
+	}
+	memcpy(&sun, &ss, addrlen);
+
+	size_t path_len = 0;
+	if (addrlen > sizeof(sa_family_t)) {
+		path_len = addrlen - sizeof(sa_family_t);
+	}
+	if (path_len > sizeof(sun.sun_path)) {
+		path_len = sizeof(sun.sun_path);
+	}
+
+	/* Ensure NUL termination for non-abstract paths */
+	sun.sun_path[sizeof(sun.sun_path) - 1] = '\0';
+	std::string raw_path(sun.sun_path, strnlen(sun.sun_path, path_len));
+
+	if (path_len == 0) {
+		*out_has_net = true;
+		net_rec->type = Stat_NetResource_Type_UNIX;
+		net_rec->endpoint = "anonymous unix socket";
+	} else if (sun.sun_path[0] != '\0') {
+		std::string abs_path = getAbsPath(pid, AT_FDCWD, raw_path);
+		*out_has_net = true;
+		net_rec->type = Stat_NetResource_Type_UNIX;
+		net_rec->endpoint = abs_path;
+
+		/* Also populate FS tracking for UNIX socket paths */
+		net_rec->has_path = true;
+		net_rec->path.path = abs_path;
+		net_rec->path.jail_type =
+		    getStatInfo("/proc/" + std::to_string(pid) + "/root" + abs_path);
+		net_rec->path.main_type = getStatInfo(abs_path);
+	} else {
+		*out_has_net = true;
+		net_rec->type = Stat_NetResource_Type_UNIX;
+		net_rec->endpoint = "@" + std::string(sun.sun_path + 1, path_len - 1);
+	}
+}
 
 static void parseSockaddr(struct seccomp_notif* req, NetStatParams* net_rec, bool* out_has_net,
     uint64_t addr, socklen_t addrlen, const std::string& socket_type_str) {
@@ -326,72 +429,23 @@ static void parseSockaddr(struct seccomp_notif* req, NetStatParams* net_rec, boo
 	};
 	ssize_t read_bytes = process_vm_readv(req->pid, &local, 1, &remote, 1, 0);
 	if (read_bytes >= (ssize_t)sizeof(sa_family_t)) {
-		char host[INET6_ADDRSTRLEN] = "unknown";
-		int port = 0;
-		if (ss.ss_family == AF_INET) {
-			struct sockaddr_in* sin = (struct sockaddr_in*)&ss;
-			inet_ntop(AF_INET, &sin->sin_addr, host, sizeof(host));
-			port = ntohs(sin->sin_port);
-			*out_has_net = true;
-			net_rec->type = Stat_NetResource_Type_IPV4;
-			net_rec->endpoint = std::string(host);
-			if (socket_type_str.find("SOCK_STREAM") != std::string::npos ||
-			    socket_type_str.find("SOCK_DGRAM") != std::string::npos) {
-				net_rec->has_port = true;
-				net_rec->port = port;
-			}
-		} else if (ss.ss_family == AF_INET6) {
-			struct sockaddr_in6* sin6 = (struct sockaddr_in6*)&ss;
-			inet_ntop(AF_INET6, &sin6->sin6_addr, host, sizeof(host));
-			port = ntohs(sin6->sin6_port);
-			*out_has_net = true;
-			net_rec->type = Stat_NetResource_Type_IPV6;
-			net_rec->endpoint = std::string(host);
-			if (socket_type_str.find("SOCK_STREAM") != std::string::npos ||
-			    socket_type_str.find("SOCK_DGRAM") != std::string::npos) {
-				net_rec->has_port = true;
-				net_rec->port = port;
-			}
-		} else if (ss.ss_family == AF_UNIX) {
-			struct sockaddr_un* sun = (struct sockaddr_un*)&ss;
-			size_t path_len = 0;
-			if (addrlen > sizeof(sa_family_t)) {
-				path_len = addrlen - sizeof(sa_family_t);
-			}
-			if (path_len > sizeof(sun->sun_path)) {
-				path_len = sizeof(sun->sun_path);
-			}
-
-			/* Ensure NUL termination for non-abstract paths */
-			sun->sun_path[sizeof(sun->sun_path) - 1] = '\0';
-			std::string raw_path(sun->sun_path, strnlen(sun->sun_path, path_len));
-
-			if (path_len == 0) {
-				*out_has_net = true;
-				net_rec->type = Stat_NetResource_Type_UNIX;
-				net_rec->endpoint = "anonymous unix socket";
-			} else if (sun->sun_path[0] != '\0') {
-				std::string abs_path = getAbsPath(req->pid, AT_FDCWD, raw_path);
-				*out_has_net = true;
-				net_rec->type = Stat_NetResource_Type_UNIX;
-				net_rec->endpoint = abs_path;
-
-				/* Also populate FS tracking for UNIX socket paths */
-				net_rec->has_path = true;
-				net_rec->path.path = abs_path;
-				net_rec->path.jail_type = getStatInfo(
-				    "/proc/" + std::to_string(req->pid) + "/root" + abs_path);
-				net_rec->path.main_type = getStatInfo(abs_path);
-			} else {
-				*out_has_net = true;
-				net_rec->type = Stat_NetResource_Type_UNIX;
-				net_rec->endpoint =
-				    "@" + std::string(sun->sun_path + 1, path_len - 1);
-			}
-		} else if (ss.ss_family == AF_NETLINK) {
+		switch (ss.ss_family) {
+		case AF_INET:
+			parseInetAddr(ss, read_bytes, socket_type_str, out_has_net, net_rec);
+			break;
+		case AF_INET6:
+			parseInet6Addr(ss, read_bytes, socket_type_str, out_has_net, net_rec);
+			break;
+		case AF_UNIX:
+			parseUnixAddr(ss, addrlen, req->pid, out_has_net, net_rec);
+			break;
+		case AF_NETLINK:
 			*out_has_net = true;
 			net_rec->type = Stat_NetResource_Type_NETLINK;
 			net_rec->endpoint = "NETLINK";
+			break;
+		default:
+			break;
 		}
 	}
 }
@@ -399,10 +453,10 @@ static void parseSockaddr(struct seccomp_notif* req, NetStatParams* net_rec, boo
 /* String formatters for socket domain, type, protocol */
 
 static std::string getDomainStr(int domain) {
-	struct {
+	static const struct {
 		const int val;
 		const char* const name;
-	} static const domains[] = {
+	} domains[] = {
 	    NS_VALSTR_STRUCT(AF_UNIX),
 	    NS_VALSTR_STRUCT(AF_LOCAL),
 	    NS_VALSTR_STRUCT(AF_INET),
@@ -428,10 +482,10 @@ static std::string getDomainStr(int domain) {
 static std::string getTypeStr(int type) {
 	int base_type = type & 0xf;
 	std::string res;
-	struct {
+	static const struct {
 		const int val;
 		const char* const name;
-	} static const types[] = {
+	} types[] = {
 	    NS_VALSTR_STRUCT(SOCK_STREAM),
 	    NS_VALSTR_STRUCT(SOCK_DGRAM),
 	    NS_VALSTR_STRUCT(SOCK_RAW),
@@ -464,10 +518,10 @@ static std::string getProtocolStr(int proto) {
 	if (proto == 0) {
 		return "0";
 	}
-	struct {
+	static const struct {
 		const int val;
 		const char* const name;
-	} static const protos[] = {
+	} protos[] = {
 	    NS_VALSTR_STRUCT(IPPROTO_IP),
 	    NS_VALSTR_STRUCT(IPPROTO_ICMP),
 	    NS_VALSTR_STRUCT(IPPROTO_IGMP),
@@ -668,12 +722,12 @@ static ParsedArgs decodeSyscallArgs(struct seccomp_notif* req, const SyscallDef&
 			    .iov_base = (void*)arg,
 			    .iov_len = sizeof(how),
 			};
-			if (process_vm_readv(req->pid, &local, 1, &remote, 1, 0) >=
-			    (ssize_t)sizeof(how.flags)) {
+			ssize_t read_bytes = process_vm_readv(req->pid, &local, 1, &remote, 1, 0);
+			if (read_bytes >= (ssize_t)sizeof(how.flags)) {
 				if (last_path) {
 					getFileMode((int)how.flags, last_path);
 				}
-				if (how.resolve != 0) {
+				if (read_bytes >= (ssize_t)sizeof(how) && how.resolve != 0) {
 					std::string arg_str =
 					    "resolve=" + std::to_string(how.resolve);
 					out.args_str += arg_str + " ";

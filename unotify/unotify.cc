@@ -24,6 +24,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <vector>
+
 #include "logs.h"
 #include "missing_defs.h"
 #include "monitor.h"
@@ -53,8 +55,8 @@ struct unotifyCtx_t {
 	int fd = -1;
 	uint16_t req_size;
 	uint16_t resp_size;
-	uint8_t* req_buf = nullptr;
-	uint8_t* resp_buf = nullptr;
+	std::vector<uint8_t> req_buf;
+	std::vector<uint8_t> resp_buf;
 };
 
 static thread_local unotifyCtx_t current_ctx;
@@ -69,10 +71,8 @@ static void closeAndUnregister(int fd) {
 
 void stop() {
 	closeAndUnregister(current_ctx.fd);
-	free(current_ctx.req_buf);
-	free(current_ctx.resp_buf);
-	current_ctx.req_buf = nullptr;
-	current_ctx.resp_buf = nullptr;
+	current_ctx.req_buf.clear();
+	current_ctx.resp_buf.clear();
 }
 
 /*
@@ -90,9 +90,10 @@ static void unotifyCb(int fd, uint32_t events, void* /* data */) {
 		return;
 	}
 
-	struct seccomp_notif* req = reinterpret_cast<struct seccomp_notif*>(current_ctx.req_buf);
+	struct seccomp_notif* req =
+	    reinterpret_cast<struct seccomp_notif*>(current_ctx.req_buf.data());
 	struct seccomp_notif_resp* resp =
-	    reinterpret_cast<struct seccomp_notif_resp*>(current_ctx.resp_buf);
+	    reinterpret_cast<struct seccomp_notif_resp*>(current_ctx.resp_buf.data());
 
 	memset(req, 0, current_ctx.req_size);
 	if (TEMP_FAILURE_RETRY(ioctl(fd, SECCOMP_IOCTL_NOTIF_RECV, req)) == -1) {
@@ -142,6 +143,10 @@ static void unotifyCb(int fd, uint32_t events, void* /* data */) {
  * the fd is untouched and remains the caller's responsibility to close.
  */
 bool start(nsj_t* nsj, int fd) {
+	if (current_ctx.fd != -1) {
+		LOG_W("unotify::start called on already initialized context");
+		return false;
+	}
 	thread_local struct seccomp_notif_sizes sizes = {0, 0, 0};
 	if (sizes.seccomp_notif == 0) {
 		if (util::syscall(__NR_seccomp, SECCOMP_GET_NOTIF_SIZES, 0, (uintptr_t)&sizes) ==
@@ -155,37 +160,24 @@ bool start(nsj_t* nsj, int fd) {
 	current_ctx.req_size = sizes.seccomp_notif;
 	current_ctx.resp_size = sizes.seccomp_notif_resp;
 
-	current_ctx.req_buf = static_cast<uint8_t*>(malloc(sizes.seccomp_notif));
-	current_ctx.resp_buf = static_cast<uint8_t*>(malloc(sizes.seccomp_notif_resp));
-
-	if (!current_ctx.req_buf || !current_ctx.resp_buf) {
-		LOG_E("Failed to allocate unotify buffers");
-		free(current_ctx.req_buf);
-		free(current_ctx.resp_buf);
-		current_ctx.req_buf = nullptr;
-		current_ctx.resp_buf = nullptr;
-		return false;
-	}
+	current_ctx.req_buf.resize(sizes.seccomp_notif);
+	current_ctx.resp_buf.resize(sizes.seccomp_notif_resp);
 
 	if (!util::setNonBlock(fd)) {
-		free(current_ctx.req_buf);
-		free(current_ctx.resp_buf);
-		current_ctx.req_buf = nullptr;
-		current_ctx.resp_buf = nullptr;
-		current_ctx.fd = -1;
-		return false;
+		goto err_cleanup;
 	}
 
 	if (!monitor::addFd(fd, EPOLLIN, unotifyCb, nullptr)) {
 		PLOG_W("monitor::addFd for unotify failed");
-		free(current_ctx.req_buf);
-		free(current_ctx.resp_buf);
-		current_ctx.req_buf = nullptr;
-		current_ctx.resp_buf = nullptr;
-		current_ctx.fd = -1;
-		return false;
+		goto err_cleanup;
 	}
 	return true;
+
+err_cleanup:
+	current_ctx.req_buf.clear();
+	current_ctx.resp_buf.clear();
+	current_ctx.fd = -1;
+	return false;
 }
 
 }  // namespace unotify
