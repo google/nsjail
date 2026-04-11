@@ -56,7 +56,7 @@ struct pids_t {
 	int pidfd;
 	std::string remote_txt;
 	struct sockaddr_in6 remote_addr;
-
+	int pid_syscall_fd;
 	pid_t pasta_pid;
 	pthread_t monitor_tid;
 };
@@ -66,6 +66,16 @@ struct idmap_t {
 	uid_t outside_id;
 	size_t count;
 	bool is_newidmap;
+};
+
+struct pipemap_t {
+	int sock_fd;
+	int pipe_in;
+	int pipe_out;
+	pid_t pid;
+	bool operator==(const pipemap_t& o) {
+		return sock_fd == o.sock_fd && pipe_in == o.pipe_in && pipe_out == o.pipe_out;
+	}
 };
 
 struct nsj_t {
@@ -86,6 +96,7 @@ struct nsj_t {
 	std::vector<idmap_t> gids;
 	std::vector<int> openfds;
 
+	std::vector<pipemap_t> pipes;
 	int exit_status;
 	std::string chroot;
 	std::string proc_path;
