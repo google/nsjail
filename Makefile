@@ -273,7 +273,7 @@ unotify/stats.o: unotify/unotify.pb.h logs.h util.h
 unotify/syscall.o: unotify/syscall.h unotify/record.h unotify/unotify.pb.h
 unotify/syscall.o: logs.h macros.h unotify/syscall_defs.h util.h nsjail.h
 unotify/syscall.o: config.pb.h
-util.o: util.h nsjail.h config.pb.h logs.h macros.h
+util.o: util.h nsjail.h config.pb.h logs.h macros.h missing_defs.h
 nstun/nstun.o: nstun/nstun.h nstun/core.h nstun/net_defs.h nstun/icmp.h
 nstun/nstun.o: nstun/iface.h nstun/ip.h logs.h macros.h nstun/policy.h
 nstun/nstun.o: nstun/tcp.h nstun/tun.h nstun/udp.h util.h nsjail.h
