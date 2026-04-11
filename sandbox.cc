@@ -52,7 +52,7 @@ bool installUnotifyFilter(nsj_t* nsj, int ipc_fd) {
 	defer {
 		kafel_ctxt_destroy(&ctxt);
 	};
-	std::string unotify_policy = unotify::buildKafelPolicy(ipc_fd);
+	std::string unotify_policy = unotify::buildKafelPolicy();
 	kafel_set_input_string(ctxt, unotify_policy.c_str());
 	if (kafel_compile(ctxt, &nsj->seccomp_unotify_fprog) != 0) {
 		LOG_E("Could not compile the default unotify seccomp policy: %s",

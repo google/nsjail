@@ -9,6 +9,7 @@
 #include <sys/uio.h>
 
 #include <compare>
+#include <memory>
 
 #include "net_defs.h"
 #include "nstun.h"
@@ -22,6 +23,10 @@ constexpr size_t NSTUN_MAX_RULES = 128;
 constexpr size_t UDP_QUEUE_PACKET_MAX = 1500;
 constexpr size_t UDP_QUEUE_MAX_PACKETS = 50;
 constexpr int VLEN = 64;
+
+constexpr size_t TCP_TX_BUF_CAP = 131072;  /* 128 KB - host->guest */
+constexpr size_t TCP_RX_BUF_CAP = 131072;  /* 128 KB - guest->host */
+constexpr size_t PROXY_RX_BUF_CAP = 8192;  /* 8 KB  - proxy handshake */
 
 /* Removed MemcmpLess in favor of C++20 operator<=> */
 
@@ -140,12 +145,12 @@ struct TcpFlow {
 	size_t tx_acked_offset;
 	size_t rx_sent_offset;
 
-	/* C-style buffers for migration */
-	uint8_t c_tcp_tx_buf[4096];
+	/* Heap-allocated buffers (allocated per active flow, freed via RAII) */
+	std::unique_ptr<uint8_t[]> c_tcp_tx_buf;
 	size_t c_tcp_tx_len;
-	uint8_t c_proxy_rx_buf[8192];
+	std::unique_ptr<uint8_t[]> c_proxy_rx_buf;
 	size_t c_proxy_rx_len;
-	uint8_t c_tcp_rx_buf[4096];
+	std::unique_ptr<uint8_t[]> c_tcp_rx_buf;
 	size_t c_tcp_rx_len;
 
 	bool epoll_out_registered;

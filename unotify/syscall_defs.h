@@ -250,9 +250,10 @@ constexpr size_t kTracedSyscallCount = sizeof(kTracedSyscalls) / sizeof(kTracedS
  * Build the kafel policy string from the table.
  * Called by sandbox.cc - no manual syscall list maintenance needed.
  */
-inline std::string buildKafelPolicy(int ipc_fd = -1) {
+inline std::string buildKafelPolicy() {
 	std::string p = "POLICY unotify {\n  USER_NOTIF {\n";
 	for (size_t i = 0; i < kTracedSyscallCount; i++) {
+		if (i > 0) p += ", ";
 		p += kTracedSyscalls[i].kafel_name;
 	}
 	p += "\n  }\n}\nUSE unotify DEFAULT ALLOW\n";

@@ -60,17 +60,17 @@ static uint32_t generate_isn() {
 
 static inline bool append_proxy_rx(TcpFlow* flow, const uint8_t* data, size_t len) {
 	return buffer_append(
-	    flow->c_proxy_rx_buf, &flow->c_proxy_rx_len, sizeof(flow->c_proxy_rx_buf), data, len);
+	    flow->c_proxy_rx_buf.get(), &flow->c_proxy_rx_len, PROXY_RX_BUF_CAP, data, len);
 }
 
 static inline bool append_tcp_rx(TcpFlow* flow, const uint8_t* data, size_t len) {
 	return buffer_append(
-	    flow->c_tcp_rx_buf, &flow->c_tcp_rx_len, sizeof(flow->c_tcp_rx_buf), data, len);
+	    flow->c_tcp_rx_buf.get(), &flow->c_tcp_rx_len, TCP_RX_BUF_CAP, data, len);
 }
 
 static inline bool append_tcp_tx(TcpFlow* flow, const uint8_t* data, size_t len) {
 	return buffer_append(
-	    flow->c_tcp_tx_buf, &flow->c_tcp_tx_len, sizeof(flow->c_tcp_tx_buf), data, len);
+	    flow->c_tcp_tx_buf.get(), &flow->c_tcp_tx_len, TCP_TX_BUF_CAP, data, len);
 }
 
 static bool tcp_update_host_mask(TcpFlow* flow) {
@@ -259,7 +259,7 @@ bool tcp_send_packet4(
 	frame.tcp.ack_seq = htonl(flow->ack_to_guest);
 	tcp_set_doff(&frame.tcp, (sizeof(tcp_hdr) + opt_len) / 4);
 	frame.tcp.flags = flags;
-	size_t free_space = sizeof(flow->c_tcp_rx_buf) - flow->c_tcp_rx_len;
+	size_t free_space = TCP_RX_BUF_CAP - flow->c_tcp_rx_len;
 	frame.tcp.window = htons(free_space > 65535 ? 65535 : free_space);
 	frame.tcp.check = 0;
 	frame.tcp.urg_ptr = 0;
@@ -322,7 +322,7 @@ bool tcp_send_packet6(
 	frame.tcp.ack_seq = htonl(flow->ack_to_guest);
 	tcp_set_doff(&frame.tcp, (sizeof(tcp_hdr) + opt_len) / 4);
 	frame.tcp.flags = flags;
-	size_t free_space = sizeof(flow->c_tcp_rx_buf) - flow->c_tcp_rx_len;
+	size_t free_space = TCP_RX_BUF_CAP - flow->c_tcp_rx_len;
 	frame.tcp.window = htons(free_space > 65535 ? 65535 : free_space);
 	frame.tcp.check = 0;
 	frame.tcp.urg_ptr = 0;
@@ -392,6 +392,11 @@ void tcp_destroy_flow(Context* ctx, TcpFlow* flow) {
 		}
 	}
 
+	/* Free heap-allocated buffers via RAII */
+	flow->c_tcp_tx_buf.reset();
+	flow->c_tcp_rx_buf.reset();
+	flow->c_proxy_rx_buf.reset();
+
 	/* Mark inactive */
 	flow->header.active = false;
 }
@@ -438,7 +443,7 @@ void push_to_guest(Context* ctx, TcpFlow* flow) {
 			to_send = max_seg;
 		}
 
-		const uint8_t* data = flow->c_tcp_tx_buf + flow->tx_acked_offset + in_flight;
+		const uint8_t* data = flow->c_tcp_tx_buf.get() + flow->tx_acked_offset + in_flight;
 		uint8_t flags = NSTUN_TCP_FLAG_ACK;
 		if (to_send >= static_cast<size_t>(available - in_flight)) {
 			flags |= NSTUN_TCP_FLAG_PSH;
@@ -460,7 +465,7 @@ bool flush_to_host(Context* ctx, TcpFlow* flow) {
 
 	size_t to_send = flow->c_tcp_rx_len - flow->rx_sent_offset;
 	ssize_t written = TEMP_FAILURE_RETRY(send(flow->header.host_fd,
-	    flow->c_tcp_rx_buf + flow->rx_sent_offset, to_send, MSG_NOSIGNAL));
+	    flow->c_tcp_rx_buf.get() + flow->rx_sent_offset, to_send, MSG_NOSIGNAL));
 
 	if (written > 0) {
 		flow->rx_sent_offset += written;
@@ -469,7 +474,7 @@ bool flush_to_host(Context* ctx, TcpFlow* flow) {
 			flow->rx_sent_offset = 0;
 		} else if (flow->rx_sent_offset > 0) {
 			buffer_consume(
-			    flow->c_tcp_rx_buf, &flow->c_tcp_rx_len, flow->rx_sent_offset);
+			    flow->c_tcp_rx_buf.get(), &flow->c_tcp_rx_len, flow->rx_sent_offset);
 			flow->rx_sent_offset = 0;
 		}
 
@@ -512,7 +517,7 @@ static void handle_socks5_init_host(Context* ctx, TcpFlow* flow, int fd) {
 	constexpr size_t expected_len = 2; /* SOCKS5 auth reply is 2 bytes */
 	if (flow->c_proxy_rx_len < expected_len) {
 		ssize_t recv_len =
-		    TEMP_FAILURE_RETRY(recv(fd, flow->c_proxy_rx_buf + flow->c_proxy_rx_len,
+		    TEMP_FAILURE_RETRY(recv(fd, flow->c_proxy_rx_buf.get() + flow->c_proxy_rx_len,
 			expected_len - flow->c_proxy_rx_len, MSG_DONTWAIT));
 		if (recv_len == 0) {
 			tcp_rst_and_destroy(ctx, flow);
@@ -532,7 +537,7 @@ static void handle_socks5_init_host(Context* ctx, TcpFlow* flow, int fd) {
 		return;
 	}
 
-	if (!nstun::parse_socks5_auth_reply(flow->c_proxy_rx_buf, flow->c_proxy_rx_len)) {
+	if (!nstun::parse_socks5_auth_reply(flow->c_proxy_rx_buf.get(), flow->c_proxy_rx_len)) {
 		tcp_rst_and_destroy(ctx, flow);
 		return;
 	}
@@ -575,7 +580,7 @@ static void handle_socks5_connecting_host(Context* ctx, TcpFlow* flow, int fd) {
 	 */
 
 	/* Try to read more data into the proxy rx buffer */
-	size_t avail = sizeof(flow->c_proxy_rx_buf) - flow->c_proxy_rx_len;
+	size_t avail = PROXY_RX_BUF_CAP - flow->c_proxy_rx_len;
 	if (avail == 0) {
 		LOG_E("Proxy RX buffer overflow in handle_socks5_connecting_host");
 		tcp_rst_and_destroy(ctx, flow);
@@ -583,7 +588,7 @@ static void handle_socks5_connecting_host(Context* ctx, TcpFlow* flow, int fd) {
 	}
 
 	ssize_t recv_len = TEMP_FAILURE_RETRY(
-	    recv(fd, flow->c_proxy_rx_buf + flow->c_proxy_rx_len, avail, MSG_DONTWAIT));
+	    recv(fd, flow->c_proxy_rx_buf.get() + flow->c_proxy_rx_len, avail, MSG_DONTWAIT));
 	if (recv_len == 0) {
 		tcp_rst_and_destroy(ctx, flow);
 		return;
@@ -645,8 +650,8 @@ static void handle_socks5_connecting_host(Context* ctx, TcpFlow* flow, int fd) {
 	 * get pushed to the guest after the SYN-ACK.
 	 */
 	if (current_len > expected_len) {
-		if (!append_tcp_tx(
-			flow, flow->c_proxy_rx_buf + expected_len, current_len - expected_len)) {
+		if (!append_tcp_tx(flow, flow->c_proxy_rx_buf.get() + expected_len,
+			current_len - expected_len)) {
 			LOG_E("tcp_tx_buf overflow in handle_socks5_connecting_host");
 			tcp_rst_and_destroy(ctx, flow);
 			return;
@@ -670,7 +675,7 @@ static void handle_socks5_connecting_host(Context* ctx, TcpFlow* flow, int fd) {
 static void handle_http_connect_wait_host(Context* ctx, TcpFlow* flow, int fd) {
 	size_t end_of_headers = 0;
 
-	size_t avail = sizeof(flow->c_proxy_rx_buf) - flow->c_proxy_rx_len;
+	size_t avail = PROXY_RX_BUF_CAP - flow->c_proxy_rx_len;
 	if (avail == 0) {
 		LOG_E("HTTP proxy response too long");
 		tcp_rst_and_destroy(ctx, flow);
@@ -678,7 +683,7 @@ static void handle_http_connect_wait_host(Context* ctx, TcpFlow* flow, int fd) {
 	}
 	size_t to_read = std::min((size_t)4096, avail);
 	ssize_t recv_len = TEMP_FAILURE_RETRY(
-	    recv(fd, flow->c_proxy_rx_buf + flow->c_proxy_rx_len, to_read, MSG_DONTWAIT));
+	    recv(fd, flow->c_proxy_rx_buf.get() + flow->c_proxy_rx_len, to_read, MSG_DONTWAIT));
 	if (recv_len == 0) {
 		tcp_rst_and_destroy(ctx, flow);
 		return;
@@ -692,9 +697,10 @@ static void handle_http_connect_wait_host(Context* ctx, TcpFlow* flow, int fd) {
 
 	flow->c_proxy_rx_len += recv_len;
 
-	end_of_headers = nstun::find_end_of_headers(flow->c_proxy_rx_buf, flow->c_proxy_rx_len);
+	end_of_headers =
+	    nstun::find_end_of_headers(flow->c_proxy_rx_buf.get(), flow->c_proxy_rx_len);
 	if (end_of_headers == 0) {
-		if (flow->c_proxy_rx_len >= sizeof(flow->c_proxy_rx_buf)) {
+		if (flow->c_proxy_rx_len >= PROXY_RX_BUF_CAP) {
 			LOG_E("HTTP proxy response too long without headers end");
 			tcp_rst_and_destroy(ctx, flow);
 			return;
@@ -702,17 +708,17 @@ static void handle_http_connect_wait_host(Context* ctx, TcpFlow* flow, int fd) {
 		return; /* Wait for more data */
 	}
 
-	if (!nstun::parse_http_connect_reply(flow->c_proxy_rx_buf, flow->c_proxy_rx_len)) {
+	if (!nstun::parse_http_connect_reply(flow->c_proxy_rx_buf.get(), flow->c_proxy_rx_len)) {
 		LOG_W("HTTP CONNECT failed: %.*s",
 		    static_cast<int>(std::min(end_of_headers, static_cast<size_t>(64))),
-		    flow->c_proxy_rx_buf);
+		    flow->c_proxy_rx_buf.get());
 		tcp_rst_and_destroy(ctx, flow);
 		return;
 	}
 
 	/* Anything after the headers is tunnelled payload - forward it */
 	if (flow->c_proxy_rx_len > end_of_headers) {
-		if (!append_tcp_tx(flow, flow->c_proxy_rx_buf + end_of_headers,
+		if (!append_tcp_tx(flow, flow->c_proxy_rx_buf.get() + end_of_headers,
 			flow->c_proxy_rx_len - end_of_headers)) {
 			LOG_E("tcp_tx_buf overflow in handle_http_connect_wait_host");
 			tcp_rst_and_destroy(ctx, flow);
@@ -736,7 +742,7 @@ static void handle_http_connect_wait_host(Context* ctx, TcpFlow* flow, int fd) {
 }
 
 static void handle_data_transfer_host(Context* ctx, TcpFlow* flow, int fd) {
-	size_t avail = sizeof(flow->c_tcp_tx_buf) - flow->c_tcp_tx_len;
+	size_t avail = TCP_TX_BUF_CAP - flow->c_tcp_tx_len;
 	if (avail == 0) {
 		/* Buffer full, apply backpressure by stopping reading */
 		if (!flow->epoll_in_disabled) {
@@ -751,7 +757,7 @@ static void handle_data_transfer_host(Context* ctx, TcpFlow* flow, int fd) {
 	}
 
 	ssize_t recv_len = TEMP_FAILURE_RETRY(
-	    recv(fd, flow->c_tcp_tx_buf + flow->c_tcp_tx_len, avail, MSG_DONTWAIT));
+	    recv(fd, flow->c_tcp_tx_buf.get() + flow->c_tcp_tx_len, avail, MSG_DONTWAIT));
 	if (recv_len == 0) {
 		handle_host_tcp_data_eof(ctx, flow, fd);
 		return;
@@ -836,7 +842,7 @@ static const TcpStateHandlers kStateTable[] = {
 
 static bool tcp_should_reenable_host_rx(const TcpFlow* flow) {
 	return flow->epoll_in_disabled && !flow->host_eof &&
-	       (flow->c_tcp_tx_len - flow->tx_acked_offset < sizeof(flow->c_tcp_tx_buf) / 2);
+	       (flow->c_tcp_tx_len - flow->tx_acked_offset < TCP_TX_BUF_CAP / 2);
 }
 
 static void tcp_process_ack(
@@ -867,7 +873,8 @@ static void tcp_process_ack(
 			}
 
 			if (erase_len > 0) {
-				buffer_consume(flow->c_tcp_tx_buf, &flow->c_tcp_tx_len, erase_len);
+				buffer_consume(
+				    flow->c_tcp_tx_buf.get(), &flow->c_tcp_tx_len, erase_len);
 				flow->tx_acked_offset -= erase_len;
 			}
 
@@ -953,7 +960,7 @@ static bool tcp_handle_guest_data_payload(Context* ctx, TcpFlow* flow, uint32_t 
 		const uint8_t* new_data = data + overlap;
 		size_t new_data_len = data_len - overlap;
 
-		if (flow->c_tcp_rx_len + new_data_len > sizeof(flow->c_tcp_rx_buf)) {
+		if (flow->c_tcp_rx_len + new_data_len > TCP_RX_BUF_CAP) {
 			LOG_D("TCP rx_buffer full (DoS protection), dropping");
 			return false;
 		}
@@ -1113,12 +1120,37 @@ static bool tcp_do_connect(
 		return false;
 	}
 }
-static void init_tcp_flow_zero(TcpFlow* flow) {
-	memset(flow, 0, sizeof(TcpFlow));
+static bool init_tcp_flow_zero(TcpFlow* flow) {
+	/* Preserve existing allocations for reuse */
+	auto old_tx = std::move(flow->c_tcp_tx_buf);
+	auto old_rx = std::move(flow->c_tcp_rx_buf);
+	auto old_proxy = std::move(flow->c_proxy_rx_buf);
+
+	/* Zero all POD fields and reset unique_ptrs */
+	*flow = TcpFlow{};
 	flow->header.type = FlowType::TCP;
 	flow->header.host_fd = -1;
 	flow->tcp_state = TcpState::SYN_SENT;
 	flow->proxy_mode = ProxyMode::NONE;
+
+	/* Reuse old allocations if available, otherwise allocate */
+	flow->c_tcp_tx_buf =
+	    old_tx ? std::move(old_tx)
+		   : std::unique_ptr<uint8_t[]>(new (std::nothrow) uint8_t[TCP_TX_BUF_CAP]);
+	flow->c_tcp_rx_buf =
+	    old_rx ? std::move(old_rx)
+		   : std::unique_ptr<uint8_t[]>(new (std::nothrow) uint8_t[TCP_RX_BUF_CAP]);
+	flow->c_proxy_rx_buf =
+	    old_proxy ? std::move(old_proxy)
+		      : std::unique_ptr<uint8_t[]>(new (std::nothrow) uint8_t[PROXY_RX_BUF_CAP]);
+
+	if (!flow->c_tcp_tx_buf || !flow->c_tcp_rx_buf || !flow->c_proxy_rx_buf) {
+		flow->c_tcp_tx_buf.reset();
+		flow->c_tcp_rx_buf.reset();
+		flow->c_proxy_rx_buf.reset();
+		return false;
+	}
+	return true;
 }
 
 static TcpFlow* find_v4_tcp_flow(Context* ctx, const FlowKey4& key) {
@@ -1142,7 +1174,9 @@ static TcpFlow* alloc_v4_tcp_flow(Context* ctx, const FlowKey4& key) {
 	for (size_t i = 0; i < NSTUN_MAX_FLOWS; i++) {
 		if (!ctx->c_ipv4_tcp_flows[i].header.active) {
 			TcpFlow* flow = &ctx->c_ipv4_tcp_flows[i];
-			init_tcp_flow_zero(flow);
+			if (!init_tcp_flow_zero(flow)) {
+				return nullptr;
+			}
 			flow->header.active = true;
 			flow->header.key4 = key;
 			ctx->num_c_ipv4_tcp_flows++;
@@ -1173,7 +1207,9 @@ static TcpFlow* alloc_v6_tcp_flow(Context* ctx, const FlowKey6& key) {
 	for (size_t i = 0; i < NSTUN_MAX_FLOWS; i++) {
 		if (!ctx->c_ipv6_tcp_flows[i].header.active) {
 			TcpFlow* flow = &ctx->c_ipv6_tcp_flows[i];
-			init_tcp_flow_zero(flow);
+			if (!init_tcp_flow_zero(flow)) {
+				return nullptr;
+			}
 			flow->header.active = true;
 			flow->header.key6 = key;
 			ctx->num_c_ipv6_tcp_flows++;
