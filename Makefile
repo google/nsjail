@@ -297,11 +297,11 @@ net.o: net.h monitor.h nsjail.h config.pb.h logs.h macros.h missing_defs.h
 net.o: nstun/nstun.h subproc.h util.h
 nsjail.o: nsjail.h config.pb.h cgroup2.h cmdline.h logs.h macros.h
 nsjail.o: missing_defs.h monitor.h net.h sandbox.h subproc.h unotify/stats.h
-nsjail.o: unotify/unotify.pb.h util.h
+nsjail.o: util.h
 pid.o: pid.h nsjail.h config.pb.h logs.h subproc.h monitor.h
 sandbox.o: sandbox.h nsjail.h config.pb.h subproc.h monitor.h
-sandbox.o: kafel/include/kafel.h logs.h missing_defs.h unotify/syscall_defs.h
-sandbox.o: missing_defs.h util.h
+sandbox.o: kafel/include/kafel.h logs.h macros.h missing_defs.h
+sandbox.o: unotify/syscall_defs.h missing_defs.h util.h
 subproc.o: subproc.h monitor.h nsjail.h config.pb.h cgroup.h cgroup2.h
 subproc.o: contain.h logs.h macros.h missing_defs.h net.h nstun/nstun.h
 subproc.o: sandbox.h user.h util.h
@@ -309,13 +309,15 @@ uts.o: uts.h nsjail.h config.pb.h logs.h
 user.o: user.h nsjail.h config.pb.h logs.h macros.h subproc.h monitor.h
 user.o: util.h missing_defs.h
 unotify/unotify.o: unotify/unotify.h nsjail.h config.pb.h logs.h
-unotify/unotify.o: missing_defs.h monitor.h unotify/stats.h
-unotify/unotify.o: unotify/unotify.pb.h unotify/syscall.h util.h
-unotify/stats.o: unotify/stats.h nsjail.h config.pb.h unotify/unotify.pb.h
-unotify/stats.o: logs.h util.h missing_defs.h
+unotify/unotify.o: missing_defs.h monitor.h unotify/stats.h unotify/syscall.h
+unotify/unotify.o: util.h
+unotify/stats.o: unotify/stats.h nsjail.h config.pb.h logs.h
+unotify/stats.o: unotify/stats_internal.h unotify/unotify.pb.h util.h
+unotify/stats.o: missing_defs.h
 unotify/syscall.o: unotify/syscall.h logs.h macros.h missing_defs.h
-unotify/syscall.o: unotify/stats.h nsjail.h config.pb.h unotify/unotify.pb.h
-unotify/syscall.o: unotify/syscall_defs.h missing_defs.h util.h
+unotify/syscall.o: unotify/stats_internal.h unotify/unotify.pb.h
+unotify/syscall.o: unotify/syscall_defs.h missing_defs.h util.h nsjail.h
+unotify/syscall.o: config.pb.h
 util.o: util.h missing_defs.h nsjail.h config.pb.h logs.h macros.h
 nstun/nstun.o: nstun/nstun.h monitor.h nstun/core.h nstun/net_defs.h
 nstun/nstun.o: nstun/encap.h nstun/icmp.h nstun/iface.h nstun/ip.h logs.h
