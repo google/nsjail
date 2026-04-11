@@ -196,7 +196,12 @@ test: $(BIN)
 	# --- IPv6-only NAT tests ---
 	$(call run_test, ./nsjail --config tests/nat-ip6-only.cfg -q -t 3 -- /bin/true, 0)
 
-	# --- SOCKS5 proxy test ---
+	# --- SOCKS5 + HTTP CONNECT proxy tests (need gost) ---
+	@echo "Starting gost proxy for SOCKS5/CONNECT tests..."; \
+	gost -L 0.0.0.0:1080 -L 0.0.0.0:3128 & echo $$! > .gost_test_pid; \
+	sleep 0.5
+
+	# SOCKS5 proxy test
 	$(call run_test, ./nsjail --config tests/socks5.cfg -q -t 3 -- /bin/bash -c 'wget -4 https://dns.google -O /dev/null && exit 77', 77)
 	$(call run_test, ./nsjail --config tests/socks5.cfg -q -t 3 -- /bin/bash -c 'wget -6 https://dns.google -O /dev/null && exit 77', 77)
 	# SOCKS5 UDP (DNS over UDP) and TCP (DNS over TCP) via IPv4 and IPv6 resolvers
@@ -205,12 +210,14 @@ test: $(BIN)
 	$(call run_test, ./nsjail --config tests/socks5.cfg -q -t 3 -- /bin/bash -c 'host -U dns.google 2001:4860:4860::8888 && exit 77', 77)
 	$(call run_test, ./nsjail --config tests/socks5.cfg -q -t 3 -- /bin/bash -c 'host -T dns.google 2001:4860:4860::8888 && exit 77', 77)
 
-	# --- HTTP CONNECT proxy test ---
+	# HTTP CONNECT proxy test
 	$(call run_test, ./nsjail --config tests/connect.cfg -q -t 3 -- /bin/bash -c 'wget -4 https://dns.google -O /dev/null && exit 77', 77)
 	$(call run_test, ./nsjail --config tests/connect.cfg -q -t 3 -- /bin/bash -c 'wget -6 https://dns.google -O /dev/null && exit 77', 77)
 	# HTTP CONNECT DNS over TCP via IPv4 and IPv6 resolvers
 	$(call run_test, ./nsjail --config tests/connect.cfg -q -t 3 -- /bin/bash -c 'host -T dns.google 8.8.8.8 && exit 77', 77)
 	$(call run_test, ./nsjail --config tests/connect.cfg -q -t 3 -- /bin/bash -c 'host -T dns.google 2001:4860:4860::8888 && exit 77', 77)
+
+	@kill $$(cat .gost_test_pid) 2>/dev/null; rm -f .gost_test_pid; echo "Stopped gost proxy"
 
 	# --- Nstun standalone / proxy mode tests ---
 	$(call run_test, ./nsjail --config tests/nstun.cfg -Mo -q -t 2 --seccomp_unotify -- /bin/bash -c 'exit 77', 77)
