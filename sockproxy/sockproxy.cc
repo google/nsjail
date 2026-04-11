@@ -259,6 +259,11 @@ static void proxyPumpCb(int fd, uint32_t events, void* data) {
 			if (!drainChannel(conn->sock_fd, conn->sock_to_pipe.pipe_fd, conn->sock_fd,
 				&conn->sock_to_pipe)) {
 				LOG_D("sock->pipe EOF (client half-closed), closing child stdin");
+				/* Client is gone -- no point keeping the reverse
+				 * channel alive.  Close it so the "fully drained"
+				 * check below tears down the whole proxy and kills
+				 * the jailed process. */
+				closeAndUnregister(&conn->pipe_to_sock);
 			}
 			handled = true;
 		}
