@@ -1,5 +1,4 @@
 #include "unotify/stats.h"
-#include "unotify/stats_internal.h"
 
 #include <fcntl.h>
 #include <google/protobuf/text_format.h>
@@ -8,6 +7,7 @@
 #include <mutex>
 
 #include "logs.h"
+#include "unotify/stats_internal.h"
 #include "util.h"
 
 namespace unotify {
