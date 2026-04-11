@@ -227,6 +227,62 @@ static void updateMasks(conn_t* conn) {
 	updateFdMask(conn->pipe_to_sock.pipe_fd, pipe_out_ev, &conn->pipe_to_sock.registered, conn);
 }
 
+/* --- epoll callback helpers ---------------------------- */
+
+static bool handleSockToPipe(conn_t* conn, int fd, uint32_t events) {
+	if (conn->sock_to_pipe.pipe_fd < 0 || conn->sock_fd < 0) {
+		return false;
+	}
+	bool ready = false;
+	if (fd == conn->sock_fd && (events & (EPOLLIN | EPOLLRDHUP | EPOLLHUP))) {
+		ready = true;
+	}
+	if (fd == conn->sock_to_pipe.pipe_fd && (events & (EPOLLOUT | EPOLLHUP | EPOLLERR))) {
+		ready = true;
+	}
+
+	if (ready) {
+		conn->sock_to_pipe.blocked = false;
+		if (!drainChannel(conn->sock_fd, conn->sock_to_pipe.pipe_fd, conn->sock_fd,
+			&conn->sock_to_pipe)) {
+			LOG_D("sock->pipe EOF (client half-closed), closing child stdin");
+			/* Client is gone -- no point keeping the reverse
+			 * channel alive.  Close it so the "fully drained"
+			 * check below tears down the whole proxy and kills
+			 * the jailed process. */
+			closeAndUnregister(&conn->pipe_to_sock);
+		}
+		return true;
+	}
+	return false;
+}
+
+static bool handlePipeToSock(conn_t* conn, int fd, uint32_t events) {
+	if (conn->pipe_to_sock.pipe_fd < 0 || conn->sock_fd < 0) {
+		return false;
+	}
+	bool ready = false;
+	if (fd == conn->pipe_to_sock.pipe_fd && (events & (EPOLLIN | EPOLLRDHUP | EPOLLHUP))) {
+		ready = true;
+	}
+	if (fd == conn->sock_fd && (events & EPOLLOUT)) {
+		ready = true;
+	}
+
+	if (ready) {
+		conn->pipe_to_sock.blocked = false;
+		if (!drainChannel(conn->pipe_to_sock.pipe_fd, conn->sock_fd,
+			conn->pipe_to_sock.pipe_fd, &conn->pipe_to_sock)) {
+			LOG_D("pipe->sock EOF, half-closing socket write side");
+			if (shutdown(conn->sock_fd, SHUT_WR) == -1) {
+				PLOG_W("shutdown(SHUT_WR) failed");
+			}
+		}
+		return true;
+	}
+	return false;
+}
+
 /* --- epoll callback ------------------------------------ */
 
 static void proxyPumpCb(int fd, uint32_t events, void* data) {
@@ -241,63 +297,16 @@ static void proxyPumpCb(int fd, uint32_t events, void* data) {
 	}
 
 	bool handled = false;
-
-	/* -- Direction 1: sock_fd -> pipe_in (network -> child stdin) -- */
-	if (conn->sock_to_pipe.pipe_fd >= 0 && conn->sock_fd >= 0) {
-		bool ready = false;
-		if (fd == conn->sock_fd &&
-		    (events & (EPOLLIN | EPOLLRDHUP | EPOLLHUP | EPOLLERR))) {
-			ready = true;
-		}
-		if (fd == conn->sock_to_pipe.pipe_fd &&
-		    (events & (EPOLLOUT | EPOLLHUP | EPOLLERR))) {
-			ready = true;
-		}
-
-		if (ready) {
-			conn->sock_to_pipe.blocked = false;
-			if (!drainChannel(conn->sock_fd, conn->sock_to_pipe.pipe_fd, conn->sock_fd,
-				&conn->sock_to_pipe)) {
-				LOG_D("sock->pipe EOF (client half-closed), closing child stdin");
-				/* Client is gone -- no point keeping the reverse
-				 * channel alive.  Close it so the "fully drained"
-				 * check below tears down the whole proxy and kills
-				 * the jailed process. */
-				closeAndUnregister(&conn->pipe_to_sock);
-			}
-			handled = true;
-		}
-	}
-
-	/* -- Direction 2: pipe_out -> sock_fd (child stdout -> network) -- */
-	if (conn->pipe_to_sock.pipe_fd >= 0 && conn->sock_fd >= 0) {
-		bool ready = false;
-		if (fd == conn->pipe_to_sock.pipe_fd &&
-		    (events & (EPOLLIN | EPOLLRDHUP | EPOLLHUP | EPOLLERR))) {
-			ready = true;
-		}
-		if (fd == conn->sock_fd && (events & EPOLLOUT)) {
-			ready = true;
-		}
-
-		if (ready) {
-			conn->pipe_to_sock.blocked = false;
-			if (!drainChannel(conn->pipe_to_sock.pipe_fd, conn->sock_fd,
-				conn->pipe_to_sock.pipe_fd, &conn->pipe_to_sock)) {
-				LOG_D("pipe->sock EOF, half-closing socket write side");
-				shutdown(conn->sock_fd, SHUT_WR);
-			}
-			handled = true;
-		}
-	}
+	handled |= handleSockToPipe(conn, fd, events);
+	handled |= handlePipeToSock(conn, fd, events);
 
 	/*
 	 * Socket broken (EPOLLHUP/EPOLLERR): stop feeding the child.
 	 * pipe_out may still have buffered data but splice will fail
 	 * writing to a dead socket, so both channels converge to -1.
 	 */
-	if (fd == conn->sock_fd && (events & (EPOLLHUP | EPOLLERR))) {
-		LOG_D("Socket error/hup on sock_fd=%d, tearing down", fd);
+	if (fd == conn->sock_fd && (events & EPOLLHUP)) {
+		LOG_D("Socket hup on sock_fd=%d, tearing down", fd);
 		conclude(conn);
 		return;
 	}
