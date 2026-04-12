@@ -15,7 +15,7 @@ namespace sockproxy {
  * calls monitor::stop() to exit the event loop.
  */
 typedef void (*on_close_cb_t)(void* data);
-bool start(int* connfd, int* pipe_in, int* pipe_out, on_close_cb_t cb, void* data);
+[[nodiscard]] bool start(int* connfd, int* pipe_in, int* pipe_out, on_close_cb_t cb, void* data);
 void stop();
 
 }  // namespace sockproxy

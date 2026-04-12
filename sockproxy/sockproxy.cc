@@ -39,6 +39,21 @@ struct channel_t {
 	int pipe_fd = -1;
 	bool blocked = false;
 	bool registered = false;
+
+	/*
+	 * Remove an FD from epoll, close it, and invalidate the slot.
+	 * Safe to call with pipe_fd == -1 (no-op).
+	 */
+	void closeAndUnregister() {
+		if (pipe_fd >= 0) {
+			if (registered) {
+				monitor::removeFd(pipe_fd);
+				registered = false;
+			}
+			close(pipe_fd);
+			pipe_fd = -1;
+		}
+	}
 };
 
 struct conn_t {
@@ -48,52 +63,32 @@ struct conn_t {
 	channel_t pipe_to_sock;
 	on_close_cb_t close_cb = nullptr;
 	void* cb_data = nullptr;
+
+	/*
+	 * Tear down an entire connection: unregister all FDs from epoll,
+	 * close everything, and clear the state.
+	 */
+	void teardown() {
+		sock_to_pipe.closeAndUnregister();
+		pipe_to_sock.closeAndUnregister();
+		if (sock_fd >= 0) {
+			if (sock_registered) {
+				monitor::removeFd(sock_fd);
+				sock_registered = false;
+			}
+			close(sock_fd);
+			sock_fd = -1;
+		}
+	}
 };
 
 static thread_local conn_t current_conn;
-
-/* --- helpers ------------------------------------------- */
-
-/*
- * Remove an FD from epoll, close it, and invalidate the slot.
- * Safe to call with *fd == -1 (no-op).
- */
-static void closeAndUnregister(channel_t* chan) {
-	if (chan->pipe_fd >= 0) {
-		if (chan->registered) {
-			monitor::removeFd(chan->pipe_fd);
-			chan->registered = false;
-		}
-		close(chan->pipe_fd);
-		chan->pipe_fd = -1;
-	}
-}
-
-/*
- * Tear down an entire connection: unregister all FDs from epoll,
- * close everything, and clear the state.
- */
-static void teardownConn(conn_t* conn) {
-	if (!conn) {
-		return;
-	}
-	closeAndUnregister(&conn->sock_to_pipe);
-	closeAndUnregister(&conn->pipe_to_sock);
-	if (conn->sock_fd >= 0) {
-		if (conn->sock_registered) {
-			monitor::removeFd(conn->sock_fd);
-			conn->sock_registered = false;
-		}
-		close(conn->sock_fd);
-		conn->sock_fd = -1;
-	}
-}
 
 /*
  * Tear down connection and notify monitor.
  */
 static void conclude(conn_t* conn) {
-	teardownConn(conn);
+	conn->teardown();
 	if (conn->close_cb) {
 		conn->close_cb(conn->cb_data);
 	} else {
@@ -145,7 +140,7 @@ static PumpResult splicePump(int src, int dst, int check_fd) {
  * On EOF/error, *pipe_fd is removed from epoll and closed.
  * Returns false if the channel hit EOF (*pipe_fd is now -1).
  */
-static bool drainChannel(int src, int dst, int check_fd, channel_t* chan) {
+[[nodiscard]] static bool drainChannel(int src, int dst, int check_fd, channel_t* chan) {
 	int loops = 0;
 	while (!chan->blocked && chan->pipe_fd >= 0) {
 		switch (splicePump(src, dst, check_fd)) {
@@ -155,7 +150,7 @@ static bool drainChannel(int src, int dst, int check_fd, channel_t* chan) {
 			}
 			continue;
 		case PumpResult::kEof:
-			closeAndUnregister(chan);
+			chan->closeAndUnregister();
 			return false;
 		case PumpResult::kBlocked:
 			chan->blocked = true;
@@ -169,25 +164,28 @@ static bool drainChannel(int src, int dst, int check_fd, channel_t* chan) {
 
 static void proxyPumpCb(int fd, uint32_t events, void* data);
 
-static void updateFdMask(int fd, uint32_t events, bool* registered, conn_t* conn) {
+[[nodiscard]] static bool updateFdMask(int fd, uint32_t events, bool* registered, conn_t* conn) {
 	if (fd < 0) {
-		return;
+		return true;
 	}
 
-	if (events != 0) {
-		if (!*registered) {
-			if (monitor::addFd(fd, events, proxyPumpCb, conn)) {
-				*registered = true;
-			}
-		} else {
-			monitor::modFd(fd, events);
-		}
-	} else {
+	if (events == 0) {
 		if (*registered) {
 			monitor::removeFd(fd);
 			*registered = false;
 		}
+		return true;
 	}
+
+	if (*registered) {
+		return monitor::modFd(fd, events);
+	}
+
+	if (monitor::addFd(fd, events, proxyPumpCb, conn)) {
+		*registered = true;
+		return true;
+	}
+	return false;
 }
 
 /*
@@ -197,7 +195,7 @@ static void updateFdMask(int fd, uint32_t events, bool* registered, conn_t* conn
  *   not blocked -> watch source for EPOLLIN  (data available)
  *       blocked -> watch dest for EPOLLOUT   (space available)
  */
-static void updateMasks(conn_t* conn) {
+[[nodiscard]] static bool updateMasks(conn_t* conn) {
 	uint32_t sock_ev = 0;
 	uint32_t pipe_in_ev = 0;
 	uint32_t pipe_out_ev = 0;
@@ -222,9 +220,18 @@ static void updateMasks(conn_t* conn) {
 		sock_ev |= EPOLLOUT;
 	}
 
-	updateFdMask(conn->sock_fd, sock_ev, &conn->sock_registered, conn);
-	updateFdMask(conn->sock_to_pipe.pipe_fd, pipe_in_ev, &conn->sock_to_pipe.registered, conn);
-	updateFdMask(conn->pipe_to_sock.pipe_fd, pipe_out_ev, &conn->pipe_to_sock.registered, conn);
+	if (!updateFdMask(conn->sock_fd, sock_ev, &conn->sock_registered, conn)) {
+		return false;
+	}
+	if (!updateFdMask(
+		conn->sock_to_pipe.pipe_fd, pipe_in_ev, &conn->sock_to_pipe.registered, conn)) {
+		return false;
+	}
+	if (!updateFdMask(
+		conn->pipe_to_sock.pipe_fd, pipe_out_ev, &conn->pipe_to_sock.registered, conn)) {
+		return false;
+	}
+	return true;
 }
 
 /* --- epoll callback helpers ---------------------------- */
@@ -246,11 +253,8 @@ static bool handleSockToPipe(conn_t* conn, int fd, uint32_t events) {
 		if (!drainChannel(conn->sock_fd, conn->sock_to_pipe.pipe_fd, conn->sock_fd,
 			&conn->sock_to_pipe)) {
 			LOG_D("sock->pipe EOF (client half-closed), closing child stdin");
-			/* Client is gone -- no point keeping the reverse
-			 * channel alive.  Close it so the "fully drained"
-			 * check below tears down the whole proxy and kills
-			 * the jailed process. */
-			closeAndUnregister(&conn->pipe_to_sock);
+			/* Client half-closed. Keep the reverse channel alive
+			 * to receive any remaining output from the child. */
 		}
 		return true;
 	}
@@ -316,14 +320,22 @@ static void proxyPumpCb(int fd, uint32_t events, void* data) {
 		LOG_D("Proxy fully drained, tearing down");
 		conclude(conn);
 	} else if (handled) {
-		updateMasks(conn);
+		if (!updateMasks(conn)) {
+			LOG_E("updateMasks failed in callback, tearing down");
+			conclude(conn);
+			return;
+		}
 	}
 }
 
 /* --- public API ---------------------------------------- */
 
-bool start(int* connfd, int* pipe_in, int* pipe_out, on_close_cb_t cb, void* data) {
+[[nodiscard]] bool start(int* connfd, int* pipe_in, int* pipe_out, on_close_cb_t cb, void* data) {
 	conn_t* conn = &current_conn;
+	if (conn->sock_fd >= 0) {
+		LOG_E("sockproxy: connection already active in this thread");
+		return false;
+	}
 	conn->sock_fd = *connfd;
 	conn->sock_to_pipe.pipe_fd = *pipe_in;
 	conn->pipe_to_sock.pipe_fd = *pipe_out;
@@ -340,50 +352,26 @@ bool start(int* connfd, int* pipe_in, int* pipe_out, on_close_cb_t cb, void* dat
 		return false;
 	}
 
-	if (!monitor::addFd(conn->sock_fd, EPOLLRDHUP, proxyPumpCb, conn)) {
-		PLOG_E("addFd(sock_fd=%d)", conn->sock_fd);
+	if (!updateMasks(conn)) {
+		PLOG_E("updateMasks failed during start");
+		(void)updateFdMask(conn->sock_fd, 0, &conn->sock_registered, conn);
+		(void)updateFdMask(conn->sock_to_pipe.pipe_fd, 0, &conn->sock_to_pipe.registered, conn);
+		(void)updateFdMask(conn->pipe_to_sock.pipe_fd, 0, &conn->pipe_to_sock.registered, conn);
 		conn->sock_fd = -1;
 		conn->sock_to_pipe.pipe_fd = -1;
 		conn->pipe_to_sock.pipe_fd = -1;
 		return false;
 	}
-	conn->sock_registered = true;
-
-	if (!monitor::addFd(conn->sock_to_pipe.pipe_fd, EPOLLRDHUP, proxyPumpCb, conn)) {
-		PLOG_E("addFd(pipe_in=%d)", conn->sock_to_pipe.pipe_fd);
-		monitor::removeFd(conn->sock_fd);
-		conn->sock_registered = false;
-		conn->sock_fd = -1;
-		conn->sock_to_pipe.pipe_fd = -1;
-		conn->pipe_to_sock.pipe_fd = -1;
-		return false;
-	}
-	conn->sock_to_pipe.registered = true;
-
-	if (!monitor::addFd(conn->pipe_to_sock.pipe_fd, EPOLLRDHUP, proxyPumpCb, conn)) {
-		PLOG_E("addFd(pipe_out=%d)", conn->pipe_to_sock.pipe_fd);
-		monitor::removeFd(conn->sock_to_pipe.pipe_fd);
-		conn->sock_to_pipe.registered = false;
-		monitor::removeFd(conn->sock_fd);
-		conn->sock_registered = false;
-		conn->sock_fd = -1;
-		conn->sock_to_pipe.pipe_fd = -1;
-		conn->pipe_to_sock.pipe_fd = -1;
-		return false;
-	}
-	conn->pipe_to_sock.registered = true;
 
 	/* Success: proxy owns the FDs now, invalidate caller's copies */
 	*connfd = -1;
 	*pipe_in = -1;
 	*pipe_out = -1;
-
-	updateMasks(conn);
 	return true;
 }
 
 void stop() {
-	teardownConn(&current_conn);
+	current_conn.teardown();
 }
 
 }  // namespace sockproxy
