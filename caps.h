@@ -29,8 +29,8 @@
 
 namespace caps {
 
-int nameToVal(const char* name);
-bool initNs(nsj_t* nsj);
+[[nodiscard]] int nameToVal(const char* name);
+[[nodiscard]] bool initNs(nsj_t* nsj);
 
 }  // namespace caps
 

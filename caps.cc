@@ -30,6 +30,7 @@
 
 #include <cerrno>
 #include <string>
+#include <vector>
 
 #include "logs.h"
 #include "macros.h"
@@ -95,29 +96,26 @@ int nameToVal(const char* name) {
 	return -1;
 }
 
-static const std::string capToStr(int val) {
+static std::string capToStr(int val) {
 	for (const auto& cap : capNames) {
 		if (val == cap.val) {
 			return cap.name;
 		}
 	}
 
-	std::string res;
-	res.append("CAP_UNKNOWN(").append(std::to_string(val)).append(")");
-	return res;
+	return util::StrPrintf("CAP_UNKNOWN(%d)", val);
 }
 
-static cap_user_data_t getCaps() {
-	static __thread struct __user_cap_data_struct cap_data[_LINUX_CAPABILITY_U32S_3];
+static bool getCaps(cap_user_data_t cap_data) {
 	const struct __user_cap_header_struct cap_hdr = {
 	    .version = _LINUX_CAPABILITY_VERSION_3,
 	    .pid = 0,
 	};
-	if (util::syscall(__NR_capget, (uintptr_t)&cap_hdr, (uintptr_t)&cap_data) == -1) {
+	if (util::syscall(__NR_capget, (uintptr_t)&cap_hdr, (uintptr_t)cap_data) == -1) {
 		PLOG_W("capget() failed");
-		return nullptr;
+		return false;
 	}
-	return cap_data;
+	return true;
 }
 
 static bool setCaps(const cap_user_data_t cap_data) {
@@ -165,10 +163,13 @@ static void setInheritable(cap_user_data_t cap_data, unsigned int cap) {
 static bool initNsKeepCaps(cap_user_data_t cap_data) {
 	/* Copy all permitted caps to the inheritable set */
 	std::string dbgmsg1;
-	for (const auto& i : capNames) {
-		if (getPermitted(cap_data, i.val)) {
-			util::StrAppend(&dbgmsg1, " %s", i.name);
-			setInheritable(cap_data, i.val);
+	for (int cap = 0; cap < 64; ++cap) {
+		if (CAP_TO_INDEX(cap) >= _LINUX_CAPABILITY_U32S_3) {
+			break;
+		}
+		if (getPermitted(cap_data, cap)) {
+			dbgmsg1.append(" ").append(capToStr(cap));
+			setInheritable(cap_data, cap);
 		}
 	}
 	LOG_D("Adding the following capabilities to the inheritable set:%s", dbgmsg1.c_str());
@@ -179,15 +180,19 @@ static bool initNsKeepCaps(cap_user_data_t cap_data) {
 
 	/* Make sure the inheritable set is preserved across execve via the ambient set */
 	std::string dbgmsg2;
-	for (const auto& i : capNames) {
-		if (!getPermitted(cap_data, i.val)) {
+	for (int cap = 0; cap < 64; ++cap) {
+		if (CAP_TO_INDEX(cap) >= _LINUX_CAPABILITY_U32S_3) {
+			break;
+		}
+		if (!getPermitted(cap_data, cap)) {
 			continue;
 		}
-		if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)i.val, 0UL, 0UL) ==
-		    -1) {
-			PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s)", i.name);
+		if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, static_cast<unsigned long>(cap),
+			0UL, 0UL) == -1) {
+			PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s)",
+			    capToStr(cap).c_str());
 		} else {
-			util::StrAppend(&dbgmsg2, " %s", i.name);
+			dbgmsg2.append(" ").append(capToStr(cap));
 		}
 	}
 	LOG_D("Added the following capabilities to the ambient set:%s", dbgmsg2.c_str());
@@ -196,8 +201,8 @@ static bool initNsKeepCaps(cap_user_data_t cap_data) {
 }
 
 bool initNs(nsj_t* nsj) {
-	cap_user_data_t cap_data = getCaps();
-	if (cap_data == nullptr) {
+	struct __user_cap_data_struct cap_data[_LINUX_CAPABILITY_U32S_3];
+	if (!getCaps(cap_data)) {
 		return false;
 	}
 
@@ -217,18 +222,22 @@ bool initNs(nsj_t* nsj) {
 
 	/* Set all requested caps in the inheritable set if these are present in the permitted set
 	 */
+	/* Resolve capabilities once */
+	std::vector<int> resolved_caps;
 	std::string dbgmsg;
-	for (ssize_t i = 0; i < nsj->njc.cap_size(); i++) {
-		int cap = nameToVal(nsj->njc.cap(i).c_str());
+
+	for (const auto& cap_str : nsj->njc.cap()) {
+		int cap = nameToVal(cap_str.c_str());
 		if (cap == -1) {
-			LOG_W("Unknown capability: %s", nsj->njc.cap(i).c_str());
-			continue;
+			LOG_W("Unknown capability: %s", cap_str.c_str());
+			return false;
 		}
 		if (!getPermitted(cap_data, cap)) {
 			LOG_W("Capability %s is not permitted in the namespace",
 			    capToStr(cap).c_str());
 			return false;
 		}
+		resolved_caps.push_back(cap);
 		dbgmsg.append(" ").append(capToStr(cap));
 		setInheritable(cap_data, cap);
 	}
@@ -244,18 +253,29 @@ bool initNs(nsj_t* nsj) {
 	 */
 	dbgmsg.clear();
 	if (getEffective(cap_data, CAP_SETPCAP)) {
-		for (const auto& i : capNames) {
-			if (getInheritable(cap_data, i.val)) {
+		for (int cap = 0; cap < 64; ++cap) {
+			int res =
+			    prctl(PR_CAPBSET_READ, static_cast<unsigned long>(cap), 0UL, 0UL, 0UL);
+			if (res == -1) {
+				if (errno == EINVAL) {
+					break;
+				}
+				PLOG_W("prctl(PR_CAPBSET_READ, %d)", cap);
+				return false;
+			}
+			if (res == 0) {
 				continue;
 			}
-			if (prctl(PR_CAPBSET_READ, (unsigned long)i.val, 0UL, 0UL, 0UL) == -1 &&
-			    errno == EINVAL) {
-				LOG_D("Skipping unsupported capability: %s", i.name);
+			if (CAP_TO_INDEX(cap) >= _LINUX_CAPABILITY_U32S_3) {
+				break;
+			}
+			if (getInheritable(cap_data, cap)) {
 				continue;
 			}
-			dbgmsg.append(" ").append(i.name);
-			if (prctl(PR_CAPBSET_DROP, (unsigned long)i.val, 0UL, 0UL, 0UL) == -1) {
-				PLOG_W("prctl(PR_CAPBSET_DROP, %s)", i.name);
+			dbgmsg.append(" ").append(capToStr(cap));
+			if (prctl(PR_CAPBSET_DROP, static_cast<unsigned long>(cap), 0UL, 0UL,
+				0UL) == -1) {
+				PLOG_W("prctl(PR_CAPBSET_DROP, %s)", capToStr(cap).c_str());
 				return false;
 			}
 		}
@@ -265,18 +285,14 @@ bool initNs(nsj_t* nsj) {
 
 	/* Make sure inheritable set is preserved across execve via the modified ambient set */
 	dbgmsg.clear();
-	for (ssize_t i = 0; i < nsj->njc.cap_size(); i++) {
-		int cap = nameToVal(nsj->njc.cap(i).c_str());
-		if (cap == -1) {
-			continue;
-		}
-		if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, (unsigned long)cap, 0UL, 0UL) ==
-		    -1) {
-			PLOG_W("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s)",
+	for (int cap : resolved_caps) {
+		if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, static_cast<unsigned long>(cap),
+			0UL, 0UL) == -1) {
+			PLOG_E("prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, %s) failed",
 			    capToStr(cap).c_str());
-		} else {
-			dbgmsg.append(" ").append(capToStr(cap));
+			return false;
 		}
+		dbgmsg.append(" ").append(capToStr(cap));
 	}
 	LOG_D("Added the following capabilities to the ambient set:%s", dbgmsg.c_str());
 
