@@ -65,7 +65,7 @@ static void setDupLogFdOr(int fd, int orfd) {
  * Log to stderr by default. Use a dup()d fd, because in the future we'll associate the
  * connection socket with fd (0, 1, 2).
  */
-__attribute__((constructor)) static void log_init(void) {
+__attribute__((constructor)) static void log_init() {
 	setDupLogFdOr(STDERR_FILENO, STDERR_FILENO);
 }
 
@@ -81,17 +81,17 @@ void setLogLevel(enum llevel_t ll) {
 	_log_level = ll;
 }
 
-enum llevel_t getLogLevel(void) {
+enum llevel_t getLogLevel() {
 	return _log_level;
 }
 
 void logFile(const std::string& log_file, int log_fd) {
 	_log_set = true;
-	int newlogfd = -1;
+	int new_log_fd = -1;
 	if (!log_file.empty()) {
-		newlogfd = TEMP_FAILURE_RETRY(
+		new_log_fd = TEMP_FAILURE_RETRY(
 		    open(log_file.c_str(), O_CREAT | O_RDWR | O_APPEND | O_CLOEXEC, 0640));
-		if (newlogfd == -1) {
+		if (new_log_fd == -1) {
 			PLOG_W("Couldn't open('%s')", log_file.c_str());
 		}
 	}
@@ -99,9 +99,9 @@ void logFile(const std::string& log_file, int log_fd) {
 	if (_log_fd > STDERR_FILENO) {
 		close(_log_fd);
 	}
-	setDupLogFdOr(newlogfd, log_fd);
-	if (newlogfd >= 0) {
-		close(newlogfd);
+	setDupLogFdOr(new_log_fd, log_fd);
+	if (new_log_fd >= 0) {
+		close(new_log_fd);
 	}
 }
 
@@ -112,21 +112,29 @@ void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt
 
 	std::string strerr;
 	if (perr) {
-		strerr = strerror(errno);
+		static thread_local char buf[256];
+		strerr = strerror_r(errno, buf, sizeof(buf));
 	}
+	static const char* const kClrDebug = "\033[0;4m";
+	static const char* const kClrInfo = "\033[1m";
+	static const char* const kClrWarn = "\033[0;33m";
+	static const char* const kClrErr = "\033[1;31m";
+	static const char* const kClrFatal = "\033[7;35m";
+	static const char* const kClrReset = "\033[0m";
+
 	struct {
 		const char* const descr;
 		const char* const prefix;
 		const bool print_funcline;
 		const bool print_time;
 	} static const logLevels[] = {
-	    {"D", "\033[0;4m", true, true},
-	    {"I", "\033[1m", false, true},
-	    {"W", "\033[0;33m", true, true},
-	    {"E", "\033[1;31m", true, true},
-	    {"F", "\033[7;35m", true, true},
-	    {"HR", "\033[0m", false, false},
-	    {"HB", "\033[1m", false, false},
+	    {"D", kClrDebug, true, true},
+	    {"I", kClrInfo, false, true},
+	    {"W", kClrWarn, true, true},
+	    {"E", kClrErr, true, true},
+	    {"F", kClrFatal, true, true},
+	    {"HR", kClrReset, false, false},
+	    {"HB", kClrInfo, false, false},
 	};
 
 	/* Start printing logs */
@@ -138,19 +146,17 @@ void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt
 		msg.append("[").append(logLevels[ll].descr).append("]");
 	}
 	if (logLevels[ll].print_time) {
-		msg.append("[").append(util::timeToStr(time(NULL))).append("]");
+		msg.append("[").append(util::timeToStr(time(nullptr))).append("]");
 	}
 
 	int pid = getpid();
 	int tid = gettid();
 	if (logLevels[ll].print_funcline) {
-		msg.append("[")
-		    .append(std::to_string(pid))
-		    .append(pid == tid ? "" : ("/" + std::to_string(tid)))
-		    .append("] ")
-		    .append(fn)
-		    .append("():")
-		    .append(std::to_string(ln));
+		if (pid == tid) {
+			msg.append(util::StrPrintf("[%d] %s():%d", pid, fn, ln));
+		} else {
+			msg.append(util::StrPrintf("[%d/%d] %s():%d", pid, tid, fn, ln));
+		}
 	}
 
 	char* strp;
@@ -173,7 +179,11 @@ void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt
 	msg.append("\n");
 	/* End printing logs */
 
-	TEMP_FAILURE_RETRY(write(_log_fd, msg.c_str(), msg.size()));
+	if (!util::writeToFd(_log_fd, msg.c_str(), msg.size())) {
+		if (_log_fd != STDERR_FILENO) {
+			(void)util::writeToFd(STDERR_FILENO, msg.c_str(), msg.size());
+		}
+	}
 
 	if (ll == FATAL) {
 		_exit(0xff);

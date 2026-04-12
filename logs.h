@@ -89,7 +89,7 @@ void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt
     __attribute__((format(printf, 5, 6)));
 void logStop(int sig);
 void setLogLevel(enum llevel_t ll);
-enum llevel_t getLogLevel(void);
+enum llevel_t getLogLevel();
 void logFile(const std::string& log_file, int log_fd);
 bool logSet();
 int logFd();
