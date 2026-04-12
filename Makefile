@@ -24,7 +24,7 @@ NL3_EXISTS := $(shell pkg-config --exists libnl-route-3.0 && echo yes)
 
 COMMON_FLAGS += -O2 -c \
 	-D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 \
-	-fPIE \
+	-fPIE -fstack-protector-strong -D_FORTIFY_SOURCE=2 \
 	-Wformat -Wformat-security -Wno-format-nonliteral \
 	-Wall -Wextra -Werror \
 	-Ikafel/include
@@ -36,10 +36,10 @@ ifneq ($(findstring clang,$(CXX)),)
 	CXXFLAGS += -Wno-c99-designator
 endif
 
-LDFLAGS += -pie -Wl,-z,noexecstack -lpthread $(PROTOBUF_LIBS)
+LDFLAGS += -pie -Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now -lpthread $(PROTOBUF_LIBS)
 
 ifdef USE_ASAN
-	COMMON_FLAGS += -fsanitize=address
+	COMMON_FLAGS += -fsanitize=address -DUSE_ASAN
 	LDFLAGS += -fsanitize=address
 endif
 
@@ -116,6 +116,7 @@ kafel/include/kafel.h: kafel_init
 kafel/libkafel.a: kafel_init
 	+LDFLAGS="" CFLAGS=-fPIE $(MAKE) -C kafel
 
+
 # Utilities
 clean:
 	$(RM) core Makefile.bak $(OBJS) $(SRCS_PB_CXX) $(SRCS_PB_H) $(SRCS_PB_O) $(BIN)
@@ -176,6 +177,7 @@ UID := $(shell id -u)
 
 .PHONY: test
 test: $(BIN)
+	@echo "Running tests..."
 	# --- Basic sanity tests ---
 	$(call run_test, ./nsjail -q -Mo --chroot / --user 99999 --group 99999 -- /bin/true, 0)
 	$(call run_test, ./nsjail -q -Mo --chroot / --user 99999 --group 99999 -- /bin/false, 1)
