@@ -64,8 +64,8 @@ namespace nsjail {
  * (monitor threads block them), and only the main thread reads these in its poll loops.
  * See "The Threading Model Comprehension Law" in goal.md.
  */
-static __thread std::atomic<int> sigFatal{0};
-static __thread std::atomic<bool> showProc{false};
+static thread_local std::atomic<int> sigFatal{0};
+static thread_local std::atomic<bool> showProc{false};
 
 static void sigHandler(int sig) {
 	if (sig == SIGALRM || sig == SIGCHLD || sig == SIGPIPE) {
@@ -88,12 +88,12 @@ static bool setSigHandler(int sig) {
 	sa.sa_handler = sigHandler;
 	sa.sa_mask = smask;
 	sa.sa_flags = 0;
-	sa.sa_restorer = NULL;
+	sa.sa_restorer = nullptr;
 
 	if (sig == SIGTTIN || sig == SIGTTOU) {
 		sa.sa_handler = SIG_IGN;
 	}
-	if (sigaction(sig, &sa, NULL) == -1) {
+	if (sigaction(sig, &sa, nullptr) == -1) {
 		PLOG_E("sigaction(%d)", sig);
 		return false;
 	}
@@ -135,7 +135,7 @@ static bool setTimer(nsj_t* nsj) {
 		.tv_usec = 0,
 	    },
 	};
-	if (setitimer(ITIMER_REAL, &it, NULL) == -1) {
+	if (setitimer(ITIMER_REAL, &it, nullptr) == -1) {
 		PLOG_E("setitimer(ITIMER_REAL)");
 		return false;
 	}
@@ -207,13 +207,12 @@ int main(int argc, char* argv[]) {
 		      "for best compatibility.");
 	}
 	std::unique_ptr<nsj_t> nsj = cmdline::parseArgs(argc, argv);
-	LOG_D("Config:\n%s", nsj->njc.DebugString().c_str());
-
-	std::unique_ptr<struct termios> trm = nsjail::getTC(STDIN_FILENO);
-
 	if (!nsj) {
 		LOG_F("Couldn't parse cmdline options");
 	}
+	LOG_D("Config:\n%s", nsj->njc.DebugString().c_str());
+
+	std::unique_ptr<struct termios> trm = nsjail::getTC(STDIN_FILENO);
 	if (nsj->njc.daemon() && (daemon(/* nochdir= */ 1, /* noclose= */ 0) == -1)) {
 		PLOG_F("daemon");
 	}
@@ -228,7 +227,9 @@ int main(int argc, char* argv[]) {
 		LOG_F("nsjail::setTimer() failed");
 	}
 	if (nsj->njc.detect_cgroupv2()) {
-		cgroup2::detectCgroupv2(nsj.get());
+		if (!cgroup2::detectCgroupv2(nsj.get())) {
+			LOG_W("Failed to detect cgroupv2, assuming cgroupv1");
+		}
 		LOG_I("Detected cgroups version: %d", nsj->njc.use_cgroupv2() ? 2 : 1);
 	}
 
