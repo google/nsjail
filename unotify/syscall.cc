@@ -68,8 +68,6 @@ static uint8_t* get_ptr_buf() {
 	return g_ptr_buf.buf;
 }
 
-
-
 /* Helper functions string/memory reading, path resolution, etc. */
 
 static std::string getTypeStr(int type) {
@@ -310,7 +308,7 @@ static void getAbsPath(pid_t pid, int dirfd, std::string_view raw_path, std::str
 	g_abs_path_buf.resize(PATH_MAX - 1);
 	ssize_t len = readlink(link_path.c_str(), g_abs_path_buf.data(), g_abs_path_buf.size());
 	if (len <= 0) {
-		out = raw_path;  // fallback
+		out = raw_path;	 /* fallback */
 		return;
 	}
 
@@ -590,8 +588,6 @@ static std::string getDomainStr(int domain) {
 	return std::to_string(domain);
 }
 
-
-
 /* Decoded syscall result — groups all out-params of decodeSyscallArgs */
 
 struct ParsedArgs {
@@ -671,7 +667,6 @@ static void decodeOhowArg(pid_t pid, __u64 arg, ParsedArgs& out, const DecodeSta
 		}
 	}
 }
-
 
 static void decodeSyscallArgs(
     struct seccomp_notif* req, const SyscallDef& def, int pidfd, ParsedArgs& out) {
@@ -780,12 +775,9 @@ static void decodeSyscallArgs(
 		case ArgRole::OHOW:
 			decodeOhowArg(req->pid, arg, out, state);
 			break;
-
-
 		}
 	}
 }
-
 
 /* Public API table-driven syscall name lookup + arg decoding */
 
