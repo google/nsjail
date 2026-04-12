@@ -308,7 +308,7 @@ static void getAbsPath(pid_t pid, int dirfd, std::string_view raw_path, std::str
 	g_abs_path_buf.resize(PATH_MAX - 1);
 	ssize_t len = readlink(link_path.c_str(), g_abs_path_buf.data(), g_abs_path_buf.size());
 	if (len <= 0) {
-		out = raw_path;	 /* fallback */
+		out = raw_path; /* fallback */
 		return;
 	}
 
