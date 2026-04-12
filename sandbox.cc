@@ -72,20 +72,20 @@ bool installUnotifyFilter(nsj_t* nsj, int ipc_fd) {
 		return false;
 	}
 	int unotif_fd = ret;
+	defer {
+		close(unotif_fd);
+	};
 
 	if (fcntl(unotif_fd, F_SETFD, FD_CLOEXEC) == -1) {
 		PLOG_E("fcntl(unotif_fd, F_SETFD, FD_CLOEXEC) failed");
-		close(unotif_fd);
 		return false;
 	}
 
 	if (!util::sendMsg(ipc_fd, monitor::MSG_TAG_UNOTIFY, unotif_fd)) {
 		PLOG_E("sendMsg(unotif_fd) to parent failed");
-		close(unotif_fd);
 		return false;
 	}
 	LOG_D("Child: sent unotif_fd=%d to parent", unotif_fd);
-	close(unotif_fd);
 	return true;
 }
 
@@ -105,18 +105,11 @@ static bool prepareAndCommit(nsj_t* nsj) {
 		flags |= (SECCOMP_FILTER_FLAG_LOG | SECCOMP_FILTER_FLAG_TSYNC);
 	}
 
-	if (flags != 0) {
-		int ret = util::syscall(__NR_seccomp, (uintptr_t)SECCOMP_SET_MODE_FILTER,
-		    (uintptr_t)flags, (uintptr_t)&nsj->seccomp_fprog);
-		if (ret == -1) {
-			PLOG_E("seccomp(SECCOMP_SET_MODE_FILTER) failed");
-			return false;
-		}
-	} else {
-		if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &nsj->seccomp_fprog, 0, 0)) {
-			PLOG_W("prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER) failed");
-			return false;
-		}
+	int ret = util::syscall(__NR_seccomp, (uintptr_t)SECCOMP_SET_MODE_FILTER, (uintptr_t)flags,
+	    (uintptr_t)&nsj->seccomp_fprog);
+	if (ret == -1) {
+		PLOG_E("seccomp(SECCOMP_SET_MODE_FILTER) failed");
+		return false;
 	}
 	return true;
 }
@@ -132,14 +125,10 @@ bool applyPolicy(nsj_t* nsj, int ipc_fd) {
 
 bool preparePolicy(nsj_t* nsj) {
 	nsj->seccomp_fprog.len = 0;
-	nsj->seccomp_fprog.filter = NULL;
+	nsj->seccomp_fprog.filter = nullptr;
 	nsj->seccomp_unotify_fprog.len = 0;
-	nsj->seccomp_unotify_fprog.filter = NULL;
+	nsj->seccomp_unotify_fprog.filter = nullptr;
 
-	if (nsj->njc.seccomp_policy_file().empty() && nsj->njc.seccomp_string().empty() &&
-	    !nsj->njc.seccomp_unotify()) {
-		return true;
-	}
 	if (!nsj->njc.seccomp_policy_file().empty() && !nsj->njc.seccomp_string().empty()) {
 		LOG_W("You specified both kafel seccomp policy, and kafel seccomp file. Specify "
 		      "one only");
@@ -176,11 +165,8 @@ bool preparePolicy(nsj_t* nsj) {
 			combined_seccomp_policy += s;
 			combined_seccomp_policy += '\n';
 		}
-		if (!combined_seccomp_policy.empty()) {
-			LOG_D("Compiling seccomp policy from string:\n%s",
-			    combined_seccomp_policy.c_str());
-			kafel_set_input_string(ctxt, combined_seccomp_policy.c_str());
-		}
+		LOG_D("Compiling seccomp policy from string:\n%s", combined_seccomp_policy.c_str());
+		kafel_set_input_string(ctxt, combined_seccomp_policy.c_str());
 	}
 
 	if (kafel_compile(ctxt, &nsj->seccomp_fprog) != 0) {

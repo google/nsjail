@@ -28,9 +28,9 @@
 
 namespace sandbox {
 
-bool installUnotifyFilter(nsj_t* nsj, int ipc_fd);
-bool applyPolicy(nsj_t* nsj, int ipc_fd);
-bool preparePolicy(nsj_t* nsj);
+[[nodiscard]] bool installUnotifyFilter(nsj_t* nsj, int ipc_fd);
+[[nodiscard]] bool applyPolicy(nsj_t* nsj, int ipc_fd);
+[[nodiscard]] bool preparePolicy(nsj_t* nsj);
 void closePolicy(nsj_t* nsj);
 
 }  // namespace sandbox
