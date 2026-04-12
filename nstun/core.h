@@ -25,8 +25,10 @@ constexpr size_t UDP_QUEUE_PACKET_MAX = 1500;
 constexpr size_t UDP_QUEUE_MAX_PACKETS = 50;
 constexpr int VLEN = 64;
 
-constexpr size_t TCP_TX_BUF_CAP = 131072;  /* 128 KB - host->guest */
-constexpr size_t TCP_RX_BUF_CAP = 131072;  /* 128 KB - guest->host */
+#define HOST_SOCK_BUF_SIZE (8 * 1024 * 1024)
+
+constexpr size_t TCP_TX_BUF_CAP = 1048576;  /* 1 MB - host->guest */
+constexpr size_t TCP_RX_BUF_CAP = 1048576;  /* 1 MB - guest->host */
 constexpr size_t PROXY_RX_BUF_CAP = 8192;  /* 8 KB  - proxy handshake */
 
 /* Removed MemcmpLess in favor of C++20 operator<=> */

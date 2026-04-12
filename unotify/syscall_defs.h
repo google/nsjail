@@ -9,6 +9,18 @@
 
 #include "../missing_defs.h"
 
+#ifndef TCP_QUICKACK
+#define TCP_QUICKACK 12
+#endif
+
+#ifndef SO_RCVBUFFORCE
+#define SO_RCVBUFFORCE 33
+#endif
+
+#ifndef SO_SNDBUFFORCE
+#define SO_SNDBUFFORCE 32
+#endif
+
 namespace unotify {
 
 enum class SyscallCategory : uint8_t {

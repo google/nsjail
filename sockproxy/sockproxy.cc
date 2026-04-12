@@ -23,10 +23,14 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <netinet/tcp.h>
+
+#include "../nstun/core.h"
 
 #include "logs.h"
 #include "monitor.h"
 #include "util.h"
+#include "../unotify/syscall_defs.h"
 
 namespace sockproxy {
 
@@ -341,6 +345,25 @@ static void proxyPumpCb(int fd, uint32_t events, void* data) {
 	conn->pipe_to_sock.pipe_fd = *pipe_out;
 	conn->close_cb = cb;
 	conn->cb_data = data;
+
+	/* Extreme BDP socket tuning for sockproxy connections natively */
+	int opt = 1;
+	if (setsockopt(conn->sock_fd, IPPROTO_TCP, TCP_QUICKACK, &opt, sizeof(opt)) == -1) {
+		PLOG_D("setsockopt(TCP_QUICKACK) failed on sockproxy fd %d", conn->sock_fd);
+	}
+
+	int buf_size = HOST_SOCK_BUF_SIZE;
+	if (setsockopt(conn->sock_fd, SOL_SOCKET, SO_RCVBUFFORCE, &buf_size, sizeof(buf_size)) == -1) {
+		if (setsockopt(conn->sock_fd, SOL_SOCKET, SO_RCVBUF, &buf_size, sizeof(buf_size)) == -1) {
+			PLOG_D("setsockopt(SO_RCVBUF) failed on sockproxy fd %d", conn->sock_fd);
+		}
+	}
+	if (setsockopt(conn->sock_fd, SOL_SOCKET, SO_SNDBUFFORCE, &buf_size, sizeof(buf_size)) == -1) {
+		if (setsockopt(conn->sock_fd, SOL_SOCKET, SO_SNDBUF, &buf_size, sizeof(buf_size)) == -1) {
+			PLOG_D("setsockopt(SO_SNDBUF) failed on sockproxy fd %d", conn->sock_fd);
+		}
+	}
+
 
 	/* Belt-and-suspenders: make sock_fd non-blocking in addition to
 	 * SPLICE_F_NONBLOCK, so FIONREAD probes and future read()/write()

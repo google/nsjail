@@ -19,7 +19,7 @@
 #include "tcp_internal.h"
 #include "tun.h"
 #include "util.h"
-
+#include "../unotify/syscall_defs.h"
 namespace nstun {
 
 void handle_host_tcp_connected(Context* ctx, TcpFlow* flow, int fd);
@@ -941,6 +941,28 @@ static TcpFlow* alloc_v6_tcp_flow(Context* ctx, const FlowKey6& key) {
 	return nullptr;
 }
 
+static void tcp_tune_host_socket(int fd, const char* desc) {
+	int opt = 1;
+	if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) == -1) {
+		PLOG_W("setsockopt(TCP_NODELAY) failed on %s fd %d", desc, fd);
+	}
+	if (setsockopt(fd, IPPROTO_TCP, TCP_QUICKACK, &opt, sizeof(opt)) == -1) {
+		PLOG_D("setsockopt(TCP_QUICKACK) failed on %s fd %d", desc, fd);
+	}
+
+	int buf_size = HOST_SOCK_BUF_SIZE;
+	if (setsockopt(fd, SOL_SOCKET, SO_RCVBUFFORCE, &buf_size, sizeof(buf_size)) == -1) {
+		if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &buf_size, sizeof(buf_size)) == -1) {
+			PLOG_D("setsockopt(SO_RCVBUF) failed on %s fd %d", desc, fd);
+		}
+	}
+	if (setsockopt(fd, SOL_SOCKET, SO_SNDBUFFORCE, &buf_size, sizeof(buf_size)) == -1) {
+		if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &buf_size, sizeof(buf_size)) == -1) {
+			PLOG_D("setsockopt(SO_SNDBUF) failed on %s fd %d", desc, fd);
+		}
+	}
+}
+
 static TcpFlow* create_outbound_flow4(
     Context* ctx, const ip4_hdr* ip, const tcp_hdr* tcp, const FlowKey4& key4, uint32_t seq) {
 	uint16_t guest_port = ntohs(tcp->source);
@@ -987,10 +1009,7 @@ static TcpFlow* create_outbound_flow4(
 	init_outbound_flow_common(
 	    flow, fd, /*is_ipv6=*/false, proxy_mode_from_action(rule.action), seq + 1);
 
-	int opt = 1;
-	if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) == -1) {
-		PLOG_W("setsockopt(TCP_NODELAY) failed on outbound IPv4 flow fd %d", fd);
-	}
+	tcp_tune_host_socket(fd, "outbound IPv4 flow");
 
 	if (rule.redirect_ip4 && rule.redirect_port) {
 		dest_addr.sin_addr.s_addr = rule.redirect_ip4;
@@ -1069,10 +1088,7 @@ static TcpFlow* create_outbound_flow6(
 	init_outbound_flow_common(
 	    flow, fd, /*is_ipv6=*/true, proxy_mode_from_action(rule.action), seq + 1);
 
-	int opt = 1;
-	if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) == -1) {
-		PLOG_W("setsockopt(TCP_NODELAY) failed on outbound IPv6 flow fd %d", fd);
-	}
+	tcp_tune_host_socket(fd, "outbound IPv6 flow");
 
 	if (!monitor::addFd(fd, EPOLLIN | EPOLLOUT | EPOLLERR | EPOLLHUP, host_callback, ctx)) {
 		PLOG_E("monitor::addFd() for IPv6 TCP failed");
@@ -1539,10 +1555,7 @@ void handle_host_tcp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 			return;
 		}
 		LOG_D("Accepted fd=%d", fd);
-		int opt = 1;
-		if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) == -1) {
-			PLOG_W("setsockopt(TCP_NODELAY) failed on accepted host TCP fd %d", fd);
-		}
+		tcp_tune_host_socket(fd, "accepted host TCP flow");
 
 		bool success = false;
 		if (rule.is_ipv6) {
