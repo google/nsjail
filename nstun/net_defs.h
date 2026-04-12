@@ -9,6 +9,8 @@
 
 #include <string>
 
+#include "../missing_defs.h"
+
 /* From <linux/in.h>, can't include directly due to conflicts with <netinet/in.h> */
 #ifndef IN_LOOPBACK
 #define IN_LOOPBACK(a) ((((long int)(a)) & 0xff000000) == 0x7f000000)
@@ -105,6 +107,8 @@ struct __attribute__((packed)) pseudo_hdr6 {
 	uint8_t zeros[3];
 	uint8_t next_header;
 };
+
+constexpr size_t VNET_HDR_SIZE = sizeof(struct virtio_net_hdr);
 
 inline uint8_t ip_version(const uint8_t* ptr) {
 	return ptr[0] >> 4;
@@ -204,9 +208,9 @@ inline uint16_t compute_checksum(const void* buf, size_t len, uint32_t sum = 0) 
 inline struct sockaddr_in init_sockaddr_in(unsigned short family) {
 #ifdef sin_zero
 	return (struct sockaddr_in){
-	    .sin_family = family, .sin_port = 0, .sin_addr = {0}, .sin_zero = {0}};
+	    .sin_family = family, .sin_port = 0, .sin_addr = {0}, .sin_zero = {0},};
 #else
-	return (struct sockaddr_in){.sin_family = family, .sin_port = 0, .sin_addr = {0}};
+	return (struct sockaddr_in){.sin_family = family, .sin_port = 0, .sin_addr = {0},};
 #endif
 }
 inline struct sockaddr_in6 init_sockaddr_in6(unsigned short family) {
@@ -214,7 +218,7 @@ inline struct sockaddr_in6 init_sockaddr_in6(unsigned short family) {
 	    .sin6_port = 0,
 	    .sin6_flowinfo = 0,
 	    .sin6_addr = {{{0}}},
-	    .sin6_scope_id = 0};
+	    .sin6_scope_id = 0,};
 }
 #pragma GCC diagnostic pop
 

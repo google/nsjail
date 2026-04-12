@@ -166,17 +166,25 @@ static void tcp_send_rst4(Context* ctx, const FlowKey4& key4, uint32_t seq, uint
 	frame.tcp.check = 0;
 	frame.tcp.urg_ptr = 0;
 
-	pseudo_hdr4 phdr = {.saddr = key4.daddr4,
+	pseudo_hdr4 phdr = {
+	    .saddr = key4.daddr4,
 	    .daddr = key4.saddr4,
 	    .zero = 0,
 	    .protocol = IPPROTO_TCP,
-	    .len = htons(sizeof(tcp_hdr))};
+	    .len = htons(sizeof(tcp_hdr)),
+	};
 
+	/* Seed check field with pseudo-header sum only; kernel adds the rest */
 	uint32_t sum = compute_checksum_part(&phdr, sizeof(phdr), 0);
-	sum = compute_checksum_part(&frame.tcp, sizeof(tcp_hdr), sum);
-	frame.tcp.check = finalize_checksum(sum);
+	while (sum >> 16) sum = (sum & 0xFFFF) + (sum >> 16);
+	frame.tcp.check = (uint16_t)sum;
 
-	if (!send_to_guest_v(ctx, &frame, sizeof(frame), nullptr, 0)) {
+	virtio_net_hdr vh = {};
+	vh.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
+	vh.csum_start = sizeof(ip4_hdr);
+	vh.csum_offset = offsetof(tcp_hdr, check);
+
+	if (!send_to_guest_v(ctx, &vh, &frame, sizeof(frame), nullptr, 0)) {
 		LOG_W("tcp_send_rst4: failed to send RST to guest");
 	}
 }
@@ -216,11 +224,17 @@ static void tcp_send_rst6(Context* ctx, const FlowKey6& key6, uint32_t seq, uint
 	memcpy(phdr.saddr, key6.daddr6, sizeof(phdr.saddr));
 	memcpy(phdr.daddr, key6.saddr6, sizeof(phdr.daddr));
 
+	/* Seed check field with pseudo-header sum only; kernel adds the rest */
 	uint32_t sum = compute_checksum_part(&phdr, sizeof(phdr), 0);
-	sum = compute_checksum_part(&frame.tcp, sizeof(tcp_hdr), sum);
-	frame.tcp.check = finalize_checksum(sum);
+	while (sum >> 16) sum = (sum & 0xFFFF) + (sum >> 16);
+	frame.tcp.check = (uint16_t)sum;
 
-	if (!send_to_guest_v(ctx, &frame, sizeof(frame), nullptr, 0)) {
+	virtio_net_hdr vh = {};
+	vh.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
+	vh.csum_start = sizeof(ip6_hdr);
+	vh.csum_offset = offsetof(tcp_hdr, check);
+
+	if (!send_to_guest_v(ctx, &vh, &frame, sizeof(frame), nullptr, 0)) {
 		LOG_W("tcp_send_rst6: failed to send RST to guest");
 	}
 }
@@ -283,21 +297,19 @@ bool tcp_send_packet4(
 	frame.tcp.check = 0;
 	frame.tcp.urg_ptr = 0;
 
-	pseudo_hdr4 phdr = {.saddr = flow->header.key4.daddr4,
+	pseudo_hdr4 phdr = {
+	    .saddr = flow->header.key4.daddr4,
 	    .daddr = flow->header.key4.saddr4,
 	    .zero = 0,
 	    .protocol = IPPROTO_TCP,
-	    .len = htons(sizeof(tcp_hdr) + opt_len + len)};
+	    .len = htons(sizeof(tcp_hdr) + opt_len + len),
+	};
 
+	/* Seed check field with pseudo-header sum only; kernel adds L4 header + options + payload
+	 */
 	uint32_t sum = compute_checksum_part(&phdr, sizeof(phdr), 0);
-	sum = compute_checksum_part(&frame.tcp, sizeof(tcp_hdr), sum);
-	if (opt_len > 0) {
-		sum = compute_checksum_part(options, opt_len, sum);
-	}
-	if (data && len > 0) {
-		sum = compute_checksum_part(data, len, sum);
-	}
-	frame.tcp.check = finalize_checksum(sum);
+	while (sum >> 16) sum = (sum & 0xFFFF) + (sum >> 16);
+	frame.tcp.check = (uint16_t)sum;
 
 	if (opt_len > 0) {
 		memcpy(frame.options, options, opt_len);
@@ -307,7 +319,13 @@ bool tcp_send_packet4(
 	    ip4_to_string(frame.ip.saddr).c_str(), ntohs(frame.tcp.source),
 	    ip4_to_string(frame.ip.daddr).c_str(), ntohs(frame.tcp.dest), flags);
 
-	return send_to_guest_v(ctx, &frame, sizeof(ip4_hdr) + sizeof(tcp_hdr) + opt_len, data, len);
+	virtio_net_hdr vh = {};
+	vh.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
+	vh.csum_start = sizeof(ip4_hdr);
+	vh.csum_offset = offsetof(tcp_hdr, check);
+
+	return send_to_guest_v(
+	    ctx, &vh, &frame, sizeof(ip4_hdr) + sizeof(tcp_hdr) + opt_len, data, len);
 }
 
 bool tcp_send_packet6(
@@ -356,21 +374,23 @@ bool tcp_send_packet6(
 	memcpy(phdr.saddr, flow->header.key6.daddr6, sizeof(phdr.saddr));
 	memcpy(phdr.daddr, flow->header.key6.saddr6, sizeof(phdr.daddr));
 
+	/* Seed check field with pseudo-header sum only; kernel adds L4 header + options + payload
+	 */
 	uint32_t sum = compute_checksum_part(&phdr, sizeof(phdr), 0);
-	sum = compute_checksum_part(&frame.tcp, sizeof(tcp_hdr), sum);
-	if (opt_len > 0) {
-		sum = compute_checksum_part(options, opt_len, sum);
-	}
-	if (data && len > 0) {
-		sum = compute_checksum_part(data, len, sum);
-	}
-	frame.tcp.check = finalize_checksum(sum);
+	while (sum >> 16) sum = (sum & 0xFFFF) + (sum >> 16);
+	frame.tcp.check = (uint16_t)sum;
 
 	if (opt_len > 0) {
 		memcpy(frame.options, options, opt_len);
 	}
 
-	return send_to_guest_v(ctx, &frame, sizeof(ip6_hdr) + sizeof(tcp_hdr) + opt_len, data, len);
+	virtio_net_hdr vh = {};
+	vh.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
+	vh.csum_start = sizeof(ip6_hdr);
+	vh.csum_offset = offsetof(tcp_hdr, check);
+
+	return send_to_guest_v(
+	    ctx, &vh, &frame, sizeof(ip6_hdr) + sizeof(tcp_hdr) + opt_len, data, len);
 }
 
 void tcp_rst_and_destroy(Context* ctx, TcpFlow* flow) {
@@ -526,28 +546,55 @@ bool flush_to_host(Context* ctx, TcpFlow* flow) {
 /* --- state handlers ------------------------------------ */
 
 static const TcpStateHandlers kStateTable[] = {
-    [static_cast<int>(TcpState::SYN_SENT)] = {.on_host_data = handle_data_transfer_host,
-	.on_guest_packet = handle_data_transfer_guest},
-    [static_cast<int>(TcpState::SOCKS5_INIT)] = {.on_host_data = handle_socks5_init_host,
-	.on_guest_packet = handle_socks5_init_guest},
-    [static_cast<int>(TcpState::SOCKS5_CONNECTING)] = {.on_host_data =
-							   handle_socks5_connecting_host,
-	.on_guest_packet = handle_socks5_init_guest},
-    [static_cast<int>(TcpState::HTTP_CONNECT_WAIT)] = {.on_host_data =
-							   handle_http_connect_wait_host,
-	.on_guest_packet = handle_socks5_init_guest},
-    [static_cast<int>(TcpState::ESTABLISHED)] = {.on_host_data = handle_data_transfer_host,
-	.on_guest_packet = handle_data_transfer_guest},
-    [static_cast<int>(TcpState::FIN_WAIT_1)] = {.on_host_data = handle_data_transfer_host,
-	.on_guest_packet = handle_data_transfer_guest},
-    [static_cast<int>(TcpState::FIN_WAIT_2)] = {.on_host_data = handle_data_transfer_host,
-	.on_guest_packet = handle_data_transfer_guest},
-    [static_cast<int>(TcpState::CLOSING)] = {.on_host_data = handle_draining_state_host,
-	.on_guest_packet = handle_draining_state_guest},
-    [static_cast<int>(TcpState::TIME_WAIT)] = {.on_host_data = handle_draining_state_host,
-	.on_guest_packet = handle_draining_state_guest},
-    [static_cast<int>(TcpState::CLOSE_WAIT)] = {.on_host_data = handle_data_transfer_host,
-	.on_guest_packet = handle_data_transfer_guest},
+    [static_cast<int>(TcpState::SYN_SENT)] =
+	{
+	    .on_host_data = handle_data_transfer_host,
+	    .on_guest_packet = handle_data_transfer_guest,
+	},
+    [static_cast<int>(TcpState::SOCKS5_INIT)] =
+	{
+	    .on_host_data = handle_socks5_init_host,
+	    .on_guest_packet = handle_socks5_init_guest,
+	},
+    [static_cast<int>(TcpState::SOCKS5_CONNECTING)] =
+	{
+	    .on_host_data = handle_socks5_connecting_host,
+	    .on_guest_packet = handle_socks5_init_guest,
+	},
+    [static_cast<int>(TcpState::HTTP_CONNECT_WAIT)] =
+	{
+	    .on_host_data = handle_http_connect_wait_host,
+	    .on_guest_packet = handle_socks5_init_guest,
+	},
+    [static_cast<int>(TcpState::ESTABLISHED)] =
+	{
+	    .on_host_data = handle_data_transfer_host,
+	    .on_guest_packet = handle_data_transfer_guest,
+	},
+    [static_cast<int>(TcpState::FIN_WAIT_1)] =
+	{
+	    .on_host_data = handle_data_transfer_host,
+	    .on_guest_packet = handle_data_transfer_guest,
+	},
+    [static_cast<int>(TcpState::FIN_WAIT_2)] =
+	{
+	    .on_host_data = handle_data_transfer_host,
+	    .on_guest_packet = handle_data_transfer_guest,
+	},
+    [static_cast<int>(TcpState::CLOSING)] =
+	{
+	    .on_host_data = handle_draining_state_host,
+	    .on_guest_packet = handle_draining_state_guest,
+	},
+    [static_cast<int>(TcpState::TIME_WAIT)] =
+	{
+	    .on_host_data = handle_draining_state_host,
+	    .on_guest_packet = handle_draining_state_guest,
+	},
+    [static_cast<int>(TcpState::CLOSE_WAIT)] = {
+	.on_host_data = handle_data_transfer_host,
+	.on_guest_packet = handle_data_transfer_guest,
+    },
 };
 
 static bool tcp_should_reenable_host_rx(const TcpFlow* flow) {
@@ -1149,17 +1196,21 @@ void handle_tcp4(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_t
 		return;
 	}
 
-	/* Validate TCP checksum */
-	pseudo_hdr4 phdr = {.saddr = ip->saddr,
-	    .daddr = ip->daddr,
-	    .zero = 0,
-	    .protocol = IPPROTO_TCP,
-	    .len = htons(payload_len)};
-	uint32_t csum = compute_checksum_part(&phdr, sizeof(phdr), 0);
-	csum = compute_checksum_part(payload, payload_len, csum);
-	if (finalize_checksum(csum) != 0) {
-		LOG_D("Invalid IPv4 TCP checksum, dropping");
-		return;
+	/* Validate TCP checksum (skip if guest used checksum offload) */
+	if (!(ctx->last_vnet_flags & VIRTIO_NET_HDR_F_NEEDS_CSUM)) {
+		pseudo_hdr4 phdr = {
+		    .saddr = ip->saddr,
+		    .daddr = ip->daddr,
+		    .zero = 0,
+		    .protocol = IPPROTO_TCP,
+		    .len = htons(payload_len),
+		};
+		uint32_t csum = compute_checksum_part(&phdr, sizeof(phdr), 0);
+		csum = compute_checksum_part(payload, payload_len, csum);
+		if (finalize_checksum(csum) != 0) {
+			LOG_D("Invalid IPv4 TCP checksum, dropping");
+			return;
+		}
 	}
 
 	FlowKey4 key4 = {ip->saddr, ip->daddr, tcp.source, tcp.dest};
@@ -1582,17 +1633,19 @@ void handle_tcp6(Context* ctx, const ip6_hdr* ip, const uint8_t* payload, size_t
 		return;
 	}
 
-	/* Validate TCP checksum */
-	pseudo_hdr6 phdr = {};
-	phdr.len = htonl(payload_len);
-	phdr.next_header = IPPROTO_TCP;
-	memcpy(phdr.saddr, ip->saddr, sizeof(phdr.saddr));
-	memcpy(phdr.daddr, ip->daddr, sizeof(phdr.daddr));
-	uint32_t csum = compute_checksum_part(&phdr, sizeof(phdr), 0);
-	csum = compute_checksum_part(payload, payload_len, csum);
-	if (finalize_checksum(csum) != 0) {
-		LOG_D("Invalid IPv6 TCP checksum, dropping");
-		return;
+	/* Validate TCP checksum (skip if guest used checksum offload) */
+	if (!(ctx->last_vnet_flags & VIRTIO_NET_HDR_F_NEEDS_CSUM)) {
+		pseudo_hdr6 phdr = {};
+		phdr.len = htonl(payload_len);
+		phdr.next_header = IPPROTO_TCP;
+		memcpy(phdr.saddr, ip->saddr, sizeof(phdr.saddr));
+		memcpy(phdr.daddr, ip->daddr, sizeof(phdr.daddr));
+		uint32_t csum = compute_checksum_part(&phdr, sizeof(phdr), 0);
+		csum = compute_checksum_part(payload, payload_len, csum);
+		if (finalize_checksum(csum) != 0) {
+			LOG_D("Invalid IPv6 TCP checksum, dropping");
+			return;
+		}
 	}
 
 	FlowKey6 key6 = {};

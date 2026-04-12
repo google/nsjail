@@ -179,19 +179,18 @@ static bool udp_send_packet4(Context* ctx, uint32_t saddr, uint32_t daddr, uint1
 	udp.len = htons(sizeof(udp_hdr) + len);
 	udp.check = 0;
 
-	pseudo_hdr4 phdr = {.saddr = saddr,
+	pseudo_hdr4 phdr = {
+	    .saddr = saddr,
 	    .daddr = daddr,
 	    .zero = 0,
 	    .protocol = IPPROTO_UDP,
-	    .len = htons(sizeof(udp_hdr) + len)};
+	    .len = htons(sizeof(udp_hdr) + len),
+	};
 
+	/* Seed check field with pseudo-header sum only; kernel adds L4 header + payload */
 	uint32_t sum = compute_checksum_part(&phdr, sizeof(phdr), 0);
-	sum = compute_checksum_part(&udp, sizeof(udp_hdr), sum);
-	if (data && len > 0) {
-		sum = compute_checksum_part(data, len, sum);
-	}
-
-	udp.check = finalize_checksum(sum);
+	while (sum >> 16) sum = (sum & 0xFFFF) + (sum >> 16);
+	udp.check = (uint16_t)sum;
 	if (udp.check == 0) {
 		udp.check = 0xFFFF;
 	}
@@ -199,7 +198,12 @@ static bool udp_send_packet4(Context* ctx, uint32_t saddr, uint32_t daddr, uint1
 	memcpy(header_buf, &ip, sizeof(ip));
 	memcpy(header_buf + sizeof(ip), &udp, sizeof(udp));
 
-	return send_to_guest_v(ctx, header_buf, sizeof(header_buf), data, len);
+	virtio_net_hdr vh = {};
+	vh.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
+	vh.csum_start = sizeof(ip4_hdr);
+	vh.csum_offset = offsetof(udp_hdr, check);
+
+	return send_to_guest_v(ctx, &vh, header_buf, sizeof(header_buf), data, len);
 }
 
 /* Forward declare for use in handle_host_udp */
@@ -693,13 +697,15 @@ void handle_udp4_impl(
 	uint16_t guest_port = ntohs(udp.source);
 	uint16_t dest_port = ntohs(udp.dest);
 
-	/* Validate UDP checksum (optional for IPv4 when field is 0) */
-	if (udp.check != 0) {
-		pseudo_hdr4 phdr = {.saddr = ip->saddr,
+	/* Validate UDP checksum (optional for IPv4 when field is 0; skip if offloaded) */
+	if (udp.check != 0 && !(ctx->last_vnet_flags & VIRTIO_NET_HDR_F_NEEDS_CSUM)) {
+		pseudo_hdr4 phdr = {
+		    .saddr = ip->saddr,
 		    .daddr = ip->daddr,
 		    .zero = 0,
 		    .protocol = IPPROTO_UDP,
-		    .len = htons(payload_size)};
+		    .len = htons(payload_size),
+		};
 		uint32_t csum = compute_checksum_part(&phdr, sizeof(phdr), 0);
 		csum = compute_checksum_part(payload_data, payload_size, csum);
 		if (finalize_checksum(csum) != 0) {
@@ -1071,12 +1077,10 @@ static bool udp_send_packet6(Context* ctx, const uint8_t* saddr, const uint8_t* 
 	memcpy(phdr.saddr, saddr, sizeof(phdr.saddr));
 	memcpy(phdr.daddr, daddr, sizeof(phdr.daddr));
 
+	/* Seed check field with pseudo-header sum only; kernel adds L4 header + payload */
 	uint32_t sum = compute_checksum_part(&phdr, sizeof(phdr), 0);
-	sum = compute_checksum_part(&r_udp, sizeof(udp_hdr), sum);
-	if (data && len > 0) {
-		sum = compute_checksum_part(data, len, sum);
-	}
-	r_udp.check = finalize_checksum(sum);
+	while (sum >> 16) sum = (sum & 0xFFFF) + (sum >> 16);
+	r_udp.check = (uint16_t)sum;
 	if (r_udp.check == 0) {
 		r_udp.check = 0xFFFF;
 	}
@@ -1084,7 +1088,12 @@ static bool udp_send_packet6(Context* ctx, const uint8_t* saddr, const uint8_t* 
 	memcpy(header_buf, &r_ip, sizeof(r_ip));
 	memcpy(header_buf + sizeof(ip6_hdr), &r_udp, sizeof(r_udp));
 
-	return send_to_guest_v(ctx, header_buf, sizeof(header_buf), data, len);
+	virtio_net_hdr vh = {};
+	vh.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
+	vh.csum_start = sizeof(ip6_hdr);
+	vh.csum_offset = offsetof(udp_hdr, check);
+
+	return send_to_guest_v(ctx, &vh, header_buf, sizeof(header_buf), data, len);
 }
 
 static UdpFlow* udp_create_flow6(Context* ctx, const FlowKey6& key6, const RuleResult& rule,
@@ -1179,8 +1188,8 @@ void handle_udp6_impl(
 	uint16_t guest_port = ntohs(udp.source);
 	uint16_t dest_port = ntohs(udp.dest);
 
-	/* Validate UDP checksum (mandatory for IPv6 per RFC 8200 §8.1) */
-	{
+	/* Validate UDP checksum (mandatory for IPv6; skip if offloaded) */
+	if (!(ctx->last_vnet_flags & VIRTIO_NET_HDR_F_NEEDS_CSUM)) {
 		pseudo_hdr6 phdr = {};
 		phdr.len = htonl(payload_size);
 		phdr.next_header = IPPROTO_UDP;

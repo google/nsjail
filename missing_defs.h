@@ -539,4 +539,24 @@ struct rlimit64 {
 };
 #endif /* !defined(RLIM64_INFINITY) */
 
+/* =========================================================================
+ * virtio_net_hdr fallback
+ * ========================================================================= */
+
+/* linux/virtio_net.h is not C++-safe (uses 'class' as a field name) */
+#if __has_include(<linux/virtio_net.h>)
+#include <linux/if_tun.h> /* For TUN_F_CSUM, IFF_VNET_HDR */
+#endif
+#ifndef VIRTIO_NET_HDR_F_NEEDS_CSUM
+#define VIRTIO_NET_HDR_F_NEEDS_CSUM 1
+struct virtio_net_hdr {
+	uint8_t flags;
+	uint8_t gso_type;
+	uint16_t hdr_len;
+	uint16_t gso_size;
+	uint16_t csum_start;
+	uint16_t csum_offset;
+};
+#endif
+
 #endif /* NS_MISSING_DEFS_H */

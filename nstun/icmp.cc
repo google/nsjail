@@ -140,6 +140,8 @@ static bool icmp_send_packet4(Context* ctx, uint32_t saddr, uint32_t daddr, uint
 	icmp.seq = seq;
 	icmp.check = 0;
 
+	/* Compute full ICMP4 checksum in userspace (no pseudo-header, and raw
+	 * sockets like ping verify it themselves before kernel can complete it) */
 	uint32_t sum = compute_checksum_part(&icmp, sizeof(icmp4_hdr), 0);
 	if (data && len > 0) {
 		sum = compute_checksum_part(data, len, sum);
@@ -149,8 +151,11 @@ static bool icmp_send_packet4(Context* ctx, uint32_t saddr, uint32_t daddr, uint
 	memcpy(header_buf, &ip, sizeof(ip));
 	memcpy(header_buf + sizeof(ip), &icmp, sizeof(icmp));
 
+	virtio_net_hdr vh = {};
+	/* flags=0: checksum already complete, no offload needed */
+
 	return send_to_guest_v(
-	    ctx, header_buf, sizeof(header_buf), static_cast<const uint8_t*>(data), len);
+	    ctx, &vh, header_buf, sizeof(header_buf), static_cast<const uint8_t*>(data), len);
 }
 
 static bool icmp_send_packet6(Context* ctx, const uint8_t* saddr, const uint8_t* daddr,
@@ -188,6 +193,7 @@ static bool icmp_send_packet6(Context* ctx, const uint8_t* saddr, const uint8_t*
 	memcpy(phdr.saddr, saddr, sizeof(phdr.saddr));
 	memcpy(phdr.daddr, daddr, sizeof(phdr.daddr));
 
+	/* Compute full ICMPv6 checksum in userspace (raw sockets verify it) */
 	uint32_t sum = compute_checksum_part(&phdr, sizeof(phdr), 0);
 	sum = compute_checksum_part(&icmp6, sizeof(icmp6_hdr), sum);
 	if (data && len > 0) {
@@ -198,8 +204,11 @@ static bool icmp_send_packet6(Context* ctx, const uint8_t* saddr, const uint8_t*
 	memcpy(header_buf, &ip6, sizeof(ip6));
 	memcpy(header_buf + sizeof(ip6), &icmp6, sizeof(icmp6));
 
+	virtio_net_hdr vh = {};
+	/* flags=0: checksum already complete, no offload needed */
+
 	return send_to_guest_v(
-	    ctx, header_buf, sizeof(header_buf), static_cast<const uint8_t*>(data), len);
+	    ctx, &vh, header_buf, sizeof(header_buf), static_cast<const uint8_t*>(data), len);
 }
 
 void send_icmp4_error(

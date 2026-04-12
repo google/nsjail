@@ -31,6 +31,7 @@ constexpr size_t TCP_TX_BUF_CAP = 1048576;  /* 1 MB - host->guest */
 constexpr size_t TCP_RX_BUF_CAP = 1048576;  /* 1 MB - guest->host */
 constexpr size_t PROXY_RX_BUF_CAP = 8192;  /* 8 KB  - proxy handshake */
 
+
 /* Removed MemcmpLess in favor of C++20 operator<=> */
 
 struct __attribute__((packed)) FlowKey4 {
@@ -201,7 +202,8 @@ struct Context {
 	size_t num_c_host_listener_rules;
 
 	/* Buffer for TUN frames, moved from TLS to avoid stack/TLS pressure */
-	uint8_t tun_buf[NSTUN_MTU + 4];
+	uint8_t tun_buf[VNET_HDR_SIZE + NSTUN_MTU + 4];
+	uint8_t last_vnet_flags; /* virtio_net_hdr.flags from last TUN read */
 
 	/* Buffers for recvmmsg, moved from TLS to avoid stack/TLS pressure */
 	struct mmsghdr recvmmsg_msgs[VLEN];

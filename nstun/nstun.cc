@@ -199,12 +199,19 @@ void host_callback(int fd, uint32_t events, void* data) {
 	};
 
 	struct ifreq ifr = {};
-	ifr.ifr_flags = IFF_TUN | IFF_NO_PI; /* TUN, no packet info */
+	ifr.ifr_flags = IFF_TUN | IFF_NO_PI | IFF_VNET_HDR; /* TUN, no packet info, vnet header */
 	snprintf(ifr.ifr_name, IFNAMSIZ, "%s", nsj->njc.user_net().ns_iface().c_str());
 
 	if (ioctl(tap_fd, TUNSETIFF, &ifr) < 0) {
 		PLOG_E("ioctl(TUNSETIFF)");
 		return false;
+	}
+
+	/* Enable checksum offload: kernel computes L4 checksums for us */
+	unsigned int offload = TUN_F_CSUM;
+	if (ioctl(tap_fd, TUNSETOFFLOAD, offload) < 0) {
+		PLOG_W("ioctl(TUNSETOFFLOAD, TUN_F_CSUM) failed, checksums will be computed in "
+		       "userspace");
 	}
 
 	/* Configure IP, MAC, UP, route. */
@@ -238,7 +245,15 @@ static void tapCb(int fd, uint32_t /* events */, void* data) {
 			ctx->tap_fd = -1;
 			return;
 		}
-		handle_tun_frame(ctx, ctx->tun_buf, n);
+		/* Strip the virtio_net_hdr prefix added by IFF_VNET_HDR */
+		if ((size_t)n <= nstun::VNET_HDR_SIZE) {
+			continue; /* Too small to contain anything after vnet header */
+		}
+		struct virtio_net_hdr vh;
+		memcpy(&vh, ctx->tun_buf, sizeof(vh));
+		ctx->last_vnet_flags = vh.flags;
+		handle_tun_frame(
+		    ctx, ctx->tun_buf + nstun::VNET_HDR_SIZE, n - nstun::VNET_HDR_SIZE);
 	}
 }
 

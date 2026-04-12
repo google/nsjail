@@ -13,21 +13,32 @@
 
 namespace nstun {
 
-bool send_to_guest_v(
-    Context* ctx, const void* header, size_t header_len, const void* payload, size_t payload_len) {
+bool send_to_guest_v(Context* ctx, const virtio_net_hdr* vh, const void* header, size_t header_len,
+    const void* payload, size_t payload_len) {
 	if (header_len > NSTUN_MTU || payload_len > NSTUN_MTU - header_len) {
 		LOG_W("send_to_guest_v: frame too large (%zu + %zu)", header_len, payload_len);
 		return false;
 	}
 
-	struct iovec iov[2];
-	iov[0].iov_base = const_cast<void*>(header);
-	iov[0].iov_len = header_len;
-	iov[1].iov_base = const_cast<void*>(payload);
-	iov[1].iov_len = payload_len;
+	struct iovec iov[3];
+	int iovcnt = 0;
 
-	size_t total_len = header_len + payload_len;
-	ssize_t written = TEMP_FAILURE_RETRY(writev(ctx->tap_fd, iov, payload_len > 0 ? 2 : 1));
+	iov[iovcnt].iov_base = const_cast<virtio_net_hdr*>(vh);
+	iov[iovcnt].iov_len = VNET_HDR_SIZE;
+	iovcnt++;
+
+	iov[iovcnt].iov_base = const_cast<void*>(header);
+	iov[iovcnt].iov_len = header_len;
+	iovcnt++;
+
+	if (payload_len > 0) {
+		iov[iovcnt].iov_base = const_cast<void*>(payload);
+		iov[iovcnt].iov_len = payload_len;
+		iovcnt++;
+	}
+
+	size_t total_len = VNET_HDR_SIZE + header_len + payload_len;
+	ssize_t written = TEMP_FAILURE_RETRY(writev(ctx->tap_fd, iov, iovcnt));
 	if (written < 0) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK) {
 			return false;
