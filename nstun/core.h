@@ -203,7 +203,7 @@ struct Context {
 	/* Buffers for recvmmsg, moved from TLS to avoid stack/TLS pressure */
 	struct mmsghdr recvmmsg_msgs[VLEN];
 	struct iovec recvmmsg_iovecs[VLEN];
-	uint8_t recvmmsg_bufs[VLEN][NSTUN_MTU];
+	alignas(std::max_align_t) uint8_t recvmmsg_bufs[VLEN][NSTUN_MTU];
 	struct sockaddr_storage recvmmsg_addrs[VLEN];
 	bool recvmmsg_initialized;
 
