@@ -18,6 +18,8 @@
 
 namespace nstun {
 
+static constexpr time_t ICMP_TIMEOUT = 10;
+
 static IcmpFlow* find_ipv4_icmp_flow(Context* ctx, const IcmpFlowKey4& key4) {
 	size_t active_seen = 0;
 	for (size_t i = 0; i < NSTUN_MAX_FLOWS; ++i) {
@@ -72,7 +74,7 @@ static IcmpFlow* alloc_ipv6_icmp_flow(Context* ctx) {
 }
 
 static void init_icmp_flow_zero(IcmpFlow* flow) {
-	memset(flow, 0, sizeof(IcmpFlow));
+	*flow = IcmpFlow{};
 	flow->header.type = FlowType::ICMP;
 	flow->header.host_fd = -1;
 }
@@ -351,14 +353,17 @@ void handle_icmp6(Context* ctx, const ip6_hdr* ip, const uint8_t* payload, size_
 		RuleResult rule = evaluate_rules6(
 		    ctx, NSTUN_DIR_GUEST_TO_HOST, NSTUN_PROTO_ICMP, ip->saddr, ip->daddr, 0, 0);
 
-		if (rule.action == NSTUN_ACTION_DROP) {
+		switch (rule.action) {
+		case NSTUN_ACTION_DROP:
 			LOG_D("ICMPv6 dropped by policy");
 			return;
-		} else if (rule.action == NSTUN_ACTION_REJECT) {
+		case NSTUN_ACTION_REJECT:
 			LOG_D("ICMPv6 rejected by policy");
 			send_icmp6_error(ctx, ip, sizeof(ip6_hdr) + len, ICMP6_DST_UNREACH,
 			    ICMP6_DST_UNREACH_NOPORT); /* Dest unreachable, port unreachable */
 			return;
+		default:
+			break;
 		}
 
 		if (memcmp(ip->daddr, ctx->host_ip6, IPV6_ADDR_LEN) == 0 &&
@@ -478,14 +483,17 @@ void handle_icmp4(Context* ctx, const ip4_hdr* ip, const uint8_t* payload, size_
 		    ctx, NSTUN_DIR_GUEST_TO_HOST, NSTUN_PROTO_ICMP, ip->saddr, ip->daddr, 0, 0);
 
 		LOG_D("handle_icmp4: rule action=%d", rule.action);
-		if (rule.action == NSTUN_ACTION_DROP) {
+		switch (rule.action) {
+		case NSTUN_ACTION_DROP:
 			LOG_D("ICMP dropped by policy");
 			return;
-		} else if (rule.action == NSTUN_ACTION_REJECT) {
+		case NSTUN_ACTION_REJECT:
 			LOG_D("ICMP rejected by policy");
 			send_icmp4_error(ctx, ip, ntohs(ip->tot_len), ICMP_DEST_UNREACH,
 			    ICMP_PORT_UNREACH); /* Dest unreach, port unreach */
 			return;
+		default:
+			break;
 		}
 
 		LOG_D("handle_icmp4: checking dest IP");
@@ -588,7 +596,7 @@ void icmp_handle_host_event(Context* ctx, IcmpFlow* flow, int fd, uint32_t event
 }
 
 bool icmp_is_stale(const IcmpFlow* flow, time_t now) {
-	return (now - flow->header.last_active) > 10;
+	return (now - flow->header.last_active) > ICMP_TIMEOUT;
 }
 
 void icmp_destroy(Context* ctx, IcmpFlow* flow) {
