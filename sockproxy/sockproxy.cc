@@ -355,8 +355,10 @@ static void proxyPumpCb(int fd, uint32_t events, void* data) {
 	if (!updateMasks(conn)) {
 		PLOG_E("updateMasks failed during start");
 		(void)updateFdMask(conn->sock_fd, 0, &conn->sock_registered, conn);
-		(void)updateFdMask(conn->sock_to_pipe.pipe_fd, 0, &conn->sock_to_pipe.registered, conn);
-		(void)updateFdMask(conn->pipe_to_sock.pipe_fd, 0, &conn->pipe_to_sock.registered, conn);
+		(void)updateFdMask(
+		    conn->sock_to_pipe.pipe_fd, 0, &conn->sock_to_pipe.registered, conn);
+		(void)updateFdMask(
+		    conn->pipe_to_sock.pipe_fd, 0, &conn->pipe_to_sock.registered, conn);
 		conn->sock_fd = -1;
 		conn->sock_to_pipe.pipe_fd = -1;
 		conn->pipe_to_sock.pipe_fd = -1;
