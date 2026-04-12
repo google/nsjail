@@ -20,6 +20,28 @@
 
 namespace nstun {
 
+static const char* udp_state_to_str(UdpSocks5State state) {
+	struct {
+		const uint64_t state;
+		const char* const name;
+	} static const state_names[] = {
+	    NS_VALSTR_STRUCT(UDP_S5_ESTABLISHED),
+	    NS_VALSTR_STRUCT(UDP_S5_GREETING),
+	    NS_VALSTR_STRUCT(UDP_S5_ASSOCIATE),
+	    NS_VALSTR_STRUCT(UDP_S5_TCP_CONNECTING),
+	};
+
+	for (const auto& entry : state_names) {
+		if (entry.state == static_cast<uint64_t>(state)) {
+			return entry.name;
+		}
+	}
+	static thread_local char unknown_buf[32];
+	snprintf(unknown_buf, sizeof(unknown_buf), "UNKNOWN(%llu)",
+	    static_cast<unsigned long long>(state));
+	return unknown_buf;
+}
+
 /* UDP idle timeouts (seconds) */
 static constexpr time_t UDP_TIMEOUT_ESTABLISHED = 60;
 static constexpr time_t UDP_TIMEOUT_CONNECTING = 5; /* SOCKS5 TCP setup */
@@ -60,10 +82,20 @@ static UdpFlow* find_ipv6_udp_flow(Context* ctx, const FlowKey6& key6) {
 	return nullptr;
 }
 
+static void init_udp_flow_zero(UdpFlow* flow) {
+	*flow = UdpFlow{};
+	flow->header.type = FlowType::UDP;
+	flow->header.host_fd = -1;
+	flow->tcp_fd = -1;
+}
+
 static UdpFlow* alloc_udp_flow(UdpFlow* flows, size_t max_flows) {
 	for (size_t i = 0; i < max_flows; ++i) {
-		if (!flows[i].header.active) {
-			return &flows[i];
+		UdpFlow& flow = flows[i];
+		if (!flow.header.active) {
+			init_udp_flow_zero(&flow);
+			flow.header.active = true;
+			return &flow;
 		}
 	}
 	return nullptr;
@@ -75,13 +107,6 @@ static UdpFlow* alloc_ipv4_udp_flow(Context* ctx) {
 
 static UdpFlow* alloc_ipv6_udp_flow(Context* ctx) {
 	return alloc_udp_flow(ctx->c_ipv6_udp_flows, NSTUN_MAX_FLOWS);
-}
-
-static void init_udp_flow_zero(UdpFlow* flow) {
-	memset(flow, 0, sizeof(UdpFlow));
-	flow->header.type = FlowType::UDP;
-	flow->header.host_fd = -1;
-	flow->tcp_fd = -1;
 }
 
 static void prepare_recvmmsg(Context* ctx) {
@@ -240,6 +265,7 @@ struct UdpStateHandlers {
 static void handle_udp_tcp_connecting(Context* ctx, UdpFlow* flow, uint32_t events) {
 	int fd = flow->tcp_fd;
 	if (!(events & EPOLLOUT)) {
+		LOG_W("connect() to SOCKS5 proxy failed (no EPOLLOUT, events=0x%x)", events);
 		udp_destroy_flow(ctx, flow);
 		return;
 	}
@@ -247,6 +273,9 @@ static void handle_udp_tcp_connecting(Context* ctx, UdpFlow* flow, uint32_t even
 	socklen_t errlen = sizeof(err);
 	getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &errlen);
 	if (err != 0) {
+		char err_buf[256];
+		LOG_W("connect() to SOCKS5 proxy failed: %s",
+		    strerror_r(err, err_buf, sizeof(err_buf)));
 		udp_destroy_flow(ctx, flow);
 		return;
 	}
@@ -258,6 +287,7 @@ static void handle_udp_tcp_connecting(Context* ctx, UdpFlow* flow, uint32_t even
 
 	if (flow->use_socks5) {
 		flow->state = UDP_S5_GREETING;
+		LOG_D("Flow %d: UDP_S5_TCP_CONNECTING -> UDP_S5_GREETING", flow->tcp_fd);
 		if (nstun::send_socks5_greeting(fd) < 0) {
 			udp_destroy_flow(ctx, flow);
 			return;
@@ -272,6 +302,11 @@ static void handle_udp_socks5_greeting(Context* ctx, UdpFlow* flow, uint32_t eve
 	if (n <= 0) {
 		if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
 			return;
+		}
+		if (n == 0) {
+			LOG_W("SOCKS5 proxy closed connection during greeting");
+		} else {
+			PLOG_W("recv() from SOCKS5 proxy failed during greeting");
 		}
 		udp_destroy_flow(ctx, flow);
 		return;
@@ -291,6 +326,7 @@ static void handle_udp_socks5_greeting(Context* ctx, UdpFlow* flow, uint32_t eve
 		return;
 	}
 	flow->state = UDP_S5_ASSOCIATE;
+	LOG_D("Flow %d: UDP_S5_GREETING -> UDP_S5_ASSOCIATE", flow->tcp_fd);
 	if (nstun::send_socks5_udp_associate(fd) < 0) {
 		udp_destroy_flow(ctx, flow);
 		return;
@@ -305,10 +341,15 @@ static void handle_udp_socks5_associate(Context* ctx, UdpFlow* flow, uint32_t ev
 		if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
 			return;
 		}
+		if (n == 0) {
+			LOG_W("SOCKS5 proxy closed connection during associate");
+		} else {
+			PLOG_W("recv() from SOCKS5 proxy failed during associate");
+		}
 		udp_destroy_flow(ctx, flow);
 		return;
 	}
-	if (n < 4) {
+	if (n < 4) { /* SOCKS5 reply header is 4 bytes (VER, REP, RSV, ATYP) */
 		return;
 	}
 	if (req.ver != SOCKS5_VERSION || req.cmd != SOCKS5_REP_SUCCESS) {
@@ -318,20 +359,24 @@ static void handle_udp_socks5_associate(Context* ctx, UdpFlow* flow, uint32_t ev
 
 	size_t expected_len = 0;
 
-	if (req.atyp == SOCKS5_ATYP_IPV4) {
+	switch (req.atyp) {
+	case SOCKS5_ATYP_IPV4:
 		expected_len = sizeof(socks5_req); /* header+ip4+port */
-	} else if (req.atyp == SOCKS5_ATYP_IPV6) {
+		break;
+	case SOCKS5_ATYP_IPV6:
 		expected_len = sizeof(socks5_req6); /* header+ip6+port */
-	} else if (req.atyp == SOCKS5_ATYP_DOMAIN) {
+		break;
+	case SOCKS5_ATYP_DOMAIN:
 		n = TEMP_FAILURE_RETRY(recv(fd, &ctx->udp_socks5_buf, sizeof(ctx->udp_socks5_buf),
 		    MSG_PEEK | MSG_DONTWAIT));
-		if (n < 5) {
+		if (n < (ssize_t)sizeof(socks5_req_domain)) {
 			return;
 		}
 		socks5_req_domain dreq;
 		memcpy(&dreq, &ctx->udp_socks5_buf, sizeof(dreq));
-		expected_len = 5 + dreq.domain_len + 2;
-	} else {
+		expected_len = sizeof(socks5_req_domain) + dreq.domain_len + 2;
+		break;
+	default:
 		udp_destroy_flow(ctx, flow);
 		return;
 	}
@@ -382,6 +427,7 @@ static void handle_udp_socks5_associate(Context* ctx, UdpFlow* flow, uint32_t ev
 	flow->header.host_fd = udp_fd;
 	set_udp_flow_by_fd(ctx, udp_fd, flow);
 	flow->state = UDP_S5_ESTABLISHED;
+	LOG_D("Flow %d: UDP_S5_ASSOCIATE -> UDP_S5_ESTABLISHED", flow->tcp_fd);
 
 	while (flow->c_tx_queue_count > 0) {
 		size_t idx = flow->c_tx_queue_head;
@@ -526,6 +572,7 @@ static bool udp_setup_socks5_control(
 
 	flow->tcp_fd = tcp_fd;
 	flow->state = UDP_S5_TCP_CONNECTING;
+	LOG_D("Flow %d: initialized to UDP_S5_TCP_CONNECTING", tcp_fd);
 	return true;
 }
 
@@ -605,6 +652,7 @@ static UdpFlow* udp_create_flow4(Context* ctx, const FlowKey4& key4, const RuleR
 		}
 		flow->header.host_fd = fd;
 		flow->state = UDP_S5_ESTABLISHED;
+		LOG_D("Flow %d: initialized to UDP_S5_ESTABLISHED", fd);
 		set_udp_flow_by_fd(ctx, fd, flow);
 		LOG_D("Created UDP flow for guest port %u -> fd %d%s", guest_port, fd,
 		    flow->header.is_redirected ? " [redirected]" : "");
@@ -668,21 +716,24 @@ void handle_udp4_impl(
 		RuleResult rule = evaluate_rules4(ctx, NSTUN_DIR_GUEST_TO_HOST, NSTUN_PROTO_UDP,
 		    ip->saddr, ip->daddr, guest_port, dest_port);
 
-		if (rule.action == NSTUN_ACTION_DROP) {
+		switch (rule.action) {
+		case NSTUN_ACTION_DROP:
 			LOG_D("UDP flow %u -> %s:%u dropped by policy", guest_port,
 			    ip4_to_string(ip->daddr).c_str(), dest_port);
 			return;
-		} else if (rule.action == NSTUN_ACTION_REJECT) {
+		case NSTUN_ACTION_REJECT:
 			LOG_D("UDP flow %u -> %s:%u rejected by policy", guest_port,
 			    ip4_to_string(ip->daddr).c_str(), dest_port);
 			send_icmp4_error(
 			    ctx, ip, ntohs(ip->tot_len), ICMP_DEST_UNREACH, ICMP_PORT_UNREACH);
 			return;
-		} else if (rule.action == NSTUN_ACTION_ENCAP_CONNECT) {
+		case NSTUN_ACTION_ENCAP_CONNECT:
 			LOG_W(
 			    "HTTP CONNECT proxy not supported for UDP, dropping packet to port %u",
 			    dest_port);
 			return;
+		default:
+			break;
 		}
 
 		if (ctx->num_c_ipv4_udp_flows >= NSTUN_MAX_FLOWS) {
@@ -772,18 +823,22 @@ static bool strip_socks5_udp_header(const uint8_t** data_ptr, size_t* data_len) 
 	}
 
 	size_t header_len = 0;
-	if (hdr.atyp == SOCKS5_ATYP_IPV4) {
+	switch (hdr.atyp) {
+	case SOCKS5_ATYP_IPV4:
 		header_len = sizeof(socks5_udp_hdr);
-	} else if (hdr.atyp == SOCKS5_ATYP_IPV6) {
+		break;
+	case SOCKS5_ATYP_IPV6:
 		header_len = sizeof(socks5_udp_hdr6);
-	} else if (hdr.atyp == SOCKS5_ATYP_DOMAIN) {
-		if (*data_len < 5) {
+		break;
+	case SOCKS5_ATYP_DOMAIN:
+		if (*data_len < sizeof(socks5_udp_hdr_domain)) {
 			return false;
 		}
 		socks5_udp_hdr_domain dhdr;
 		memcpy(&dhdr, *data_ptr, sizeof(dhdr));
-		header_len = 5 + dhdr.domain_len + 2;
-	} else {
+		header_len = sizeof(socks5_udp_hdr_domain) + dhdr.domain_len + 2;
+		break;
+	default:
 		return false;
 	}
 
@@ -875,6 +930,7 @@ static void handle_host_udp_accept_pkt6(Context* ctx, int listen_fd, const nstun
 		flow->header.is_redirected = true;
 		flow->use_socks5 = false;
 		flow->state = UDP_S5_ESTABLISHED;
+		LOG_D("Flow %d: initialized to UDP_S5_ESTABLISHED (inbound IPv6)", listen_fd);
 		flow->host_fd_is_listener = true;
 		ctx->num_c_ipv6_udp_flows++;
 	}
@@ -923,6 +979,7 @@ static void handle_host_udp_accept_pkt4(Context* ctx, int listen_fd, const nstun
 		flow->header.is_redirected = true;
 		flow->use_socks5 = false;
 		flow->state = UDP_S5_ESTABLISHED;
+		LOG_D("Flow %d: initialized to UDP_S5_ESTABLISHED (inbound IPv4)", listen_fd);
 		flow->host_fd_is_listener = true;
 		ctx->num_c_ipv4_udp_flows++;
 	}
@@ -1103,6 +1160,7 @@ static UdpFlow* udp_create_flow6(Context* ctx, const FlowKey6& key6, const RuleR
 
 		flow->header.host_fd = fd;
 		flow->state = UDP_S5_ESTABLISHED;
+		LOG_D("Flow %d: initialized to UDP_S5_ESTABLISHED (IPv6)", fd);
 		set_udp_flow_by_fd(ctx, fd, flow);
 		LOG_D("Created IPv6 UDP flow for guest port %u -> fd %d%s", guest_port, fd,
 		    flow->header.is_redirected ? " [redirected]" : "");
@@ -1147,19 +1205,22 @@ void handle_udp6_impl(
 		RuleResult rule = evaluate_rules6(ctx, NSTUN_DIR_GUEST_TO_HOST, NSTUN_PROTO_UDP,
 		    ip->saddr, ip->daddr, guest_port, dest_port);
 
-		if (rule.action == NSTUN_ACTION_DROP) {
+		switch (rule.action) {
+		case NSTUN_ACTION_DROP:
 			LOG_D("IPv6 UDP flow %u -> %u dropped by policy", guest_port, dest_port);
 			return;
-		} else if (rule.action == NSTUN_ACTION_REJECT) {
+		case NSTUN_ACTION_REJECT:
 			LOG_D("IPv6 UDP flow %u -> %u rejected by policy", guest_port, dest_port);
 			send_icmp6_error(ctx, ip, sizeof(ip6_hdr) + payload_size, ICMP6_DST_UNREACH,
 			    ICMP6_DST_UNREACH_NOPORT);
 			return;
-		} else if (rule.action == NSTUN_ACTION_ENCAP_CONNECT) {
+		case NSTUN_ACTION_ENCAP_CONNECT:
 			LOG_W(
 			    "HTTP CONNECT proxy not supported for UDP, dropping packet to port %u",
 			    dest_port);
 			return;
+		default:
+			break;
 		}
 
 		if (ctx->num_c_ipv6_udp_flows >= NSTUN_MAX_FLOWS) {
