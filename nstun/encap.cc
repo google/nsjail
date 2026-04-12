@@ -27,7 +27,7 @@ bool parse_socks5_auth_reply(const uint8_t* data, size_t len) {
 	if (len < 2) {
 		return false;
 	}
-	return data[0] == SOCKS5_VERSION && data[1] == SOCKS5_AUTH_NONE;
+	return data[SOCKS5_OFF_VER] == SOCKS5_VERSION && data[SOCKS5_OFF_CMD] == SOCKS5_AUTH_NONE;
 }
 
 int send_socks5_connect(int fd, const uint8_t* addr, uint16_t port_nbo, bool is_ipv6) {
@@ -85,14 +85,14 @@ bool parse_socks5_connect_reply(const uint8_t* data, size_t len, Socks5Reply* ou
 	}
 
 	/* data[0]=ver, data[1]=rep, data[2]=rsv, data[3]=atyp */
-	if (data[0] != SOCKS5_VERSION) {
+	if (data[SOCKS5_OFF_VER] != SOCKS5_VERSION) {
 		return false;
 	}
-	if (data[1] != SOCKS5_REP_SUCCESS) {
+	if (data[SOCKS5_OFF_CMD] != SOCKS5_REP_SUCCESS) {
 		return false;
 	}
 
-	out->atyp = data[3];
+	out->atyp = data[SOCKS5_OFF_ATYP];
 
 	if (out->atyp == SOCKS5_ATYP_IPV4) {
 		/* Full reply: 4-byte header + 4-byte IPv4 + 2-byte port */

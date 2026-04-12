@@ -16,6 +16,7 @@
 #include "logs.h"
 #include "macros.h"
 #include "policy.h"
+#include "tcp_internal.h"
 #include "tun.h"
 #include "util.h"
 
@@ -26,6 +27,34 @@ void handle_host_tcp_data_eof(Context* ctx, TcpFlow* flow, int fd);
 
 typedef void (*HostEventHandler)(Context* ctx, TcpFlow* flow, int fd);
 typedef bool (*GuestPacketHandler)(Context* ctx, TcpFlow* flow, const uint8_t* data, size_t len);
+
+const char* tcp_state_to_str(TcpState state) {
+	struct {
+		const uint64_t state;
+		const char* const name;
+	} static const state_names[] = {
+	    NS_VALSTR_STRUCT(TcpState::SYN_SENT),
+	    NS_VALSTR_STRUCT(TcpState::SOCKS5_INIT),
+	    NS_VALSTR_STRUCT(TcpState::SOCKS5_CONNECTING),
+	    NS_VALSTR_STRUCT(TcpState::HTTP_CONNECT_WAIT),
+	    NS_VALSTR_STRUCT(TcpState::ESTABLISHED),
+	    NS_VALSTR_STRUCT(TcpState::FIN_WAIT_1),
+	    NS_VALSTR_STRUCT(TcpState::FIN_WAIT_2),
+	    NS_VALSTR_STRUCT(TcpState::CLOSING),
+	    NS_VALSTR_STRUCT(TcpState::TIME_WAIT),
+	    NS_VALSTR_STRUCT(TcpState::CLOSE_WAIT),
+	};
+
+	for (const auto& entry : state_names) {
+		if (entry.state == static_cast<uint64_t>(state)) {
+			return entry.name;
+		}
+	}
+	static thread_local char unknown_buf[32];
+	snprintf(unknown_buf, sizeof(unknown_buf), "UNKNOWN(%llu)",
+	    static_cast<unsigned long long>(state));
+	return unknown_buf;
+}
 
 /* --- buffer helpers ------------------------------------ */
 
@@ -51,8 +80,8 @@ static void buffer_consume(uint8_t* buf, size_t* len, size_t consume_len) {
 }
 
 static uint32_t generate_isn() {
-	uint32_t isn;
-	if (util::syscall(__NR_getrandom, (uintptr_t)&isn, sizeof(isn), 0) != sizeof(isn)) {
+	static thread_local uint32_t isn = 0;
+	if (isn == 0) {
 		isn = static_cast<uint32_t>(util::rnd64());
 	}
 	return isn;
@@ -63,18 +92,8 @@ static inline bool append_proxy_rx(TcpFlow* flow, const uint8_t* data, size_t le
 	    flow->c_proxy_rx_buf.get(), &flow->c_proxy_rx_len, PROXY_RX_BUF_CAP, data, len);
 }
 
-static inline bool append_tcp_rx(TcpFlow* flow, const uint8_t* data, size_t len) {
-	return buffer_append(
-	    flow->c_tcp_rx_buf.get(), &flow->c_tcp_rx_len, TCP_RX_BUF_CAP, data, len);
-}
-
-static inline bool append_tcp_tx(TcpFlow* flow, const uint8_t* data, size_t len) {
-	return buffer_append(
-	    flow->c_tcp_tx_buf.get(), &flow->c_tcp_tx_len, TCP_TX_BUF_CAP, data, len);
-}
-
-static bool tcp_update_host_mask(TcpFlow* flow) {
-	uint32_t events = EPOLLERR | EPOLLHUP;
+bool tcp_update_host_mask(TcpFlow* flow) {
+	uint32_t events = EPOLLERR | EPOLLHUP | EPOLLRDHUP;
 	if (!flow->epoll_in_disabled) {
 		events |= EPOLLIN;
 	}
@@ -354,16 +373,7 @@ bool tcp_send_packet6(
 	return send_to_guest_v(ctx, &frame, sizeof(ip6_hdr) + sizeof(tcp_hdr) + opt_len, data, len);
 }
 
-static inline bool tcp_send_packet(Context* ctx, const TcpFlow* flow, uint8_t flags,
-    const uint8_t* data = nullptr, size_t len = 0) {
-	if (flow->header.is_ipv6) {
-		return tcp_send_packet6(ctx, flow, flags, data, len);
-	} else {
-		return tcp_send_packet4(ctx, flow, flags, data, len);
-	}
-}
-
-static void tcp_rst_and_destroy(Context* ctx, TcpFlow* flow) {
+void tcp_rst_and_destroy(Context* ctx, TcpFlow* flow) {
 	if (!tcp_send_packet(ctx, flow, NSTUN_TCP_FLAG_RST | NSTUN_TCP_FLAG_ACK)) {
 		LOG_W("tcp_rst_and_destroy: failed to send RST packet");
 	}
@@ -431,6 +441,8 @@ void push_to_guest(Context* ctx, TcpFlow* flow) {
 						flow->fin_sent = true;
 						if (flow->tcp_state == TcpState::ESTABLISHED) {
 							flow->tcp_state = TcpState::FIN_WAIT_1;
+							LOG_D("Flow %d: ESTABLISHED -> FIN_WAIT_1",
+							    flow->header.host_fd);
 						}
 					}
 				}
@@ -513,308 +525,6 @@ bool flush_to_host(Context* ctx, TcpFlow* flow) {
 
 /* --- state handlers ------------------------------------ */
 
-static void handle_socks5_init_host(Context* ctx, TcpFlow* flow, int fd) {
-	constexpr size_t expected_len = 2; /* SOCKS5 auth reply is 2 bytes */
-	if (flow->c_proxy_rx_len < expected_len) {
-		ssize_t recv_len =
-		    TEMP_FAILURE_RETRY(recv(fd, flow->c_proxy_rx_buf.get() + flow->c_proxy_rx_len,
-			expected_len - flow->c_proxy_rx_len, MSG_DONTWAIT));
-		if (recv_len == 0) {
-			tcp_rst_and_destroy(ctx, flow);
-			return;
-		}
-		if (recv_len < 0) {
-			if (errno == EAGAIN || errno == EWOULDBLOCK) {
-				return;
-			}
-			tcp_rst_and_destroy(ctx, flow);
-			return;
-		}
-
-		flow->c_proxy_rx_len += recv_len;
-	}
-	if (flow->c_proxy_rx_len < expected_len) {
-		return;
-	}
-
-	if (!nstun::parse_socks5_auth_reply(flow->c_proxy_rx_buf.get(), flow->c_proxy_rx_len)) {
-		tcp_rst_and_destroy(ctx, flow);
-		return;
-	}
-
-	flow->c_proxy_rx_len = 0;
-	flow->tcp_state = TcpState::SOCKS5_CONNECTING;
-
-	uint8_t addr_buf[16];
-	if (flow->header.is_ipv6) {
-		memcpy(addr_buf, flow->header.key6.daddr6, 16);
-	} else {
-		memcpy(addr_buf, &flow->header.key4.daddr4, 4);
-	}
-	uint16_t port = flow->header.is_ipv6 ? flow->header.key6.dport : flow->header.key4.dport;
-
-	if (nstun::send_socks5_connect(fd, addr_buf, port, flow->header.is_ipv6) < 0) {
-		tcp_rst_and_destroy(ctx, flow);
-		return;
-	}
-}
-
-static bool handle_socks5_init_guest(Context* ctx, TcpFlow* flow, const uint8_t* data, size_t len) {
-	/* Guest data received during proxy negotiation - buffer it, don't forward yet. */
-	if (!append_tcp_rx(flow, data, len)) {
-		LOG_E("tcp_rx_buf overflow in handle_socks5_init_guest");
-		tcp_rst_and_destroy(ctx, flow);
-		return true;
-	}
-	return false;
-}
-
-static void handle_socks5_connecting_host(Context* ctx, TcpFlow* flow, int fd) {
-	/*
-	 * Accumulate the full SOCKS5 CONNECT reply.  The reply length depends
-	 * on the ATYP field (byte [3]):
-	 *   0x01 (IPv4):   10 bytes  (sizeof(socks5_req))
-	 *   0x04 (IPv6):   22 bytes  (sizeof(socks5_req6))
-	 *   0x03 (domain): 5 + domain_len + 2
-	 * We need at least 4 bytes to know ATYP, then possibly more.
-	 */
-
-	/* Try to read more data into the proxy rx buffer */
-	size_t avail = PROXY_RX_BUF_CAP - flow->c_proxy_rx_len;
-	if (avail == 0) {
-		LOG_E("Proxy RX buffer overflow in handle_socks5_connecting_host");
-		tcp_rst_and_destroy(ctx, flow);
-		return;
-	}
-
-	ssize_t recv_len = TEMP_FAILURE_RETRY(
-	    recv(fd, flow->c_proxy_rx_buf.get() + flow->c_proxy_rx_len, avail, MSG_DONTWAIT));
-	if (recv_len == 0) {
-		tcp_rst_and_destroy(ctx, flow);
-		return;
-	}
-	if (recv_len < 0) {
-		if (errno == EAGAIN || errno == EWOULDBLOCK) {
-			return;
-		}
-		tcp_rst_and_destroy(ctx, flow);
-		return;
-	}
-
-	flow->c_proxy_rx_len += recv_len;
-	size_t current_len = flow->c_proxy_rx_len;
-
-	/* Need at least 4 bytes to determine ATYP */
-	if (current_len < 4) {
-		return;
-	}
-
-	/* Determine full expected length based on ATYP */
-	size_t expected_len;
-	uint8_t atyp = flow->c_proxy_rx_buf[3];
-	switch (atyp) {
-	case SOCKS5_ATYP_IPV4:
-		expected_len = sizeof(socks5_req);
-		break;
-	case SOCKS5_ATYP_IPV6:
-		expected_len = sizeof(socks5_req6);
-		break;
-	case SOCKS5_ATYP_DOMAIN:
-		if (current_len < 5) {
-			return; /* Need 5th byte to know domain length */
-		}
-		expected_len = 5 + flow->c_proxy_rx_buf[4] + 2;
-		break;
-	default:
-		LOG_W("Unknown SOCKS5 ATYP: %u", atyp);
-		tcp_rst_and_destroy(ctx, flow);
-		return;
-	}
-
-	if (current_len < expected_len) {
-		return; /* Wait for more data */
-	}
-
-	/* Validate SOCKS5 response */
-	uint8_t rep_ver = flow->c_proxy_rx_buf[0];
-	uint8_t rep_cmd = flow->c_proxy_rx_buf[1];
-	if (rep_ver != SOCKS5_VERSION || rep_cmd != SOCKS5_REP_SUCCESS) {
-		LOG_W("SOCKS5 connection failed: ver=%u rep=%u", rep_ver, rep_cmd);
-		tcp_rst_and_destroy(ctx, flow);
-		return;
-	}
-
-	/*
-	 * Full response received.  Any bytes beyond expected_len are tunnelled
-	 * payload from the remote server — save them in the TX buffer so they
-	 * get pushed to the guest after the SYN-ACK.
-	 */
-	if (current_len > expected_len) {
-		if (!append_tcp_tx(flow, flow->c_proxy_rx_buf.get() + expected_len,
-			current_len - expected_len)) {
-			LOG_E("tcp_tx_buf overflow in handle_socks5_connecting_host");
-			tcp_rst_and_destroy(ctx, flow);
-			return;
-		}
-	}
-	flow->c_proxy_rx_len = 0;
-	flow->tcp_state = TcpState::ESTABLISHED;
-	if (!tcp_send_packet(ctx, flow, NSTUN_TCP_FLAG_SYN | NSTUN_TCP_FLAG_ACK)) {
-		LOG_W("handle_socks5_connecting_host: failed to send SYN/ACK");
-		tcp_rst_and_destroy(ctx, flow);
-		return;
-	}
-	flow->seq_to_guest++;
-
-	/* If there was piggybacked tunnel data, push it now */
-	if (flow->c_tcp_tx_len > 0) {
-		push_to_guest(ctx, flow);
-	}
-}
-
-static void handle_http_connect_wait_host(Context* ctx, TcpFlow* flow, int fd) {
-	size_t end_of_headers = 0;
-
-	size_t avail = PROXY_RX_BUF_CAP - flow->c_proxy_rx_len;
-	if (avail == 0) {
-		LOG_E("HTTP proxy response too long");
-		tcp_rst_and_destroy(ctx, flow);
-		return;
-	}
-	size_t to_read = std::min((size_t)4096, avail);
-	ssize_t recv_len = TEMP_FAILURE_RETRY(
-	    recv(fd, flow->c_proxy_rx_buf.get() + flow->c_proxy_rx_len, to_read, MSG_DONTWAIT));
-	if (recv_len == 0) {
-		tcp_rst_and_destroy(ctx, flow);
-		return;
-	}
-	if (recv_len < 0) {
-		if (errno != EAGAIN && errno != EWOULDBLOCK) {
-			tcp_rst_and_destroy(ctx, flow);
-		}
-		return;
-	}
-
-	flow->c_proxy_rx_len += recv_len;
-
-	end_of_headers =
-	    nstun::find_end_of_headers(flow->c_proxy_rx_buf.get(), flow->c_proxy_rx_len);
-	if (end_of_headers == 0) {
-		if (flow->c_proxy_rx_len >= PROXY_RX_BUF_CAP) {
-			LOG_E("HTTP proxy response too long without headers end");
-			tcp_rst_and_destroy(ctx, flow);
-			return;
-		}
-		return; /* Wait for more data */
-	}
-
-	if (!nstun::parse_http_connect_reply(flow->c_proxy_rx_buf.get(), flow->c_proxy_rx_len)) {
-		LOG_W("HTTP CONNECT failed: %.*s",
-		    static_cast<int>(std::min(end_of_headers, static_cast<size_t>(64))),
-		    flow->c_proxy_rx_buf.get());
-		tcp_rst_and_destroy(ctx, flow);
-		return;
-	}
-
-	/* Anything after the headers is tunnelled payload - forward it */
-	if (flow->c_proxy_rx_len > end_of_headers) {
-		if (!append_tcp_tx(flow, flow->c_proxy_rx_buf.get() + end_of_headers,
-			flow->c_proxy_rx_len - end_of_headers)) {
-			LOG_E("tcp_tx_buf overflow in handle_http_connect_wait_host");
-			tcp_rst_and_destroy(ctx, flow);
-			return;
-		}
-	}
-	/* Release proxy negotiation buffer - no longer needed */
-	flow->c_proxy_rx_len = 0;
-
-	flow->tcp_state = TcpState::ESTABLISHED;
-	if (!tcp_send_packet(ctx, flow, NSTUN_TCP_FLAG_SYN | NSTUN_TCP_FLAG_ACK)) {
-		LOG_W("handle_http_connect_wait_host: failed to send SYN/ACK");
-		tcp_rst_and_destroy(ctx, flow);
-		return;
-	}
-	flow->seq_to_guest++;
-
-	if (flow->c_tcp_tx_len > 0) {
-		push_to_guest(ctx, flow);
-	}
-}
-
-static void handle_data_transfer_host(Context* ctx, TcpFlow* flow, int fd) {
-	size_t avail = TCP_TX_BUF_CAP - flow->c_tcp_tx_len;
-	if (avail == 0) {
-		/* Buffer full, apply backpressure by stopping reading */
-		if (!flow->epoll_in_disabled) {
-			flow->epoll_in_disabled = true;
-			if (!tcp_update_host_mask(flow)) {
-				PLOG_E("tcp_update_host_mask() failed");
-				tcp_rst_and_destroy(ctx, flow);
-				return;
-			}
-		}
-		return;
-	}
-
-	ssize_t recv_len = TEMP_FAILURE_RETRY(
-	    recv(fd, flow->c_tcp_tx_buf.get() + flow->c_tcp_tx_len, avail, MSG_DONTWAIT));
-	if (recv_len == 0) {
-		handle_host_tcp_data_eof(ctx, flow, fd);
-		return;
-	}
-	if (recv_len < 0) {
-		if (errno == EAGAIN || errno == EWOULDBLOCK) {
-			return;
-		}
-		tcp_rst_and_destroy(ctx, flow);
-		return;
-	}
-
-	flow->c_tcp_tx_len += recv_len;
-
-	if (flow->tcp_state != TcpState::SYN_SENT) {
-		push_to_guest(ctx, flow);
-	}
-}
-
-static bool handle_data_transfer_guest(
-    Context* ctx, TcpFlow* flow, const uint8_t* data, size_t len) {
-	if (!append_tcp_rx(flow, data, len)) {
-		LOG_E("tcp_rx_buf overflow in handle_data_transfer_guest");
-		tcp_rst_and_destroy(ctx, flow);
-		return true;
-	}
-	return flush_to_host(ctx, flow);
-}
-
-/*
- * Drain and discard any residual host data for flows in CLOSING/TIME_WAIT.
- * These states mean both sides have already signalled EOF, so any stale
- * epoll events (buffered kernel data, late EPOLLIN) must not crash the
- * process. We read and discard a chunk (without looping to avoid event starvation).
- */
-static void handle_draining_state_host(Context* ctx, TcpFlow* flow, int fd) {
-	uint8_t discard[64];
-	ssize_t n = TEMP_FAILURE_RETRY(recv(fd, discard, sizeof(discard), MSG_DONTWAIT));
-	if (n == 0) {
-		LOG_D("EOF in draining state for fd %d, destroying flow", fd);
-		tcp_destroy_flow(ctx, flow);
-	} else if (n < 0) {
-		if (errno != EAGAIN && errno != EWOULDBLOCK) {
-			PLOG_W("recv in handle_draining_state_host");
-		}
-	}
-}
-
-static bool handle_draining_state_guest(
-    Context* ctx, TcpFlow* flow, const uint8_t* data, size_t len) {
-	/* Discard any late guest data in terminal states */
-	if (!tcp_send_packet(ctx, flow, NSTUN_TCP_FLAG_ACK)) {
-		LOG_W("handle_draining_state_guest: failed to send ACK");
-	}
-	return false;
-}
-
 static const TcpStateHandlers kStateTable[] = {
     [static_cast<int>(TcpState::SYN_SENT)] = {.on_host_data = handle_data_transfer_host,
 	.on_guest_packet = handle_data_transfer_guest},
@@ -849,10 +559,17 @@ static void tcp_process_ack(
     Context* ctx, TcpFlow* flow, const tcp_hdr* tcp, uint32_t ack, size_t data_len) {
 	if (flow->tcp_state == TcpState::SYN_SENT) {
 		flow->tcp_state = TcpState::ESTABLISHED;
+		LOG_D("Flow %d: SYN_SENT -> ESTABLISHED", flow->header.host_fd);
 		flow->ack_from_guest = ack;
 		flow->syn_acked = true;
 		push_to_guest(ctx, flow);
 	} else {
+		/*
+		 * Calculate how many bytes are acknowledged.
+		 * A positive value means the guest advanced the ACK window.
+		 * A zero or negative value means it's an old or duplicate ACK,
+		 * which we ignore unless it carries new data or flags.
+		 */
 		int32_t acked_bytes = ack - flow->ack_from_guest;
 		if (acked_bytes > 0) {
 			flow->ack_from_guest = ack;
@@ -898,6 +615,7 @@ static void tcp_process_ack(
 
 	if (flow->tcp_state == TcpState::FIN_WAIT_1 && ack == flow->seq_to_guest) {
 		flow->tcp_state = TcpState::FIN_WAIT_2;
+		LOG_D("Flow %d: FIN_WAIT_1 -> FIN_WAIT_2", flow->header.host_fd);
 	}
 }
 
@@ -916,12 +634,15 @@ static void tcp_process_fin(Context* ctx, TcpFlow* flow, const tcp_hdr* tcp) {
 	switch (flow->tcp_state) {
 	case TcpState::ESTABLISHED:
 		flow->tcp_state = TcpState::CLOSE_WAIT;
+		LOG_D("Flow %d: ESTABLISHED -> CLOSE_WAIT", flow->header.host_fd);
 		break;
 	case TcpState::FIN_WAIT_1:
 		flow->tcp_state = TcpState::CLOSING;
+		LOG_D("Flow %d: FIN_WAIT_1 -> CLOSING", flow->header.host_fd);
 		break;
 	case TcpState::FIN_WAIT_2:
 		flow->tcp_state = TcpState::TIME_WAIT;
+		LOG_D("Flow %d: FIN_WAIT_2 -> TIME_WAIT", flow->header.host_fd);
 		break;
 	default:
 		break;
@@ -995,6 +716,7 @@ static void tcp_process_active_packet(Context* ctx, TcpFlow* flow, const tcp_hdr
 
 static bool handle_inbound_syn_ack(Context* ctx, TcpFlow* flow, uint32_t seq, uint32_t ack) {
 	flow->tcp_state = TcpState::ESTABLISHED;
+	LOG_D("Flow %d: SYN_SENT -> ESTABLISHED (inbound)", flow->header.host_fd);
 	flow->ack_from_guest = ack;
 	flow->seq_from_guest = seq + 1;
 	flow->ack_to_guest = flow->seq_from_guest;
@@ -1172,15 +894,15 @@ static TcpFlow* find_v4_tcp_flow(Context* ctx, const FlowKey4& key) {
 
 static TcpFlow* alloc_v4_tcp_flow(Context* ctx, const FlowKey4& key) {
 	for (size_t i = 0; i < NSTUN_MAX_FLOWS; i++) {
-		if (!ctx->c_ipv4_tcp_flows[i].header.active) {
-			TcpFlow* flow = &ctx->c_ipv4_tcp_flows[i];
-			if (!init_tcp_flow_zero(flow)) {
+		TcpFlow& flow = ctx->c_ipv4_tcp_flows[i];
+		if (!flow.header.active) {
+			if (!init_tcp_flow_zero(&flow)) {
 				return nullptr;
 			}
-			flow->header.active = true;
-			flow->header.key4 = key;
+			flow.header.active = true;
+			flow.header.key4 = key;
 			ctx->num_c_ipv4_tcp_flows++;
-			return flow;
+			return &flow;
 		}
 	}
 	return nullptr;
@@ -1205,15 +927,15 @@ static TcpFlow* find_v6_tcp_flow(Context* ctx, const FlowKey6& key) {
 
 static TcpFlow* alloc_v6_tcp_flow(Context* ctx, const FlowKey6& key) {
 	for (size_t i = 0; i < NSTUN_MAX_FLOWS; i++) {
-		if (!ctx->c_ipv6_tcp_flows[i].header.active) {
-			TcpFlow* flow = &ctx->c_ipv6_tcp_flows[i];
-			if (!init_tcp_flow_zero(flow)) {
+		TcpFlow& flow = ctx->c_ipv6_tcp_flows[i];
+		if (!flow.header.active) {
+			if (!init_tcp_flow_zero(&flow)) {
 				return nullptr;
 			}
-			flow->header.active = true;
-			flow->header.key6 = key;
+			flow.header.active = true;
+			flow.header.key6 = key;
 			ctx->num_c_ipv6_tcp_flows++;
-			return flow;
+			return &flow;
 		}
 	}
 	return nullptr;
@@ -1223,7 +945,7 @@ static TcpFlow* create_outbound_flow4(
     Context* ctx, const ip4_hdr* ip, const tcp_hdr* tcp, const FlowKey4& key4, uint32_t seq) {
 	uint16_t guest_port = ntohs(tcp->source);
 	uint16_t dest_port = ntohs(tcp->dest);
-	int opt = 1;
+
 	struct sockaddr_in dest_addr = INIT_SOCKADDR_IN(AF_INET);
 
 	RuleResult rule = evaluate_rules4(ctx, NSTUN_DIR_GUEST_TO_HOST, NSTUN_PROTO_TCP, ip->saddr,
@@ -1265,8 +987,9 @@ static TcpFlow* create_outbound_flow4(
 	init_outbound_flow_common(
 	    flow, fd, /*is_ipv6=*/false, proxy_mode_from_action(rule.action), seq + 1);
 
+	int opt = 1;
 	if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) == -1) {
-		PLOG_W("setsockopt(TCP_NODELAY)");
+		PLOG_W("setsockopt(TCP_NODELAY) failed on outbound IPv4 flow fd %d", fd);
 	}
 
 	if (rule.redirect_ip4 && rule.redirect_port) {
@@ -1304,7 +1027,6 @@ static TcpFlow* create_outbound_flow6(
     Context* ctx, const ip6_hdr* ip, const tcp_hdr* tcp, const FlowKey6& key6, uint32_t seq) {
 	uint16_t guest_port = ntohs(tcp->source);
 	uint16_t dest_port = ntohs(tcp->dest);
-	int opt = 1;
 
 	RuleResult rule = evaluate_rules6(ctx, NSTUN_DIR_GUEST_TO_HOST, NSTUN_PROTO_TCP, ip->saddr,
 	    ip->daddr, guest_port, dest_port);
@@ -1347,8 +1069,9 @@ static TcpFlow* create_outbound_flow6(
 	init_outbound_flow_common(
 	    flow, fd, /*is_ipv6=*/true, proxy_mode_from_action(rule.action), seq + 1);
 
+	int opt = 1;
 	if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) == -1) {
-		PLOG_W("setsockopt(TCP_NODELAY)");
+		PLOG_W("setsockopt(TCP_NODELAY) failed on outbound IPv6 flow fd %d", fd);
 	}
 
 	if (!monitor::addFd(fd, EPOLLIN | EPOLLOUT | EPOLLERR | EPOLLHUP, host_callback, ctx)) {
@@ -1473,6 +1196,7 @@ void handle_host_tcp_connected(Context* ctx, TcpFlow* flow, int fd) {
 	switch (flow->proxy_mode) {
 	case ProxyMode::NONE:
 		flow->tcp_state = TcpState::ESTABLISHED;
+		LOG_D("Flow %d: state -> ESTABLISHED", flow->header.host_fd);
 		if (!tcp_send_packet(ctx, flow, NSTUN_TCP_FLAG_SYN | NSTUN_TCP_FLAG_ACK)) {
 			LOG_W("handle_host_tcp_connected: failed to send SYN/ACK");
 			tcp_rst_and_destroy(ctx, flow);
@@ -1483,6 +1207,7 @@ void handle_host_tcp_connected(Context* ctx, TcpFlow* flow, int fd) {
 
 	case ProxyMode::HTTP_CONNECT: {
 		flow->tcp_state = TcpState::HTTP_CONNECT_WAIT;
+		LOG_D("Flow %d: state -> HTTP_CONNECT_WAIT", flow->header.host_fd);
 		uint8_t addr_buf[16];
 		if (flow->header.is_ipv6) {
 			memcpy(addr_buf, flow->header.key6.daddr6, 16);
@@ -1500,6 +1225,7 @@ void handle_host_tcp_connected(Context* ctx, TcpFlow* flow, int fd) {
 
 	case ProxyMode::SOCKS5:
 		flow->tcp_state = TcpState::SOCKS5_INIT;
+		LOG_D("Flow %d: state -> SOCKS5_INIT", flow->header.host_fd);
 		if (nstun::send_socks5_greeting(fd) < 0) {
 			PLOG_E("send() SOCKS5 greeting");
 			tcp_destroy_flow(ctx, flow);
@@ -1573,6 +1299,13 @@ void handle_host_tcp(Context* ctx, TcpFlow* flow, uint32_t events) {
 		}
 	}
 
+	if (events & EPOLLRDHUP) {
+		handle_host_tcp_data_eof(ctx, flow, fd);
+		if (get_tcp_flow_by_fd(ctx, fd) == nullptr) {
+			return;
+		}
+	}
+
 	if ((events & EPOLLOUT) && flow->c_tcp_rx_len > flow->rx_sent_offset) {
 		if (flow->tcp_state == TcpState::ESTABLISHED ||
 		    flow->tcp_state == TcpState::CLOSE_WAIT) {
@@ -1632,32 +1365,46 @@ static bool handle_inbound_tcp6(Context* ctx, int fd, const nstun_rule_t& rule,
 		return false;
 	}
 
-	TcpFlow* array_flow = alloc_v6_tcp_flow(ctx, key6);
+	TcpFlow* array_flow = nullptr;
+	bool success = false;
+	bool flow_mapped = false;
+	uint32_t isn = 0;
+
+	array_flow = alloc_v6_tcp_flow(ctx, key6);
 	if (!array_flow) {
 		LOG_W("Max flows reached");
 		return false;
 	}
 
+	defer {
+		if (!success) {
+			if (array_flow) {
+				if (flow_mapped) {
+					set_tcp_flow_by_fd(ctx, fd, nullptr);
+				}
+				array_flow->header.host_fd = -1;
+				tcp_destroy_flow(ctx, array_flow);
+			}
+		}
+	};
+
 	array_flow->header.host_fd = fd;
 	array_flow->header.is_ipv6 = rule.is_ipv6;
 	array_flow->header.last_active = time(nullptr);
 	array_flow->inbound = true;
-	uint32_t isn = generate_isn();
+	isn = generate_isn();
 	array_flow->seq_to_guest = isn;
 	array_flow->ack_from_guest = array_flow->seq_to_guest;
 
 	if (!set_tcp_flow_by_fd(ctx, fd, array_flow)) {
 		LOG_E("FD %d out of bounds for c_tcp_flows_by_fd", fd);
-		array_flow->header.host_fd = -1;
-		tcp_destroy_flow(ctx, array_flow);
 		return false;
 	}
+	flow_mapped = true;
 
 	LOG_D("Sending SYN to guest (IPv6)");
 	if (!tcp_send_packet6(ctx, array_flow, NSTUN_TCP_FLAG_SYN)) {
 		LOG_W("Failed to send SYN to guest (IPv6)");
-		array_flow->header.host_fd = -1;
-		tcp_destroy_flow(ctx, array_flow);
 		return false;
 	}
 	array_flow->seq_to_guest++;
@@ -1667,11 +1414,10 @@ static bool handle_inbound_tcp6(Context* ctx, int fd, const nstun_rule_t& rule,
 
 	if (!monitor::addFd(fd, EPOLLIN | EPOLLERR | EPOLLHUP, host_callback, ctx)) {
 		PLOG_E("monitor::addFd() for host accept");
-		set_tcp_flow_by_fd(ctx, fd, nullptr);
-		array_flow->header.host_fd = -1;
-		tcp_destroy_flow(ctx, array_flow);
 		return false;
 	}
+
+	success = true;
 	return true;
 }
 
@@ -1695,33 +1441,46 @@ static bool handle_inbound_tcp4(Context* ctx, int fd, const nstun_rule_t& rule,
 		return false;
 	}
 
+	bool success = false;
+	bool flow_mapped = false;
+	uint32_t isn = 0;
+
 	array_flow = alloc_v4_tcp_flow(ctx, key4);
 	if (!array_flow) {
 		LOG_W("Max flows reached");
 		return false;
 	}
 
+	defer {
+		if (!success) {
+			if (array_flow) {
+				if (flow_mapped) {
+					set_tcp_flow_by_fd(ctx, fd, nullptr);
+				}
+				array_flow->header.host_fd = -1;
+				tcp_destroy_flow(ctx, array_flow);
+			}
+		}
+	};
+
 	array_flow->header.host_fd = fd;
 	array_flow->header.is_ipv6 = rule.is_ipv6;
 	array_flow->header.last_active = time(nullptr);
 	array_flow->inbound = true;
-	uint32_t isn = generate_isn();
+	isn = generate_isn();
 	array_flow->seq_to_guest = isn;
 	array_flow->ack_from_guest = array_flow->seq_to_guest;
 
 	if (!set_tcp_flow_by_fd(ctx, fd, array_flow)) {
 		LOG_E("FD %d out of bounds for c_tcp_flows_by_fd", fd);
-		array_flow->header.host_fd = -1;
-		tcp_destroy_flow(ctx, array_flow);
 		return false;
 	}
+	flow_mapped = true;
 
 	/* Initiate the flow to the guest by sending SYN */
 	LOG_D("Sending SYN to guest");
 	if (!tcp_send_packet4(ctx, array_flow, NSTUN_TCP_FLAG_SYN)) {
 		LOG_W("Failed to send SYN to guest");
-		array_flow->header.host_fd = -1;
-		tcp_destroy_flow(ctx, array_flow);
 		return false;
 	}
 	array_flow->seq_to_guest++;
@@ -1731,11 +1490,10 @@ static bool handle_inbound_tcp4(Context* ctx, int fd, const nstun_rule_t& rule,
 
 	if (!monitor::addFd(fd, EPOLLIN | EPOLLERR | EPOLLHUP, host_callback, ctx)) {
 		PLOG_E("monitor::addFd() for host accept");
-		set_tcp_flow_by_fd(ctx, fd, nullptr);
-		array_flow->header.host_fd = -1;
-		tcp_destroy_flow(ctx, array_flow);
 		return false;
 	}
+
+	success = true;
 	return true;
 }
 
@@ -1768,35 +1526,35 @@ void handle_host_tcp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 		}
 	}
 
-	int fd = -1;
-	int opt = 1;
-	bool success = false;
-
-	struct sockaddr_storage client_addr = {};
-	socklen_t addrlen = sizeof(client_addr);
-	fd = TEMP_FAILURE_RETRY(accept4(listen_fd, reinterpret_cast<struct sockaddr*>(&client_addr),
-	    &addrlen, SOCK_NONBLOCK | SOCK_CLOEXEC));
-	if (fd == -1) {
-		if (errno != EAGAIN && errno != EWOULDBLOCK) {
-			PLOG_E("accept4()");
+	for (int i = 0; i < 16; ++i) {
+		struct sockaddr_in6 client_addr = {};
+		socklen_t addrlen = sizeof(client_addr);
+		int fd = TEMP_FAILURE_RETRY(
+		    accept4(listen_fd, reinterpret_cast<struct sockaddr*>(&client_addr), &addrlen,
+			SOCK_NONBLOCK | SOCK_CLOEXEC));
+		if (fd == -1) {
+			if (errno != EAGAIN && errno != EWOULDBLOCK) {
+				PLOG_E("accept4()");
+			}
+			return;
 		}
-		return;
-	}
-	LOG_D("Accepted fd=%d", fd);
-	if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) == -1) {
-		PLOG_W("setsockopt(TCP_NODELAY)");
-	}
+		LOG_D("Accepted fd=%d", fd);
+		int opt = 1;
+		if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt)) == -1) {
+			PLOG_W("setsockopt(TCP_NODELAY) failed on accepted host TCP fd %d", fd);
+		}
 
-	if (rule.is_ipv6) {
-		success = handle_inbound_tcp6(ctx, fd, rule,
-		    *reinterpret_cast<struct sockaddr_in6*>(&client_addr), listen_port);
-	} else {
-		success = handle_inbound_tcp4(ctx, fd, rule,
-		    *reinterpret_cast<struct sockaddr_in*>(&client_addr), listen_port);
-	}
+		bool success = false;
+		if (rule.is_ipv6) {
+			success = handle_inbound_tcp6(ctx, fd, rule, client_addr, listen_port);
+		} else {
+			success = handle_inbound_tcp4(ctx, fd, rule,
+			    *reinterpret_cast<struct sockaddr_in*>(&client_addr), listen_port);
+		}
 
-	if (!success) {
-		close(fd);
+		if (!success) {
+			close(fd);
+		}
 	}
 }
 
@@ -1858,6 +1616,14 @@ void handle_host_tcp_event(Context* ctx, TcpFlow* flow, int fd, uint32_t events)
 }
 
 void tcp_periodic_check(Context* ctx, TcpFlow* flow, time_t now) {
+	if ((flow->tcp_state == TcpState::SOCKS5_INIT ||
+		flow->tcp_state == TcpState::SOCKS5_CONNECTING) &&
+	    (now - flow->header.last_active >= TCP_TIMEOUT_CONNECTING)) {
+		LOG_W("SOCKS5 handshake timeout for flow (fd=%d)", flow->header.host_fd);
+		tcp_rst_and_destroy(ctx, flow);
+		return;
+	}
+
 	bool has_unacked_data = (int32_t)(flow->seq_to_guest - flow->ack_from_guest) > 0;
 	bool is_idle = (now - flow->header.last_active >= TCP_TIMEOUT_RTO);
 	if (has_unacked_data && is_idle) {

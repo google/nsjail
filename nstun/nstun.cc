@@ -225,7 +225,7 @@ void host_callback(int fd, uint32_t events, void* data) {
 static void tapCb(int fd, uint32_t /* events */, void* data) {
 	nstun::Context* ctx = static_cast<nstun::Context*>(data);
 
-	/* Rule 21: Use a loop to read until EAGAIN, but limit iterations to prevent starvation */
+	/* Use a loop to read until EAGAIN, but limit iterations to prevent starvation */
 	for (int i = 0; i < nstun::kMaxReadIterations; ++i) {
 		ssize_t n = TEMP_FAILURE_RETRY(read(fd, ctx->tun_buf, sizeof(ctx->tun_buf)));
 		if (n <= 0) {

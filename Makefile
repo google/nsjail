@@ -70,7 +70,7 @@ ifneq ($(PASTA_BIN_PATH),)
 	CXXFLAGS += -DPASTA_BIN_PATH='"$(PASTA_BIN_PATH)"'
 endif
 
-SRCS_CXX = monitor.cc sockproxy/sockproxy.cc caps.cc cgroup.cc cgroup2.cc cmdline.cc config.cc contain.cc cpu.cc logs.cc mnt.cc mnt_legacy.cc mnt_newapi.cc net.cc nsjail.cc pid.cc sandbox.cc subproc.cc uts.cc user.cc unotify/unotify.cc unotify/stats.cc unotify/syscall.cc util.cc nstun/nstun.cc nstun/policy.cc nstun/encap.cc nstun/iface.cc nstun/tun.cc nstun/ip.cc nstun/icmp.cc nstun/udp.cc nstun/tcp.cc
+SRCS_CXX = monitor.cc sockproxy/sockproxy.cc caps.cc cgroup.cc cgroup2.cc cmdline.cc config.cc contain.cc cpu.cc logs.cc mnt.cc mnt_legacy.cc mnt_newapi.cc net.cc nsjail.cc pid.cc sandbox.cc subproc.cc uts.cc user.cc unotify/unotify.cc unotify/stats.cc unotify/syscall.cc util.cc nstun/nstun.cc nstun/policy.cc nstun/encap.cc nstun/iface.cc nstun/tun.cc nstun/ip.cc nstun/icmp.cc nstun/udp.cc nstun/tcp.cc nstun/tcp_internal.cc
 SRCS_PROTO = config.proto unotify/unotify.proto
 
 SRCS_PB_CXX = $(SRCS_PROTO:.proto=.pb.cc)

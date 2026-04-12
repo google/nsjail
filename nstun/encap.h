@@ -17,6 +17,12 @@ constexpr uint8_t SOCKS5_ATYP_DOMAIN = 0x03;
 constexpr uint8_t SOCKS5_ATYP_IPV6 = 0x04;
 constexpr uint8_t SOCKS5_REP_SUCCESS = 0x00;
 
+constexpr size_t SOCKS5_OFF_VER = 0;
+constexpr size_t SOCKS5_OFF_CMD = 1;
+constexpr size_t SOCKS5_OFF_RSV = 2;
+constexpr size_t SOCKS5_OFF_ATYP = 3;
+constexpr size_t SOCKS5_OFF_DOMAIN_LEN = 4;
+
 /* SOCKS5 wire structs (kept for direct protocol parsing in UDP path) */
 struct __attribute__((packed)) socks5_greeting {
 	uint8_t ver;

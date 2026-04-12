@@ -8,6 +8,7 @@ namespace nstun {
 void handle_host_tcp_event(Context* ctx, TcpFlow* flow, int fd, uint32_t events);
 void tcp_periodic_check(Context* ctx, TcpFlow* flow, time_t now);
 bool is_stale_tcp(const TcpFlow* flow, time_t now);
+const char* tcp_state_to_str(TcpState state);
 
 bool tcp_send_packet4(Context* ctx, const TcpFlow* flow, uint8_t flags,
     const uint8_t* data = nullptr, size_t len = 0);
