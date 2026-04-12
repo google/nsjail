@@ -12,6 +12,7 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 
+#include "../unotify/syscall_defs.h"
 #include "encap.h"
 #include "logs.h"
 #include "macros.h"
@@ -19,7 +20,6 @@
 #include "tcp_internal.h"
 #include "tun.h"
 #include "util.h"
-#include "../unotify/syscall_defs.h"
 namespace nstun {
 
 void handle_host_tcp_connected(Context* ctx, TcpFlow* flow, int fd);

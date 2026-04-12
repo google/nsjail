@@ -138,29 +138,53 @@ inline uint32_t compute_checksum_part(const void* buf, size_t len, uint32_t sum 
 	const uint8_t* p = static_cast<const uint8_t*>(buf);
 	size_t i = 0;
 
-	/* Sum 32 bits at a time, split into 16-bit halves to avoid overflow */
+	/* Using uint64_t guarantees zero bit-carry loss natively */
+	uint64_t sum64 = sum;
+
+	while (len - i >= 32) {
+		/* A smart compiler automatically unrolls and vectorizes this block using AVX/SSE */
+		uint32_t w0, w1, w2, w3, w4, w5, w6, w7;
+		__builtin_memcpy(&w0, p + i,      4);
+		__builtin_memcpy(&w1, p + i + 4,  4);
+		__builtin_memcpy(&w2, p + i + 8,  4);
+		__builtin_memcpy(&w3, p + i + 12, 4);
+		__builtin_memcpy(&w4, p + i + 16, 4);
+		__builtin_memcpy(&w5, p + i + 20, 4);
+		__builtin_memcpy(&w6, p + i + 24, 4);
+		__builtin_memcpy(&w7, p + i + 28, 4);
+
+		sum64 += w0; sum64 += w1; sum64 += w2; sum64 += w3;
+		sum64 += w4; sum64 += w5; sum64 += w6; sum64 += w7;
+		i += 32;
+	}
+
 	while (len - i >= 4) {
-		uint32_t dword;
-		memcpy(&dword, &p[i], sizeof(dword));
-		sum += static_cast<uint32_t>(dword & 0xFFFF);
-		sum += static_cast<uint32_t>(dword >> 16);
+		uint32_t w;
+		__builtin_memcpy(&w, p + i, 4);
+		sum64 += w;
 		i += 4;
 	}
 
-	/* Sum remaining 16 bits */
+	/* Fold any accumulated 64-bit carries back down to a 32-bit container */
+	while (sum64 >> 32) {
+		sum64 = (sum64 & 0xFFFFFFFF) + (sum64 >> 32);
+	}
+	uint32_t sum32 = static_cast<uint32_t>(sum64);
+
+	/* Fold remaining words/bytes dynamically to parallel exact standard 16-bit split arithmetic */
 	while (len - i >= 2) {
-		uint16_t word;
-		memcpy(&word, &p[i], sizeof(word));
-		sum += word;
+		uint16_t w;
+		__builtin_memcpy(&w, p + i, 2);
+		sum32 += w;
 		i += 2;
 	}
 
-	/* Add remaining 8 bits */
+	/* Odd byte suffix matching original nsjail logic */
 	if (i < len) {
-		sum += static_cast<uint8_t>(p[len - 1]);
+		sum32 += static_cast<uint8_t>(p[len - 1]);
 	}
 
-	return sum;
+	return sum32;
 }
 
 inline uint16_t finalize_checksum(uint32_t sum) {
