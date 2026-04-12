@@ -38,11 +38,14 @@
 
 namespace nstun {
 
+constexpr int kMaxReadIterations = 16;
+constexpr int kMaxPortRange = 1024;
+
 bool icmp_is_stale(const IcmpFlow* flow, time_t now);
 void icmp_destroy(Context* ctx, IcmpFlow* flow);
 void icmp_handle_host_event(Context* ctx, IcmpFlow* flow, int fd, uint32_t events);
 
-static void context_cleanup(Context* ctx) {
+static void contextCleanup(Context* ctx) {
 	for (size_t i = 0; i < NSTUN_MAX_FLOWS; ++i) {
 		if (ctx->c_ipv4_udp_flows[i].header.active) {
 			udp_destroy_flow(ctx, &ctx->c_ipv4_udp_flows[i]);
@@ -75,7 +78,7 @@ static void context_cleanup(Context* ctx) {
 	}
 }
 
-static void gc_destroy_tcp_flow(Context* ctx, TcpFlow* flow) {
+static void gcDestroyTcpFlow(Context* ctx, TcpFlow* flow) {
 	if (flow->header.is_ipv6) {
 		LOG_D("GC: stale TCP flow (IPv6, sport=%u, state=%d)",
 		    ntohs(flow->header.key6.sport), static_cast<int>(flow->tcp_state));
@@ -86,19 +89,19 @@ static void gc_destroy_tcp_flow(Context* ctx, TcpFlow* flow) {
 	tcp_destroy_flow(ctx, flow);
 }
 
-static void gc_tcp_flows(Context* ctx, TcpFlow* flows, time_t now) {
+static void gcTcpFlows(Context* ctx, TcpFlow* flows, time_t now) {
 	for (size_t i = 0; i < NSTUN_MAX_FLOWS; ++i) {
 		TcpFlow* flow = &flows[i];
 		if (flow->header.active) {
 			tcp_periodic_check(ctx, flow, now);
 			if (is_stale_tcp(flow, now)) {
-				gc_destroy_tcp_flow(ctx, flow);
+				gcDestroyTcpFlow(ctx, flow);
 			}
 		}
 	}
 }
 
-static void gc_udp_flows(Context* ctx, UdpFlow* flows, time_t now) {
+static void gcUdpFlows(Context* ctx, UdpFlow* flows, time_t now) {
 	for (size_t i = 0; i < NSTUN_MAX_FLOWS; ++i) {
 		UdpFlow* flow = &flows[i];
 		if (flow->header.active) {
@@ -109,7 +112,7 @@ static void gc_udp_flows(Context* ctx, UdpFlow* flows, time_t now) {
 	}
 }
 
-static void gc_icmp_flows(Context* ctx, IcmpFlow* flows, time_t now) {
+static void gcIcmpFlows(Context* ctx, IcmpFlow* flows, time_t now) {
 	for (size_t i = 0; i < NSTUN_MAX_FLOWS; ++i) {
 		IcmpFlow* flow = &flows[i];
 		if (flow->header.active) {
@@ -120,15 +123,15 @@ static void gc_icmp_flows(Context* ctx, IcmpFlow* flows, time_t now) {
 	}
 }
 
-static void garbage_collect(Context* ctx) {
+static void garbageCollect(Context* ctx) {
 	time_t now = time(nullptr);
 
-	gc_tcp_flows(ctx, ctx->c_ipv4_tcp_flows, now);
-	gc_tcp_flows(ctx, ctx->c_ipv6_tcp_flows, now);
-	gc_udp_flows(ctx, ctx->c_ipv4_udp_flows, now);
-	gc_udp_flows(ctx, ctx->c_ipv6_udp_flows, now);
-	gc_icmp_flows(ctx, ctx->c_ipv4_icmp_flows, now);
-	gc_icmp_flows(ctx, ctx->c_ipv6_icmp_flows, now);
+	gcTcpFlows(ctx, ctx->c_ipv4_tcp_flows, now);
+	gcTcpFlows(ctx, ctx->c_ipv6_tcp_flows, now);
+	gcUdpFlows(ctx, ctx->c_ipv4_udp_flows, now);
+	gcUdpFlows(ctx, ctx->c_ipv6_udp_flows, now);
+	gcIcmpFlows(ctx, ctx->c_ipv4_icmp_flows, now);
+	gcIcmpFlows(ctx, ctx->c_ipv6_icmp_flows, now);
 }
 
 void handle_host_events(Context* ctx, int fd, uint32_t events) {
@@ -184,13 +187,16 @@ void host_callback(int fd, uint32_t events, void* data) {
 
 } /* namespace nstun */
 
-bool nstun_init_child(int ipc_fd, nsj_t* nsj) {
+[[nodiscard]] bool nstun_init_child(int ipc_fd, nsj_t* nsj) {
 	/* Create TUN device. */
 	int tap_fd = open("/dev/net/tun", O_RDWR | O_CLOEXEC | O_NONBLOCK);
 	if (tap_fd < 0) {
 		PLOG_E("open(/dev/net/tun)");
 		return false;
 	}
+	defer {
+		close(tap_fd);
+	};
 
 	struct ifreq ifr = {};
 	ifr.ifr_flags = IFF_TUN | IFF_NO_PI; /* TUN, no packet info */
@@ -198,25 +204,20 @@ bool nstun_init_child(int ipc_fd, nsj_t* nsj) {
 
 	if (ioctl(tap_fd, TUNSETIFF, &ifr) < 0) {
 		PLOG_E("ioctl(TUNSETIFF)");
-		close(tap_fd);
 		return false;
 	}
 
 	/* Configure IP, MAC, UP, route. */
 	if (!nstun::configIface(nsj)) {
 		LOG_E("nstun::configIface() failed");
-		close(tap_fd);
 		return false;
 	}
 
 	/* Send FD to parent */
 	if (!util::sendMsg(ipc_fd, monitor::MSG_TAG_TAP, tap_fd)) {
 		PLOG_E("util::sendMsg(tap_fd)");
-		close(tap_fd);
 		return false;
 	}
-
-	close(tap_fd);
 
 	return true;
 }
@@ -224,73 +225,95 @@ bool nstun_init_child(int ipc_fd, nsj_t* nsj) {
 static void tapCb(int fd, uint32_t /* events */, void* data) {
 	nstun::Context* ctx = static_cast<nstun::Context*>(data);
 
-	/* Rule 21: Avoid infinite loop to prevent event starvation.
-	 * Level-triggered epoll will wake us up again if more data is available. */
-	ssize_t n = TEMP_FAILURE_RETRY(read(fd, ctx->tun_buf, nstun::NSTUN_MTU + 4));
-	if (n <= 0) {
-		if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+	/* Rule 21: Use a loop to read until EAGAIN, but limit iterations to prevent starvation */
+	for (int i = 0; i < nstun::kMaxReadIterations; ++i) {
+		ssize_t n = TEMP_FAILURE_RETRY(read(fd, ctx->tun_buf, sizeof(ctx->tun_buf)));
+		if (n <= 0) {
+			if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+				return;
+			}
+			PLOG_E("read(tap_fd) failed or EOF, removing FD");
+			monitor::removeFd(fd);
+			close(fd);
+			ctx->tap_fd = -1;
 			return;
 		}
-		PLOG_E("read(tap_fd) failed or EOF, removing FD");
-		monitor::removeFd(fd);
-		close(fd);
-		ctx->tap_fd = -1;
-		return;
+		handle_tun_frame(ctx, ctx->tun_buf, n);
 	}
-	handle_tun_frame(ctx, ctx->tun_buf, n);
 }
 
 static thread_local nstun::Context* tls_nstun_ctx = nullptr;
 
 void nstun_periodic() {
 	if (tls_nstun_ctx) {
-		garbage_collect(tls_nstun_ctx);
+		garbageCollect(tls_nstun_ctx);
 	}
 }
 
-static bool assign_ip(const std::string& str, uint32_t* ip) {
+[[nodiscard]] static bool assign_ip(const std::string& str, uint32_t* ip) {
 	struct nl_addr* addr;
 	if (nl_addr_parse(str.c_str(), AF_INET, &addr) != 0) {
 		LOG_E("Failed to parse IP string: %s", str.c_str());
 		return false;
 	}
+	defer {
+		nl_addr_put(addr);
+	};
 	if (nl_addr_get_len(addr) != 4) {
 		LOG_E("IP string is not IPv4: %s", str.c_str());
-		nl_addr_put(addr);
 		return false;
 	}
 	memcpy(ip, nl_addr_get_binary_addr(addr), 4);
-	nl_addr_put(addr);
 	return true;
 }
 
-static bool parse_ip(const std::string& str, uint32_t* ip, uint32_t* mask) {
+[[nodiscard]] static bool assign_ip6(const std::string& str, uint8_t* ip6) {
+	struct nl_addr* addr;
+	if (nl_addr_parse(str.c_str(), AF_INET6, &addr) != 0) {
+		LOG_E("Failed to parse IPv6 string: %s", str.c_str());
+		return false;
+	}
+	defer {
+		nl_addr_put(addr);
+	};
+	if (nl_addr_get_len(addr) != nstun::IPV6_ADDR_LEN) {
+		LOG_E("IP string is not IPv6: %s", str.c_str());
+		return false;
+	}
+	memcpy(ip6, nl_addr_get_binary_addr(addr), nstun::IPV6_ADDR_LEN);
+	return true;
+}
+
+[[nodiscard]] static bool parse_ip(const std::string& str, uint32_t* ip, uint32_t* mask) {
 	struct nl_addr* addr;
 	if (nl_addr_parse(str.c_str(), AF_INET, &addr) != 0) {
 		LOG_E("Failed to parse IP/CIDR string: %s", str.c_str());
 		return false;
 	}
+	defer {
+		nl_addr_put(addr);
+	};
 	if (nl_addr_get_len(addr) != 4) {
 		LOG_E("IP/CIDR string is not IPv4: %s", str.c_str());
-		nl_addr_put(addr);
 		return false;
 	}
 	memcpy(ip, nl_addr_get_binary_addr(addr), 4);
 	int bits = nl_addr_get_prefixlen(addr);
 	*mask = (bits == 0) ? 0 : htonl(~((1ULL << (32 - bits)) - 1));
-	nl_addr_put(addr);
 	return true;
 }
 
-static bool parse_ip6(const std::string& str, uint8_t* ip6, uint8_t* mask6) {
+[[nodiscard]] static bool parse_ip6(const std::string& str, uint8_t* ip6, uint8_t* mask6) {
 	struct nl_addr* addr;
 	if (nl_addr_parse(str.c_str(), AF_INET6, &addr) != 0) {
 		LOG_E("Failed to parse IPv6/CIDR string: %s", str.c_str());
 		return false;
 	}
+	defer {
+		nl_addr_put(addr);
+	};
 	if (nl_addr_get_len(addr) != nstun::IPV6_ADDR_LEN) {
 		LOG_E("IPv6/CIDR string is not IPv6: %s", str.c_str());
-		nl_addr_put(addr);
 		return false;
 	}
 	memcpy(ip6, nl_addr_get_binary_addr(addr), nstun::IPV6_ADDR_LEN);
@@ -307,11 +330,10 @@ static bool parse_ip6(const std::string& str, uint8_t* ip6, uint8_t* mask6) {
 			mask6[i] = 0;
 		}
 	}
-	nl_addr_put(addr);
 	return true;
 }
 
-static int create_host_listener(int domain, int type, const struct sockaddr* addr,
+[[nodiscard]] static int create_host_listener(int domain, int type, const struct sockaddr* addr,
     socklen_t addrlen, nstun::Context* ctx, bool is_tcp, uint32_t port) {
 	int fd = socket(domain, type | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
 	if (fd == -1) {
@@ -362,7 +384,7 @@ static int create_host_listener(int domain, int type, const struct sockaddr* add
 	return fd;
 }
 
-static bool setup_host_redirect(nstun::Context* ctx, const nstun_rule_t& nr) {
+[[nodiscard]] static bool setup_host_redirect(nstun::Context* ctx, const nstun_rule_t& nr) {
 	if (nr.direction != NSTUN_DIR_HOST_TO_GUEST || nr.action != NSTUN_ACTION_REDIRECT) {
 		return true;
 	}
@@ -378,9 +400,9 @@ static bool setup_host_redirect(nstun::Context* ctx, const nstun_rule_t& nr) {
 		LOG_E("Invalid port range: %u - %u", nr.dport_start, nr.dport_end);
 		return false;
 	}
-	if (nr.dport_end - nr.dport_start >= 1024) {
-		LOG_E("Port range too large (%u - %u). Max range is 1024.", nr.dport_start,
-		    nr.dport_end);
+	if (nr.dport_end - nr.dport_start >= nstun::kMaxPortRange) {
+		LOG_E("Port range too large (%u - %u). Max range is %u.", nr.dport_start,
+		    nr.dport_end, nstun::kMaxPortRange);
 		return false;
 	}
 
@@ -424,7 +446,7 @@ static bool setup_host_redirect(nstun::Context* ctx, const nstun_rule_t& nr) {
 	return true;
 }
 
-static bool parse_rules4(nstun::Context* ctx, nsj_t* nsj) {
+[[nodiscard]] static bool parse_rules4(nstun::Context* ctx, nsj_t* nsj) {
 	for (int i = 0; i < nsj->njc.user_net().rule4_size(); i++) {
 		const auto& r = nsj->njc.user_net().rule4(i);
 
@@ -449,19 +471,9 @@ static bool parse_rules4(nstun::Context* ctx, nsj_t* nsj) {
 		}
 
 		if (r.has_redirect_ip()) {
-			struct nl_addr* addr;
-			if (nl_addr_parse(r.redirect_ip().c_str(), AF_INET, &addr) != 0) {
-				LOG_E("Failed to parse redirect IP: %s", r.redirect_ip().c_str());
+			if (!assign_ip(r.redirect_ip(), &nr.redirect_ip4)) {
 				return false;
 			}
-			if (nl_addr_get_len(addr) != 4) {
-				LOG_E("Redirect IP is not IPv4: %s", r.redirect_ip().c_str());
-				nl_addr_put(addr);
-				return false;
-			}
-			memcpy(&nr.redirect_ip4, nl_addr_get_binary_addr(addr),
-			    sizeof(nr.redirect_ip4));
-			nl_addr_put(addr);
 		}
 		nr.redirect_port = r.has_redirect_port() ? r.redirect_port() : 0;
 
@@ -478,7 +490,7 @@ static bool parse_rules4(nstun::Context* ctx, nsj_t* nsj) {
 	return true;
 }
 
-static bool parse_rules6(nstun::Context* ctx, nsj_t* nsj) {
+[[nodiscard]] static bool parse_rules6(nstun::Context* ctx, nsj_t* nsj) {
 	for (int i = 0; i < nsj->njc.user_net().rule6_size(); i++) {
 		const auto& r = nsj->njc.user_net().rule6(i);
 
@@ -507,37 +519,14 @@ static bool parse_rules6(nstun::Context* ctx, nsj_t* nsj) {
 			if (nr.action == NSTUN_ACTION_ENCAP_SOCKS5 ||
 			    nr.action == NSTUN_ACTION_ENCAP_CONNECT) {
 				/* Proxy is always IPv4 */
-				struct nl_addr* addr;
-				if (nl_addr_parse(r.redirect_ip().c_str(), AF_INET, &addr) != 0) {
-					LOG_E("Failed to parse proxy IP: %s",
-					    r.redirect_ip().c_str());
+				if (!assign_ip(r.redirect_ip(), &nr.redirect_ip4)) {
 					return false;
 				}
-				if (nl_addr_get_len(addr) != 4) {
-					LOG_E("Proxy IP is not IPv4: %s", r.redirect_ip().c_str());
-					nl_addr_put(addr);
-					return false;
-				}
-				memcpy(&nr.redirect_ip4, nl_addr_get_binary_addr(addr),
-				    sizeof(nr.redirect_ip4));
-				nl_addr_put(addr);
 			} else {
 				/* REDIRECT: target is IPv6 */
-				struct nl_addr* addr;
-				if (nl_addr_parse(r.redirect_ip().c_str(), AF_INET6, &addr) != 0) {
-					LOG_E("Failed to parse redirect IPv6: %s",
-					    r.redirect_ip().c_str());
+				if (!assign_ip6(r.redirect_ip(), nr.redirect_ip6)) {
 					return false;
 				}
-				if (nl_addr_get_len(addr) != 16) {
-					LOG_E(
-					    "Redirect IP is not IPv6: %s", r.redirect_ip().c_str());
-					nl_addr_put(addr);
-					return false;
-				}
-				memcpy(nr.redirect_ip6, nl_addr_get_binary_addr(addr),
-				    sizeof(nr.redirect_ip6));
-				nl_addr_put(addr);
 			}
 		}
 		nr.redirect_port = r.has_redirect_port() ? r.redirect_port() : 0;
@@ -555,7 +544,8 @@ static bool parse_rules6(nstun::Context* ctx, nsj_t* nsj) {
 	return true;
 }
 
-static bool setup_ip4(const std::string& config_ip, const char* default_ip, uint32_t* out_ip) {
+[[nodiscard]] static bool setup_ip4(
+    const std::string& config_ip, const char* default_ip, uint32_t* out_ip) {
 	if (!config_ip.empty()) {
 		return assign_ip(config_ip, out_ip);
 	}
@@ -566,7 +556,8 @@ static bool setup_ip4(const std::string& config_ip, const char* default_ip, uint
 	return true;
 }
 
-static bool setup_ip6(const std::string& config_ip, const char* default_ip, uint8_t* out_ip6) {
+[[nodiscard]] static bool setup_ip6(
+    const std::string& config_ip, const char* default_ip, uint8_t* out_ip6) {
 	if (!config_ip.empty()) {
 		if (inet_pton(AF_INET6, config_ip.c_str(), out_ip6) != 1) {
 			LOG_E("Cannot convert '%s' into an IPv6 address", config_ip.c_str());
@@ -581,7 +572,11 @@ static bool setup_ip6(const std::string& config_ip, const char* default_ip, uint
 	return true;
 }
 
-bool nstun_init_parent(int tap_fd, nsj_t* nsj, pid_t pid) {
+[[nodiscard]] bool nstun_init_parent(int tap_fd, nsj_t* nsj, pid_t pid) {
+	if (tls_nstun_ctx) {
+		LOG_W("nstun_init_parent called on already initialized context");
+		return false;
+	}
 	LOG_D("nstun initialized successfully, tap_fd=%d", tap_fd);
 
 	nstun::Context* ctx = new (std::nothrow) nstun::Context();
@@ -598,7 +593,7 @@ bool nstun_init_parent(int tap_fd, nsj_t* nsj, pid_t pid) {
 			/* Caller (monitorThread) closes tap_fd on failure, so detach it to prevent
 			 * double-close */
 			ctx->tap_fd = -1;
-			context_cleanup(ctx);
+			contextCleanup(ctx);
 			delete ctx;
 		}
 	};
@@ -648,7 +643,7 @@ bool nstun_init_parent(int tap_fd, nsj_t* nsj, pid_t pid) {
 
 void nstun_destroy_parent() {
 	if (tls_nstun_ctx) {
-		context_cleanup(tls_nstun_ctx);
+		contextCleanup(tls_nstun_ctx);
 		delete tls_nstun_ctx;
 		tls_nstun_ctx = nullptr;
 	}

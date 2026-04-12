@@ -50,8 +50,8 @@ typedef struct {
 } nstun_rule_t;
 struct nsj_t;
 
-bool nstun_init_child(int ipc_fd, struct nsj_t* nsj);
-bool nstun_init_parent(int tap_fd, struct nsj_t* nsj, pid_t pid);
+[[nodiscard]] bool nstun_init_child(int ipc_fd, struct nsj_t* nsj);
+[[nodiscard]] bool nstun_init_parent(int tap_fd, struct nsj_t* nsj, pid_t pid);
 void nstun_destroy_parent();
 void nstun_periodic();
 
