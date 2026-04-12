@@ -223,7 +223,7 @@ test: $(BIN)
 
 	# --- Nstun standalone / proxy mode tests ---
 	$(call run_test, ./nsjail --config tests/nstun.cfg -Mo -q -t 2 --seccomp_unotify -- /bin/bash -c 'exit 77', 77)
-	$(call run_test_bg, ./nsjail --config tests/nstun.cfg -Ml --port 31338 -q -t 5 --seccomp_unotify -- /bin/bash -c "sleep 4", echo -ne 'GET / HTTP/1.0\r\n\r\n' | nc 127.0.0.1 31338 >/dev/null 2>&1 && exit 77, 77)
+	$(call run_test_bg, ./nsjail --config tests/nstun.cfg -Ml --port 31338 -q -t 5 --seccomp_unotify -- /bin/bash -c 'echo "200 OK"', echo -ne 'GET /' | nc -w 5 127.0.0.1 31338 2>/dev/null | grep -q '200 OK' && exit 77, 77)
 
 	# --- HOST_TO_GUEST TCP inbound proxy test (IPv4 + IPv6) ---
 	$(call run_test_bg, ./nsjail --config tests/dns_http_host_to_guest.cfg -q -t 5, wget -4 -q -O /dev/null --timeout=5 http://127.0.0.1:8080/ && wget -6 -q -O /dev/null --timeout=5 http://[::1]:8080/ && exit 77, 77)
