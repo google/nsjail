@@ -788,8 +788,12 @@ static bool applyTrafficRule(
 		rtnl_rule_set_dst(rtnl_rule, addr);
 		nl_addr_put(addr);
 	}
-	if (rule.has_iif() && !rule.iif().empty()) rtnl_rule_set_iif(rtnl_rule, rule.iif().c_str());
-	if (rule.has_oif() && !rule.oif().empty()) rtnl_rule_set_oif(rtnl_rule, rule.oif().c_str());
+	if (rule.has_iif() && !rule.iif().empty()) {
+		rtnl_rule_set_iif(rtnl_rule, rule.iif().c_str());
+	}
+	if (rule.has_oif() && !rule.oif().empty()) {
+		rtnl_rule_set_oif(rtnl_rule, rule.oif().c_str());
+	}
 	if (rule.has_proto() && rule.proto() != nsjail::NsJailConfig_TrafficRule::UNKNOWN_PROTO) {
 		switch (rule.proto()) {
 		case nsjail::NsJailConfig_TrafficRule::TCP:
@@ -809,30 +813,33 @@ static bool applyTrafficRule(
 		}
 	}
 	if (rule.has_sport()) {
-		if (rule.has_sport_end())
+		if (rule.has_sport_end()) {
 			rtnl_rule_set_sport_range(rtnl_rule, rule.sport(), rule.sport_end());
-		else
+		} else {
 			rtnl_rule_set_sport(rtnl_rule, rule.sport());
+		}
 	}
 	if (rule.has_dport()) {
-		if (rule.has_dport_end())
+		if (rule.has_dport_end()) {
 			rtnl_rule_set_dport_range(rtnl_rule, rule.dport(), rule.dport_end());
-		else
+		} else {
 			rtnl_rule_set_dport(rtnl_rule, rule.dport());
+		}
 	}
 
-	if (rule.has_action()) {
-		if (rule.action() == nsjail::NsJailConfig_TrafficRule::DROP) {
-			rtnl_rule_set_action(rtnl_rule, FR_ACT_BLACKHOLE);
-		} else if (rule.action() == nsjail::NsJailConfig_TrafficRule::REJECT) {
-			rtnl_rule_set_action(rtnl_rule, FR_ACT_UNREACHABLE);
-
-		} else if (rule.action() == nsjail::NsJailConfig_TrafficRule::ALLOW) {
-			rtnl_rule_set_action(rtnl_rule, FR_ACT_TO_TBL);
-			rtnl_rule_set_table(rtnl_rule, RT_TABLE_MAIN);	// Just pass to main routing
-		}
-	} else {
+	switch (rule.has_action() ? rule.action() : nsjail::NsJailConfig_TrafficRule::DROP) {
+	case nsjail::NsJailConfig_TrafficRule::DROP:
 		rtnl_rule_set_action(rtnl_rule, FR_ACT_BLACKHOLE);
+		break;
+	case nsjail::NsJailConfig_TrafficRule::REJECT:
+		rtnl_rule_set_action(rtnl_rule, FR_ACT_UNREACHABLE);
+		break;
+	case nsjail::NsJailConfig_TrafficRule::ALLOW:
+		rtnl_rule_set_action(rtnl_rule, FR_ACT_TO_TBL);
+		rtnl_rule_set_table(rtnl_rule, RT_TABLE_MAIN);	// Just pass to main routing
+		break;
+	default:
+		break;
 	}
 
 	int err = rtnl_rule_add(sk, rtnl_rule, NLM_F_CREATE);
