@@ -28,7 +28,7 @@
 
 namespace pid {
 
-bool initNs(nsj_t* nsj);
+[[nodiscard]] bool initNs(nsj_t* nsj);
 
 }  // namespace pid
 

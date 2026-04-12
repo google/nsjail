@@ -59,23 +59,23 @@ bool initNs(nsj_t* nsj) {
 	}
 
 	if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0UL, 0UL, 0UL) == -1) {
-		PLOG_W("(prctl(PR_SET_PDEATHSIG, SIGKILL) failed");
+		PLOG_W("prctl(PR_SET_PDEATHSIG, SIGKILL) failed");
 	}
 	if (prctl(PR_SET_NAME, "ns-init", 0UL, 0UL, 0UL) == -1) {
-		PLOG_W("(prctl(PR_SET_NAME, 'init') failed");
+		PLOG_W("prctl(PR_SET_NAME, 'ns-init') failed");
 	}
 	if (prctl(PR_SET_DUMPABLE, 0UL, 0UL, 0UL, 0UL) == -1) {
-		PLOG_W("(prctl(PR_SET_DUMPABLE, 0) failed");
+		PLOG_W("prctl(PR_SET_DUMPABLE, 0) failed");
 	}
 
 	/* Act sort-a like a init by reaping zombie processes */
 	struct sigaction sa = {};
 	sa.sa_handler = SIG_DFL;
 	sa.sa_flags = SA_NOCLDWAIT | SA_NOCLDSTOP;
-	sa.sa_restorer = NULL;
+	sa.sa_restorer = nullptr;
 	sigemptyset(&sa.sa_mask);
 
-	if (sigaction(SIGCHLD, &sa, NULL) == -1) {
+	if (sigaction(SIGCHLD, &sa, nullptr) == -1) {
 		PLOG_W("Couldn't set sighandler for SIGCHLD");
 	}
 
