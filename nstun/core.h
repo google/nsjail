@@ -9,6 +9,7 @@
 #include <sys/uio.h>
 
 #include <compare>
+#include <cstddef>
 #include <memory>
 
 #include "net_defs.h"
