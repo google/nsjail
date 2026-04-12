@@ -5,7 +5,7 @@
 
 namespace unotify {
 
-void parseSyscall(struct seccomp_notif* req);
+void parseSyscall(struct seccomp_notif* req, int pidfd = -1);
 
 }  // namespace unotify
 

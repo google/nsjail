@@ -10,7 +10,12 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+#include <charconv>
+#include <cstdlib>
+#include <memory>
 #include <string>
+#include <string_view>
+#include <system_error>
 #include <vector>
 
 #include "logs.h"
@@ -24,22 +29,145 @@ namespace unotify {
 
 constexpr size_t kMaxArgs = 128;
 constexpr size_t kMaxPathLen = 4096;
+constexpr int kMaxArrayElements = 1024;
+constexpr size_t kMaxTotalArgsLen = 8192;
 
 static thread_local std::string g_read_str_buf(kMaxPathLen - 1, '\0');
-static thread_local std::vector<uint32_t> g_ptrs32(kMaxArgs);
-static thread_local std::vector<uint64_t> g_ptrs64(kMaxArgs);
+
+static ssize_t readProcessMem(pid_t pid, void* local_addr, uint64_t remote_addr, size_t len) {
+	struct iovec local = {
+	    .iov_base = local_addr,
+	    .iov_len = len,
+	};
+	struct iovec remote = {
+	    .iov_base = (void*)remote_addr,
+	    .iov_len = len,
+	};
+	return TEMP_FAILURE_RETRY(process_vm_readv(pid, &local, 1, &remote, 1, 0));
+}
+
+struct DecodeState {
+	int current_dirfd = AT_FDCWD;
+	FsStatParams* last_path = nullptr;
+	std::string last_socket_type;
+};
+
+struct PtrBuf {
+	uint8_t* buf = nullptr;
+	PtrBuf() {
+		buf = static_cast<uint8_t*>(
+		    aligned_alloc(alignof(uint64_t), kMaxArgs * sizeof(uint64_t)));
+	}
+	~PtrBuf() {
+		free(buf);
+	}
+};
+static thread_local PtrBuf g_ptr_buf;
+
+static uint8_t* get_ptr_buf() {
+	return g_ptr_buf.buf;
+}
+
+
 
 /* Helper functions string/memory reading, path resolution, etc. */
 
-static std::string getSocketType(pid_t pid, int target_fd) {
-	int pidfd = util::syscall(__NR_pidfd_open, pid, 0);
-	if (pidfd < 0) {
-		return "";
+static std::string getTypeStr(int type) {
+	int base_type = type & 0xf;
+	std::string res;
+	static const struct {
+		const int val;
+		const char* const name;
+	} types[] = {
+	    NS_VALSTR_STRUCT(SOCK_STREAM),
+	    NS_VALSTR_STRUCT(SOCK_DGRAM),
+	    NS_VALSTR_STRUCT(SOCK_RAW),
+	    NS_VALSTR_STRUCT(SOCK_RDM),
+	    NS_VALSTR_STRUCT(SOCK_SEQPACKET),
+	    NS_VALSTR_STRUCT(SOCK_DCCP),
+	    NS_VALSTR_STRUCT(SOCK_PACKET),
+	};
+	bool found = false;
+	for (const auto& i : types) {
+		if (base_type == i.val) {
+			res = i.name;
+			found = true;
+			break;
+		}
 	}
-	fcntl(pidfd, F_SETFD, FD_CLOEXEC);
+	if (!found) {
+		res = std::to_string(base_type);
+	}
+	if (type & SOCK_CLOEXEC) {
+		res += "|SOCK_CLOEXEC";
+	}
+	if (type & SOCK_NONBLOCK) {
+		res += "|SOCK_NONBLOCK";
+	}
+	return res;
+}
+
+static std::string getProtocolStr(int proto) {
+	if (proto == 0) {
+		return "0";
+	}
+	static const struct {
+		const int val;
+		const char* const name;
+	} protos[] = {
+	    NS_VALSTR_STRUCT(IPPROTO_IP),
+	    NS_VALSTR_STRUCT(IPPROTO_ICMP),
+	    NS_VALSTR_STRUCT(IPPROTO_IGMP),
+	    NS_VALSTR_STRUCT(IPPROTO_IPIP),
+	    NS_VALSTR_STRUCT(IPPROTO_TCP),
+	    NS_VALSTR_STRUCT(IPPROTO_EGP),
+	    NS_VALSTR_STRUCT(IPPROTO_PUP),
+	    NS_VALSTR_STRUCT(IPPROTO_UDP),
+	    NS_VALSTR_STRUCT(IPPROTO_IDP),
+	    NS_VALSTR_STRUCT(IPPROTO_TP),
+	    NS_VALSTR_STRUCT(IPPROTO_DCCP),
+	    NS_VALSTR_STRUCT(IPPROTO_IPV6),
+	    NS_VALSTR_STRUCT(IPPROTO_RSVP),
+	    NS_VALSTR_STRUCT(IPPROTO_GRE),
+	    NS_VALSTR_STRUCT(IPPROTO_ESP),
+	    NS_VALSTR_STRUCT(IPPROTO_AH),
+	    NS_VALSTR_STRUCT(IPPROTO_MTP),
+	    NS_VALSTR_STRUCT(IPPROTO_BEETPH),
+	    NS_VALSTR_STRUCT(IPPROTO_ENCAP),
+	    NS_VALSTR_STRUCT(IPPROTO_PIM),
+	    NS_VALSTR_STRUCT(IPPROTO_COMP),
+	    NS_VALSTR_STRUCT(IPPROTO_SCTP),
+	    NS_VALSTR_STRUCT(IPPROTO_UDPLITE),
+	    NS_VALSTR_STRUCT(IPPROTO_MPLS),
+	    NS_VALSTR_STRUCT(IPPROTO_RAW),
+	    NS_VALSTR_STRUCT(IPPROTO_ICMPV6),
+	};
+	for (const auto& i : protos) {
+		if (proto == i.val) {
+			return i.name;
+		}
+	}
+	return std::to_string(proto);
+}
+
+static std::string getSocketType(pid_t pid, int target_fd, int pidfd) {
+	bool close_pidfd = false;
+	if (pidfd < 0) {
+		pidfd = util::syscall(__NR_pidfd_open, pid, 0);
+		if (pidfd < 0) {
+			if (errno != ESRCH) {
+				PLOG_W("pidfd_open(pid=%d) failed", pid);
+			}
+			return "";
+		}
+		close_pidfd = true;
+		fcntl(pidfd, F_SETFD, FD_CLOEXEC);
+	}
 
 	int local_fd = util::syscall(__NR_pidfd_getfd, pidfd, target_fd, 0);
-	close(pidfd);
+	if (close_pidfd) {
+		close(pidfd);
+	}
 	if (local_fd < 0) {
 		return "";
 	}
@@ -49,75 +177,56 @@ static std::string getSocketType(pid_t pid, int target_fd) {
 	socklen_t len = sizeof(type);
 	std::string type_str;
 	if (getsockopt(local_fd, SOL_SOCKET, SO_TYPE, &type, &len) == 0) {
-		static const struct {
-			const int val;
-			const char* const name;
-		} sockTypes[] = {
-		    NS_VALSTR_STRUCT(SOCK_STREAM),
-		    NS_VALSTR_STRUCT(SOCK_DGRAM),
-		    NS_VALSTR_STRUCT(SOCK_RAW),
-		    NS_VALSTR_STRUCT(SOCK_SEQPACKET),
-		};
-		bool found = false;
-		for (const auto& i : sockTypes) {
-			if (type == i.val) {
-				type_str = i.name;
-				found = true;
-				break;
-			}
-		}
-		if (!found) {
-			type_str = "SOCK_TYPE_" + std::to_string(type);
-		}
+		type_str = getTypeStr(type);
 	}
 	len = sizeof(proto);
 	if (getsockopt(local_fd, SOL_SOCKET, SO_PROTOCOL, &proto, &len) == 0) {
-		static const struct {
-			const int val;
-			const char* const name;
-		} protoTypes[] = {
-		    NS_VALSTR_STRUCT(IPPROTO_TCP),
-		    NS_VALSTR_STRUCT(IPPROTO_UDP),
-		    NS_VALSTR_STRUCT(IPPROTO_ICMP),
-		    NS_VALSTR_STRUCT(IPPROTO_ICMPV6),
-		};
-		bool found = false;
-		for (const auto& i : protoTypes) {
-			if (proto == i.val) {
-				type_str += " (";
-				type_str += i.name;
-				type_str += ")";
-				found = true;
-				break;
-			}
-		}
-		if (!found && proto != 0) {
-			type_str += " (proto_" + std::to_string(proto) + ")";
+		std::string proto_str = getProtocolStr(proto);
+		if (proto_str != "0") {
+			type_str += " (" + proto_str + ")";
 		}
 	}
 	close(local_fd);
 	return type_str;
 }
 
-static std::string readStringFromMem(pid_t pid, uint64_t addr) {
+// NOTE: Returns a view into a thread-local buffer. The view is only valid
+// until the next call to readStringFromMem in the same thread.
+static std::string_view readStringFromMem(pid_t pid, uint64_t addr) {
 	if (addr == 0) {
 		return "NULL";
 	}
-	struct iovec local = {
-	    .iov_base = g_read_str_buf.data(),
-	    .iov_len = g_read_str_buf.size(),
-	};
-	struct iovec remote = {
-	    .iov_base = (void*)addr,
-	    .iov_len = g_read_str_buf.size(),
-	};
-
-	ssize_t ret = process_vm_readv(pid, &local, 1, &remote, 1, 0);
-	if (ret <= 0) {
-		return "<invalid_ptr>";
+	size_t total_read = 0;
+	static size_t page_size = 0;
+	if (page_size == 0) {
+		long sz = sysconf(_SC_PAGESIZE);
+		page_size = (sz > 0) ? (size_t)sz : 4096;
 	}
-	size_t len = strnlen(g_read_str_buf.data(), ret);
-	return std::string(g_read_str_buf.data(), len);
+	while (total_read < g_read_str_buf.size()) {
+		uint64_t current_addr = addr + total_read;
+		size_t bytes_to_boundary = page_size - (current_addr % page_size);
+		size_t size_to_read =
+		    std::min(g_read_str_buf.size() - total_read, bytes_to_boundary);
+
+		ssize_t ret = readProcessMem(
+		    pid, g_read_str_buf.data() + total_read, current_addr, size_to_read);
+		if (ret <= 0) {
+			if (total_read == 0) {
+				return "<invalid_ptr>";
+			}
+			break;
+		}
+		size_t len = strnlen(g_read_str_buf.data() + total_read, (size_t)ret);
+		total_read += (size_t)ret;
+		if (len < (size_t)ret) {
+			// Found null!
+			return std::string_view(g_read_str_buf.data(), total_read - ret + len);
+		}
+	}
+	if (total_read == g_read_str_buf.size()) {
+		return "<truncated>";
+	}
+	return "<invalid_ptr>";
 }
 
 static void appendStringArrayFromMem(
@@ -126,60 +235,67 @@ static void appendStringArrayFromMem(
 		return;
 	}
 
-	if (is_32bit) {
-		struct iovec local = {
-		    .iov_base = g_ptrs32.data(),
-		    .iov_len = g_ptrs32.size() * sizeof(uint32_t),
-		};
-		struct iovec remote = {
-		    .iov_base = (void*)addr,
-		    .iov_len = g_ptrs32.size() * sizeof(uint32_t),
-		};
+	uint8_t* ptr_buf = get_ptr_buf();
+	if (!ptr_buf) {
+		return;
+	}
 
-		ssize_t ret = process_vm_readv(pid, &local, 1, &remote, 1, 0);
+	uint64_t current_addr = addr;
+	int idx = 0;
+	size_t ptr_size = is_32bit ? sizeof(uint32_t) : sizeof(uint64_t);
+	size_t buf_len = kMaxArgs * ptr_size;
+
+	while (true) {
+		ssize_t ret = readProcessMem(pid, ptr_buf, current_addr, buf_len);
 		if (ret <= 0) {
-			return;
+			break;
 		}
 
-		int num_ptrs = ret / sizeof(uint32_t);
+		int num_ptrs = ret / ptr_size;
+		bool found_null = false;
 		for (int i = 0; i < num_ptrs; i++) {
-			if (g_ptrs32[i] == 0) {
+			uint64_t ptr = 0;
+			if (is_32bit) {
+				ptr = ((uint32_t*)ptr_buf)[i];
+			} else {
+				ptr = ((uint64_t*)ptr_buf)[i];
+			}
+
+			if (ptr == 0) {
+				found_null = true;
 				break;
 			}
-			out += prefix;
-			out += "[" + std::to_string(i) +
-			       "]=" + readStringFromMem(pid, g_ptrs32[i]) + " ";
-		}
-	} else {
-		struct iovec local = {
-		    .iov_base = g_ptrs64.data(),
-		    .iov_len = g_ptrs64.size() * sizeof(uint64_t),
-		};
-		struct iovec remote = {
-		    .iov_base = (void*)addr,
-		    .iov_len = g_ptrs64.size() * sizeof(uint64_t),
-		};
-
-		ssize_t ret = process_vm_readv(pid, &local, 1, &remote, 1, 0);
-		if (ret <= 0) {
-			return;
-		}
-
-		int num_ptrs = ret / sizeof(uint64_t);
-		for (int i = 0; i < num_ptrs; i++) {
-			if (g_ptrs64[i] == 0) {
+			if (idx >= kMaxArrayElements || out.length() >= kMaxTotalArgsLen) {
+				out += "... <truncated> ";
 				break;
 			}
-			out += prefix;
-			out += "[" + std::to_string(i) +
-			       "]=" + readStringFromMem(pid, g_ptrs64[i]) + " ";
+			char idx_buf[16];
+			auto [p, ec] = std::to_chars(idx_buf, idx_buf + sizeof(idx_buf), idx++);
+			if (ec == std::errc()) {
+				out.append(prefix);
+				out.append("[");
+				out.append(idx_buf, p - idx_buf);
+				out.append("]=");
+			} else {
+				out.append(prefix);
+				out.append("[?]=");
+			}
+			out += readStringFromMem(pid, ptr);
+			out += " ";
 		}
+
+		if (found_null || idx >= kMaxArrayElements || num_ptrs < (int)kMaxArgs ||
+		    out.length() >= kMaxTotalArgsLen) {
+			break;
+		}
+		current_addr += num_ptrs * ptr_size;
 	}
 }
 
-static std::string getAbsPath(pid_t pid, int dirfd, const std::string& raw_path) {
+static void getAbsPath(pid_t pid, int dirfd, std::string_view raw_path, std::string& out) {
 	if (raw_path.empty() || raw_path[0] == '/') {
-		return raw_path;
+		out = raw_path;
+		return;
 	}
 
 	std::string link_path;
@@ -189,19 +305,20 @@ static std::string getAbsPath(pid_t pid, int dirfd, const std::string& raw_path)
 		link_path = "/proc/" + std::to_string(pid) + "/fd/" + std::to_string(dirfd);
 	}
 
-	/* Heap-allocate to avoid stack pressure */
-	std::string buf(PATH_MAX - 1, '\0');
-	ssize_t len = readlink(link_path.c_str(), buf.data(), buf.size());
+	/* Reuse thread-local buffer to avoid heap allocation and stack pressure */
+	static thread_local std::string g_abs_path_buf(PATH_MAX - 1, '\0');
+	g_abs_path_buf.resize(PATH_MAX - 1);
+	ssize_t len = readlink(link_path.c_str(), g_abs_path_buf.data(), g_abs_path_buf.size());
 	if (len <= 0) {
-		return raw_path;  // fallback
+		out = raw_path;  // fallback
+		return;
 	}
 
-	std::string abs_path(buf.data(), len);
-	if (abs_path.back() != '/') {
-		abs_path += '/';
+	out.assign(g_abs_path_buf.data(), len);
+	if (out.back() != '/') {
+		out += '/';
 	}
-	abs_path += raw_path;
-	return abs_path;
+	out += raw_path;
 }
 
 static void getFileMode(int flags, FsStatParams* out) {
@@ -304,14 +421,14 @@ static Stat_Path_Type getStatInfo(const std::string& path) {
 }
 
 static void populatePathInfo(pid_t pid, int dirfd, uint64_t addr, FsStatParams* out_rec) {
-	std::string raw_path = readStringFromMem(pid, addr);
+	std::string_view raw_path = readStringFromMem(pid, addr);
 	if (raw_path == "<invalid_ptr>") {
 		out_rec->path = raw_path;
 		out_rec->jail_type = Stat_Path_Type_UNKNOWN;
 		out_rec->main_type = Stat_Path_Type_UNKNOWN;
 		return;
 	}
-	out_rec->path = getAbsPath(pid, dirfd, raw_path);
+	getAbsPath(pid, dirfd, raw_path, out_rec->path);
 
 	if (out_rec->path.empty() || out_rec->path[0] == '/') {
 		out_rec->jail_type =
@@ -329,6 +446,15 @@ static void populatePathInfo(pid_t pid, int dirfd, uint64_t addr, FsStatParams* 
 	out_rec->main_type = getStatInfo(out_rec->path);
 }
 
+static void setPortIfApplicable(
+    NetStatParams* net_rec, const std::string& socket_type_str, int port) {
+	if (socket_type_str.find("SOCK_STREAM") != std::string::npos ||
+	    socket_type_str.find("SOCK_DGRAM") != std::string::npos) {
+		net_rec->has_port = true;
+		net_rec->port = port;
+	}
+}
+
 /* sockaddr decoder */
 
 static void parseInetAddr(const struct sockaddr_storage& ss, ssize_t read_bytes,
@@ -343,11 +469,7 @@ static void parseInetAddr(const struct sockaddr_storage& ss, ssize_t read_bytes,
 	*out_has_net = true;
 	net_rec->type = Stat_NetResource_Type_IPV4;
 	net_rec->endpoint = std::string(host);
-	if (socket_type_str.find("SOCK_STREAM") != std::string::npos ||
-	    socket_type_str.find("SOCK_DGRAM") != std::string::npos) {
-		net_rec->has_port = true;
-		net_rec->port = port;
-	}
+	setPortIfApplicable(net_rec, socket_type_str, port);
 }
 
 static void parseInet6Addr(const struct sockaddr_storage& ss, ssize_t read_bytes,
@@ -362,11 +484,7 @@ static void parseInet6Addr(const struct sockaddr_storage& ss, ssize_t read_bytes
 	*out_has_net = true;
 	net_rec->type = Stat_NetResource_Type_IPV6;
 	net_rec->endpoint = std::string(host);
-	if (socket_type_str.find("SOCK_STREAM") != std::string::npos ||
-	    socket_type_str.find("SOCK_DGRAM") != std::string::npos) {
-		net_rec->has_port = true;
-		net_rec->port = port;
-	}
+	setPortIfApplicable(net_rec, socket_type_str, port);
 }
 
 static void parseUnixAddr(const struct sockaddr_storage& ss, socklen_t addrlen, pid_t pid,
@@ -394,7 +512,8 @@ static void parseUnixAddr(const struct sockaddr_storage& ss, socklen_t addrlen, 
 		net_rec->type = Stat_NetResource_Type_UNIX;
 		net_rec->endpoint = "anonymous unix socket";
 	} else if (sun.sun_path[0] != '\0') {
-		std::string abs_path = getAbsPath(pid, AT_FDCWD, raw_path);
+		std::string abs_path;
+		getAbsPath(pid, AT_FDCWD, raw_path, abs_path);
 		*out_has_net = true;
 		net_rec->type = Stat_NetResource_Type_UNIX;
 		net_rec->endpoint = abs_path;
@@ -419,15 +538,7 @@ static void parseSockaddr(struct seccomp_notif* req, NetStatParams* net_rec, boo
 	}
 
 	struct sockaddr_storage ss = {};
-	struct iovec local = {
-	    .iov_base = &ss,
-	    .iov_len = addrlen,
-	};
-	struct iovec remote = {
-	    .iov_base = (void*)addr,
-	    .iov_len = addrlen,
-	};
-	ssize_t read_bytes = process_vm_readv(req->pid, &local, 1, &remote, 1, 0);
+	ssize_t read_bytes = readProcessMem(req->pid, &ss, addr, addrlen);
 	if (read_bytes >= (ssize_t)sizeof(sa_family_t)) {
 		switch (ss.ss_family) {
 		case AF_INET:
@@ -479,83 +590,7 @@ static std::string getDomainStr(int domain) {
 	return std::to_string(domain);
 }
 
-static std::string getTypeStr(int type) {
-	int base_type = type & 0xf;
-	std::string res;
-	static const struct {
-		const int val;
-		const char* const name;
-	} types[] = {
-	    NS_VALSTR_STRUCT(SOCK_STREAM),
-	    NS_VALSTR_STRUCT(SOCK_DGRAM),
-	    NS_VALSTR_STRUCT(SOCK_RAW),
-	    NS_VALSTR_STRUCT(SOCK_RDM),
-	    NS_VALSTR_STRUCT(SOCK_SEQPACKET),
-	    NS_VALSTR_STRUCT(SOCK_DCCP),
-	    NS_VALSTR_STRUCT(SOCK_PACKET),
-	};
-	bool found = false;
-	for (const auto& i : types) {
-		if (base_type == i.val) {
-			res = i.name;
-			found = true;
-			break;
-		}
-	}
-	if (!found) {
-		res = std::to_string(base_type);
-	}
-	if (type & SOCK_CLOEXEC) {
-		res += "|SOCK_CLOEXEC";
-	}
-	if (type & SOCK_NONBLOCK) {
-		res += "|SOCK_NONBLOCK";
-	}
-	return res;
-}
 
-static std::string getProtocolStr(int proto) {
-	if (proto == 0) {
-		return "0";
-	}
-	static const struct {
-		const int val;
-		const char* const name;
-	} protos[] = {
-	    NS_VALSTR_STRUCT(IPPROTO_IP),
-	    NS_VALSTR_STRUCT(IPPROTO_ICMP),
-	    NS_VALSTR_STRUCT(IPPROTO_IGMP),
-	    NS_VALSTR_STRUCT(IPPROTO_IPIP),
-	    NS_VALSTR_STRUCT(IPPROTO_TCP),
-	    NS_VALSTR_STRUCT(IPPROTO_EGP),
-	    NS_VALSTR_STRUCT(IPPROTO_PUP),
-	    NS_VALSTR_STRUCT(IPPROTO_UDP),
-	    NS_VALSTR_STRUCT(IPPROTO_IDP),
-	    NS_VALSTR_STRUCT(IPPROTO_TP),
-	    NS_VALSTR_STRUCT(IPPROTO_DCCP),
-	    NS_VALSTR_STRUCT(IPPROTO_IPV6),
-	    NS_VALSTR_STRUCT(IPPROTO_RSVP),
-	    NS_VALSTR_STRUCT(IPPROTO_GRE),
-	    NS_VALSTR_STRUCT(IPPROTO_ESP),
-	    NS_VALSTR_STRUCT(IPPROTO_AH),
-	    NS_VALSTR_STRUCT(IPPROTO_MTP),
-	    NS_VALSTR_STRUCT(IPPROTO_BEETPH),
-	    NS_VALSTR_STRUCT(IPPROTO_ENCAP),
-	    NS_VALSTR_STRUCT(IPPROTO_PIM),
-	    NS_VALSTR_STRUCT(IPPROTO_COMP),
-	    NS_VALSTR_STRUCT(IPPROTO_SCTP),
-	    NS_VALSTR_STRUCT(IPPROTO_UDPLITE),
-	    NS_VALSTR_STRUCT(IPPROTO_MPLS),
-	    NS_VALSTR_STRUCT(IPPROTO_RAW),
-	    NS_VALSTR_STRUCT(IPPROTO_ICMPV6),
-	};
-	for (const auto& i : protos) {
-		if (proto == i.val) {
-			return i.name;
-		}
-	}
-	return std::to_string(proto);
-}
 
 /* Decoded syscall result — groups all out-params of decodeSyscallArgs */
 
@@ -571,12 +606,77 @@ struct ParsedArgs {
 
 /* Generic arg decoder driven by ArgRole metadata from the table */
 
-static ParsedArgs decodeSyscallArgs(struct seccomp_notif* req, const SyscallDef& def) {
-	ParsedArgs out;
+static void decodePathArg(pid_t pid, DecodeState& state, __u64 arg, ParsedArgs& out) {
+	FsStatParams* target;
+	if (!out.has_p1) {
+		out.has_p1 = true;
+		target = &out.p1;
+	} else {
+		out.has_p2 = true;
+		target = &out.p2;
+	}
+	populatePathInfo(pid, state.current_dirfd, arg, target);
+	state.last_path = target;
+	state.current_dirfd = AT_FDCWD;
+}
+
+static void decodeDirfdArg(__u64 arg, ParsedArgs& out, DecodeState& state) {
+	int dirfd = (int)arg;
+	std::string arg_str =
+	    "dirfd=" +
+	    (dirfd == AT_FDCWD || dirfd == -100 ? std::string("AT_FDCWD") : std::to_string(dirfd));
+	out.args_str += arg_str + " ";
+	state.current_dirfd = dirfd;
+}
+
+static void decodeArgvArg(pid_t pid, __u64 arg, bool is_32bit, ParsedArgs& out) {
+	appendStringArrayFromMem(pid, arg, is_32bit, "argv", out.args_str);
+}
+
+static void decodeEnvpArg(pid_t pid, __u64 arg, bool is_32bit, ParsedArgs& out) {
+	appendStringArrayFromMem(pid, arg, is_32bit, "envp", out.args_str);
+}
+
+static void decodeFdArg(pid_t pid, __u64 arg, ParsedArgs& out, DecodeState& state, int pidfd) {
+	state.last_socket_type = getSocketType(pid, (int)arg, pidfd);
+	if (!state.last_socket_type.empty()) {
+		out.args_str += "type=" + state.last_socket_type + " ";
+	}
+}
+
+static void decodeSaddrArg(
+    struct seccomp_notif* req, __u64 arg, int i, ParsedArgs& out, const DecodeState& state) {
+	if (arg == 0) {
+		return;
+	}
 	__u64* args = req->data.args;
-	int current_dirfd = AT_FDCWD;
-	FsStatParams* last_path = nullptr;
-	std::string last_socket_type;
+	socklen_t addrlen = (i + 1 < 6) ? (socklen_t)args[i + 1] : 0;
+	parseSockaddr(req, &out.net, &out.has_net, arg, addrlen, state.last_socket_type);
+}
+
+static void decodeOhowArg(pid_t pid, __u64 arg, ParsedArgs& out, const DecodeState& state) {
+	struct {
+		__u64 flags;
+		__u64 mode;
+		__u64 resolve;
+	} how = {};
+	ssize_t read_bytes = readProcessMem(pid, &how, arg, sizeof(how));
+	if (read_bytes >= (ssize_t)sizeof(how.flags)) {
+		if (state.last_path) {
+			getFileMode((int)how.flags, state.last_path);
+		}
+		if (read_bytes >= (ssize_t)sizeof(how) && how.resolve != 0) {
+			std::string arg_str = "resolve=" + std::to_string(how.resolve);
+			out.args_str += arg_str + " ";
+		}
+	}
+}
+
+
+static void decodeSyscallArgs(
+    struct seccomp_notif* req, const SyscallDef& def, int pidfd, ParsedArgs& out) {
+	__u64* args = req->data.args;
+	DecodeState state;
 
 	bool is_32bit = false;
 #ifdef AUDIT_ARCH_I386
@@ -596,41 +696,22 @@ static ParsedArgs decodeSyscallArgs(struct seccomp_notif* req, const SyscallDef&
 		case ArgRole::SKIP:
 			break;
 
-		case ArgRole::PATH: {
-			FsStatParams* target;
-			if (!out.has_p1) {
-				out.has_p1 = true;
-				target = &out.p1;
-			} else {
-				out.has_p2 = true;
-				target = &out.p2;
-			}
-			populatePathInfo(req->pid, current_dirfd, arg, target);
-			last_path = target;
-			current_dirfd = AT_FDCWD;
+		case ArgRole::PATH:
+			decodePathArg(req->pid, state, arg, out);
 			break;
-		}
 
-		case ArgRole::DIRFD: {
-			int dirfd = (int)arg;
-			std::string arg_str =
-			    "dirfd=" + (dirfd == AT_FDCWD || dirfd == -100 ? std::string("AT_FDCWD")
-									   : std::to_string(dirfd));
-			out.args_str += arg_str + " ";
-			current_dirfd = dirfd;
+		case ArgRole::DIRFD:
+			decodeDirfdArg(arg, out, state);
 			break;
-		}
 
 		case ArgRole::FLAGS:
-			if (last_path) {
-				getFileMode((int)arg, last_path);
+			if (state.last_path) {
+				getFileMode((int)arg, state.last_path);
 			}
 			break;
 
 		case ArgRole::OCTAL: {
-			char buf[32];
-			snprintf(buf, sizeof(buf), "0%o", (unsigned int)arg);
-			std::string arg_str = "mode=" + std::string(buf);
+			std::string arg_str = "mode=" + util::StrPrintf("0%o", (unsigned int)arg);
 			out.args_str += arg_str + " ";
 			break;
 		}
@@ -653,33 +734,21 @@ static ParsedArgs decodeSyscallArgs(struct seccomp_notif* req, const SyscallDef&
 			break;
 		}
 
-		case ArgRole::ARGV: {
-			appendStringArrayFromMem(req->pid, arg, is_32bit, "argv", out.args_str);
+		case ArgRole::ARGV:
+			decodeArgvArg(req->pid, arg, is_32bit, out);
 			break;
-		}
 
-		case ArgRole::ENVP: {
-			appendStringArrayFromMem(req->pid, arg, is_32bit, "envp", out.args_str);
+		case ArgRole::ENVP:
+			decodeEnvpArg(req->pid, arg, is_32bit, out);
 			break;
-		}
 
-		case ArgRole::FD: {
-			/* Don't emit raw fd number — it splits dedup unnecessarily */
-			last_socket_type = getSocketType(req->pid, (int)arg);
-			if (!last_socket_type.empty()) {
-				out.args_str += "type=" + last_socket_type + " ";
-			}
+		case ArgRole::FD:
+			decodeFdArg(req->pid, arg, out, state, pidfd);
 			break;
-		}
 
-		case ArgRole::SADDR: {
-			if (arg == 0) {
-				break;
-			}
-			socklen_t addrlen = (i + 1 < 6) ? (socklen_t)args[i + 1] : 0;
-			parseSockaddr(req, &out.net, &out.has_net, arg, addrlen, last_socket_type);
+		case ArgRole::SADDR:
+			decodeSaddrArg(req, arg, i, out, state);
 			break;
-		}
 
 		case ArgRole::ALEN:
 			break; /* consumed by preceding SADDR */
@@ -708,46 +777,24 @@ static ParsedArgs decodeSyscallArgs(struct seccomp_notif* req, const SyscallDef&
 			break;
 		}
 
-		case ArgRole::OHOW: {
-			struct {
-				__u64 flags;
-				__u64 mode;
-				__u64 resolve;
-			} how = {};
-			struct iovec local = {
-			    .iov_base = &how,
-			    .iov_len = sizeof(how),
-			};
-			struct iovec remote = {
-			    .iov_base = (void*)arg,
-			    .iov_len = sizeof(how),
-			};
-			ssize_t read_bytes = process_vm_readv(req->pid, &local, 1, &remote, 1, 0);
-			if (read_bytes >= (ssize_t)sizeof(how.flags)) {
-				if (last_path) {
-					getFileMode((int)how.flags, last_path);
-				}
-				if (read_bytes >= (ssize_t)sizeof(how) && how.resolve != 0) {
-					std::string arg_str =
-					    "resolve=" + std::to_string(how.resolve);
-					out.args_str += arg_str + " ";
-				}
-			}
+		case ArgRole::OHOW:
+			decodeOhowArg(req->pid, arg, out, state);
 			break;
-		}
+
+
 		}
 	}
-	return out;
 }
+
 
 /* Public API table-driven syscall name lookup + arg decoding */
 
-void parseSyscall(struct seccomp_notif* req) {
+void parseSyscall(struct seccomp_notif* req, int pidfd) {
 	int nr = req->data.nr;
 	const SyscallDef* def = nullptr;
 	std::string sys_name;
 
-	for (size_t i = 0; i < kTracedSyscallCount; i++) {
+	for (size_t i = 0; i < kTracedSyscallCount; ++i) {
 		if (kTracedSyscalls[i].nr == nr) {
 			sys_name = kTracedSyscalls[i].display_name;
 			def = &kTracedSyscalls[i];
@@ -759,19 +806,19 @@ void parseSyscall(struct seccomp_notif* req) {
 		sys_name = "sys_" + std::to_string(nr);
 	}
 
-	ParsedArgs pa;
+	auto pa = std::make_unique<ParsedArgs>();
 	if (def) {
-		pa = decodeSyscallArgs(req, *def);
+		decodeSyscallArgs(req, *def, pidfd, *pa);
 	}
 
-	if (pa.has_p1) {
-		addFsStat(pa.p1, sys_name, pa.args_str);
+	if (pa->has_p1) {
+		addFsStat(pa->p1, sys_name, pa->args_str);
 	}
-	if (pa.has_p2) {
-		addFsStat(pa.p2, sys_name, pa.args_str);
+	if (pa->has_p2) {
+		addFsStat(pa->p2, sys_name, pa->args_str);
 	}
-	if (pa.has_net) {
-		addNetStat(pa.net, sys_name, pa.args_str);
+	if (pa->has_net) {
+		addNetStat(pa->net, sys_name, pa->args_str);
 	}
 }
 
