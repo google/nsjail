@@ -5,7 +5,7 @@
 
 namespace unotify {
 
-bool start(nsj_t* nsj, int unotif_fd);
+[[nodiscard]] bool start(nsj_t* nsj, int unotif_fd, int pidfd = -1);
 void stop(void);
 
 }  // namespace unotify

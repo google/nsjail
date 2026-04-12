@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "logs.h"
+#include "macros.h"
 #include "missing_defs.h"
 #include "monitor.h"
 #include "unotify/stats.h"
@@ -43,7 +44,7 @@ namespace unotify {
  * Checks if the target process is still alive and the notification ID is valid.
  * Returns true if valid, false otherwise.
  */
-static bool isTargetAlive(int fd, __u64 last_id) {
+[[nodiscard]] static bool isTargetAlive(int fd, __u64 last_id) {
 	return TEMP_FAILURE_RETRY(ioctl(fd, SECCOMP_IOCTL_NOTIF_ID_VALID, &last_id)) == 0;
 }
 
@@ -53,8 +54,7 @@ static bool isTargetAlive(int fd, __u64 last_id) {
  */
 struct unotifyCtx_t {
 	int fd = -1;
-	uint16_t req_size;
-	uint16_t resp_size;
+	int pidfd = -1;
 	std::vector<uint8_t> req_buf;
 	std::vector<uint8_t> resp_buf;
 };
@@ -95,7 +95,7 @@ static void unotifyCb(int fd, uint32_t events, void* /* data */) {
 	struct seccomp_notif_resp* resp =
 	    reinterpret_cast<struct seccomp_notif_resp*>(current_ctx.resp_buf.data());
 
-	memset(req, 0, current_ctx.req_size);
+	memset(req, 0, current_ctx.req_buf.size());
 	if (TEMP_FAILURE_RETRY(ioctl(fd, SECCOMP_IOCTL_NOTIF_RECV, req)) == -1) {
 		/* EAGAIN/EWOULDBLOCK = no more pending */
 		if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -114,14 +114,14 @@ static void unotifyCb(int fd, uint32_t events, void* /* data */) {
 	}
 
 	LOG_D("unotifyCb: before parseSyscall, nr=%d", req->data.nr);
-	parseSyscall(req);
+	parseSyscall(req, current_ctx.pidfd);
 	LOG_D("unotifyCb: after parseSyscall");
 
 	if (!isTargetAlive(fd, req->id)) {
 		return;
 	}
 
-	memset(resp, 0, current_ctx.resp_size);
+	memset(resp, 0, current_ctx.resp_buf.size());
 	resp->id = req->id;
 
 	resp->flags = SECCOMP_USER_NOTIF_FLAG_CONTINUE;
@@ -142,7 +142,7 @@ static void unotifyCb(int fd, uint32_t events, void* /* data */) {
  * Returns true if the fd was successfully absorbed by the loop. On failure,
  * the fd is untouched and remains the caller's responsibility to close.
  */
-bool start(nsj_t* nsj, int fd) {
+bool start(nsj_t* nsj, int fd, int pidfd) {
 	if (current_ctx.fd != -1) {
 		LOG_W("unotify::start called on already initialized context");
 		return false;
@@ -157,27 +157,30 @@ bool start(nsj_t* nsj, int fd) {
 	}
 
 	current_ctx.fd = fd;
-	current_ctx.req_size = sizes.seccomp_notif;
-	current_ctx.resp_size = sizes.seccomp_notif_resp;
+	current_ctx.pidfd = pidfd;
 
 	current_ctx.req_buf.resize(sizes.seccomp_notif);
 	current_ctx.resp_buf.resize(sizes.seccomp_notif_resp);
+	bool success = false;
+	defer {
+		if (!success) {
+			current_ctx.req_buf.clear();
+			current_ctx.resp_buf.clear();
+			current_ctx.fd = -1;
+		}
+	};
 
 	if (!util::setNonBlock(fd)) {
-		goto err_cleanup;
+		return false;
 	}
 
 	if (!monitor::addFd(fd, EPOLLIN, unotifyCb, nullptr)) {
 		PLOG_W("monitor::addFd for unotify failed");
-		goto err_cleanup;
+		return false;
 	}
-	return true;
 
-err_cleanup:
-	current_ctx.req_buf.clear();
-	current_ctx.resp_buf.clear();
-	current_ctx.fd = -1;
-	return false;
+	success = true;
+	return true;
 }
 
 }  // namespace unotify
