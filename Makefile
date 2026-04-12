@@ -349,6 +349,11 @@ nstun/udp.o: monitor.h nstun/encap.h nstun/icmp.h logs.h macros.h
 nstun/udp.o: nstun/policy.h config.pb.h nstun/tun.h
 nstun/tcp.o: nstun/tcp.h nstun/core.h nstun/net_defs.h nstun/nstun.h
 nstun/tcp.o: monitor.h nstun/encap.h logs.h macros.h nstun/policy.h
-nstun/tcp.o: config.pb.h nstun/tun.h util.h missing_defs.h nsjail.h
+nstun/tcp.o: config.pb.h nstun/tcp_internal.h nstun/tun.h util.h
+nstun/tcp.o: missing_defs.h nsjail.h
+nstun/tcp_internal.o: nstun/tcp_internal.h nstun/tcp.h nstun/core.h
+nstun/tcp_internal.o: nstun/net_defs.h nstun/nstun.h monitor.h nstun/encap.h
+nstun/tcp_internal.o: logs.h macros.h util.h missing_defs.h nsjail.h
+nstun/tcp_internal.o: config.pb.h
 config.pb.o: config.pb.h
 unotify/unotify.pb.o: unotify/unotify.pb.h
