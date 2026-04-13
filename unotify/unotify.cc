@@ -63,7 +63,7 @@ static thread_local unotifyCtx_t current_ctx;
 
 static void closeAndUnregister(int fd) {
 	if (fd >= 0) {
-		monitor::removeFd(fd);
+		(void)monitor::removeFd(fd);
 		close(fd);
 		current_ctx.fd = -1;
 	}

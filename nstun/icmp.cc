@@ -108,8 +108,8 @@ static void icmp_destroy_flow(Context* ctx, IcmpFlow* flow) {
 	}
 }
 
-[[nodiscard]] static bool icmp_send_packet4(Context* ctx, uint32_t saddr, uint32_t daddr, uint8_t type,
-    uint8_t code, uint16_t id, uint16_t seq, const void* data, size_t len) {
+[[nodiscard]] static bool icmp_send_packet4(Context* ctx, uint32_t saddr, uint32_t daddr,
+    uint8_t type, uint8_t code, uint16_t id, uint16_t seq, const void* data, size_t len) {
 	if (len > NSTUN_MTU) {
 		LOG_W("icmp_send_packet4: data length too large");
 		return false;
@@ -160,8 +160,9 @@ static void icmp_destroy_flow(Context* ctx, IcmpFlow* flow) {
 	    ctx, &vh, header_buf, sizeof(header_buf), static_cast<const uint8_t*>(data), len);
 }
 
-[[nodiscard]] static bool icmp_send_packet6(Context* ctx, const uint8_t* saddr, const uint8_t* daddr,
-    uint8_t type, uint8_t code, uint16_t id, uint16_t seq, const void* data, size_t len) {
+[[nodiscard]] static bool icmp_send_packet6(Context* ctx, const uint8_t* saddr,
+    const uint8_t* daddr, uint8_t type, uint8_t code, uint16_t id, uint16_t seq, const void* data,
+    size_t len) {
 	if (len > NSTUN_MTU) {
 		LOG_W("icmp_send_packet6: data length too large");
 		return false;

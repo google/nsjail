@@ -260,7 +260,8 @@ static void tapCb(int fd, uint32_t events, void* data) {
 	if (events & EPOLLIN) {
 		/* Use a loop to read until EAGAIN, but limit iterations to prevent starvation */
 		for (int i = 0; i < nstun::kMaxReadIterations; ++i) {
-			ssize_t n = TEMP_FAILURE_RETRY(read(fd, ctx->tun_buf, sizeof(ctx->tun_buf)));
+			ssize_t n =
+			    TEMP_FAILURE_RETRY(read(fd, ctx->tun_buf, sizeof(ctx->tun_buf)));
 			if (n <= 0) {
 				if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
 					return;
@@ -492,7 +493,6 @@ void nstun_periodic() {
 
 [[nodiscard]] static bool parse_rules4(nstun::Context* ctx, nsj_t* nsj) {
 	for (const auto& r : nsj->njc.user_net().rule4()) {
-
 		nstun_rule_t nr = {};
 		nstun::RuleParseStatus status = nstun::fill_rule_common(r, &nr);
 		if (status == nstun::RuleParseStatus::ABORT) {
@@ -535,7 +535,6 @@ void nstun_periodic() {
 
 [[nodiscard]] static bool parse_rules6(nstun::Context* ctx, nsj_t* nsj) {
 	for (const auto& r : nsj->njc.user_net().rule6()) {
-
 		nstun_rule_t nr = {};
 		nr.is_ipv6 = true;
 		nstun::RuleParseStatus status = nstun::fill_rule_common(r, &nr);

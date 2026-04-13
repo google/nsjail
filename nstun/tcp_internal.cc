@@ -115,7 +115,8 @@ void handle_socks5_connecting_host(Context* ctx, TcpFlow* flow, int fd) {
 			return;
 		}
 		expected_len = sizeof(socks5_req_domain) +
-			       flow->c_proxy_rx_buf[nstun::SOCKS5_OFF_DOMAIN_LEN] + sizeof(uint16_t);
+			       flow->c_proxy_rx_buf[nstun::SOCKS5_OFF_DOMAIN_LEN] +
+			       sizeof(uint16_t);
 		if (expected_len > PROXY_RX_BUF_CAP) {
 			LOG_E("SOCKS5 expected length exceeds buffer size");
 			tcp_rst_and_destroy(ctx, flow);

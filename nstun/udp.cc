@@ -153,8 +153,8 @@ void udp_destroy_flow(Context* ctx, UdpFlow* flow) {
 	}
 }
 
-[[nodiscard]] static bool udp_send_packet4(Context* ctx, uint32_t saddr, uint32_t daddr, uint16_t sport,
-    uint16_t dport, const uint8_t* data, size_t len) {
+[[nodiscard]] static bool udp_send_packet4(Context* ctx, uint32_t saddr, uint32_t daddr,
+    uint16_t sport, uint16_t dport, const uint8_t* data, size_t len) {
 	if (len > NSTUN_MTU) {
 		LOG_W("udp_send_packet4: data length too large");
 		return false;
@@ -477,7 +477,8 @@ static void handle_udp_socks5_associate(Context* ctx, UdpFlow* flow, uint32_t ev
 			msg.msg_iov = iov;
 			msg.msg_iovlen = 2;
 
-			if (TEMP_FAILURE_RETRY(sendmsg(flow->header.host_fd, &msg, MSG_NOSIGNAL)) == -1) {
+			if (TEMP_FAILURE_RETRY(sendmsg(flow->header.host_fd, &msg, MSG_NOSIGNAL)) ==
+			    -1) {
 				if (errno == EAGAIN || errno == EWOULDBLOCK) {
 					break;
 				}
@@ -503,7 +504,8 @@ static void handle_udp_socks5_associate(Context* ctx, UdpFlow* flow, uint32_t ev
 			msg.msg_iov = iov;
 			msg.msg_iovlen = 2;
 
-			if (TEMP_FAILURE_RETRY(sendmsg(flow->header.host_fd, &msg, MSG_NOSIGNAL)) == -1) {
+			if (TEMP_FAILURE_RETRY(sendmsg(flow->header.host_fd, &msg, MSG_NOSIGNAL)) ==
+			    -1) {
 				if (errno == EAGAIN || errno == EWOULDBLOCK) {
 					break;
 				}

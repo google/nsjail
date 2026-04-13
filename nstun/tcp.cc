@@ -490,7 +490,8 @@ bool push_to_guest(Context* ctx, TcpFlow* flow) {
 			if (errno == EAGAIN || errno == EWOULDBLOCK) {
 				LOG_D("push_to_guest: TUN device full (EAGAIN)");
 				if (!monitor::modFd(ctx->tap_fd, EPOLLIN | EPOLLOUT)) {
-					LOG_E("Failed to modify tap_fd events to EPOLLIN | EPOLLOUT");
+					LOG_E(
+					    "Failed to modify tap_fd events to EPOLLIN | EPOLLOUT");
 				}
 				return true;
 			}
@@ -774,7 +775,8 @@ static void tcp_process_active_packet(Context* ctx, TcpFlow* flow, const tcp_hdr
 	}
 }
 
-[[nodiscard]] static bool handle_inbound_syn_ack(Context* ctx, TcpFlow* flow, uint32_t seq, uint32_t ack) {
+[[nodiscard]] static bool handle_inbound_syn_ack(
+    Context* ctx, TcpFlow* flow, uint32_t seq, uint32_t ack) {
 	flow->tcp_state = TcpState::ESTABLISHED;
 	LOG_D("Flow %d: SYN_SENT -> ESTABLISHED (inbound)", flow->header.host_fd);
 	flow->ack_from_guest = ack;

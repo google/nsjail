@@ -50,7 +50,7 @@ struct channel_t {
 	void closeAndUnregister() {
 		if (pipe_fd >= 0) {
 			if (registered) {
-				monitor::removeFd(pipe_fd);
+				(void)monitor::removeFd(pipe_fd);
 				registered = false;
 			}
 			close(pipe_fd);
@@ -76,7 +76,7 @@ struct conn_t {
 		pipe_to_sock.closeAndUnregister();
 		if (sock_fd >= 0) {
 			if (sock_registered) {
-				monitor::removeFd(sock_fd);
+				(void)monitor::removeFd(sock_fd);
 				sock_registered = false;
 			}
 			close(sock_fd);
@@ -174,7 +174,7 @@ static void proxyPumpCb(int fd, uint32_t events, void* data);
 
 	if (events == 0) {
 		if (*registered) {
-			monitor::removeFd(fd);
+			(void)monitor::removeFd(fd);
 			*registered = false;
 		}
 		return true;
