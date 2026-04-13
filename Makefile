@@ -282,8 +282,10 @@ test: $(BIN)
 monitor.o: monitor.h logs.h macros.h missing_defs.h net.h nsjail.h
 monitor.o: config.pb.h nstun/nstun.h sockproxy/sockproxy.h subproc.h
 monitor.o: unotify/unotify.h util.h
-sockproxy/sockproxy.o: sockproxy/sockproxy.h logs.h monitor.h util.h
-sockproxy/sockproxy.o: missing_defs.h nsjail.h config.pb.h
+sockproxy/sockproxy.o: sockproxy/sockproxy.h nstun/core.h nstun/net_defs.h
+sockproxy/sockproxy.o: missing_defs.h nstun/nstun.h monitor.h nstun/encap.h
+sockproxy/sockproxy.o: unotify/syscall_defs.h logs.h util.h missing_defs.h
+sockproxy/sockproxy.o: nsjail.h config.pb.h
 caps.o: caps.h nsjail.h config.pb.h logs.h macros.h missing_defs.h util.h
 cgroup.o: cgroup.h nsjail.h config.pb.h logs.h util.h missing_defs.h
 cgroup2.o: cgroup2.h nsjail.h config.pb.h logs.h util.h missing_defs.h
@@ -317,7 +319,7 @@ subproc.o: sandbox.h user.h util.h
 uts.o: uts.h nsjail.h config.pb.h logs.h
 user.o: user.h nsjail.h config.pb.h logs.h macros.h subproc.h monitor.h
 user.o: util.h missing_defs.h
-unotify/unotify.o: unotify/unotify.h nsjail.h config.pb.h logs.h
+unotify/unotify.o: unotify/unotify.h nsjail.h config.pb.h logs.h macros.h
 unotify/unotify.o: missing_defs.h monitor.h unotify/stats.h unotify/syscall.h
 unotify/unotify.o: util.h
 unotify/stats.o: unotify/stats.h nsjail.h config.pb.h logs.h
@@ -329,31 +331,34 @@ unotify/syscall.o: unotify/syscall_defs.h missing_defs.h util.h nsjail.h
 unotify/syscall.o: config.pb.h
 util.o: util.h missing_defs.h nsjail.h config.pb.h logs.h macros.h
 nstun/nstun.o: nstun/nstun.h monitor.h nstun/core.h nstun/net_defs.h
-nstun/nstun.o: nstun/encap.h nstun/icmp.h nstun/iface.h nstun/ip.h logs.h
-nstun/nstun.o: macros.h nsjail.h config.pb.h nstun/policy.h nstun/tcp.h
-nstun/nstun.o: nstun/tun.h nstun/udp.h util.h missing_defs.h
+nstun/nstun.o: missing_defs.h nstun/encap.h nstun/icmp.h nstun/iface.h
+nstun/nstun.o: nstun/ip.h logs.h macros.h nsjail.h config.pb.h nstun/policy.h
+nstun/nstun.o: nstun/tcp.h nstun/tun.h nstun/udp.h util.h missing_defs.h
 nstun/policy.o: nstun/policy.h config.pb.h nstun/core.h nstun/net_defs.h
-nstun/policy.o: nstun/nstun.h monitor.h nstun/encap.h logs.h nsjail.h
-nstun/encap.o: nstun/encap.h nstun/net_defs.h logs.h macros.h
-nstun/iface.o: nstun/iface.h logs.h macros.h nstun/net_defs.h nsjail.h
-nstun/iface.o: config.pb.h nstun/nstun.h monitor.h
-nstun/tun.o: nstun/tun.h nstun/core.h nstun/net_defs.h nstun/nstun.h
-nstun/tun.o: monitor.h nstun/encap.h nstun/icmp.h nstun/ip.h logs.h
-nstun/ip.o: nstun/ip.h nstun/core.h nstun/net_defs.h nstun/nstun.h monitor.h
-nstun/ip.o: nstun/encap.h nstun/icmp.h logs.h nstun/tcp.h nstun/udp.h
-nstun/icmp.o: nstun/icmp.h nstun/core.h nstun/net_defs.h nstun/nstun.h
-nstun/icmp.o: monitor.h nstun/encap.h logs.h macros.h nstun/policy.h
-nstun/icmp.o: config.pb.h nstun/tun.h
-nstun/udp.o: nstun/udp.h nstun/core.h nstun/net_defs.h nstun/nstun.h
-nstun/udp.o: monitor.h nstun/encap.h nstun/icmp.h logs.h macros.h
-nstun/udp.o: nstun/policy.h config.pb.h nstun/tun.h
-nstun/tcp.o: nstun/tcp.h nstun/core.h nstun/net_defs.h nstun/nstun.h
-nstun/tcp.o: monitor.h nstun/encap.h logs.h macros.h nstun/policy.h
-nstun/tcp.o: config.pb.h nstun/tcp_internal.h nstun/tun.h util.h
-nstun/tcp.o: missing_defs.h nsjail.h
+nstun/policy.o: missing_defs.h nstun/nstun.h monitor.h nstun/encap.h logs.h
+nstun/policy.o: nsjail.h
+nstun/encap.o: nstun/encap.h nstun/net_defs.h missing_defs.h logs.h macros.h
+nstun/iface.o: nstun/iface.h logs.h macros.h nstun/net_defs.h missing_defs.h
+nstun/iface.o: nsjail.h config.pb.h nstun/nstun.h monitor.h
+nstun/tun.o: nstun/tun.h nstun/core.h nstun/net_defs.h missing_defs.h
+nstun/tun.o: nstun/nstun.h monitor.h nstun/encap.h nstun/icmp.h nstun/ip.h
+nstun/tun.o: logs.h
+nstun/ip.o: nstun/ip.h nstun/core.h nstun/net_defs.h missing_defs.h
+nstun/ip.o: nstun/nstun.h monitor.h nstun/encap.h nstun/icmp.h logs.h
+nstun/ip.o: nstun/tcp.h nstun/udp.h
+nstun/icmp.o: nstun/icmp.h nstun/core.h nstun/net_defs.h missing_defs.h
+nstun/icmp.o: nstun/nstun.h monitor.h nstun/encap.h logs.h macros.h
+nstun/icmp.o: nstun/policy.h config.pb.h nstun/tun.h
+nstun/udp.o: nstun/udp.h nstun/core.h nstun/net_defs.h missing_defs.h
+nstun/udp.o: nstun/nstun.h monitor.h nstun/encap.h nstun/icmp.h logs.h
+nstun/udp.o: macros.h nstun/policy.h config.pb.h nstun/tun.h
+nstun/tcp.o: nstun/tcp.h nstun/core.h nstun/net_defs.h missing_defs.h
+nstun/tcp.o: nstun/nstun.h monitor.h nstun/encap.h unotify/syscall_defs.h
+nstun/tcp.o: logs.h macros.h nstun/policy.h config.pb.h nstun/tcp_internal.h
+nstun/tcp.o: nstun/tun.h util.h missing_defs.h nsjail.h
 nstun/tcp_internal.o: nstun/tcp_internal.h nstun/tcp.h nstun/core.h
-nstun/tcp_internal.o: nstun/net_defs.h nstun/nstun.h monitor.h nstun/encap.h
-nstun/tcp_internal.o: logs.h macros.h util.h missing_defs.h nsjail.h
-nstun/tcp_internal.o: config.pb.h
+nstun/tcp_internal.o: nstun/net_defs.h missing_defs.h nstun/nstun.h monitor.h
+nstun/tcp_internal.o: nstun/encap.h logs.h macros.h util.h missing_defs.h
+nstun/tcp_internal.o: nsjail.h config.pb.h
 config.pb.o: config.pb.h
 unotify/unotify.pb.o: unotify/unotify.pb.h
