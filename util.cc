@@ -53,7 +53,7 @@
 
 namespace util {
 
-ssize_t readFromFd(int fd, void* buf, size_t len) {
+[[nodiscard]] ssize_t readFromFd(int fd, void* buf, size_t len) {
 	uint8_t* charbuf = (uint8_t*)buf;
 
 	size_t readSz = 0;
@@ -70,7 +70,7 @@ ssize_t readFromFd(int fd, void* buf, size_t len) {
 	return readSz;
 }
 
-ssize_t readFromFile(const char* fname, void* buf, size_t len) {
+[[nodiscard]] ssize_t readFromFile(const char* fname, void* buf, size_t len) {
 	int fd = TEMP_FAILURE_RETRY(open(fname, O_RDONLY | O_CLOEXEC));
 	if (fd == -1) {
 		LOG_E("open(%s, O_RDONLY|O_CLOEXEC)", QC(fname));
@@ -81,7 +81,7 @@ ssize_t readFromFile(const char* fname, void* buf, size_t len) {
 	return ret;
 }
 
-bool writeToFd(int fd, const void* buf, size_t len) {
+[[nodiscard]] bool writeToFd(int fd, const void* buf, size_t len) {
 	const uint8_t* charbuf = (const uint8_t*)buf;
 
 	size_t writtenSz = 0;
@@ -95,7 +95,7 @@ bool writeToFd(int fd, const void* buf, size_t len) {
 	return true;
 }
 
-bool sendMsg(int sock, uint32_t msg_val, int fd) {
+[[nodiscard]] bool sendMsg(int sock, uint32_t msg_val, int fd) {
 	struct msghdr msg = {};
 	struct iovec io = {
 	    .iov_base = &msg_val,
@@ -122,7 +122,7 @@ bool sendMsg(int sock, uint32_t msg_val, int fd) {
 	return (TEMP_FAILURE_RETRY(sendmsg(sock, &msg, 0)) == sizeof(msg_val));
 }
 
-bool recvMsg(int sock, uint32_t* msg_val, int* fd) {
+[[nodiscard]] bool recvMsg(int sock, uint32_t* msg_val, int* fd) {
 	struct msghdr msg = {};
 	uint32_t local_msg = 0;
 	struct iovec io = {
@@ -165,7 +165,7 @@ bool recvMsg(int sock, uint32_t* msg_val, int* fd) {
 	return true;
 }
 
-bool readFromFileToStr(const char* fname, std::string* str) {
+[[nodiscard]] bool readFromFileToStr(const char* fname, std::string* str) {
 	int fd = TEMP_FAILURE_RETRY(open(fname, O_RDONLY | O_CLOEXEC));
 	if (fd == -1) {
 		PLOG_W("Couldn't open file %s", QC(fname));
@@ -191,7 +191,7 @@ bool readFromFileToStr(const char* fname, std::string* str) {
 	return true;
 }
 
-bool writeBufToFile(
+[[nodiscard]] bool writeBufToFile(
     const char* filename, const void* buf, size_t len, int open_flags, bool log_errors) {
 	int fd;
 	TEMP_FAILURE_RETRY(fd = open(filename, open_flags | O_CLOEXEC, 0644));
@@ -220,7 +220,7 @@ bool writeBufToFile(
 	return true;
 }
 
-bool createDirRecursively(const char* dir) {
+[[nodiscard]] bool createDirRecursively(const char* dir) {
 	if (dir[0] != '/') {
 		LOG_W("The directory path must start with '/': '%s' provided", dir);
 		return false;
@@ -499,7 +499,7 @@ long getrlimit(int res, struct rlimit64* curlim) {
 	return util::syscall(__NR_prlimit64, 0, res, (uintptr_t)nullptr, (uintptr_t)curlim);
 }
 
-bool makeRangeCOE(unsigned int first, unsigned int last) {
+[[nodiscard]] bool makeRangeCOE(unsigned int first, unsigned int last) {
 	if (util::syscall(__NR_close_range, first, last, CLOSE_RANGE_CLOEXEC) == -1) {
 		if (errno != ENOSYS) {
 			PLOG_E("close_range(first=%u, last=%u, CLOSE_RANGE_CLOEXEC)", first, last);
@@ -554,7 +554,7 @@ void detachFromTTY(void) {
 	LOG_D("Successfully detached from controlling terminal via TIOCNOTTY");
 }
 
-bool setNonBlock(int fd) {
+[[nodiscard]] bool setNonBlock(int fd) {
 	int fl = fcntl(fd, F_GETFL, 0);
 	if (fl == -1 || fcntl(fd, F_SETFL, fl | O_NONBLOCK) == -1) {
 		PLOG_W("fcntl(fd=%d, O_NONBLOCK)", fd);

@@ -539,7 +539,7 @@ static void handle_host_udp_control(Context* ctx, UdpFlow* flow, uint32_t events
 	kUdpStateTable[state_idx].on_host_control(ctx, flow, events);
 }
 
-static bool udp_setup_socks5_control(
+[[nodiscard]] static bool udp_setup_socks5_control(
     Context* ctx, UdpFlow* flow, uint32_t proxy_ip4, uint16_t proxy_port) {
 	int tcp_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
 	if (tcp_fd == -1) {
@@ -580,7 +580,7 @@ static bool udp_setup_socks5_control(
 	return true;
 }
 
-static int create_and_bind_udp_socket(Context* ctx) {
+[[nodiscard]] static int create_and_bind_udp_socket(Context* ctx) {
 	int fd = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
 	if (fd == -1) {
 		PLOG_E("socket(AF_INET, SOCK_DGRAM) for UDP flow failed");

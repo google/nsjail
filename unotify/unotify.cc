@@ -142,7 +142,7 @@ static void unotifyCb(int fd, uint32_t events, void* /* data */) {
  * Returns true if the fd was successfully absorbed by the loop. On failure,
  * the fd is untouched and remains the caller's responsibility to close.
  */
-bool start(nsj_t* nsj, int fd, int pidfd) {
+[[nodiscard]] bool start(nsj_t* nsj, int fd, int pidfd) {
 	if (current_ctx.fd != -1) {
 		LOG_W("unotify::start called on already initialized context");
 		return false;

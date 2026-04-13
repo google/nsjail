@@ -89,7 +89,7 @@ bool installUnotifyFilter(nsj_t* nsj, int ipc_fd) {
 	return true;
 }
 
-static bool prepareAndCommit(nsj_t* nsj) {
+[[nodiscard]] static bool prepareAndCommit(nsj_t* nsj) {
 	if (nsj->seccomp_fprog.len == 0) {
 		return true;
 	}
@@ -114,7 +114,7 @@ static bool prepareAndCommit(nsj_t* nsj) {
 	return true;
 }
 
-bool applyPolicy(nsj_t* nsj, int ipc_fd) {
+[[nodiscard]] bool applyPolicy(nsj_t* nsj, int ipc_fd) {
 	if (ipc_fd != -1 && nsj->njc.seccomp_unotify()) {
 		if (!installUnotifyFilter(nsj, ipc_fd)) {
 			return false;
@@ -123,7 +123,7 @@ bool applyPolicy(nsj_t* nsj, int ipc_fd) {
 	return prepareAndCommit(nsj);
 }
 
-bool preparePolicy(nsj_t* nsj) {
+[[nodiscard]] bool preparePolicy(nsj_t* nsj) {
 	nsj->seccomp_fprog.len = 0;
 	nsj->seccomp_fprog.filter = nullptr;
 	nsj->seccomp_unotify_fprog.len = 0;

@@ -131,7 +131,7 @@ struct ThreadCtx {
 
 static thread_local ThreadCtx current_ctx;
 
-bool addFd(int fd, uint32_t events, fdCb_t cb, void* data) {
+[[nodiscard]] bool addFd(int fd, uint32_t events, fdCb_t cb, void* data) {
 	if (fd < 0) {
 		return false;
 	}

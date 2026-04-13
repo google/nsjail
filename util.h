@@ -47,16 +47,16 @@
 
 namespace util {
 
-ssize_t readFromFd(int fd, void* buf, size_t len);
-ssize_t readFromFile(const char* fname, void* buf, size_t len);
-bool readFromFileToStr(const char* fname, std::string* str);
-bool writeToFd(int fd, const void* buf, size_t len);
+[[nodiscard]] ssize_t readFromFd(int fd, void* buf, size_t len);
+[[nodiscard]] ssize_t readFromFile(const char* fname, void* buf, size_t len);
+[[nodiscard]] bool readFromFileToStr(const char* fname, std::string* str);
+[[nodiscard]] bool writeToFd(int fd, const void* buf, size_t len);
 
-bool sendMsg(int sock, uint32_t msg, int fd = -1);
-bool recvMsg(int sock, uint32_t* msg, int* fd = nullptr);
-bool writeBufToFile(
+[[nodiscard]] bool sendMsg(int sock, uint32_t msg, int fd = -1);
+[[nodiscard]] bool recvMsg(int sock, uint32_t* msg, int* fd = nullptr);
+[[nodiscard]] bool writeBufToFile(
     const char* filename, const void* buf, size_t len, int open_flags, bool log_errors = true);
-bool createDirRecursively(const char* dir);
+[[nodiscard]] bool createDirRecursively(const char* dir);
 std::string* StrAppend(std::string* str, const char* format, ...)
     __attribute__((format(printf, 2, 3)));
 std::string StrPrintf(const char* format, ...) __attribute__((format(printf, 1, 2)));
@@ -73,11 +73,11 @@ long syscall(long sysno, uintptr_t a0 = 0, uintptr_t a1 = 0, uintptr_t a2 = 0, u
     uintptr_t a4 = 0, uintptr_t a5 = 0);
 long setrlimit(int res, const struct rlimit64& newlim);
 long getrlimit(int res, struct rlimit64* curlim);
-bool makeRangeCOE(unsigned int first, unsigned int last);
+[[nodiscard]] bool makeRangeCOE(unsigned int first, unsigned int last);
 const char* stripLeadingSlashes(const char* path);
 bool kernelVersionAtLeast(int major, int minor, int patch);
 void detachFromTTY(void);
-bool setNonBlock(int fd);
+[[nodiscard]] bool setNonBlock(int fd);
 bool setNoDelay(int fd);
 
 /*

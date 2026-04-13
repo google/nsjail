@@ -106,7 +106,7 @@ static std::string capToStr(int val) {
 	return util::StrPrintf("CAP_UNKNOWN(%d)", val);
 }
 
-static bool getCaps(cap_user_data_t cap_data) {
+[[nodiscard]] static bool getCaps(cap_user_data_t cap_data) {
 	const struct __user_cap_header_struct cap_hdr = {
 	    .version = _LINUX_CAPABILITY_VERSION_3,
 	    .pid = 0,
@@ -118,7 +118,7 @@ static bool getCaps(cap_user_data_t cap_data) {
 	return true;
 }
 
-static bool setCaps(const cap_user_data_t cap_data) {
+[[nodiscard]] static bool setCaps(const cap_user_data_t cap_data) {
 	const struct __user_cap_header_struct cap_hdr = {
 	    .version = _LINUX_CAPABILITY_VERSION_3,
 	    .pid = 0,
@@ -136,19 +136,19 @@ static void clearInheritable(cap_user_data_t cap_data) {
 	}
 }
 
-static bool getPermitted(cap_user_data_t cap_data, unsigned int cap) {
+[[nodiscard]] static bool getPermitted(cap_user_data_t cap_data, unsigned int cap) {
 	size_t off_byte = CAP_TO_INDEX(cap);
 	unsigned mask = CAP_TO_MASK(cap);
 	return cap_data[off_byte].permitted & mask;
 }
 
-static bool getEffective(cap_user_data_t cap_data, unsigned int cap) {
+[[nodiscard]] static bool getEffective(cap_user_data_t cap_data, unsigned int cap) {
 	size_t off_byte = CAP_TO_INDEX(cap);
 	unsigned mask = CAP_TO_MASK(cap);
 	return cap_data[off_byte].effective & mask;
 }
 
-static bool getInheritable(cap_user_data_t cap_data, unsigned int cap) {
+[[nodiscard]] static bool getInheritable(cap_user_data_t cap_data, unsigned int cap) {
 	size_t off_byte = CAP_TO_INDEX(cap);
 	unsigned mask = CAP_TO_MASK(cap);
 	return cap_data[off_byte].inheritable & mask;

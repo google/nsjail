@@ -117,7 +117,7 @@ static std::string cloneFlagsToStr(uint64_t flags) {
 }
 
 /* Reset the execution environment for the new process */
-static bool resetEnv(void) {
+[[nodiscard]] static bool resetEnv(void) {
 	/* Set all previously changed signals to their default behavior */
 	for (const auto& sig : nssigs) {
 		if (signal(sig, SIG_DFL) == SIG_ERR) {
@@ -452,7 +452,7 @@ void killAll(nsj_t* nsj, int signal) {
 	}
 }
 
-static bool initParent(nsj_t* nsj, pid_t pid, int ipc_fd) {
+[[nodiscard]] static bool initParent(nsj_t* nsj, pid_t pid, int ipc_fd) {
 	if (!net::initParent(nsj, pid, ipc_fd)) {
 		LOG_W("Couldn't initialize net namespace for pid=%d", pid);
 		return false;
@@ -524,7 +524,7 @@ pid_t runChild(
 		close(parent_fd);
 
 		newProc(nsj, netfd, fd_in, fd_out, fd_err, child_fd);
-		util::sendMsg(child_fd, monitor::MSG_TAG_ERROR);
+		(void)util::sendMsg(child_fd, monitor::MSG_TAG_ERROR);
 		LOG_E("Launching child process failed");
 		pause();
 		_exit(0xff);
@@ -563,7 +563,7 @@ pid_t runChild(
  * Returns child pid in the parent, 0 in the child, -1 on error.
  * On success, *pidfd receives a file descriptor referring to the child.
  */
-pid_t cloneProc(uint64_t flags, int exit_signal, int* pidfd) {
+[[nodiscard]] pid_t cloneProc(uint64_t flags, int exit_signal, int* pidfd) {
 	exit_signal &= CSIGNAL;
 
 	if (flags & CLONE_VM) {
@@ -594,7 +594,7 @@ pid_t cloneProc(uint64_t flags, int exit_signal, int* pidfd) {
  * Lightweight clone3 wrapper for internal helpers (mnt, pid) that need
  * specific flags (e.g. CLONE_FS) but no pidfd tracking.
  */
-pid_t cloneProcNoPidfd(uint64_t flags, int exit_signal) {
+[[nodiscard]] pid_t cloneProcNoPidfd(uint64_t flags, int exit_signal) {
 	exit_signal &= CSIGNAL;
 
 	struct clone_args ca = {};
@@ -608,7 +608,7 @@ pid_t cloneProcNoPidfd(uint64_t flags, int exit_signal) {
 	return ret;
 }
 
-int systemExe(const std::vector<std::string>& args, char** env) {
+[[nodiscard]] int systemExe(const std::vector<std::string>& args, char** env) {
 	bool exec_failed = false;
 
 	std::vector<const char*> argv;
@@ -634,7 +634,7 @@ int systemExe(const std::vector<std::string>& args, char** env) {
 		close(sv[0]);
 		execve(argv[0], (char* const*)argv.data(), (char* const*)env);
 		PLOG_W("execve('%s')", argv[0]);
-		util::writeToFd(sv[1], "A", 1);
+		(void)util::writeToFd(sv[1], "A", 1);
 		_exit(0);
 	}
 

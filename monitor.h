@@ -34,7 +34,7 @@ constexpr uint32_t MSG_TAG_ERROR = quad('E', 'R', 'R', 'F');
 typedef void (*fdCb_t)(int fd, uint32_t events, void* data);
 typedef void (*periodicCb_t)();
 
-bool addFd(int fd, uint32_t events, fdCb_t cb, void* data);
+[[nodiscard]] bool addFd(int fd, uint32_t events, fdCb_t cb, void* data);
 bool removeFd(int fd);
 bool modFd(int fd, uint32_t events);
 void addPeriodic(periodicCb_t cb);

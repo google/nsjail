@@ -61,7 +61,7 @@ constexpr char kNewGidPath[] =
 
 namespace user {
 
-static bool setResGid(gid_t gid) {
+[[nodiscard]] static bool setResGid(gid_t gid) {
 	LOG_D("setresgid(%d)", gid);
 #if defined(__NR_setresgid32)
 	if (util::syscall(__NR_setresgid32, (uintptr_t)gid, (uintptr_t)gid, (uintptr_t)gid) == -1) {
@@ -77,7 +77,7 @@ static bool setResGid(gid_t gid) {
 	return true;
 }
 
-static bool setResUid(uid_t uid) {
+[[nodiscard]] static bool setResUid(uid_t uid) {
 	LOG_D("setresuid(%d)", uid);
 #if defined(__NR_setresuid32)
 	if (util::syscall(__NR_setresuid32, (uintptr_t)uid, (uintptr_t)uid, (uintptr_t)uid) == -1) {
@@ -93,7 +93,7 @@ static bool setResUid(uid_t uid) {
 	return true;
 }
 
-static bool hasGidMapSelf(nsj_t* nsj) {
+[[nodiscard]] static bool hasGidMapSelf(nsj_t* nsj) {
 	for (const auto& gid : nsj->gids) {
 		if (!gid.is_newidmap) {
 			return true;
@@ -102,7 +102,7 @@ static bool hasGidMapSelf(nsj_t* nsj) {
 	return false;
 }
 
-static bool setGroupsDeny(nsj_t* nsj, pid_t pid) {
+[[nodiscard]] static bool setGroupsDeny(nsj_t* nsj, pid_t pid) {
 	/*
 	 * No need to write 'deny' to /proc/pid/setgroups if our euid==0, as writing to
 	 * uid_map/gid_map will succeed anyway
@@ -120,7 +120,7 @@ static bool setGroupsDeny(nsj_t* nsj, pid_t pid) {
 	return true;
 }
 
-static bool uidMapSelf(nsj_t* nsj, pid_t pid) {
+[[nodiscard]] static bool uidMapSelf(nsj_t* nsj, pid_t pid) {
 	std::string map;
 	for (const auto& uid : nsj->uids) {
 		if (uid.is_newidmap) {
@@ -147,7 +147,7 @@ static bool uidMapSelf(nsj_t* nsj, pid_t pid) {
 	return true;
 }
 
-static bool gidMapSelf(nsj_t* nsj, pid_t pid) {
+[[nodiscard]] static bool gidMapSelf(nsj_t* nsj, pid_t pid) {
 	std::string map;
 	for (const auto& gid : nsj->gids) {
 		if (gid.is_newidmap) {
@@ -175,7 +175,7 @@ static bool gidMapSelf(nsj_t* nsj, pid_t pid) {
 }
 
 /* Use newgidmap for writing the gid map */
-static bool gidMapExternal(nsj_t* nsj, pid_t pid) {
+[[nodiscard]] static bool gidMapExternal(nsj_t* nsj, pid_t pid) {
 	bool use = false;
 
 	std::vector<std::string> argv = {kNewGidPath, std::to_string(pid)};
@@ -201,7 +201,7 @@ static bool gidMapExternal(nsj_t* nsj, pid_t pid) {
 }
 
 /* Use newuidmap for writing the uid map */
-static bool uidMapExternal(nsj_t* nsj, pid_t pid) {
+[[nodiscard]] static bool uidMapExternal(nsj_t* nsj, pid_t pid) {
 	bool use = false;
 
 	std::vector<std::string> argv = {kNewUidPath, std::to_string(pid)};
@@ -226,7 +226,7 @@ static bool uidMapExternal(nsj_t* nsj, pid_t pid) {
 	return true;
 }
 
-static bool uidGidMap(nsj_t* nsj, pid_t pid) {
+[[nodiscard]] static bool uidGidMap(nsj_t* nsj, pid_t pid) {
 	RETURN_ON_FAILURE(gidMapSelf(nsj, pid));
 	RETURN_ON_FAILURE(gidMapExternal(nsj, pid));
 	RETURN_ON_FAILURE(uidMapSelf(nsj, pid));

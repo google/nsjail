@@ -44,10 +44,10 @@ int reapAll(nsj_t* nsj);
 int reapProc(nsj_t* nsj, pid_t pid, bool should_wait = false);
 uint64_t checkTimeouts(
     nsj_t* nsj, pid_t target_pid, time_t start_time, const std::string& remote_txt, int pidfd);
-int systemExe(const std::vector<std::string>& args, char** env);
-pid_t cloneProc(uint64_t flags, int exit_signal, int* pidfd);
+[[nodiscard]] int systemExe(const std::vector<std::string>& args, char** env);
+[[nodiscard]] pid_t cloneProc(uint64_t flags, int exit_signal, int* pidfd);
 
-pid_t cloneProcNoPidfd(uint64_t flags, int exit_signal);
+[[nodiscard]] pid_t cloneProcNoPidfd(uint64_t flags, int exit_signal);
 
 }  // namespace subproc
 

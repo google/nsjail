@@ -353,7 +353,7 @@ static void pastaProcess(nsj_t* nsj, int pid, int err_pipe) {
 		pasta_path = argv[0];
 	}
 
-	util::makeRangeCOE(STDERR_FILENO + 1, ~0U);
+	(void)util::makeRangeCOE(STDERR_FILENO + 1, ~0U);
 
 	/* LOG doesn't use STDERR_FILENO so it's fine to use it */
 	int err = 0;
@@ -369,7 +369,7 @@ static void pastaProcess(nsj_t* nsj, int pid, int err_pipe) {
 		PLOG_W("execvpe('%s')", pasta_path);
 	}
 
-	util::writeToFd(err_pipe, &err, sizeof(err));
+	(void)util::writeToFd(err_pipe, &err, sizeof(err));
 }
 
 static bool spawnPasta(nsj_t* nsj, int pid) {
