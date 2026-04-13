@@ -131,7 +131,7 @@ static PumpResult splicePump(int src, int dst, int check_fd) {
 
 	/* EAGAIN: source empty or dest full? */
 	int n = 0;
-	if (ioctl(check_fd, FIONREAD, &n) == -1) {
+	if (TEMP_FAILURE_RETRY(ioctl(check_fd, FIONREAD, &n)) == -1) {
 		PLOG_W("ioctl(FIONREAD, fd=%d)", check_fd);
 		return PumpResult::kEof;
 	}
@@ -239,7 +239,7 @@ static void proxyPumpCb(int fd, uint32_t events, void* data);
 
 /* --- epoll callback helpers ---------------------------- */
 
-static bool handleSockToPipe(conn_t* conn, int fd, uint32_t events) {
+[[nodiscard]] static bool handleSockToPipe(conn_t* conn, int fd, uint32_t events) {
 	if (conn->sock_to_pipe.pipe_fd < 0 || conn->sock_fd < 0) {
 		return false;
 	}
@@ -264,7 +264,7 @@ static bool handleSockToPipe(conn_t* conn, int fd, uint32_t events) {
 	return false;
 }
 
-static bool handlePipeToSock(conn_t* conn, int fd, uint32_t events) {
+[[nodiscard]] static bool handlePipeToSock(conn_t* conn, int fd, uint32_t events) {
 	if (conn->pipe_to_sock.pipe_fd < 0 || conn->sock_fd < 0) {
 		return false;
 	}
