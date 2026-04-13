@@ -110,9 +110,12 @@ static UdpFlow* alloc_ipv6_udp_flow(Context* ctx) {
 }
 
 static void prepare_recvmmsg(Context* ctx) {
+	memset(ctx->recvmmsg_msgs, 0, sizeof(ctx->recvmmsg_msgs));
 	for (int i = 0; i < VLEN; ++i) {
+		ctx->recvmmsg_msgs[i].msg_hdr.msg_iov = &ctx->recvmmsg_iovecs[i];
+		ctx->recvmmsg_msgs[i].msg_hdr.msg_iovlen = 1;
+		ctx->recvmmsg_msgs[i].msg_hdr.msg_name = &ctx->recvmmsg_addrs[i];
 		ctx->recvmmsg_msgs[i].msg_hdr.msg_namelen = sizeof(ctx->recvmmsg_addrs[i]);
-		ctx->recvmmsg_msgs[i].msg_hdr.msg_controllen = 0;
 	}
 }
 
@@ -126,13 +129,17 @@ void udp_destroy_flow(Context* ctx, UdpFlow* flow) {
 	}
 
 	if (flow->header.host_fd != -1 && !flow->host_fd_is_listener) {
-		monitor::removeFd(flow->header.host_fd);
+		if (!monitor::removeFd(flow->header.host_fd)) {
+			LOG_W("Failed to remove host_fd from monitor");
+		}
 		close(flow->header.host_fd);
 		set_udp_flow_by_fd(ctx, flow->header.host_fd, nullptr);
 		flow->header.host_fd = -1;
 	}
 	if (flow->tcp_fd != -1) {
-		monitor::removeFd(flow->tcp_fd);
+		if (!monitor::removeFd(flow->tcp_fd)) {
+			LOG_W("Failed to remove tcp_fd from monitor");
+		}
 		close(flow->tcp_fd);
 		set_udp_flow_by_fd(ctx, flow->tcp_fd, nullptr);
 		flow->tcp_fd = -1;
@@ -146,7 +153,7 @@ void udp_destroy_flow(Context* ctx, UdpFlow* flow) {
 	}
 }
 
-static bool udp_send_packet4(Context* ctx, uint32_t saddr, uint32_t daddr, uint16_t sport,
+[[nodiscard]] static bool udp_send_packet4(Context* ctx, uint32_t saddr, uint32_t daddr, uint16_t sport,
     uint16_t dport, const uint8_t* data, size_t len) {
 	if (len > NSTUN_MTU) {
 		LOG_W("udp_send_packet4: data length too large");
@@ -190,7 +197,7 @@ static bool udp_send_packet4(Context* ctx, uint32_t saddr, uint32_t daddr, uint1
 	/* Seed check field with pseudo-header sum only; kernel adds L4 header + payload */
 	uint32_t sum = compute_checksum_part(&phdr, sizeof(phdr), 0);
 	while (sum >> 16) sum = (sum & 0xFFFF) + (sum >> 16);
-	udp.check = (uint16_t)sum;
+	udp.check = static_cast<uint16_t>(sum);
 	if (udp.check == 0) {
 		udp.check = 0xFFFF;
 	}
@@ -277,9 +284,9 @@ static void handle_udp_tcp_connecting(Context* ctx, UdpFlow* flow, uint32_t even
 	socklen_t errlen = sizeof(err);
 	getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &errlen);
 	if (err != 0) {
-		char err_buf[256];
-		LOG_W("connect() to SOCKS5 proxy failed: %s",
-		    strerror_r(err, err_buf, sizeof(err_buf)));
+		char err_buf[128];
+		const char* err_msg = strerror_r(err, err_buf, sizeof(err_buf));
+		LOG_W("connect() to SOCKS5 proxy failed: %s", err_msg);
 		udp_destroy_flow(ctx, flow);
 		return;
 	}
@@ -378,7 +385,12 @@ static void handle_udp_socks5_associate(Context* ctx, UdpFlow* flow, uint32_t ev
 		}
 		socks5_req_domain dreq;
 		memcpy(&dreq, &ctx->udp_socks5_buf, sizeof(dreq));
-		expected_len = sizeof(socks5_req_domain) + dreq.domain_len + 2;
+		expected_len = sizeof(socks5_req_domain) + dreq.domain_len + sizeof(uint16_t);
+		if (expected_len > sizeof(ctx->udp_socks5_buf)) {
+			LOG_E("SOCKS5 UDP expected length exceeds buffer size");
+			udp_destroy_flow(ctx, flow);
+			return;
+		}
 		break;
 	default:
 		udp_destroy_flow(ctx, flow);
@@ -465,7 +477,7 @@ static void handle_udp_socks5_associate(Context* ctx, UdpFlow* flow, uint32_t ev
 			msg.msg_iov = iov;
 			msg.msg_iovlen = 2;
 
-			if (sendmsg(flow->header.host_fd, &msg, MSG_NOSIGNAL) == -1) {
+			if (TEMP_FAILURE_RETRY(sendmsg(flow->header.host_fd, &msg, MSG_NOSIGNAL)) == -1) {
 				if (errno == EAGAIN || errno == EWOULDBLOCK) {
 					break;
 				}
@@ -491,7 +503,7 @@ static void handle_udp_socks5_associate(Context* ctx, UdpFlow* flow, uint32_t ev
 			msg.msg_iov = iov;
 			msg.msg_iovlen = 2;
 
-			if (sendmsg(flow->header.host_fd, &msg, MSG_NOSIGNAL) == -1) {
+			if (TEMP_FAILURE_RETRY(sendmsg(flow->header.host_fd, &msg, MSG_NOSIGNAL)) == -1) {
 				if (errno == EAGAIN || errno == EWOULDBLOCK) {
 					break;
 				}
@@ -532,8 +544,9 @@ static void handle_host_udp_control(Context* ctx, UdpFlow* flow, uint32_t events
 
 	size_t state_idx = static_cast<size_t>(flow->state);
 	if (state_idx >= sizeof(kUdpStateTable) / sizeof(kUdpStateTable[0])) {
-		LOG_F("Invalid UDP SOCKS5 state: %zu", state_idx);
-		abort();
+		LOG_E("Invalid UDP SOCKS5 state: %zu", state_idx);
+		udp_destroy_flow(ctx, flow);
+		return;
 	}
 
 	kUdpStateTable[state_idx].on_host_control(ctx, flow, events);
@@ -569,7 +582,9 @@ static void handle_host_udp_control(Context* ctx, UdpFlow* flow, uint32_t events
 	    connect(tcp_fd, reinterpret_cast<struct sockaddr*>(&dest_addr), sizeof(dest_addr));
 	if (ret == -1 && errno != EINPROGRESS && errno != EINTR) {
 		PLOG_W("connect() to SOCKS5 proxy failed");
-		monitor::removeFd(tcp_fd);
+		if (!monitor::removeFd(tcp_fd)) {
+			LOG_W("Failed to remove tcp_fd from monitor on failure");
+		}
 		return false;
 	}
 	fd_success = true;
@@ -664,7 +679,7 @@ static UdpFlow* udp_create_flow4(Context* ctx, const FlowKey4& key4, const RuleR
 	return flow;
 }
 
-static bool udp_enqueue_packet(
+[[nodiscard]] static bool udp_enqueue_packet(
     UdpFlow* flow, const uint8_t* data, size_t data_len, const char* proto_str) {
 	if (data_len > UDP_QUEUE_PACKET_MAX) {
 		LOG_D("%s proxy queue dropping oversized packet (%zu > %zu bytes)", proto_str,
@@ -793,7 +808,7 @@ void handle_udp4_impl(
 		msg.msg_iov = iov;
 		msg.msg_iovlen = 2;
 
-		if (sendmsg(flow->header.host_fd, &msg, MSG_NOSIGNAL) == -1) {
+		if (TEMP_FAILURE_RETRY(sendmsg(flow->header.host_fd, &msg, MSG_NOSIGNAL)) == -1) {
 			PLOG_E("sendmsg(fd=%d) SOCKS5 UDP failed", flow->header.host_fd);
 		}
 	} else {
@@ -807,8 +822,8 @@ void handle_udp4_impl(
 			dest_addr.sin_addr.s_addr = ip->daddr;
 			dest_addr.sin_port = htons(dest_port);
 		}
-		if (sendto(flow->header.host_fd, data, data_len, MSG_NOSIGNAL,
-			reinterpret_cast<struct sockaddr*>(&dest_addr), sizeof(dest_addr)) == -1) {
+		if (TEMP_FAILURE_RETRY(sendto(flow->header.host_fd, data, data_len, MSG_NOSIGNAL,
+			reinterpret_cast<struct sockaddr*>(&dest_addr), sizeof(dest_addr))) == -1) {
 			PLOG_E("sendto(fd=%d) UDP failed", flow->header.host_fd);
 		}
 	}
@@ -818,7 +833,7 @@ void handle_udp4(Context* ctx, const ip4_hdr* ip, const uint8_t* data, size_t le
 	handle_udp4_impl(ctx, ip, data, len);
 }
 
-static bool strip_socks5_udp_header(const uint8_t** data_ptr, size_t* data_len) {
+[[nodiscard]] static bool strip_socks5_udp_header(const uint8_t** data_ptr, size_t* data_len) {
 	if (*data_len < sizeof(socks5_udp_hdr)) {
 		return false;
 	}
@@ -1042,7 +1057,7 @@ void handle_host_udp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 	}
 }
 
-static bool udp_send_packet6(Context* ctx, const uint8_t* saddr, const uint8_t* daddr,
+[[nodiscard]] static bool udp_send_packet6(Context* ctx, const uint8_t* saddr, const uint8_t* daddr,
     uint16_t sport, uint16_t dport, const uint8_t* data, size_t len) {
 	if (len > NSTUN_MTU) {
 		LOG_W("udp_send_packet6: data length too large");
@@ -1080,7 +1095,7 @@ static bool udp_send_packet6(Context* ctx, const uint8_t* saddr, const uint8_t* 
 	/* Seed check field with pseudo-header sum only; kernel adds L4 header + payload */
 	uint32_t sum = compute_checksum_part(&phdr, sizeof(phdr), 0);
 	while (sum >> 16) sum = (sum & 0xFFFF) + (sum >> 16);
-	r_udp.check = (uint16_t)sum;
+	r_udp.check = static_cast<uint16_t>(sum);
 	if (r_udp.check == 0) {
 		r_udp.check = 0xFFFF;
 	}
@@ -1284,7 +1299,7 @@ void handle_udp6_impl(
 		msg.msg_iov = iov;
 		msg.msg_iovlen = 2;
 
-		if (sendmsg(flow->header.host_fd, &msg, MSG_NOSIGNAL) == -1) {
+		if (TEMP_FAILURE_RETRY(sendmsg(flow->header.host_fd, &msg, MSG_NOSIGNAL)) == -1) {
 			PLOG_E("sendmsg(fd=%d) SOCKS5 UDP failed", flow->header.host_fd);
 		}
 	} else {
@@ -1301,8 +1316,8 @@ void handle_udp6_impl(
 			memcpy(&dest_addr.sin6_addr, ip->daddr, sizeof(dest_addr.sin6_addr));
 			dest_addr.sin6_port = htons(dest_port);
 		}
-		if (sendto(flow->header.host_fd, data, data_len, MSG_NOSIGNAL,
-			reinterpret_cast<struct sockaddr*>(&dest_addr), sizeof(dest_addr)) == -1) {
+		if (TEMP_FAILURE_RETRY(sendto(flow->header.host_fd, data, data_len, MSG_NOSIGNAL,
+			reinterpret_cast<struct sockaddr*>(&dest_addr), sizeof(dest_addr))) == -1) {
 			PLOG_E("sendto(fd=%d) UDP failed", flow->header.host_fd);
 		}
 	}

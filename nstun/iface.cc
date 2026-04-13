@@ -59,7 +59,7 @@ bool configIface(nsj_t* nsj) {
 		sa.sin_family = AF_INET;
 		sa.sin_addr = addr;
 		memcpy(&ifr.ifr_addr, &sa, sizeof(sa));
-		if (ioctl(sock, SIOCSIFADDR, &ifr) == -1) {
+		if (TEMP_FAILURE_RETRY(ioctl(sock, SIOCSIFADDR, &ifr)) == -1) {
 			PLOG_E("ioctl(SIOCSIFADDR, '%s')", nsj->njc.user_net().ip4().c_str());
 			return false;
 		}
@@ -78,7 +78,7 @@ bool configIface(nsj_t* nsj) {
 		dst_sa.sin_family = AF_INET;
 		dst_sa.sin_addr = addr;
 		memcpy(&ifr.ifr_dstaddr, &dst_sa, sizeof(dst_sa));
-		if (ioctl(sock, SIOCSIFDSTADDR, &ifr) == -1) {
+		if (TEMP_FAILURE_RETRY(ioctl(sock, SIOCSIFDSTADDR, &ifr)) == -1) {
 			PLOG_E("ioctl(SIOCSIFDSTADDR, '%s')", nsj->njc.user_net().gw4().c_str());
 			return false;
 		}
@@ -91,18 +91,18 @@ bool configIface(nsj_t* nsj) {
 	netmask_sa.sin_family = AF_INET;
 	netmask_sa.sin_addr.s_addr = 0xFFFFFFFF; /* 255.255.255.255 */
 	memcpy(&ifr.ifr_netmask, &netmask_sa, sizeof(netmask_sa));
-	if (ioctl(sock, SIOCSIFNETMASK, &ifr) == -1) {
+	if (TEMP_FAILURE_RETRY(ioctl(sock, SIOCSIFNETMASK, &ifr)) == -1) {
 		PLOG_E("ioctl(SIOCSIFNETMASK, 255.255.255.255)");
 		return false;
 	}
 
 	/* Bring interface UP */
-	if (ioctl(sock, SIOCGIFFLAGS, &ifr) == -1) {
+	if (TEMP_FAILURE_RETRY(ioctl(sock, SIOCGIFFLAGS, &ifr)) == -1) {
 		PLOG_E("ioctl(SIOCGIFFLAGS)");
 		return false;
 	}
 	ifr.ifr_flags |= (IFF_UP | IFF_RUNNING | IFF_POINTOPOINT);
-	if (ioctl(sock, SIOCSIFFLAGS, &ifr) == -1) {
+	if (TEMP_FAILURE_RETRY(ioctl(sock, SIOCSIFFLAGS, &ifr)) == -1) {
 		PLOG_E("ioctl(SIOCSIFFLAGS)");
 		return false;
 	}
@@ -110,7 +110,7 @@ bool configIface(nsj_t* nsj) {
 	ifr = {};
 	snprintf(ifr.ifr_name, IFNAMSIZ, "%s", nsj->njc.user_net().ns_iface().c_str());
 	ifr.ifr_mtu = NSTUN_MTU;
-	if (ioctl(sock, SIOCSIFMTU, &ifr) == -1) {
+	if (TEMP_FAILURE_RETRY(ioctl(sock, SIOCSIFMTU, &ifr)) == -1) {
 		PLOG_E("ioctl(SIOCSIFMTU, %zu)", NSTUN_MTU);
 		return false;
 	}
@@ -130,7 +130,7 @@ bool configIface(nsj_t* nsj) {
 	snprintf(rt_dev, sizeof(rt_dev), "%s", nsj->njc.user_net().ns_iface().c_str());
 	rt.rt_dev = rt_dev;
 
-	if (ioctl(sock, SIOCADDRT, &rt) == -1) {
+	if (TEMP_FAILURE_RETRY(ioctl(sock, SIOCADDRT, &rt)) == -1) {
 		if (errno != EEXIST && errno != ENETUNREACH) {
 			PLOG_E("ioctl(SIOCADDRT, dev %s)", nsj->njc.user_net().ns_iface().c_str());
 			return false;
@@ -151,7 +151,7 @@ bool configIface(nsj_t* nsj) {
 		/* Get interface index */
 		struct ifreq ifr6 = {};
 		snprintf(ifr6.ifr_name, IFNAMSIZ, "%s", nsj->njc.user_net().ns_iface().c_str());
-		if (ioctl(sock6, SIOCGIFINDEX, &ifr6) == -1) {
+		if (TEMP_FAILURE_RETRY(ioctl(sock6, SIOCGIFINDEX, &ifr6)) == -1) {
 			PLOG_E("ioctl(SIOCGIFINDEX) for IPv6");
 			return false;
 		}
@@ -168,7 +168,7 @@ bool configIface(nsj_t* nsj) {
 		ifr6_addr.ifr6_prefixlen = 128;
 		ifr6_addr.ifr6_ifindex = ifindex;
 
-		if (ioctl(sock6, SIOCSIFADDR, &ifr6_addr) == -1) {
+		if (TEMP_FAILURE_RETRY(ioctl(sock6, SIOCSIFADDR, &ifr6_addr)) == -1) {
 			PLOG_E(
 			    "ioctl(SIOCSIFADDR) for IPv6 '%s'", nsj->njc.user_net().ip6().c_str());
 			return false;
@@ -181,7 +181,7 @@ bool configIface(nsj_t* nsj) {
 		rt6.rtmsg_metric = 1;
 		/* dst = ::0/0 (default route) is already zeroed */
 
-		if (ioctl(sock6, SIOCADDRT, &rt6) == -1) {
+		if (TEMP_FAILURE_RETRY(ioctl(sock6, SIOCADDRT, &rt6)) == -1) {
 			if (errno != EEXIST) {
 				PLOG_E("ioctl(SIOCADDRT) for IPv6 default route");
 				return false;

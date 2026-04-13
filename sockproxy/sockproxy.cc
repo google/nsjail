@@ -280,9 +280,10 @@ static bool handlePipeToSock(conn_t* conn, int fd, uint32_t events) {
 		conn->pipe_to_sock.blocked = false;
 		if (!drainChannel(conn->pipe_to_sock.pipe_fd, conn->sock_fd,
 			conn->pipe_to_sock.pipe_fd, &conn->pipe_to_sock)) {
-			LOG_D("pipe->sock EOF, half-closing socket write side");
 			if (shutdown(conn->sock_fd, SHUT_WR) == -1) {
-				PLOG_W("shutdown(SHUT_WR) failed");
+				if (errno != ENOTCONN) {
+					PLOG_W("shutdown(SHUT_WR) failed");
+				}
 			}
 		}
 		return true;

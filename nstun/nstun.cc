@@ -68,12 +68,16 @@ static void contextCleanup(Context* ctx) {
 	}
 
 	for (size_t i = 0; i < ctx->num_c_host_listener_rules; ++i) {
-		monitor::removeFd(ctx->c_host_listener_rules[i].fd);
+		if (!monitor::removeFd(ctx->c_host_listener_rules[i].fd)) {
+			LOG_W("Failed to remove listener FD from monitor");
+		}
 		close(ctx->c_host_listener_rules[i].fd);
 	}
 	ctx->num_c_host_listener_rules = 0;
 	if (ctx->tap_fd != -1) {
-		monitor::removeFd(ctx->tap_fd);
+		if (!monitor::removeFd(ctx->tap_fd)) {
+			LOG_W("Failed to remove tap_fd from monitor");
+		}
 		close(ctx->tap_fd);
 	}
 }
@@ -202,14 +206,14 @@ void host_callback(int fd, uint32_t events, void* data) {
 	ifr.ifr_flags = IFF_TUN | IFF_NO_PI | IFF_VNET_HDR; /* TUN, no packet info, vnet header */
 	snprintf(ifr.ifr_name, IFNAMSIZ, "%s", nsj->njc.user_net().ns_iface().c_str());
 
-	if (ioctl(tap_fd, TUNSETIFF, &ifr) < 0) {
+	if (TEMP_FAILURE_RETRY(ioctl(tap_fd, TUNSETIFF, &ifr)) < 0) {
 		PLOG_E("ioctl(TUNSETIFF)");
 		return false;
 	}
 
 	/* Enable checksum offload: kernel computes L4 checksums for us */
 	unsigned int offload = TUN_F_CSUM;
-	if (ioctl(tap_fd, TUNSETOFFLOAD, offload) < 0) {
+	if (TEMP_FAILURE_RETRY(ioctl(tap_fd, TUNSETOFFLOAD, offload)) < 0) {
 		PLOG_W("ioctl(TUNSETOFFLOAD, TUN_F_CSUM) failed, checksums will be computed in "
 		       "userspace");
 	}
@@ -229,31 +233,56 @@ void host_callback(int fd, uint32_t events, void* data) {
 	return true;
 }
 
-static void tapCb(int fd, uint32_t /* events */, void* data) {
+static void tapCb(int fd, uint32_t events, void* data) {
 	nstun::Context* ctx = static_cast<nstun::Context*>(data);
 
-	/* Use a loop to read until EAGAIN, but limit iterations to prevent starvation */
-	for (int i = 0; i < nstun::kMaxReadIterations; ++i) {
-		ssize_t n = TEMP_FAILURE_RETRY(read(fd, ctx->tun_buf, sizeof(ctx->tun_buf)));
-		if (n <= 0) {
-			if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+	if (events & EPOLLOUT) {
+		bool still_blocked = false;
+		for (size_t i = 0; i < nstun::NSTUN_MAX_FLOWS; ++i) {
+			if (ctx->c_ipv4_tcp_flows[i].header.active) {
+				if (push_to_guest(ctx, &ctx->c_ipv4_tcp_flows[i])) {
+					still_blocked = true;
+				}
+			}
+			if (ctx->c_ipv6_tcp_flows[i].header.active) {
+				if (push_to_guest(ctx, &ctx->c_ipv6_tcp_flows[i])) {
+					still_blocked = true;
+				}
+			}
+		}
+		if (!still_blocked) {
+			if (!monitor::modFd(ctx->tap_fd, EPOLLIN)) {
+				LOG_E("Failed to modify tap_fd events to EPOLLIN");
+			}
+		}
+	}
+
+	if (events & EPOLLIN) {
+		/* Use a loop to read until EAGAIN, but limit iterations to prevent starvation */
+		for (int i = 0; i < nstun::kMaxReadIterations; ++i) {
+			ssize_t n = TEMP_FAILURE_RETRY(read(fd, ctx->tun_buf, sizeof(ctx->tun_buf)));
+			if (n <= 0) {
+				if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+					return;
+				}
+				PLOG_E("read(tap_fd) failed or EOF, removing FD");
+				if (!monitor::removeFd(fd)) {
+					LOG_W("Failed to remove tap_fd from monitor on error");
+				}
+				close(fd);
+				ctx->tap_fd = -1;
 				return;
 			}
-			PLOG_E("read(tap_fd) failed or EOF, removing FD");
-			monitor::removeFd(fd);
-			close(fd);
-			ctx->tap_fd = -1;
-			return;
+			/* Strip the virtio_net_hdr prefix added by IFF_VNET_HDR */
+			if (static_cast<size_t>(n) <= nstun::VNET_HDR_SIZE) {
+				continue; /* Too small to contain anything after vnet header */
+			}
+			struct virtio_net_hdr vh;
+			memcpy(&vh, ctx->tun_buf, sizeof(vh));
+			ctx->last_vnet_flags = vh.flags;
+			handle_tun_frame(
+			    ctx, ctx->tun_buf + nstun::VNET_HDR_SIZE, n - nstun::VNET_HDR_SIZE);
 		}
-		/* Strip the virtio_net_hdr prefix added by IFF_VNET_HDR */
-		if ((size_t)n <= nstun::VNET_HDR_SIZE) {
-			continue; /* Too small to contain anything after vnet header */
-		}
-		struct virtio_net_hdr vh;
-		memcpy(&vh, ctx->tun_buf, sizeof(vh));
-		ctx->last_vnet_flags = vh.flags;
-		handle_tun_frame(
-		    ctx, ctx->tun_buf + nstun::VNET_HDR_SIZE, n - nstun::VNET_HDR_SIZE);
 	}
 }
 
@@ -339,7 +368,7 @@ void nstun_periodic() {
 			mask6[i] = 0xFF;
 			bits -= 8;
 		} else if (bits > 0) {
-			mask6[i] = (uint8_t)(0xFF << (8 - bits));
+			mask6[i] = static_cast<uint8_t>(0xFF << (8 - bits));
 			bits = 0;
 		} else {
 			mask6[i] = 0;
@@ -462,8 +491,7 @@ void nstun_periodic() {
 }
 
 [[nodiscard]] static bool parse_rules4(nstun::Context* ctx, nsj_t* nsj) {
-	for (int i = 0; i < nsj->njc.user_net().rule4_size(); i++) {
-		const auto& r = nsj->njc.user_net().rule4(i);
+	for (const auto& r : nsj->njc.user_net().rule4()) {
 
 		nstun_rule_t nr = {};
 		nstun::RuleParseStatus status = nstun::fill_rule_common(r, &nr);
@@ -506,8 +534,7 @@ void nstun_periodic() {
 }
 
 [[nodiscard]] static bool parse_rules6(nstun::Context* ctx, nsj_t* nsj) {
-	for (int i = 0; i < nsj->njc.user_net().rule6_size(); i++) {
-		const auto& r = nsj->njc.user_net().rule6(i);
+	for (const auto& r : nsj->njc.user_net().rule6()) {
 
 		nstun_rule_t nr = {};
 		nr.is_ipv6 = true;
@@ -587,6 +614,38 @@ void nstun_periodic() {
 	return true;
 }
 
+static void init_recvmmsg(nstun::Context* ctx) {
+	memset(ctx->recvmmsg_msgs, 0, sizeof(ctx->recvmmsg_msgs));
+	memset(ctx->recvmmsg_iovecs, 0, sizeof(ctx->recvmmsg_iovecs));
+	for (int i = 0; i < nstun::VLEN; ++i) {
+		ctx->recvmmsg_iovecs[i].iov_base = ctx->recvmmsg_bufs[i];
+		ctx->recvmmsg_iovecs[i].iov_len = sizeof(ctx->recvmmsg_bufs[i]);
+		ctx->recvmmsg_msgs[i].msg_hdr.msg_iov = &ctx->recvmmsg_iovecs[i];
+		ctx->recvmmsg_msgs[i].msg_hdr.msg_iovlen = 1;
+		ctx->recvmmsg_msgs[i].msg_hdr.msg_name = &ctx->recvmmsg_addrs[i];
+		ctx->recvmmsg_msgs[i].msg_hdr.msg_namelen = sizeof(ctx->recvmmsg_addrs[i]);
+		ctx->recvmmsg_msgs[i].msg_hdr.msg_control = nullptr;
+		ctx->recvmmsg_msgs[i].msg_hdr.msg_controllen = 0;
+	}
+	ctx->recvmmsg_initialized = true;
+}
+
+[[nodiscard]] static bool setupAllIps(nstun::Context* ctx, nsj_t* nsj) {
+	if (!setup_ip4(nsj->njc.user_net().ip4(), "192.168.0.2", &ctx->guest_ip4)) {
+		return false;
+	}
+	if (!setup_ip4(nsj->njc.user_net().gw4(), "192.168.0.1", &ctx->host_ip4)) {
+		return false;
+	}
+	if (!setup_ip6(nsj->njc.user_net().ip6(), "fd00::2", ctx->guest_ip6)) {
+		return false;
+	}
+	if (!setup_ip6(nsj->njc.user_net().gw6(), "fd00::1", ctx->host_ip6)) {
+		return false;
+	}
+	return true;
+}
+
 [[nodiscard]] bool nstun_init_parent(int tap_fd, nsj_t* nsj, pid_t pid) {
 	if (tls_nstun_ctx) {
 		LOG_W("nstun_init_parent called on already initialized context");
@@ -613,16 +672,7 @@ void nstun_periodic() {
 		}
 	};
 
-	if (!setup_ip4(nsj->njc.user_net().ip4(), "192.168.0.2", &ctx->guest_ip4)) {
-		return false;
-	}
-	if (!setup_ip4(nsj->njc.user_net().gw4(), "192.168.0.1", &ctx->host_ip4)) {
-		return false;
-	}
-	if (!setup_ip6(nsj->njc.user_net().ip6(), "fd00::2", ctx->guest_ip6)) {
-		return false;
-	}
-	if (!setup_ip6(nsj->njc.user_net().gw6(), "fd00::1", ctx->host_ip6)) {
+	if (!setupAllIps(ctx, nsj)) {
 		return false;
 	}
 
@@ -640,16 +690,7 @@ void nstun_periodic() {
 		return false;
 	}
 
-	for (int i = 0; i < nstun::VLEN; ++i) {
-		ctx->recvmmsg_iovecs[i].iov_base = ctx->recvmmsg_bufs[i];
-		ctx->recvmmsg_iovecs[i].iov_len = sizeof(ctx->recvmmsg_bufs[i]);
-		ctx->recvmmsg_msgs[i].msg_hdr.msg_iov = &ctx->recvmmsg_iovecs[i];
-		ctx->recvmmsg_msgs[i].msg_hdr.msg_iovlen = 1;
-		ctx->recvmmsg_msgs[i].msg_hdr.msg_name = &ctx->recvmmsg_addrs[i];
-		ctx->recvmmsg_msgs[i].msg_hdr.msg_control = nullptr;
-		ctx->recvmmsg_msgs[i].msg_hdr.msg_controllen = 0;
-	}
-	ctx->recvmmsg_initialized = true;
+	init_recvmmsg(ctx);
 
 	tls_nstun_ctx = ctx;
 	success = true;

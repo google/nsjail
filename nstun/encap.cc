@@ -141,7 +141,7 @@ int send_http_connect(int fd, const uint8_t* addr, uint16_t port_nbo, bool is_ip
 		    addr_str, port, addr_str, port);
 	}
 
-	if (n <= 0 || n >= (int)sizeof(buf)) {
+	if (n <= 0 || n >= static_cast<int>(sizeof(buf))) {
 		return -1;
 	}
 	if (TEMP_FAILURE_RETRY(send(fd, buf, n, MSG_NOSIGNAL)) != (ssize_t)n) {

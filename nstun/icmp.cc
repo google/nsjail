@@ -90,7 +90,9 @@ static void icmp_destroy_flow(Context* ctx, IcmpFlow* flow) {
 	}
 
 	if (flow->header.host_fd != -1) {
-		monitor::removeFd(flow->header.host_fd);
+		if (!monitor::removeFd(flow->header.host_fd)) {
+			LOG_W("Failed to remove host_fd from monitor");
+		}
 		close(flow->header.host_fd);
 		if (flow->header.host_fd >= 0 &&
 		    static_cast<size_t>(flow->header.host_fd) < nstun::NSTUN_MAX_FDS) {
@@ -106,7 +108,7 @@ static void icmp_destroy_flow(Context* ctx, IcmpFlow* flow) {
 	}
 }
 
-static bool icmp_send_packet4(Context* ctx, uint32_t saddr, uint32_t daddr, uint8_t type,
+[[nodiscard]] static bool icmp_send_packet4(Context* ctx, uint32_t saddr, uint32_t daddr, uint8_t type,
     uint8_t code, uint16_t id, uint16_t seq, const void* data, size_t len) {
 	if (len > NSTUN_MTU) {
 		LOG_W("icmp_send_packet4: data length too large");
@@ -158,7 +160,7 @@ static bool icmp_send_packet4(Context* ctx, uint32_t saddr, uint32_t daddr, uint
 	    ctx, &vh, header_buf, sizeof(header_buf), static_cast<const uint8_t*>(data), len);
 }
 
-static bool icmp_send_packet6(Context* ctx, const uint8_t* saddr, const uint8_t* daddr,
+[[nodiscard]] static bool icmp_send_packet6(Context* ctx, const uint8_t* saddr, const uint8_t* daddr,
     uint8_t type, uint8_t code, uint16_t id, uint16_t seq, const void* data, size_t len) {
 	if (len > NSTUN_MTU) {
 		LOG_W("icmp_send_packet6: data length too large");
@@ -280,7 +282,7 @@ static void proxy_icmp6(Context* ctx, const ip6_hdr* ip, const icmp6_hdr* icmp,
 			    ICMP6_DST_UNREACH_ADDR);
 			return;
 		}
-		if (fd >= (int)nstun::NSTUN_MAX_FDS) {
+		if (fd >= static_cast<int>(nstun::NSTUN_MAX_FDS)) {
 			LOG_E("FD limit reached (fd=%d)", fd);
 			close(fd);
 			return;
@@ -328,8 +330,8 @@ static void proxy_icmp6(Context* ctx, const ip6_hdr* ip, const icmp6_hdr* icmp,
 		    &dest_addr.sin6_addr, flow->header.orig_dest_ip6, sizeof(dest_addr.sin6_addr));
 	}
 
-	ssize_t sent = sendto(flow->header.host_fd, payload, len, MSG_NOSIGNAL,
-	    reinterpret_cast<const sockaddr*>(&dest_addr), sizeof(dest_addr));
+	ssize_t sent = TEMP_FAILURE_RETRY(sendto(flow->header.host_fd, payload, len, MSG_NOSIGNAL,
+	    reinterpret_cast<const sockaddr*>(&dest_addr), sizeof(dest_addr)));
 	if (sent == -1) {
 		PLOG_E("sendto(fd=%d) ICMPv6 failed", flow->header.host_fd);
 	}
@@ -418,7 +420,7 @@ static void proxy_icmp4(Context* ctx, const ip4_hdr* ip, const icmp4_hdr* icmp,
 			    ICMP_HOST_UNREACH); /* host unreachable */
 			return;
 		}
-		if (fd >= (int)nstun::NSTUN_MAX_FDS) {
+		if (fd >= static_cast<int>(nstun::NSTUN_MAX_FDS)) {
 			LOG_E("FD limit reached (fd=%d)", fd);
 			close(fd);
 			return;
@@ -459,8 +461,8 @@ static void proxy_icmp4(Context* ctx, const ip4_hdr* ip, const icmp4_hdr* icmp,
 	dest_addr.sin_addr.s_addr =
 	    flow->header.is_redirected ? flow->header.redirect_ip4 : flow->header.orig_dest_ip4;
 
-	ssize_t sent = sendto(flow->header.host_fd, payload, len, MSG_NOSIGNAL,
-	    reinterpret_cast<const sockaddr*>(&dest_addr), sizeof(dest_addr));
+	ssize_t sent = TEMP_FAILURE_RETRY(sendto(flow->header.host_fd, payload, len, MSG_NOSIGNAL,
+	    reinterpret_cast<const sockaddr*>(&dest_addr), sizeof(dest_addr)));
 	if (sent == -1) {
 		PLOG_E("sendto(fd=%d) ICMP failed", flow->header.host_fd);
 	}
@@ -526,9 +528,14 @@ static void handle_host_icmp(Context* ctx, IcmpFlow* flow) {
 	int fd = flow->header.host_fd;
 	flow->header.last_active = time(nullptr);
 
+	memset(ctx->recvmmsg_msgs, 0, sizeof(ctx->recvmmsg_msgs));
 	for (int i = 0; i < VLEN; ++i) {
+		ctx->recvmmsg_iovecs[i].iov_base = ctx->recvmmsg_bufs[i];
+		ctx->recvmmsg_iovecs[i].iov_len = sizeof(ctx->recvmmsg_bufs[i]);
+		ctx->recvmmsg_msgs[i].msg_hdr.msg_iov = &ctx->recvmmsg_iovecs[i];
+		ctx->recvmmsg_msgs[i].msg_hdr.msg_iovlen = 1;
+		ctx->recvmmsg_msgs[i].msg_hdr.msg_name = &ctx->recvmmsg_addrs[i];
 		ctx->recvmmsg_msgs[i].msg_hdr.msg_namelen = sizeof(ctx->recvmmsg_addrs[i]);
-		ctx->recvmmsg_msgs[i].msg_hdr.msg_controllen = 0;
 	}
 
 	int retval =

@@ -48,7 +48,7 @@ static inline bool append_tcp_tx(TcpFlow* flow, const uint8_t* data, size_t len)
 	return true;
 }
 
-void push_to_guest(Context* ctx, TcpFlow* flow);
+bool push_to_guest(Context* ctx, TcpFlow* flow);
 bool flush_to_host(Context* ctx, TcpFlow* flow);
 void tcp_destroy_flow(Context* ctx, TcpFlow* flow);
 

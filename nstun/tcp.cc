@@ -58,7 +58,7 @@ const char* tcp_state_to_str(TcpState state) {
 
 /* --- buffer helpers ------------------------------------ */
 
-static bool buffer_append(
+[[nodiscard]] static bool buffer_append(
     uint8_t* buf, size_t* len, size_t max_len, const uint8_t* data, size_t data_len) {
 	if (*len > max_len || data_len > max_len - *len) {
 		return false;
@@ -80,11 +80,7 @@ static void buffer_consume(uint8_t* buf, size_t* len, size_t consume_len) {
 }
 
 static uint32_t generate_isn() {
-	static thread_local uint32_t isn = 0;
-	if (isn == 0) {
-		isn = static_cast<uint32_t>(util::rnd64());
-	}
-	return isn;
+	return static_cast<uint32_t>(util::rnd64());
 }
 
 static inline bool append_proxy_rx(TcpFlow* flow, const uint8_t* data, size_t len) {
@@ -177,7 +173,7 @@ static void tcp_send_rst4(Context* ctx, const FlowKey4& key4, uint32_t seq, uint
 	/* Seed check field with pseudo-header sum only; kernel adds the rest */
 	uint32_t sum = compute_checksum_part(&phdr, sizeof(phdr), 0);
 	while (sum >> 16) sum = (sum & 0xFFFF) + (sum >> 16);
-	frame.tcp.check = (uint16_t)sum;
+	frame.tcp.check = static_cast<uint16_t>(sum);
 
 	virtio_net_hdr vh = {};
 	vh.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
@@ -227,7 +223,7 @@ static void tcp_send_rst6(Context* ctx, const FlowKey6& key6, uint32_t seq, uint
 	/* Seed check field with pseudo-header sum only; kernel adds the rest */
 	uint32_t sum = compute_checksum_part(&phdr, sizeof(phdr), 0);
 	while (sum >> 16) sum = (sum & 0xFFFF) + (sum >> 16);
-	frame.tcp.check = (uint16_t)sum;
+	frame.tcp.check = static_cast<uint16_t>(sum);
 
 	virtio_net_hdr vh = {};
 	vh.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
@@ -309,7 +305,7 @@ bool tcp_send_packet4(
 	 */
 	uint32_t sum = compute_checksum_part(&phdr, sizeof(phdr), 0);
 	while (sum >> 16) sum = (sum & 0xFFFF) + (sum >> 16);
-	frame.tcp.check = (uint16_t)sum;
+	frame.tcp.check = static_cast<uint16_t>(sum);
 
 	if (opt_len > 0) {
 		memcpy(frame.options, options, opt_len);
@@ -378,7 +374,7 @@ bool tcp_send_packet6(
 	 */
 	uint32_t sum = compute_checksum_part(&phdr, sizeof(phdr), 0);
 	while (sum >> 16) sum = (sum & 0xFFFF) + (sum >> 16);
-	frame.tcp.check = (uint16_t)sum;
+	frame.tcp.check = static_cast<uint16_t>(sum);
 
 	if (opt_len > 0) {
 		memcpy(frame.options, options, opt_len);
@@ -406,7 +402,9 @@ void tcp_destroy_flow(Context* ctx, TcpFlow* flow) {
 	}
 
 	if (flow->header.host_fd != -1) {
-		monitor::removeFd(flow->header.host_fd);
+		if (!monitor::removeFd(flow->header.host_fd)) {
+			LOG_W("Failed to remove host_fd from monitor");
+		}
 		close(flow->header.host_fd);
 		set_tcp_flow_by_fd(ctx, flow->header.host_fd, nullptr);
 		flow->header.host_fd = -1;
@@ -431,15 +429,22 @@ void tcp_destroy_flow(Context* ctx, TcpFlow* flow) {
 	flow->header.active = false;
 }
 
-void push_to_guest(Context* ctx, TcpFlow* flow) {
+bool push_to_guest(Context* ctx, TcpFlow* flow) {
 	if (flow->tcp_state != TcpState::ESTABLISHED && flow->tcp_state != TcpState::CLOSE_WAIT) {
-		return;
+		return false;
 	}
 
 	/* Max TCP payload per TUN frame: MTU minus IP and TCP headers */
 	size_t max_seg = NSTUN_MTU - (flow->header.is_ipv6 ? sizeof(ip6_hdr) : sizeof(ip4_hdr)) -
 			 sizeof(tcp_hdr);
 
+	/*
+	 * This loop is bounded by the amount of data available in the flow's
+	 * buffer (c_tcp_tx_len) and the guest's receive window.
+	 * If the TUN device returns EAGAIN (device full), we register for
+	 * EPOLLOUT and return, yielding to the event loop.
+	 * Thus, it does not cause starvation despite being an infinite loop construct.
+	 */
 	for (;;) {
 		int32_t in_flight = flow->seq_to_guest - flow->ack_from_guest;
 		int32_t available = flow->c_tcp_tx_len - flow->tx_acked_offset;
@@ -467,7 +472,7 @@ void push_to_guest(Context* ctx, TcpFlow* flow) {
 					}
 				}
 			}
-			return; /* Everything is in flight */
+			return false; /* Everything is in flight */
 		}
 
 		size_t to_send = available - in_flight;
@@ -482,11 +487,19 @@ void push_to_guest(Context* ctx, TcpFlow* flow) {
 		}
 
 		if (!tcp_send_packet(ctx, flow, flags, data, to_send)) {
+			if (errno == EAGAIN || errno == EWOULDBLOCK) {
+				LOG_D("push_to_guest: TUN device full (EAGAIN)");
+				if (!monitor::modFd(ctx->tap_fd, EPOLLIN | EPOLLOUT)) {
+					LOG_E("Failed to modify tap_fd events to EPOLLIN | EPOLLOUT");
+				}
+				return true;
+			}
 			LOG_W("push_to_guest: failed to send packet");
 			break;
 		}
 		flow->seq_to_guest += to_send;
 	}
+	return false;
 }
 
 /* Returns true if the flow was destroyed (caller must not use flow afterward) */
@@ -597,7 +610,7 @@ static const TcpStateHandlers kStateTable[] = {
     },
 };
 
-static bool tcp_should_reenable_host_rx(const TcpFlow* flow) {
+[[nodiscard]] static bool tcp_should_reenable_host_rx(const TcpFlow* flow) {
 	return flow->epoll_in_disabled && !flow->host_eof &&
 	       (flow->c_tcp_tx_len - flow->tx_acked_offset < TCP_TX_BUF_CAP / 2);
 }
@@ -698,7 +711,7 @@ static void tcp_process_fin(Context* ctx, TcpFlow* flow, const tcp_hdr* tcp) {
 	push_to_guest(ctx, flow);
 }
 
-static bool tcp_dispatch_guest_packet(
+[[nodiscard]] static bool tcp_dispatch_guest_packet(
     Context* ctx, TcpFlow* flow, const uint8_t* data, size_t len) {
 	size_t state_idx = static_cast<size_t>(flow->tcp_state);
 	if (state_idx < sizeof(kStateTable) / sizeof(kStateTable[0])) {
@@ -709,7 +722,7 @@ static bool tcp_dispatch_guest_packet(
 	return false;
 }
 
-static bool tcp_process_valid_guest_data(
+[[nodiscard]] static bool tcp_process_valid_guest_data(
     Context* ctx, TcpFlow* flow, const uint8_t* data, size_t len) {
 	flow->seq_from_guest += len;
 	flow->ack_to_guest = flow->seq_from_guest;
@@ -717,7 +730,7 @@ static bool tcp_process_valid_guest_data(
 	return tcp_dispatch_guest_packet(ctx, flow, data, len);
 }
 
-static bool tcp_handle_guest_data_payload(Context* ctx, TcpFlow* flow, uint32_t seq,
+[[nodiscard]] static bool tcp_handle_guest_data_payload(Context* ctx, TcpFlow* flow, uint32_t seq,
     const uint8_t* data, size_t data_len, bool* data_processed) {
 	*data_processed = false;
 	int32_t diff = seq - flow->ack_to_guest;
@@ -761,7 +774,7 @@ static void tcp_process_active_packet(Context* ctx, TcpFlow* flow, const tcp_hdr
 	}
 }
 
-static bool handle_inbound_syn_ack(Context* ctx, TcpFlow* flow, uint32_t seq, uint32_t ack) {
+[[nodiscard]] static bool handle_inbound_syn_ack(Context* ctx, TcpFlow* flow, uint32_t seq, uint32_t ack) {
 	flow->tcp_state = TcpState::ESTABLISHED;
 	LOG_D("Flow %d: SYN_SENT -> ESTABLISHED (inbound)", flow->header.host_fd);
 	flow->ack_from_guest = ack;
@@ -813,7 +826,7 @@ static void tcp_process_data(Context* ctx, TcpFlow* flow, const tcp_hdr* tcp,
 
 	if (flow->inbound && flow->tcp_state == TcpState::SYN_SENT &&
 	    (tcp->flags & NSTUN_TCP_FLAG_SYN) && (tcp->flags & NSTUN_TCP_FLAG_ACK)) {
-		handle_inbound_syn_ack(ctx, flow, seq, ack);
+		(void)handle_inbound_syn_ack(ctx, flow, seq, ack);
 		return;
 	}
 
@@ -875,7 +888,7 @@ static void init_outbound_flow_common(
  * - EINPROGRESS: returns; EPOLLOUT will fire when the connection completes.
  * - Any other error: RSTs the guest and destroys the flow.
  */
-static bool tcp_do_connect(
+[[nodiscard]] static bool tcp_do_connect(
     Context* ctx, TcpFlow* flow, int fd, const struct sockaddr* addr, socklen_t addrlen) {
 	int ret = connect(fd, addr, addrlen);
 	if (ret == 0) {
@@ -889,7 +902,7 @@ static bool tcp_do_connect(
 		return false;
 	}
 }
-static bool init_tcp_flow_zero(TcpFlow* flow) {
+[[nodiscard]] static bool init_tcp_flow_zero(TcpFlow* flow) {
 	/* Preserve existing allocations for reuse */
 	auto old_tx = std::move(flow->c_tcp_tx_buf);
 	auto old_rx = std::move(flow->c_tcp_rx_buf);
@@ -1407,7 +1420,7 @@ void handle_host_tcp(Context* ctx, TcpFlow* flow, uint32_t events) {
 	}
 }
 
-static bool handle_inbound_tcp6(Context* ctx, int fd, const nstun_rule_t& rule,
+[[nodiscard]] static bool handle_inbound_tcp6(Context* ctx, int fd, const nstun_rule_t& rule,
     const struct sockaddr_in6& client6, uint16_t listen_port) {
 	/* Loopback->gateway rewrite for IPv6: prevent martian drops in guest */
 	uint8_t client_ip6[IPV6_ADDR_LEN];
@@ -1488,7 +1501,7 @@ static bool handle_inbound_tcp6(Context* ctx, int fd, const nstun_rule_t& rule,
 	return true;
 }
 
-static bool handle_inbound_tcp4(Context* ctx, int fd, const nstun_rule_t& rule,
+[[nodiscard]] static bool handle_inbound_tcp4(Context* ctx, int fd, const nstun_rule_t& rule,
     const struct sockaddr_in& client4, uint16_t listen_port) {
 	uint32_t client_ip = client4.sin_addr.s_addr;
 	if (client_ip == htonl(INADDR_LOOPBACK)) {

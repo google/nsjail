@@ -234,14 +234,14 @@ struct RuleResult {
 };
 
 inline TcpFlow* get_tcp_flow_by_fd(const Context* ctx, int fd) {
-	if (fd < 0 || fd >= (int)NSTUN_MAX_FDS) {
+	if (fd < 0 || fd >= static_cast<int>(NSTUN_MAX_FDS)) {
 		return nullptr;
 	}
 	return ctx->c_tcp_flows_by_fd[fd];
 }
 
 inline bool set_tcp_flow_by_fd(Context* ctx, int fd, TcpFlow* flow) {
-	if (fd < 0 || fd >= (int)NSTUN_MAX_FDS) {
+	if (fd < 0 || fd >= static_cast<int>(NSTUN_MAX_FDS)) {
 		return false;
 	}
 	ctx->c_tcp_flows_by_fd[fd] = flow;
@@ -249,14 +249,14 @@ inline bool set_tcp_flow_by_fd(Context* ctx, int fd, TcpFlow* flow) {
 }
 
 inline UdpFlow* get_udp_flow_by_fd(const Context* ctx, int fd) {
-	if (fd < 0 || fd >= (int)NSTUN_MAX_FDS) {
+	if (fd < 0 || fd >= static_cast<int>(NSTUN_MAX_FDS)) {
 		return nullptr;
 	}
 	return ctx->c_udp_flows_by_fd[fd];
 }
 
 inline bool set_udp_flow_by_fd(Context* ctx, int fd, UdpFlow* flow) {
-	if (fd < 0 || fd >= (int)NSTUN_MAX_FDS) {
+	if (fd < 0 || fd >= static_cast<int>(NSTUN_MAX_FDS)) {
 		return false;
 	}
 	ctx->c_udp_flows_by_fd[fd] = flow;
@@ -264,14 +264,14 @@ inline bool set_udp_flow_by_fd(Context* ctx, int fd, UdpFlow* flow) {
 }
 
 inline IcmpFlow* get_icmp_flow_by_fd(const Context* ctx, int fd) {
-	if (fd < 0 || fd >= (int)NSTUN_MAX_FDS) {
+	if (fd < 0 || fd >= static_cast<int>(NSTUN_MAX_FDS)) {
 		return nullptr;
 	}
 	return ctx->c_icmp_flows_by_fd[fd];
 }
 
 inline bool set_icmp_flow_by_fd(Context* ctx, int fd, IcmpFlow* flow) {
-	if (fd < 0 || fd >= (int)NSTUN_MAX_FDS) {
+	if (fd < 0 || fd >= static_cast<int>(NSTUN_MAX_FDS)) {
 		return false;
 	}
 	ctx->c_icmp_flows_by_fd[fd] = flow;
