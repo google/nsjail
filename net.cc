@@ -30,9 +30,11 @@
 #include <netinet/in.h>
 #include <netinet/ip6.h>
 #include <netinet/tcp.h>
+#ifdef HAVE_LIBNL3
 #include <netlink/route/nexthop.h>
 #include <netlink/route/route.h>
 #include <netlink/route/rule.h>
+#endif
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -126,10 +128,13 @@ namespace net {
 #define IFACE_NAME "vs"
 
 #include <linux/if_ether.h>
+#ifdef HAVE_LIBNL3
 #include <linux/rtnetlink.h>
 #include <netlink/route/link.h>
 #include <netlink/route/link/macvlan.h>
+#endif
 
+#ifdef HAVE_LIBNL3
 static bool cloneIface(nsj_t* nsj, struct nl_sock* sk, struct nl_cache* link_cache, int pid) {
 	struct rtnl_link* rmv = rtnl_link_macvlan_alloc();
 	if (rmv == nullptr) {
@@ -177,7 +182,9 @@ static bool cloneIface(nsj_t* nsj, struct nl_sock* sk, struct nl_cache* link_cac
 	rtnl_link_put(rmv);
 	return true;
 }
+#endif
 
+#ifdef HAVE_LIBNL3
 static bool moveToNs(
     const std::string& iface, struct nl_sock* sk, struct nl_cache* link_cache, pid_t pid) {
 	LOG_D("Moving interface '%s' into netns=%d", iface.c_str(), (int)pid);
@@ -209,6 +216,7 @@ static bool moveToNs(
 	rtnl_link_put(orig_link);
 	return true;
 }
+#endif
 
 static void pastaProcess(nsj_t* nsj, int pid, int err_pipe) {
 	if (prctl(PR_SET_PDEATHSIG, SIGKILL) == -1) {
@@ -431,6 +439,7 @@ bool initParent(nsj_t* nsj, pid_t pid, int pipefd) {
 	if (!nsj->njc.clone_newnet()) {
 		return true;
 	}
+#ifdef HAVE_LIBNL3
 	struct nl_sock* sk = nl_socket_alloc();
 	if (!sk) {
 		LOG_E("Could not allocate socket with nl_socket_alloc()");
@@ -467,6 +476,14 @@ bool initParent(nsj_t* nsj, pid_t pid, int pipefd) {
 	}
 
 	return true;
+#else
+	if (!nsj->njc.iface_own().empty() || !nsj->njc.macvlan_iface().empty()) {
+		LOG_E("Features requiring Netlink (iface_own, macvlan) are requested but nsjail "
+		      "was built without libnl3 support");
+		return false;
+	}
+	return true;
+#endif
 }
 
 static bool isSocket(int fd) {
@@ -768,6 +785,7 @@ static bool parseIp6(const std::string& ip_str, struct in6_addr* addr, int* mask
 	return inet_pton(AF_INET6, ip.c_str(), addr) == 1;
 }
 
+#ifdef HAVE_LIBNL3
 static bool applyTrafficRule(
     struct nl_sock* sk, const nsjail::NsJailConfig_TrafficRule& rule, int family) {
 	struct rtnl_rule* rtnl_rule = rtnl_rule_alloc();
@@ -855,6 +873,7 @@ static bool applyTrafficRule(
 	rtnl_rule_put(rtnl_rule);
 	return true;
 }
+#endif
 
 bool initNsFromChild(nsj_t* nsj) {
 	if (!nsj->njc.clone_newnet()) {
@@ -869,6 +888,7 @@ bool initNsFromChild(nsj_t* nsj) {
 		return false;
 	}
 
+#ifdef HAVE_LIBNL3
 	if (nsj->njc.traffic_rule_size() > 0) {
 		struct nl_sock* sk = nl_socket_alloc();
 		if (!sk) {
@@ -891,6 +911,12 @@ bool initNsFromChild(nsj_t* nsj) {
 			}
 		}
 	}
+#else
+	if (nsj->njc.traffic_rule_size() > 0) {
+		LOG_E("Traffic rules requested but nsjail was built without libnl3 support");
+		return false;
+	}
+#endif
 
 	return true;
 }

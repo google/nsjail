@@ -6,8 +6,6 @@
 #include <linux/if_tun.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include <netlink/addr.h>
-#include <netlink/netlink.h>
 #include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,6 +16,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <charconv>
 #include <thread>
 
 #include "core.h"
@@ -203,12 +202,8 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 	ctx->nsj = nsj;
 
 	auto assign_ip = [](const std::string& str, uint32_t* ip) {
-		struct nl_addr* addr;
-		if (nl_addr_parse(str.c_str(), AF_INET, &addr) == 0) {
-			if (nl_addr_get_len(addr) == 4) {
-				memcpy(ip, nl_addr_get_binary_addr(addr), 4);
-			}
-			nl_addr_put(addr);
+		if (inet_pton(AF_INET, str.c_str(), ip) != 1) {
+			LOG_E("Failed to parse IP: %s", str.c_str());
 		}
 	};
 
@@ -237,41 +232,53 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 	}
 
 	auto parse_ip = [](const std::string& str, uint32_t* ip, uint32_t* mask) {
-		struct nl_addr* addr;
-		if (nl_addr_parse(str.c_str(), AF_INET, &addr) == 0) {
-			if (nl_addr_get_len(addr) == 4) {
-				memcpy(ip, nl_addr_get_binary_addr(addr), 4);
+		std::string ip_str = str;
+		int bits = 32;
+		size_t pos = str.find('/');
+		if (pos != std::string::npos) {
+			ip_str = str.substr(0, pos);
+			const char* p = str.c_str() + pos + 1;
+			auto [ptr, ec] = std::from_chars(p, str.c_str() + str.length(), bits);
+			if (ec != std::errc()) {
+				LOG_E("Failed to parse mask bits: %s", p);
+				return;
 			}
-			int bits = nl_addr_get_prefixlen(addr);
-			*mask = (bits == 0) ? 0 : htonl(~((1ULL << (32 - bits)) - 1));
-			nl_addr_put(addr);
-		} else {
-			LOG_E("Failed to parse IP/CIDR string: %s", str.c_str());
 		}
+		if (inet_pton(AF_INET, ip_str.c_str(), ip) != 1) {
+			LOG_E("Failed to parse IP string: %s", ip_str.c_str());
+			return;
+		}
+		*mask = (bits == 0) ? 0 : htonl(~((1ULL << (32 - bits)) - 1));
 	};
 
 	auto parse_ip6 = [](const std::string& str, uint8_t* ip6, uint8_t* mask6) {
-		struct nl_addr* addr;
-		if (nl_addr_parse(str.c_str(), AF_INET6, &addr) == 0) {
-			if (nl_addr_get_len(addr) == nstun::IPV6_ADDR_LEN) {
-				memcpy(ip6, nl_addr_get_binary_addr(addr), nstun::IPV6_ADDR_LEN);
+		std::string ip_str = str;
+		int bits = 128;
+		size_t pos = str.find('/');
+		if (pos != std::string::npos) {
+			ip_str = str.substr(0, pos);
+			const char* p = str.c_str() + pos + 1;
+			auto [ptr, ec] = std::from_chars(p, str.c_str() + str.length(), bits);
+			if (ec != std::errc()) {
+				LOG_E("Failed to parse mask bits: %s", p);
+				return;
 			}
-			int bits = nl_addr_get_prefixlen(addr);
-			memset(mask6, 0, nstun::IPV6_ADDR_LEN);
-			for (int i = 0; i < (int)nstun::IPV6_ADDR_LEN; i++) {
-				if (bits >= 8) {
-					mask6[i] = 0xFF;
-					bits -= 8;
-				} else if (bits > 0) {
-					mask6[i] = (uint8_t)(0xFF << (8 - bits));
-					bits = 0;
-				} else {
-					mask6[i] = 0;
-				}
+		}
+		if (inet_pton(AF_INET6, ip_str.c_str(), ip6) != 1) {
+			LOG_E("Failed to parse IPv6 string: %s", ip_str.c_str());
+			return;
+		}
+		memset(mask6, 0, nstun::IPV6_ADDR_LEN);
+		for (int i = 0; i < (int)nstun::IPV6_ADDR_LEN; i++) {
+			if (bits >= 8) {
+				mask6[i] = 0xFF;
+				bits -= 8;
+			} else if (bits > 0) {
+				mask6[i] = (uint8_t)(0xFF << (8 - bits));
+				bits = 0;
+			} else {
+				mask6[i] = 0;
 			}
-			nl_addr_put(addr);
-		} else {
-			LOG_E("Failed to parse IPv6/CIDR string: %s", str.c_str());
 		}
 	};
 
@@ -306,15 +313,8 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 			parse_ip(r.dst_ip(), &nr.dst_ip4, &nr.dst_mask4);
 		}
 
-		if (r.has_redirect_ip()) {
-			struct nl_addr* addr;
-			if (nl_addr_parse(r.redirect_ip().c_str(), AF_INET, &addr) == 0) {
-				if (nl_addr_get_len(addr) == 4) {
-					memcpy(&nr.redirect_ip4, nl_addr_get_binary_addr(addr),
-					    sizeof(nr.redirect_ip4));
-				}
-				nl_addr_put(addr);
-			}
+		if (inet_pton(AF_INET, r.redirect_ip().c_str(), &nr.redirect_ip4) != 1) {
+			LOG_E("Failed to parse redirect IP: %s", r.redirect_ip().c_str());
 		}
 		nr.redirect_port = r.has_redirect_port() ? r.redirect_port() : 0;
 
@@ -406,25 +406,17 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 			if (nr.action == NSTUN_ACTION_ENCAP_SOCKS5 ||
 			    nr.action == NSTUN_ACTION_ENCAP_CONNECT) {
 				/* Proxy is always IPv4 */
-				struct nl_addr* addr;
-				if (nl_addr_parse(r.redirect_ip().c_str(), AF_INET, &addr) == 0) {
-					if (nl_addr_get_len(addr) == 4) {
-						memcpy(&nr.redirect_ip4,
-						    nl_addr_get_binary_addr(addr),
-						    sizeof(nr.redirect_ip4));
-					}
-					nl_addr_put(addr);
+				if (inet_pton(AF_INET, r.redirect_ip().c_str(), &nr.redirect_ip4) !=
+				    1) {
+					LOG_E("Failed to parse redirect IP: %s",
+					    r.redirect_ip().c_str());
 				}
 			} else {
 				/* REDIRECT: target is IPv6 */
-				struct nl_addr* addr;
-				if (nl_addr_parse(r.redirect_ip().c_str(), AF_INET6, &addr) == 0) {
-					if (nl_addr_get_len(addr) == 16) {
-						memcpy(nr.redirect_ip6,
-						    nl_addr_get_binary_addr(addr),
-						    sizeof(nr.redirect_ip6));
-					}
-					nl_addr_put(addr);
+				if (inet_pton(AF_INET6, r.redirect_ip().c_str(), nr.redirect_ip6) !=
+				    1) {
+					LOG_E("Failed to parse redirect IPv6: %s",
+					    r.redirect_ip().c_str());
 				}
 			}
 		}
