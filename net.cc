@@ -466,12 +466,10 @@ bool initParent(nsj_t* nsj, pid_t pid, int pipefd) {
 
 	for (const auto& iface : nsj->njc.iface_own()) {
 		if (!moveToNs(iface, sk, link_cache, pid)) {
-			nl_cache_free(link_cache);
 			return false;
 		}
 	}
 	if (!nsj->njc.macvlan_iface().empty() && !cloneIface(nsj, sk, link_cache, pid)) {
-		nl_cache_free(link_cache);
 		return false;
 	}
 
