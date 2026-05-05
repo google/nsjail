@@ -25,6 +25,7 @@
 #include <sched.h>
 #include <stdint.h>
 #include <string.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 
 #include <memory>
@@ -127,7 +128,7 @@ bool initCpu(nsj_t* nsj) {
 	    (size_t)CPU_COUNT(new_mask.get()), available_cpus, (size_t)CPU_COUNT(orig_mask.get()),
 	    listCpusInSet(orig_mask.get()).c_str());
 
-	if (sched_setaffinity(0, CPU_ALLOC_SIZE(CPU_SETSIZE), new_mask.get()) == -1) {
+	if (util::syscall(__NR_sched_setaffinity, 0, CPU_ALLOC_SIZE(CPU_SETSIZE), (uintptr_t)new_mask.get()) == -1) {
 		PLOG_W("sched_setaffinity(mask=%s size=%zu max_cpus=%zu (CPU_COUNT=%zu)) failed",
 		    listCpusInSet(new_mask.get()).c_str(), (size_t)CPU_ALLOC_SIZE(CPU_SETSIZE),
 		    (size_t)nsj->njc.max_cpus(), (size_t)CPU_COUNT(new_mask.get()));
