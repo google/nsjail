@@ -42,53 +42,51 @@ static bool isTargetAlive(int fd, __u64 last_id) {
 
 static void threadMain() {
 	LOG_I("Started unotify loop");
-	/*
-	 * When last_id is 0 (no notification received yet), NOTIF_ID_VALID
-	 * will always fail since ID 0 is never valid. This correctly exits
-	 * the loop when NOTIF_RECV has never succeeded (child died before
-	 * making any traced syscall).
-	 */
-	__u64 last_id = 0;
 
 	while (true) {
 		struct pollfd pfd = {.fd = unotif_fd, .events = POLLIN, .revents = 0};
 
 		int ret = poll(&pfd, 1, -1);
 		if (ret == -1) {
-			if (errno == EINTR) continue;
+			if (errno == EINTR || errno == EAGAIN) continue;
 			PLOG_E("poll failed");
-			if (!isTargetAlive(unotif_fd, last_id)) break;
 			continue;
+		}
+		if (pfd.revents == POLLHUP) {
+			break;
 		}
 
 		struct seccomp_notif req = {};
 		if (ioctl(unotif_fd, SECCOMP_IOCTL_NOTIF_RECV, &req) == -1) {
 			if (errno == EINTR) continue;
 			PLOG_D("SECCOMP_IOCTL_NOTIF_RECV");
-			if (!isTargetAlive(unotif_fd, last_id)) break;
 			continue;
 		}
-		last_id = req.id;
 
 		LOG_D("Received seccomp notification for syscall %d", req.data.nr);
 
 		SyscallRecord rec;
 		parseSyscall(&req, &rec);
-		addStat(rec);
-
 		if (!isTargetAlive(unotif_fd, req.id)) {
-			break;
+			continue;
 		}
+		addStat(rec);
 
 		struct seccomp_notif_resp resp = {};
 		resp.id = req.id;
 		resp.flags = SECCOMP_USER_NOTIF_FLAG_CONTINUE;
 
-		if (ioctl(unotif_fd, SECCOMP_IOCTL_NOTIF_SEND, &resp) == -1) {
-			if (errno != ENOENT) {
+		for (;;) {
+			if (ioctl(unotif_fd, SECCOMP_IOCTL_NOTIF_SEND, &resp) == -1) {
+				if (errno == EINTR) {
+					continue;
+				}
+				if (errno == ENOENT) {
+					break;
+				}
 				PLOG_E("SECCOMP_IOCTL_NOTIF_SEND failed");
+				break;
 			}
-			if (!isTargetAlive(unotif_fd, req.id)) break;
 		}
 	}
 }
