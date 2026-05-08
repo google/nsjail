@@ -152,6 +152,8 @@ test: $(BIN)
 	# --- Basic sanity tests ---
 	$(call run_test, ./nsjail -q -Mo --chroot / --user 99999 --group 99999 -- /bin/true, 0)
 	$(call run_test, ./nsjail -q -Mo --chroot / --user 99999 --group 99999 -- /bin/false, 1)
+	$(call run_test, ./nsjail -q -Mo --chroot / --user 99999 --group 99999 -- /bin/true < /tmp, 255)
+	$(call run_test, ./nsjail -q -Mo --chroot / --user 99999 --group 99999 --pass_fd 0 -- /bin/true < /tmp, 0)
 	$(call run_test, ./nsjail --config tests/seccomp.cfg -q -t 2 -- /bin/bash -c 'strace -o /dev/null /bin/true || exit 77', 77)
 	$(call run_test, ./nsjail --config tests/basic.cfg -q -t 2 -- /bin/bash -c 'strace -o /dev/null /bin/true && exit 77', 77)
 	$(call run_test, ./nsjail --config tests/pasta-nat.cfg -q -t 3 -- /bin/bash -c 'sleep 0.2; ping -W 1 -c 1 8.8.8.8 && exit 77', 77)

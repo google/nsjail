@@ -95,6 +95,7 @@ struct nsj_t {
 	std::vector<idmap_t> uids;
 	std::vector<idmap_t> gids;
 	std::vector<int> openfds;
+	std::vector<int> passfds;
 
 	std::vector<pipemap_t> pipes;
 	int exit_status;
