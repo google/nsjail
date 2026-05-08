@@ -84,7 +84,16 @@ static void threadMain() {
 				if (errno == ENOENT) {
 					break;
 				}
-				PLOG_E("SECCOMP_IOCTL_NOTIF_SEND failed");
+				/*
+				 * ENOENT means the thread has moved on (killed or interrupted).
+				 * EINPROGRESS indicates either misuse by sending again after
+				 * a successful send (which we're not doing) but we also see it
+				 * when a process is exiting, perhaps related to thread shutdown.
+				 * No need to print for these cases.
+				 */
+				if (errno != ENOENT && errno != EINPROGRESS) {
+					PLOG_E("SECCOMP_IOCTL_NOTIF_SEND failed");
+				}
 				break;
 			}
 		}
