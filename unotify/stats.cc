@@ -170,7 +170,10 @@ void printStats(nsj_t* nsj) {
 	}
 
 	std::string text_report;
-	google::protobuf::TextFormat::PrintToString(report_pb, &text_report);
+	if (!google::protobuf::TextFormat::PrintToString(report_pb, &text_report)) {
+		LOG_W("Failed to format unotify report");
+		return;
+	}
 
 	LOG_I("unotify report:\n%s", text_report.c_str());
 
