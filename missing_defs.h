@@ -491,6 +491,12 @@ struct mount_attr {
 #define PR_CAP_AMBIENT_CLEAR_ALL 4
 #endif /* !defined(PR_CAP_AMBIENT) */
 
+#if !defined(PR_SCHED_CORE)
+#define PR_SCHED_CORE 62
+#define PR_SCHED_CORE_CREATE 1
+#define PR_SCHED_CORE_SCOPE_THREAD_GROUP 1
+#endif /* !defined(PR_SCHED_CORE) */
+
 /* =========================================================================
  * SECCOMP_FILTER_FLAG_* flags
  * ========================================================================= */

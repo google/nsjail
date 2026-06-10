@@ -98,6 +98,7 @@ docker run --privileged --rm -it nsjail nsjail --user 99999 --group 99999 --chro
 --seccomp_string POLICY   Inline seccomp policy
 --cap CAP_NAME            Retain capability (can specify multiple)
 --keep_caps               Retain all capabilities
+--use_core_scheduling     Enable core scheduling (SMT-level isolation, requires kernel >= 5.14)
 
 # Networking
 --iface_own IFACE         Move interface into jail
