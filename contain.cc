@@ -46,6 +46,7 @@
 #include "cpu.h"
 #include "logs.h"
 #include "macros.h"
+#include "missing_defs.h"
 #include "mnt.h"
 #include "net.h"
 #include "pid.h"
@@ -135,6 +136,19 @@ static bool containInitMountNs(nsj_t* nsj) {
 
 static bool containCPU(nsj_t* nsj) {
 	return cpu::initCpu(nsj);
+}
+
+static bool containCoreSched(nsj_t* nsj) {
+	if (!nsj->njc.use_core_scheduling()) {
+		return true;
+	}
+	if (prctl(PR_SCHED_CORE, PR_SCHED_CORE_CREATE, 0, PR_SCHED_CORE_SCOPE_THREAD_GROUP, 0) ==
+	    -1) {
+		PLOG_E("prctl(PR_SCHED_CORE_CREATE) failed");
+		return false;
+	}
+	LOG_D("Core scheduling enabled for this jail");
+	return true;
 }
 
 static bool containTSC(nsj_t* nsj) {
@@ -377,6 +391,7 @@ bool containProc(nsj_t* nsj) {
 	/* */
 	/* As non-root */
 	RETURN_ON_FAILURE(containCPU(nsj));
+	RETURN_ON_FAILURE(containCoreSched(nsj));
 	RETURN_ON_FAILURE(containTSC(nsj));
 	RETURN_ON_FAILURE(containSetLimits(nsj));
 	RETURN_ON_FAILURE(containPrepareEnv(nsj));

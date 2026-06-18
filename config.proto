@@ -224,6 +224,8 @@ message NsJailConfig {
 	optional bool seccomp_unotify = 99 [default = false];
 	/* File to write the seccomp_unotify report to */
 	optional string seccomp_unotify_report = 100;
+	/* Use Linux core scheduling (PR_SCHED_CORE, requires kernel >= 5.14) */
+	optional bool use_core_scheduling = 101 [default = false];
 
 	/* If > 0, maximum cumulative size of RAM used inside any jail */
 	optional uint64 cgroup_mem_max = 71 [default = 0]; /* In bytes */

@@ -174,6 +174,7 @@ static const struct custom_option custom_opts[] = {
     { { "macvlan_vs_mo", required_argument, nullptr, 0x706 }, "Mode of the 'vs' interface. Can be either 'private', 'vepa', 'bridge' or 'passthru' (default: 'private')" },
     { { "disable_tsc", no_argument, nullptr, 0x707 }, "Disable rdtsc and rdtscp instructions. WARNING: To make it effective, you also need to forbid `prctl(PR_SET_TSC, PR_TSC_ENABLE, ...)` in seccomp rules! (x86 and x86_64 only). Dynamic binaries produced by GCC seem to rely on RDTSC, but static ones should work." },
     { { "forward_signals", no_argument, nullptr, 0x708 }, "Forward fatal signals to the child process instead of always using SIGKILL." },
+    { { "use_core_scheduling", no_argument, nullptr, 0x709 }, "Enable Linux core scheduling (PR_SCHED_CORE, requires kernel >= 5.14)" },
     { { "user_net", no_argument, nullptr, 0x70A }, "Enable user-mode networking (nstun backend)" },
     { { "oom_score_adj", required_argument, nullptr, 0x800 }, "OOM score adjustment for the sandbox (-1000 to 1000) (default: not set)" },
 };
@@ -292,7 +293,7 @@ void logParams(nsj_t* nsj) {
 	      "max_conns:%u, max_conns_per_ip:%u, time_limit:%u, daemonize:%s, clone_newnet:%s, "
 	      "clone_newuser:%s, clone_newns:%s, clone_newpid:%s, clone_newipc:%s, "
 	      "clone_newuts:%s, cgroupv2:%s, keep_caps:%s, "
-	      "disable_no_new_privs:%s, max_cpus:%u",
+	      "disable_no_new_privs:%s, max_cpus:%u, use_core_scheduling:%s",
 	    nsj->njc.hostname().c_str(), QC(nsj->chroot),
 	    nsj->njc.exec_bin().path().empty() ? nsj->argv[0].c_str()
 					       : nsj->njc.exec_bin().path().c_str(),
@@ -302,7 +303,8 @@ void logParams(nsj_t* nsj) {
 	    logYesNo(nsj->njc.clone_newns()), logYesNo(nsj->njc.clone_newpid()),
 	    logYesNo(nsj->njc.clone_newipc()), logYesNo(nsj->njc.clone_newuts()),
 	    logYesNo(nsj->njc.use_cgroupv2()), logYesNo(nsj->njc.keep_caps()),
-	    logYesNo(nsj->njc.disable_no_new_privs()), nsj->njc.max_cpus());
+	    logYesNo(nsj->njc.disable_no_new_privs()), nsj->njc.max_cpus(),
+	    logYesNo(nsj->njc.use_core_scheduling()));
 
 	for (const auto& p : nsj->njc.mount()) {
 		LOG_I("%s: %s", p.is_symlink() ? "Symlink" : "Mount",
@@ -914,6 +916,9 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 			break;
 		case 0x708:
 			nsj->njc.set_forward_signals(true);
+			break;
+		case 0x709:
+			nsj->njc.set_use_core_scheduling(true);
 			break;
 		case 0x801:
 			nsj->njc.set_cgroup_mem_max((size_t)strtoull(optarg, NULL, 0));
