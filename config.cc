@@ -103,6 +103,7 @@ static bool parseInternal(nsj_t* nsj, const nsjail::NsJailConfig& njc) {
 	}
 	for (ssize_t i = 0; i < njc.pass_fd_size(); i++) {
 		nsj->openfds.push_back(njc.pass_fd(i));
+		nsj->passfds.push_back(njc.pass_fd(i));
 	}
 	for (ssize_t i = 0; i < njc.uidmap_size(); i++) {
 		if (!user::parseId(nsj, njc.uidmap(i).inside_id(), njc.uidmap(i).outside_id(),

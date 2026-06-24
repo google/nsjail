@@ -104,7 +104,7 @@ static const struct custom_option custom_opts[] = {
     { { "silent", no_argument, nullptr, 0x0502 }, "Redirect child process' fd:0/1/2 to /dev/null" },
     { { "stderr_to_null", no_argument, nullptr, 0x0503 }, "Redirect child process' fd:2 (STDERR_FILENO) to /dev/null" },
     { { "skip_setsid", no_argument, nullptr, 0x0504 }, "Don't call setsid(), allows for terminal signal handling in the sandboxed process. Dangerous" },
-    { { "pass_fd", required_argument, nullptr, 0x0505 }, "Don't close this FD before executing the child process (can be specified multiple times), by default: 0/1/2 are kept open" },
+    { { "pass_fd", required_argument, nullptr, 0x0505 }, "Don't close this FD before executing the child process (can be specified multiple times), by default: 0/1/2 are kept open, but directory stdio fds are rejected unless explicitly passed" },
     { { "disable_no_new_privs", no_argument, nullptr, 0x0507 }, "Don't set the prctl(NO_NEW_PRIVS, 1) (DANGEROUS)" },
     { { "rlimit_as", required_argument, nullptr, 0x0201 }, "RLIMIT_AS in MB, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 4096)" },
     { { "rlimit_core", required_argument, nullptr, 0x0202 }, "RLIMIT_CORE in MB, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM64_INFINITY (default: 0)" },
@@ -688,8 +688,11 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 		case 0x0504:
 			nsj->njc.set_skip_setsid(true);
 			break;
-		case 0x0505:
-			nsj->openfds.push_back((int)strtol(optarg, NULL, 0));
+		case 0x0505: {
+			int fd = (int)strtol(optarg, NULL, 0);
+			nsj->openfds.push_back(fd);
+			nsj->passfds.push_back(fd);
+		}
 			break;
 		case 0x0507:
 			nsj->njc.set_disable_no_new_privs(true);
