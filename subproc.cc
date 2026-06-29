@@ -51,6 +51,7 @@
 #include "macros.h"
 #include "net.h"
 #include "nstun/nstun.h"
+#include "pid.h"
 #include "sandbox.h"
 #include "unotify/unotify.h"
 #include "user.h"
@@ -534,6 +535,18 @@ pid_t runChild(nsj_t* nsj, int netfd, int fd_in, int fd_out, int fd_err) {
 
 	LOG_D("Creating new process with clone flags:%s and exit_signal:SIGCHLD",
 	    cloneFlagsToStr(flags).c_str());
+
+	if (nsj->njc.init() && nsj->njc.mode() == nsjail::Mode::ONCE) {
+		LOG_D("unshare(flags: %s)", cloneFlagsToStr(flags).c_str());
+		if (unshare(flags) == -1) {
+			PLOG_F("unshare(%s)", cloneFlagsToStr(flags).c_str());
+		}
+		if (!pid::newInitProc()) {
+			return -1;
+		}
+		// Clear clone flags as they have already been applied by unshare()
+		flags = 0;
+	}
 
 	int sv[2];
 	if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, sv) == -1) {
