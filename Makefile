@@ -156,6 +156,12 @@ test: $(BIN)
 	$(call run_test, ./nsjail --config tests/basic.cfg -q -t 2 -- /bin/bash -c 'strace -o /dev/null /bin/true && exit 77', 77)
 	$(call run_test, ./nsjail --config tests/pasta-nat.cfg -q -t 3 -- /bin/bash -c 'sleep 0.2; ping -W 1 -c 1 8.8.8.8 && exit 77', 77)
 	$(call run_test, ./nsjail --config tests/pasta-port-mappings.cfg -q -t 3 -- /bin/bash -c 'sleep 0.2; { netstat -tan | grep LISTEN; } && exit 77', 77)
+	rm -f /tmp/nsjail_pasta_env_test /tmp/nsjail_fake_pasta
+	printf '#!/bin/sh\necho env-path-executed > /tmp/nsjail_pasta_env_test\nexit 0\n' > /tmp/nsjail_fake_pasta
+	chmod +x /tmp/nsjail_fake_pasta
+	NSJAIL_PASTA_PATH=/tmp/nsjail_fake_pasta ./nsjail --config tests/pasta-nat.cfg -q -t 1 -- /bin/true >/dev/null 2>&1 || true
+	test ! -e /tmp/nsjail_pasta_env_test
+	rm -f /tmp/nsjail_pasta_env_test /tmp/nsjail_fake_pasta
 
 ifeq ($(NL3_EXISTS), yes)
 	# --- Traffic rules tests ---

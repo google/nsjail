@@ -67,6 +67,16 @@
 #define F_SEAL_FUTURE_WRITE 0x0010
 #endif /* !defined(F_SEAL_FUTURE_WRITE) */
 
+static char* const kPastaEnv[] = {const_cast<char*>("PATH=/usr/sbin:/usr/bin:/sbin:/bin"), nullptr};
+
+static const char* const kPastaPaths[] = {
+	"/usr/bin/pasta",
+	"/usr/local/bin/pasta",
+	"/bin/pasta",
+	"/sbin/pasta",
+	nullptr,
+};
+
 /* Embed pasta inside this binary */
 // clang-format off
 __asm__("\n"
@@ -121,7 +131,24 @@ static int getPastaFd() {
 	return fd;
 }
 
-extern char** environ;
+static int openPastaFd() {
+	int fd = getPastaFd();
+	if (fd != -1) {
+		return fd;
+	}
+
+	for (const char* const* path = kPastaPaths; *path != nullptr; path++) {
+		fd = open(*path, O_PATH | O_CLOEXEC);
+		if (fd != -1) {
+			return fd;
+		}
+		if (errno != ENOENT && errno != ENOTDIR) {
+			PLOG_D("open('%s', O_PATH | O_CLOEXEC)", *path);
+		}
+	}
+
+	return -1;
+}
 
 namespace net {
 
@@ -353,11 +380,7 @@ static void pastaProcess(nsj_t* nsj, int pid, int err_pipe) {
 		close(nullfd);
 	}
 
-	int pasta_fd = getPastaFd();
-	const char* pasta_path = getenv("NSJAIL_PASTA_PATH");
-	if (pasta_path == NULL) {
-		pasta_path = argv[0];
-	}
+	int pasta_fd = openPastaFd();
 
 	util::makeRangeCOE(STDERR_FILENO + 1, ~0U);
 
@@ -365,14 +388,13 @@ static void pastaProcess(nsj_t* nsj, int pid, int err_pipe) {
 	int err = 0;
 	if (pasta_fd != -1) {
 		util::syscall(__NR_execveat, pasta_fd, (uintptr_t)"", (uintptr_t)argv.data(),
-		    (uintptr_t)environ, AT_EMPTY_PATH);
+		    (uintptr_t)kPastaEnv, AT_EMPTY_PATH);
 		err = errno;
 		PLOG_W("execveat(pasta_fd=%d, AT_EMPTY_PATH)", pasta_fd);
 
 	} else {
-		execvpe(pasta_path, (char* const*)argv.data(), environ);
-		err = errno;
-		PLOG_W("execvpe('%s')", pasta_path);
+		err = ENOENT;
+		LOG_W("Cannot find pasta binary in trusted system paths");
 	}
 
 	util::writeToFd(err_pipe, &err, sizeof(err));
