@@ -108,6 +108,20 @@ const std::string flagsToStr(unsigned long flags) {
 	return res;
 }
 
+bool isMountDestSafe(const std::string& dst) {
+	if (dst.find('\0') != std::string::npos) {
+		LOG_W("Mount destination contains a NUL byte: %s", QC(dst));
+		return false;
+	}
+	for (const auto& component : util::strSplit(dst, '/')) {
+		if (component == "..") {
+			LOG_W("Mount destination escapes the jail root: %s", QC(dst));
+			return false;
+		}
+	}
+	return true;
+}
+
 const std::string describeMountPt(const nsjail::MountPt& mpt) {
 	std::string descr;
 

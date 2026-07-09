@@ -411,6 +411,10 @@ static bool doBindMountAt(mount_t* mpt, int root_fd, const char* rel_dst) {
 static bool mountSinglePointAt(mount_t* mpt, int root_fd) {
 	LOG_D("Mounting (new API): %s", mnt::describeMountPt(*mpt->mpt).c_str());
 
+	if (!mnt::isMountDestSafe(mpt->dst)) {
+		return false;
+	}
+
 	const char* rel_dst = util::stripLeadingSlashes(mpt->dst.c_str());
 	if (!rel_dst[0]) {
 		rel_dst = ".";
