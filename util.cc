@@ -327,12 +327,19 @@ const std::string StrQuote(const std::string& str) {
 }
 
 bool isANumber(const char* s) {
-	for (; *s; s++) {
-		if (!isdigit(*s) && *s != 'x') {
+	if (s == nullptr || *s == '\0' || *s == '+' || *s == '-') {
+		return false;
+	}
+	for (const char* p = s; *p; p++) {
+		if (isspace((unsigned char)*p)) {
 			return false;
 		}
 	}
-	return true;
+
+	errno = 0;
+	char* end = nullptr;
+	(void)strtoumax(s, &end, 0);
+	return errno == 0 && end != s && *end == '\0';
 }
 
 bool StrEq(const std::string_view& s1, const std::string_view& s2) {
