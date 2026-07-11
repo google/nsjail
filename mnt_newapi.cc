@@ -556,6 +556,11 @@ bool remountPt(mnt::mount_t& mpt) {
 	close(mpt.fd);
 	mpt.fd = -1;
 
+	if ((mpt.flags & MS_RDONLY) && (mpt.flags & MS_BIND) && (mpt.flags & MS_REC) &&
+	    mpt.is_dir && !mnt::remountRecursiveReadOnly(mpt)) {
+		return false;
+	}
+
 	if (!remountWithLegacyMount(mpt)) {
 		LOG_W("Failed to apply final flags to '%s'", mpt.dst.c_str());
 		return false;

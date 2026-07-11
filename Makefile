@@ -198,6 +198,8 @@ endif
 	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --chroot / -m none:/tmp:tmpfs:rw --user 99999 --group 99999 -- /bin/bash -c 'touch /tmp/nsjail_test && rm -f /tmp/nsjail_test', 0)
 	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --chroot / -m none:/tmp:tmpfs:ro --user 99999 --group 99999 -- /bin/bash -c 'touch /tmp/nsjail_test || exit 77', 77)
 	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --chroot / -R /tmp --user 99999 --group 99999 -- /bin/bash -c 'touch /tmp/nsjail_test || exit 77', 77)
+	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --rw --chroot / -R /dev --user 99999 --group 99999 -- /bin/bash -c 'if touch /dev/shm/nsjail_nested_test; then rm -f /dev/shm/nsjail_nested_test; exit 77; fi', 0)
+	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --rw --chroot / -R /dev -B /dev/shm --user 99999 --group 99999 -- /bin/bash -c 'touch /dev/shm/nsjail_child_override && rm -f /dev/shm/nsjail_child_override', 0)
 	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --chroot / -B /tmp --user 99999 --group 99999 -- /bin/bash -c 'touch /tmp/nsjail_test && rm -f /tmp/nsjail_test', 0)
 	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --chroot / --user 99999 --group 99999 -- /bin/bash -c 'touch /run/user/$(UID)/nsjail_test2 && exit 77', 77) # --rw (or lack of thereof) doesn't change already mounted tmpfs
 	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --chroot / --user 99999 --group 99999 --rw -- /bin/bash -c 'touch /run/user/$(UID)/nsjail_test2 && exit 77', 77) # --rw (or lack of thereof) doesn't affect already mounted tmpfs
@@ -219,6 +221,8 @@ endif
 	$(call run_test, ./nsjail $(NEW_EF) -q -Mo --chroot / -m none:/tmp:tmpfs:rw --user 99999 --group 99999 -- /bin/bash -c 'touch /tmp/nsjail_test && rm -f /tmp/nsjail_test', 0)
 	$(call run_test, ./nsjail $(NEW_EF) -q -Mo --chroot / -m none:/tmp:tmpfs:ro --user 99999 --group 99999 -- /bin/bash -c 'touch /tmp/nsjail_test || exit 77', 77)
 	$(call run_test, ./nsjail $(NEW_EF) -q -Mo --chroot / -R /tmp --user 99999 --group 99999 -- /bin/bash -c 'touch /tmp/nsjail_test || exit 77', 77)
+	$(call run_test, ./nsjail $(NEW_EF) -q -Mo --rw --chroot / -R /dev --user 99999 --group 99999 -- /bin/bash -c 'if touch /dev/shm/nsjail_nested_test; then rm -f /dev/shm/nsjail_nested_test; exit 77; fi', 0)
+	$(call run_test, ./nsjail $(NEW_EF) -q -Mo --rw --chroot / -R /dev -B /dev/shm --user 99999 --group 99999 -- /bin/bash -c 'touch /dev/shm/nsjail_child_override && rm -f /dev/shm/nsjail_child_override', 0)
 	$(call run_test, ./nsjail $(NEW_EF) -q -Mo --chroot / -B /tmp --user 99999 --group 99999 -- /bin/bash -c 'touch /tmp/nsjail_test && rm -f /tmp/nsjail_test', 0)
 	$(call run_test, ./nsjail $(NEW_EF) -q -Mo --chroot / --user 99999 --group 99999 -- /bin/bash -c 'touch /run/user/$(UID)/nsjail_test2 || exit 77', 77)
 	$(call run_test, ./nsjail $(NEW_EF) -q -Mo --chroot / --user 99999 --group 99999 --rw -- /bin/bash -c 'touch /run/user/$(UID)/nsjail_test2 && exit 77', 77)

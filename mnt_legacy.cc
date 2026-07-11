@@ -267,6 +267,10 @@ bool remountPt(mnt::mount_t& mpt) {
 	if (!mpt.mounted || mpt.mpt->is_symlink()) {
 		return true;
 	}
+	if ((mpt.flags & MS_RDONLY) && (mpt.flags & MS_BIND) && (mpt.flags & MS_REC) &&
+	    mpt.is_dir && !mnt::remountRecursiveReadOnly(mpt)) {
+		return false;
+	}
 
 	struct statvfs vfs;
 	if (TEMP_FAILURE_RETRY(statvfs(mpt.dst.c_str(), &vfs)) == -1) {

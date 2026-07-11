@@ -26,6 +26,7 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <limits.h>
+#include <linux/mount.h>
 #include <linux/sched.h>
 #include <sched.h>
 #include <signal.h>
@@ -106,6 +107,26 @@ const std::string flagsToStr(unsigned long flags) {
 	}
 
 	return res;
+}
+
+bool remountRecursiveReadOnly(const mount_t& mpt) {
+#if defined(__NR_mount_setattr) && defined(MOUNT_ATTR_RDONLY) && defined(AT_RECURSIVE)
+	struct mount_attr attr = {};
+	attr.attr_set = MOUNT_ATTR_RDONLY;
+
+	LOG_D("Remounting '%s' recursively read-only", mpt.dst.c_str());
+	if (util::syscall(__NR_mount_setattr, (uintptr_t)AT_FDCWD,
+		(uintptr_t)mpt.dst.c_str(), (uintptr_t)AT_RECURSIVE, (uintptr_t)&attr,
+		sizeof(attr)) < 0) {
+		PLOG_W("mount_setattr('%s', AT_RECURSIVE, flags=0x%" PRIx64 ")",
+		    mpt.dst.c_str(), (uint64_t)attr.attr_set);
+		return false;
+	}
+	return true;
+#else
+	LOG_W("Recursive read-only bind mounts require mount_setattr(2) support");
+	return false;
+#endif
 }
 
 const std::string describeMountPt(const nsjail::MountPt& mpt) {
@@ -327,7 +348,7 @@ static bool initCloneNs(nsj_t* nsj) {
 		} else {
 			success = legacy::remountPt(mpt);
 		}
-		if (!success && mpt.mpt->mandatory()) {
+		if (!success) {
 			return false;
 		}
 	}

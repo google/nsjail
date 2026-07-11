@@ -74,6 +74,7 @@ bool initNs(nsj_t* nsj);
 std::unique_ptr<std::string> findWorkDir(nsj_t* nsj, const char* purpose);
 const std::string describeMountPt(const nsjail::MountPt& mpt);
 const std::string flagsToStr(unsigned long flags);
+bool remountRecursiveReadOnly(const mount_t& mpt);
 
 }  // namespace mnt
 
