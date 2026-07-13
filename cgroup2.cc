@@ -211,7 +211,7 @@ static bool initNsFromParentMem(nsj_t* nsj, pid_t pid) {
 		swap_max = nsj->njc.cgroup_mem_memsw_max() - nsj->njc.cgroup_mem_max();
 	}
 
-	if (nsj->njc.cgroup_mem_max() == (size_t)0 && swap_max < (ssize_t)0) {
+	if (!needMemoryController(nsj)) {
 		return true;
 	}
 
@@ -268,8 +268,7 @@ bool initNsFromParent(nsj_t* nsj, pid_t pid) {
 }
 
 void finishFromParent(nsj_t* nsj, pid_t pid) {
-	if (nsj->njc.cgroup_mem_max() != (size_t)0 || nsj->njc.cgroup_pids_max() != 0U ||
-	    nsj->njc.cgroup_cpu_ms_per_sec() != 0U) {
+	if (needMemoryController(nsj) || needPidsController(nsj) || needCpuController(nsj)) {
 		removeCgroup(getCgroupPath(nsj, pid));
 	}
 }
