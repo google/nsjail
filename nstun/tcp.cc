@@ -227,6 +227,15 @@ static inline void tcp_send_packet(
 	}
 }
 
+/* RFC 793 SYN-SENT processing: an unacceptable ACK elicits a reset whose
+ * sequence number is copied from SEG.ACK. The pending flow remains alive. */
+static void tcp_send_reset_for_unacceptable_ack(Context* ctx, TcpFlow* flow, uint32_t ack) {
+	uint32_t saved_seq = flow->seq_to_guest;
+	flow->seq_to_guest = ack;
+	tcp_send_packet(ctx, flow, NSTUN_TCP_FLAG_RST);
+	flow->seq_to_guest = saved_seq;
+}
+
 static void tcp_rst_and_destroy(Context* ctx, TcpFlow* flow) {
 	tcp_send_packet(ctx, flow, NSTUN_TCP_FLAG_RST | NSTUN_TCP_FLAG_ACK);
 	tcp_destroy_flow(ctx, flow);
@@ -246,9 +255,9 @@ void tcp_destroy_flow(Context* ctx, TcpFlow* flow) {
 	}
 }
 
-void push_to_guest(Context* ctx, TcpFlow* flow) {
+bool push_to_guest(Context* ctx, TcpFlow* flow) {
 	if (flow->state != TcpState::ESTABLISHED && flow->state != TcpState::CLOSE_WAIT) {
-		return;
+		return false;
 	}
 
 	/* Max TCP payload per TUN frame: MTU minus IP and TCP headers */
@@ -256,14 +265,23 @@ void push_to_guest(Context* ctx, TcpFlow* flow) {
 	    NSTUN_MTU - (flow->is_ipv6 ? sizeof(ip6_hdr) : sizeof(ip4_hdr)) - sizeof(tcp_hdr);
 
 	for (;;) {
-		int32_t in_flight = flow->seq_to_guest - flow->ack_from_guest;
-		int32_t available = flow->tx_buffer.size() - flow->tx_acked_offset;
-
-		if (in_flight < 0) {
-			/* Guest acked future data? Reset flight */
-			flow->seq_to_guest = flow->ack_from_guest;
-			in_flight = 0;
+		if (flow->tx_acked_offset > flow->tx_buffer.size()) {
+			LOG_E("Invalid TCP transmit-buffer offset (%zu > %zu)",
+			    flow->tx_acked_offset, flow->tx_buffer.size());
+			tcp_rst_and_destroy(ctx, flow);
+			return true;
 		}
+
+		if (tcp_seq_before(flow->seq_to_guest, flow->ack_from_guest)) {
+			LOG_E("Invalid TCP send window: SND.NXT is before SND.UNA");
+			tcp_rst_and_destroy(ctx, flow);
+			return true;
+		}
+
+		size_t in_flight =
+		    static_cast<uint32_t>(flow->seq_to_guest - flow->ack_from_guest);
+		size_t available = flow->tx_buffer.size() - flow->tx_acked_offset;
+
 		if (in_flight >= available) {
 			if (flow->host_eof && available == 0) {
 				if (!flow->fin_sent) {
@@ -274,7 +292,7 @@ void push_to_guest(Context* ctx, TcpFlow* flow) {
 					flow->fin_sent = true;
 				}
 			}
-			return; /* Everything is in flight */
+			return false; /* Everything is in flight */
 		}
 
 		size_t to_send = available - in_flight;
@@ -282,7 +300,7 @@ void push_to_guest(Context* ctx, TcpFlow* flow) {
 
 		const uint8_t* data = flow->tx_buffer.data() + flow->tx_acked_offset + in_flight;
 		uint8_t flags = NSTUN_TCP_FLAG_ACK;
-		if (to_send >= (size_t)(available - in_flight)) {
+		if (to_send >= available - in_flight) {
 			flags |= NSTUN_TCP_FLAG_PSH;
 		}
 
@@ -487,7 +505,9 @@ static void handle_http_connect_wait_host(Context* ctx, TcpFlow* flow, int fd) {
 	flow->seq_to_guest++;
 
 	if (!flow->tx_buffer.empty()) {
-		push_to_guest(ctx, flow);
+		if (push_to_guest(ctx, flow)) {
+			return;
+		}
 	}
 }
 
@@ -514,7 +534,9 @@ static void handle_data_transfer_host(Context* ctx, TcpFlow* flow, int fd) {
 	}
 
 	if (flow->state != TcpState::SYN_SENT) {
-		push_to_guest(ctx, flow);
+		if (push_to_guest(ctx, flow)) {
+			return;
+		}
 	}
 
 	if (flow->tx_buffer.size() - flow->tx_acked_offset > TCP_TX_BUFFER_BACKPRESSURE) {
@@ -563,27 +585,53 @@ static void tcp_process_data(Context* ctx, TcpFlow* flow, const tcp_hdr* tcp,
 	uint32_t seq = ntohl(tcp->seq);
 	uint32_t ack = ntohl(tcp->ack_seq);
 
-	if (flow->inbound && flow->state == TcpState::SYN_SENT &&
-	    (tcp->flags & NSTUN_TCP_FLAG_SYN) && (tcp->flags & NSTUN_TCP_FLAG_ACK)) {
-		flow->state = TcpState::ESTABLISHED;
-		flow->ack_from_guest = ack;
-		flow->seq_from_guest = seq + 1;
-		flow->ack_to_guest = flow->seq_from_guest;
-		flow->syn_acked = true;
-
-		tcp_send_packet(ctx, flow, NSTUN_TCP_FLAG_ACK);
-
-		if (!flow->tx_buffer.empty()) {
-			push_to_guest(ctx, flow);
+	if (flow->state == TcpState::SYN_SENT) {
+		if (tcp->flags & NSTUN_TCP_FLAG_ACK) {
+			TcpAckDisposition disposition =
+			    tcp_classify_ack(flow->ack_from_guest, flow->seq_to_guest, ack);
+			if (disposition != TcpAckDisposition::ADVANCING) {
+				LOG_D("Dropping unacceptable ACK in SYN-SENT");
+				if (!(tcp->flags & NSTUN_TCP_FLAG_RST)) {
+					tcp_send_reset_for_unacceptable_ack(ctx, flow, ack);
+				}
+				return;
+			}
 		}
 
-		if (flow->epoll_in_disabled) {
-			struct epoll_event ev = {
-			    .events = EPOLLIN | EPOLLERR | EPOLLHUP |
-				      (flow->epoll_out_registered ? (uint32_t)EPOLLOUT : 0),
-			    .data = {.fd = flow->host_fd}};
-			epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, flow->host_fd, &ev);
-			flow->epoll_in_disabled = false;
+		if (tcp->flags & NSTUN_TCP_FLAG_RST) {
+			LOG_D("Received acceptable RST in SYN-SENT");
+			tcp_destroy_flow(ctx, flow);
+			return;
+		}
+
+		if (flow->inbound && (tcp->flags & NSTUN_TCP_FLAG_SYN) &&
+		    (tcp->flags & NSTUN_TCP_FLAG_ACK)) {
+			if (tcp_apply_ack(flow, ack) != TcpAckUpdate::ADVANCED) {
+				LOG_W("Failed to apply acceptable SYN-SENT ACK");
+				tcp_rst_and_destroy(ctx, flow);
+				return;
+			}
+
+			flow->state = TcpState::ESTABLISHED;
+			flow->seq_from_guest = seq + 1;
+			flow->ack_to_guest = flow->seq_from_guest;
+
+			tcp_send_packet(ctx, flow, NSTUN_TCP_FLAG_ACK);
+
+			if (!flow->tx_buffer.empty()) {
+				if (push_to_guest(ctx, flow)) {
+					return;
+				}
+			}
+
+			if (flow->epoll_in_disabled) {
+				struct epoll_event ev = {
+				    .events = EPOLLIN | EPOLLERR | EPOLLHUP |
+					      (flow->epoll_out_registered ? (uint32_t)EPOLLOUT : 0),
+				    .data = {.fd = flow->host_fd}};
+				epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, flow->host_fd, &ev);
+				flow->epoll_in_disabled = false;
+			}
 		}
 		return;
 	}
@@ -595,14 +643,58 @@ static void tcp_process_data(Context* ctx, TcpFlow* flow, const tcp_hdr* tcp,
 	}
 
 	if (flow->state == TcpState::ESTABLISHED || flow->state == TcpState::FIN_WAIT_1 ||
-	    flow->state == TcpState::FIN_WAIT_2 || flow->state == TcpState::SYN_SENT ||
-	    flow->state == TcpState::CLOSE_WAIT) {
+	    flow->state == TcpState::FIN_WAIT_2 || flow->state == TcpState::CLOSE_WAIT) {
 		const uint8_t* data = payload.data() + doff;
 		size_t data_len = payload.size() - doff;
 
 		/* Defense-in-depth: cap to MTU to prevent int32_t overflow in seq arithmetic */
 		if (data_len > NSTUN_MTU) {
 			return;
+		}
+
+		/* RFC 793 checks SEG.ACK before processing segment text. */
+		if (!(tcp->flags & NSTUN_TCP_FLAG_ACK)) {
+			return;
+		}
+
+		bool duplicate_ack = ack == flow->ack_from_guest;
+		TcpAckUpdate ack_update = tcp_apply_ack(flow, ack);
+		if (!tcp_ack_allows_payload(ack_update)) {
+			if (ack_update == TcpAckUpdate::FUTURE) {
+				LOG_D("Dropping TCP segment with ACK beyond SND.NXT");
+				tcp_send_packet(ctx, flow, NSTUN_TCP_FLAG_ACK);
+			} else {
+				LOG_W("TCP ACK exceeds buffered data");
+				tcp_rst_and_destroy(ctx, flow);
+			}
+			return;
+		}
+		if (ack_update == TcpAckUpdate::ADVANCED) {
+			if (flow->epoll_in_disabled && !flow->host_eof &&
+			    (flow->tx_buffer.size() - flow->tx_acked_offset <
+				TCP_TX_BUFFER_RESUME)) {
+				struct epoll_event ev = {
+				    .events = EPOLLIN | EPOLLERR | EPOLLHUP |
+					      (flow->epoll_out_registered ? (uint32_t)EPOLLOUT : 0),
+				    .data = {.fd = flow->host_fd}};
+				epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, flow->host_fd, &ev);
+				flow->epoll_in_disabled = false;
+			}
+			if (push_to_guest(ctx, flow)) {
+				return;
+			}
+		} else if (duplicate_ack && data_len == 0 &&
+			   !(tcp->flags & (NSTUN_TCP_FLAG_FIN | NSTUN_TCP_FLAG_SYN |
+					      NSTUN_TCP_FLAG_RST))) {
+			/* Duplicate ACK -> Fast Retransmit */
+			flow->seq_to_guest = flow->ack_from_guest;
+			if (push_to_guest(ctx, flow)) {
+				return;
+			}
+		}
+
+		if (flow->state == TcpState::FIN_WAIT_1 && ack == flow->seq_to_guest) {
+			flow->state = TcpState::FIN_WAIT_2;
 		}
 
 		if (data_len > 0) {
@@ -631,82 +723,9 @@ static void tcp_process_data(Context* ctx, TcpFlow* flow, const tcp_hdr* tcp,
 						return; /* Flow was destroyed */
 					}
 				}
-			} else if (diff > 0) {
-				tcp_send_packet(ctx, flow, NSTUN_TCP_FLAG_ACK);
 			} else {
 				tcp_send_packet(ctx, flow, NSTUN_TCP_FLAG_ACK);
 			}
-		}
-
-		/* Process ACKs from guest */
-		if (tcp->flags & NSTUN_TCP_FLAG_ACK) {
-			if (flow->state == TcpState::SYN_SENT) {
-				flow->state = TcpState::ESTABLISHED;
-				flow->ack_from_guest = ack;
-				flow->syn_acked = true;
-			} else {
-				int32_t acked_bytes = ack - flow->ack_from_guest;
-				if (acked_bytes > 0) {
-					flow->ack_from_guest = ack;
-					if (!flow->syn_acked) {
-						flow->syn_acked = true;
-						acked_bytes--;
-					}
-					if (flow->fin_sent && !flow->fin_acked &&
-					    ack == flow->seq_to_guest) {
-						flow->fin_acked = true;
-						acked_bytes--;
-					}
-					/* acked_bytes is now reliably >= 0 after the
-					 * SYN/FIN decrements above */
-					size_t advance =
-					    (acked_bytes > 0) ? (size_t)acked_bytes : 0;
-					flow->tx_acked_offset += advance;
-
-					size_t erase_len = flow->tx_acked_offset;
-					if (erase_len > flow->tx_buffer.size()) {
-						erase_len = flow->tx_buffer.size();
-					}
-
-					if (erase_len > 65536 ||
-					    erase_len == flow->tx_buffer.size()) {
-						flow->tx_buffer.erase(flow->tx_buffer.begin(),
-						    flow->tx_buffer.begin() + erase_len);
-						flow->tx_acked_offset -= erase_len;
-					}
-
-					if (flow->epoll_in_disabled && !flow->host_eof &&
-					    (flow->tx_buffer.size() - flow->tx_acked_offset <
-						TCP_TX_BUFFER_RESUME)) {
-						struct epoll_event ev = {
-						    .events = EPOLLIN | EPOLLERR | EPOLLHUP |
-							      (flow->epoll_out_registered
-								      ? (uint32_t)EPOLLOUT
-								      : 0),
-						    .data = {.fd = flow->host_fd}};
-						epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD,
-						    flow->host_fd, &ev);
-						flow->epoll_in_disabled = false;
-					}
-
-					push_to_guest(ctx, flow);
-				} else if (acked_bytes == 0 && data_len == 0 &&
-					   !(tcp->flags & (NSTUN_TCP_FLAG_FIN | NSTUN_TCP_FLAG_SYN |
-							      NSTUN_TCP_FLAG_RST))) {
-					/* Duplicate ACK -> Fast Retransmit */
-					flow->seq_to_guest = flow->ack_from_guest;
-					push_to_guest(ctx, flow);
-				}
-			}
-
-			if (flow->state == TcpState::FIN_WAIT_1 && ack == flow->seq_to_guest) {
-				flow->state = TcpState::FIN_WAIT_2;
-			}
-		} else if (data_len == 0 &&
-			   !(tcp->flags &
-			       (NSTUN_TCP_FLAG_FIN | NSTUN_TCP_FLAG_SYN | NSTUN_TCP_FLAG_RST))) {
-			flow->seq_to_guest = flow->ack_from_guest;
-			push_to_guest(ctx, flow);
 		}
 
 		if (tcp->flags & NSTUN_TCP_FLAG_FIN) {
@@ -727,7 +746,7 @@ static void tcp_process_data(Context* ctx, TcpFlow* flow, const tcp_hdr* tcp,
 				flow->state = TcpState::TIME_WAIT;
 			}
 
-			push_to_guest(ctx, flow);
+			(void)push_to_guest(ctx, flow);
 			return;
 		}
 	}
@@ -970,7 +989,7 @@ void handle_host_tcp_data_eof(Context* ctx, TcpFlow* flow, int fd) {
 			flow->epoll_in_disabled = true;
 		}
 	}
-	push_to_guest(ctx, flow);
+	(void)push_to_guest(ctx, flow);
 }
 
 void handle_host_tcp(Context* ctx, TcpFlow* flow, uint32_t events) {
@@ -1024,8 +1043,7 @@ void handle_host_tcp(Context* ctx, TcpFlow* flow, uint32_t events) {
 			/* Treat HUP as EOF from host */
 			flow->host_eof = true;
 			flow->epoll_in_disabled = true;
-			push_to_guest(ctx, flow);
-			if (ctx->flows_by_fd.find(fd) == ctx->flows_by_fd.end()) {
+			if (push_to_guest(ctx, flow)) {
 				return;
 			}
 		}
@@ -1311,13 +1329,17 @@ void TcpFlow::handle_host_event(Context* ctx, int fd, uint32_t events) {
 	}
 }
 
-void TcpFlow::periodic_check(Context* ctx, time_t now) {
-	if (this->seq_to_guest > this->ack_from_guest && (now - this->last_active >= 2)) {
+bool TcpFlow::periodic_check(Context* ctx, time_t now) {
+	if (tcp_has_outstanding_sequence(this->ack_from_guest, this->seq_to_guest) &&
+	    (now - this->last_active >= 2)) {
 		LOG_D("TCP RTO triggered for flow (fd=%d)", this->host_fd);
 		this->seq_to_guest = this->ack_from_guest;
-		push_to_guest(ctx, this);
+		if (push_to_guest(ctx, this)) {
+			return true;
+		}
 		this->last_active = now;
 	}
+	return false;
 }
 
 bool TcpFlow::is_stale(time_t now) const {

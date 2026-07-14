@@ -44,10 +44,15 @@ static void garbage_collect(Context* ctx) {
 	time_t now = time(NULL);
 
 	auto do_gc = [&](auto& map) {
+		std::vector<Flow*> active_flows;
 		std::vector<Flow*> stale_flows;
 		for (auto const& pair : map) {
-			Flow* flow = pair.second.get();
-			flow->periodic_check(ctx, now);
+			active_flows.push_back(pair.second.get());
+		}
+		for (Flow* flow : active_flows) {
+			if (flow->periodic_check(ctx, now)) {
+				continue;
+			}
 			if (flow->is_stale(now)) {
 				stale_flows.push_back(flow);
 			}

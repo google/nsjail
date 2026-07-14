@@ -147,8 +147,19 @@ OLD_EF := --experimental_mnt=old
 NEW_EF := --experimental_mnt=new
 UID := $(shell id -u)
 
-.PHONY: test
-test: $(BIN)
+.PHONY: test tcp_state_test tcp_process_test
+tcp_state_test:
+	$(CXX) -std=c++20 -Wall -Wextra -Werror -Wno-unused-parameter \
+		-I. tests/tcp_state_test.cc -o /tmp/nsjail_tcp_state_test
+	/tmp/nsjail_tcp_state_test
+
+tcp_process_test:
+	$(CXX) -std=c++20 -Wall -Wextra -Werror -Wno-unused -Wno-unused-parameter \
+		-Wno-c99-designator -ffunction-sections -fdata-sections -I. \
+		tests/tcp_process_test.cc -Wl,--gc-sections -o /tmp/nsjail_tcp_process_test
+	/tmp/nsjail_tcp_process_test
+
+test: $(BIN) tcp_state_test tcp_process_test
 	# --- Basic sanity tests ---
 	$(call run_test, ./nsjail -q -Mo --chroot / --user 99999 --group 99999 -- /bin/true, 0)
 	$(call run_test, ./nsjail -q -Mo --chroot / --user 99999 --group 99999 -- /bin/false, 1)

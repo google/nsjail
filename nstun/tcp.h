@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "core.h"
+#include "tcp_seq.h"
 
 namespace nstun {
 
@@ -64,17 +65,73 @@ struct TcpFlow : public Flow {
 	}
 
 	void handle_host_event(Context* ctx, int fd, uint32_t events) override;
-	void periodic_check(Context* ctx, time_t now) override;
+	bool periodic_check(Context* ctx, time_t now) override;
 	bool is_stale(time_t now) const override;
 	void destroy(Context* ctx) override;
 };
+
+enum class TcpAckUpdate {
+	OLD_OR_DUPLICATE,
+	ADVANCED,
+	FUTURE,
+	INVALID_BUFFER,
+};
+
+inline bool tcp_ack_allows_payload(TcpAckUpdate update) {
+	return update == TcpAckUpdate::OLD_OR_DUPLICATE || update == TcpAckUpdate::ADVANCED;
+}
+
+/* Apply an acceptable ACK to the send-side state. Future and internally
+ * inconsistent ACKs leave the flow unchanged. */
+template <typename Flow>
+inline TcpAckUpdate tcp_apply_ack(Flow* flow, uint32_t ack) {
+	TcpAckDisposition disposition =
+	    tcp_classify_ack(flow->ack_from_guest, flow->seq_to_guest, ack);
+	if (disposition == TcpAckDisposition::FUTURE) {
+		return TcpAckUpdate::FUTURE;
+	}
+	if (disposition != TcpAckDisposition::ADVANCING) {
+		return TcpAckUpdate::OLD_OR_DUPLICATE;
+	}
+
+	size_t sequence_advance = static_cast<uint32_t>(ack - flow->ack_from_guest);
+	bool acknowledges_syn = !flow->syn_acked;
+	bool acknowledges_fin =
+	    flow->fin_sent && !flow->fin_acked && ack == flow->seq_to_guest;
+	size_t control_advance =
+	    static_cast<size_t>(acknowledges_syn) + static_cast<size_t>(acknowledges_fin);
+	if (sequence_advance < control_advance) {
+		return TcpAckUpdate::INVALID_BUFFER;
+	}
+	size_t data_advance = sequence_advance - control_advance;
+
+	if (flow->tx_acked_offset > flow->tx_buffer.size() ||
+	    data_advance > flow->tx_buffer.size() - flow->tx_acked_offset) {
+		return TcpAckUpdate::INVALID_BUFFER;
+	}
+
+	flow->ack_from_guest = ack;
+	flow->syn_acked = flow->syn_acked || acknowledges_syn;
+	flow->fin_acked = flow->fin_acked || acknowledges_fin;
+	flow->tx_acked_offset += data_advance;
+
+	size_t erase_len = flow->tx_acked_offset;
+	if (erase_len > 65536 || erase_len == flow->tx_buffer.size()) {
+		flow->tx_buffer.erase(
+		    flow->tx_buffer.begin(), flow->tx_buffer.begin() + erase_len);
+		flow->tx_acked_offset -= erase_len;
+	}
+
+	return TcpAckUpdate::ADVANCED;
+}
 
 void tcp_send_packet4(
     Context* ctx, TcpFlow* flow, uint8_t flags, const uint8_t* data = nullptr, size_t len = 0);
 void tcp_send_packet6(
     Context* ctx, TcpFlow* flow, uint8_t flags, const uint8_t* data = nullptr, size_t len = 0);
 void tcp_destroy_flow(Context* ctx, TcpFlow* flow);
-void push_to_guest(Context* ctx, TcpFlow* flow);
+/* Returns true if the flow was destroyed. */
+bool push_to_guest(Context* ctx, TcpFlow* flow);
 
 void handle_tcp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> payload);
 void handle_tcp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> payload);

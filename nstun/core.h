@@ -64,7 +64,10 @@ public:
 
 	virtual ~Flow() = default;
 	virtual void handle_host_event(Context* ctx, int fd, uint32_t events) = 0;
-	virtual void periodic_check(Context* ctx, time_t now) {}
+	/* Returns true if the check destroyed this flow. */
+	virtual bool periodic_check(Context* ctx, time_t now) {
+		return false;
+	}
 	virtual bool is_stale(time_t now) const = 0;
 	virtual void destroy(Context* ctx) = 0;
 };
