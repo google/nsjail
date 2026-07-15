@@ -646,7 +646,14 @@ static void tcp_process_data(Context* ctx, TcpFlow* flow, const tcp_hdr* tcp,
 				flow->syn_acked = true;
 			} else {
 				int32_t acked_bytes = ack - flow->ack_from_guest;
-				if (acked_bytes > 0) {
+				/*
+				 * RFC 793: an acceptable ACK must not acknowledge data
+				 * we never sent (SEG.ACK <= SND.NXT). Without this the
+				 * guest can advance tx_acked_offset past tx_buffer.size(),
+				 * which the framing in push_to_guest() relies on staying
+				 * within bounds.
+				 */
+				if (acked_bytes > 0 && (int32_t)(ack - flow->seq_to_guest) <= 0) {
 					flow->ack_from_guest = ack;
 					if (!flow->syn_acked) {
 						flow->syn_acked = true;
