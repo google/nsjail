@@ -147,8 +147,19 @@ OLD_EF := --experimental_mnt=old
 NEW_EF := --experimental_mnt=new
 UID := $(shell id -u)
 
+.PHONY: test-cmdline
+test-cmdline: $(BIN)
+	# --- Command-line integer parsing ---
+	$(call run_test, ./nsjail --time_limit 1.5 --help > /dev/null, 255)
+	$(call run_test, ./nsjail --time_limit=-1 --help > /dev/null, 255)
+	$(call run_test, ./nsjail --max_cpus 4294967296 --help > /dev/null, 255)
+	$(call run_test, ./nsjail --nice_level=2147483648 --help > /dev/null, 255)
+	$(call run_test, ./nsjail --user 1000:1000:1.5 --help > /dev/null, 255)
+	$(call run_test, ./nsjail --rlimit_cpu 1.5 --help > /dev/null, 255)
+	$(call run_test, ./nsjail --time_limit 0x10 --cgroup_mem_swap_max=-1 --user 1000:1000:1 --help > /dev/null, 0)
+
 .PHONY: test
-test: $(BIN)
+test: $(BIN) test-cmdline
 	# --- Basic sanity tests ---
 	$(call run_test, ./nsjail -q -Mo --chroot / --user 99999 --group 99999 -- /bin/true, 0)
 	$(call run_test, ./nsjail -q -Mo --chroot / --user 99999 --group 99999 -- /bin/false, 1)

@@ -43,6 +43,7 @@
 #include <unistd.h>
 
 #include <iomanip>
+#include <limits>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -326,12 +327,36 @@ const std::string StrQuote(const std::string& str) {
 	return ss.str();
 }
 
-bool isANumber(const char* s) {
-	for (; *s; s++) {
-		if (!isdigit(*s) && *s != 'x') {
-			return false;
-		}
+bool parseInt64(const char* str, int64_t* value) {
+	if (str == nullptr || str[0] == '\0' || isspace((unsigned char)str[0])) {
+		return false;
 	}
+
+	errno = 0;
+	char* end = nullptr;
+	intmax_t parsed = strtoimax(str, &end, 0);
+	if (errno == ERANGE || end == str || *end != '\0' ||
+	    parsed < std::numeric_limits<int64_t>::min() ||
+	    parsed > std::numeric_limits<int64_t>::max()) {
+		return false;
+	}
+	*value = (int64_t)parsed;
+	return true;
+}
+
+bool parseUint64(const char* str, uint64_t* value) {
+	if (str == nullptr || str[0] == '\0' || str[0] == '-' || isspace((unsigned char)str[0])) {
+		return false;
+	}
+
+	errno = 0;
+	char* end = nullptr;
+	uintmax_t parsed = strtoumax(str, &end, 0);
+	if (errno == ERANGE || end == str || *end != '\0' ||
+	    parsed > std::numeric_limits<uint64_t>::max()) {
+		return false;
+	}
+	*value = (uint64_t)parsed;
 	return true;
 }
 
