@@ -147,8 +147,13 @@ OLD_EF := --experimental_mnt=old
 NEW_EF := --experimental_mnt=new
 UID := $(shell id -u)
 
-.PHONY: test
-test: $(BIN)
+.PHONY: test nstun_ip_test
+nstun_ip_test:
+	$(CXX) -std=c++20 -Wall -Wextra -Werror -I. \
+		tests/nstun_ip_test.cc -o /tmp/nsjail_nstun_ip_test
+	/tmp/nsjail_nstun_ip_test
+
+test: $(BIN) nstun_ip_test
 	# --- Basic sanity tests ---
 	$(call run_test, ./nsjail -q -Mo --chroot / --user 99999 --group 99999 -- /bin/true, 0)
 	$(call run_test, ./nsjail -q -Mo --chroot / --user 99999 --group 99999 -- /bin/false, 1)

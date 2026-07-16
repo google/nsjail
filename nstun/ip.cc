@@ -102,13 +102,13 @@ void handle_ip4(Context* ctx, std::span<const uint8_t> payload) {
 		return;
 	}
 
-	/* SSRF gate: reject packets to loopback, broadcast, or INADDR_ANY.
+	/* SSRF gate: reject packets to loopback, link-local, broadcast, or INADDR_ANY.
 	 * This is the single authoritative check - L4 handlers rely on this
 	 * and do NOT duplicate it. Redirect rules in policy may still target
 	 * loopback intentionally (admin-controlled). */
-	if (IN_LOOPBACK(ntohl(ip->daddr)) || ip->daddr == htonl(INADDR_ANY) ||
-	    ip->daddr == htonl(INADDR_BROADCAST)) {
-		LOG_W("Dropping packet destined to loopback, ANY, or broadcast: %s",
+	if (IN_LOOPBACK(ntohl(ip->daddr)) || ip4_is_link_local(ip->daddr) ||
+	    ip->daddr == htonl(INADDR_ANY) || ip->daddr == htonl(INADDR_BROADCAST)) {
+		LOG_W("Dropping packet destined to loopback, link-local, ANY, or broadcast: %s",
 		    ip4_to_string(ip->daddr).c_str());
 		return;
 	}
@@ -176,7 +176,8 @@ void handle_ip6(Context* ctx, std::span<const uint8_t> payload) {
 		}
 	}
 
-	/* SSRF gate: reject packets to loopback, v4-mapped, link-local, or site-local.
+	/* SSRF gate: reject packets to loopback, v4-mapped, local-service,
+	 * link-local, or site-local destinations.
 	 * This is the single authoritative check - L4 handlers rely on this
 	 * and do NOT duplicate it. Redirect rules in policy may still target
 	 * ::1 intentionally (admin-controlled). */
@@ -195,8 +196,9 @@ void handle_ip6(Context* ctx, std::span<const uint8_t> payload) {
 		return;
 	}
 	if (IN6_IS_ADDR_LINKLOCAL((const struct in6_addr*)ip6->daddr) ||
-	    IN6_IS_ADDR_SITELOCAL((const struct in6_addr*)ip6->daddr)) {
-		LOG_D("Dropping IPv6 packet to link/site-local address: %s",
+	    IN6_IS_ADDR_SITELOCAL((const struct in6_addr*)ip6->daddr) ||
+	    ip6_is_aws_local_service(ip6->daddr)) {
+		LOG_D("Dropping IPv6 packet to link/site-local or AWS local-service address: %s",
 		    ip6_to_string(ip6->daddr).c_str());
 		return;
 	}
