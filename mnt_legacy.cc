@@ -31,6 +31,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <memory>
 #include <string>
 #include <vector>
@@ -263,23 +264,73 @@ static unsigned long computeRemountFlags(const mount_t& mpt, const struct statvf
 	return flags;
 }
 
+static bool remountOne(const std::string& path, const mnt::mount_t& mpt) {
+	struct statvfs vfs;
+	if (TEMP_FAILURE_RETRY(statvfs(path.c_str(), &vfs)) == -1) {
+		PLOG_W("statvfs('%s')", path.c_str());
+		return false;
+	}
+
+	unsigned long flags = computeRemountFlags(mpt, vfs);
+	LOG_D("Remounting '%s' with flags: %s", path.c_str(), mnt::flagsToStr(flags).c_str());
+
+	if (mount(path.c_str(), path.c_str(), nullptr, flags, nullptr) == -1) {
+		PLOG_W("mount('%s', flags=%s)", path.c_str(), mnt::flagsToStr(flags).c_str());
+		return false;
+	}
+	return true;
+}
+
 bool remountPt(mnt::mount_t& mpt) {
 	if (!mpt.mounted || mpt.mpt->is_symlink()) {
 		return true;
 	}
 
-	struct statvfs vfs;
-	if (TEMP_FAILURE_RETRY(statvfs(mpt.dst.c_str(), &vfs)) == -1) {
-		PLOG_W("statvfs('%s')", mpt.dst.c_str());
+	if (!remountOne(mpt.dst, mpt)) {
 		return false;
 	}
 
-	unsigned long flags = computeRemountFlags(mpt, vfs);
-	LOG_D("Remounting '%s' with flags: %s", mpt.dst.c_str(), mnt::flagsToStr(flags).c_str());
-
-	if (mount(mpt.dst.c_str(), mpt.dst.c_str(), nullptr, flags, nullptr) == -1) {
-		PLOG_W("mount('%s', flags=%s)", mpt.dst.c_str(), mnt::flagsToStr(flags).c_str());
-		return false;
+	/*
+	 * Every bind is forced recursive (MS_REC), so a bind whose source subtree
+	 * contains nested mounts clones those submounts into the jail. The MS_REMOUNT
+	 * above re-applies the requested per-mount flags (nosuid/nodev/noexec/...) only
+	 * to the top mount, leaving nested submounts with their original
+	 * suid/dev/exec-permitting attributes. Re-apply the flags to each submount so
+	 * the requested restrictions cover the whole cloned subtree -- matching the
+	 * recursive read-only pass and the new-mount-API backend, which applies the
+	 * attributes with mount_setattr(AT_RECURSIVE).
+	 */
+	if (mpt.flags & MS_REC) {
+		FILE* f = fopen("/proc/self/mountinfo", "re");
+		if (f != nullptr) {
+			char* line = nullptr;
+			size_t len = 0;
+			const std::string prefix = (mpt.dst == "/") ? "/" : (mpt.dst + "/");
+			while (getline(&line, &len, f) != -1) {
+				/* mountinfo field 5 (0-indexed 4) is the mount point */
+				char* p = line;
+				for (int i = 0; i < 4 && p != nullptr; i++) {
+					p = strchr(p, ' ');
+					if (p != nullptr) {
+						p++;
+					}
+				}
+				if (p == nullptr) {
+					continue;
+				}
+				char* endp = strchr(p, ' ');
+				if (endp == nullptr) {
+					continue;
+				}
+				std::string mp(p, endp - p);
+				if (mp != mpt.dst && mp.compare(0, prefix.size(), prefix) == 0) {
+					/* best-effort; remountOne logs any submount it can't re-flag */
+					remountOne(mp, mpt);
+				}
+			}
+			free(line);
+			fclose(f);
+		}
 	}
 	return true;
 }
