@@ -441,6 +441,17 @@ static bool setupMounts(nsj_t* nsj) {
 		p->set_fstype("proc");
 		p->set_rw(nsj->is_proc_rw);
 		p->set_is_dir(true);
+		/*
+		 * Mount the auto-provisioned procfs nosuid+nodev+noexec, matching the
+		 * convention used by every other container runtime (runc, Docker,
+		 * systemd-nspawn). There is no legitimate reason for /proc to honor
+		 * setuid bits, expose device nodes, or allow execution, and doing so
+		 * needlessly widens the in-jail attack surface (e.g. a setuid binary
+		 * or device node reachable via a procfs path).
+		 */
+		p->set_nosuid(true);
+		p->set_nodev(true);
+		p->set_noexec(true);
 	}
 
 	return true;
