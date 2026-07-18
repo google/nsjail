@@ -128,7 +128,23 @@ static bool prepareAndCommit(nsj_t* nsj) {
 }
 
 bool applyPolicy(nsj_t* nsj, int pipefd) {
-	if (pipefd != -1 && nsj->njc.seccomp_unotify()) {
+	if (nsj->njc.seccomp_unotify()) {
+		if (pipefd == -1) {
+			/*
+			 * seccomp_unotify needs a supervisor process to receive the
+			 * notification fd; it is unavailable in modes that pass pipefd==-1
+			 * (e.g. MODE_STANDALONE_EXECVE). Previously the unotify filter was
+			 * silently skipped here, and prepareAndCommit() then returned early
+			 * because the classic filter is empty -- leaving the sandboxee
+			 * running with NO seccomp policy at all despite one being requested.
+			 * Fail loudly instead of silently dropping the requested policy.
+			 */
+			LOG_E(
+			    "seccomp_unotify was requested but this execution mode has no "
+			    "supervisor to receive the notification fd; refusing to run the "
+			    "sandboxee without the requested seccomp policy");
+			return false;
+		}
 		if (!installUnotifyFilter(nsj, pipefd)) {
 			return false;
 		}
