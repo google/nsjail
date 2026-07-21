@@ -16,7 +16,6 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include <charconv>
 #include <thread>
 
 #include "core.h"
@@ -204,14 +203,22 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 	auto assign_ip = [](const std::string& str, uint32_t* ip) {
 		if (inet_pton(AF_INET, str.c_str(), ip) != 1) {
 			LOG_E("Failed to parse IP: %s", str.c_str());
+			return false;
 		}
+		return true;
 	};
 
 	if (!nsj->njc.user_net().ip4().empty()) {
-		assign_ip(nsj->njc.user_net().ip4(), &ctx->guest_ip4);
+		if (!assign_ip(nsj->njc.user_net().ip4(), &ctx->guest_ip4)) {
+			close(tap_fd);
+			return false;
+		}
 	}
 	if (!nsj->njc.user_net().gw4().empty()) {
-		assign_ip(nsj->njc.user_net().gw4(), &ctx->host_ip4);
+		if (!assign_ip(nsj->njc.user_net().gw4(), &ctx->host_ip4)) {
+			close(tap_fd);
+			return false;
+		}
 	}
 
 	if (!nsj->njc.user_net().ip6().empty()) {
@@ -230,57 +237,6 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 			return false;
 		}
 	}
-
-	auto parse_ip = [](const std::string& str, uint32_t* ip, uint32_t* mask) {
-		std::string ip_str = str;
-		int bits = 32;
-		size_t pos = str.find('/');
-		if (pos != std::string::npos) {
-			ip_str = str.substr(0, pos);
-			const char* p = str.c_str() + pos + 1;
-			auto [ptr, ec] = std::from_chars(p, str.c_str() + str.length(), bits);
-			if (ec != std::errc()) {
-				LOG_E("Failed to parse mask bits: %s", p);
-				return;
-			}
-		}
-		if (inet_pton(AF_INET, ip_str.c_str(), ip) != 1) {
-			LOG_E("Failed to parse IP string: %s", ip_str.c_str());
-			return;
-		}
-		*mask = (bits == 0) ? 0 : htonl(~((1ULL << (32 - bits)) - 1));
-	};
-
-	auto parse_ip6 = [](const std::string& str, uint8_t* ip6, uint8_t* mask6) {
-		std::string ip_str = str;
-		int bits = 128;
-		size_t pos = str.find('/');
-		if (pos != std::string::npos) {
-			ip_str = str.substr(0, pos);
-			const char* p = str.c_str() + pos + 1;
-			auto [ptr, ec] = std::from_chars(p, str.c_str() + str.length(), bits);
-			if (ec != std::errc()) {
-				LOG_E("Failed to parse mask bits: %s", p);
-				return;
-			}
-		}
-		if (inet_pton(AF_INET6, ip_str.c_str(), ip6) != 1) {
-			LOG_E("Failed to parse IPv6 string: %s", ip_str.c_str());
-			return;
-		}
-		memset(mask6, 0, nstun::IPV6_ADDR_LEN);
-		for (int i = 0; i < (int)nstun::IPV6_ADDR_LEN; i++) {
-			if (bits >= 8) {
-				mask6[i] = 0xFF;
-				bits -= 8;
-			} else if (bits > 0) {
-				mask6[i] = (uint8_t)(0xFF << (8 - bits));
-				bits = 0;
-			} else {
-				mask6[i] = 0;
-			}
-		}
-	};
 
 	ctx->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
 	if (ctx->epoll_fd == -1) {
@@ -307,14 +263,20 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 		if (status == nstun::RuleParseStatus::IGNORE) continue;
 
 		if (r.has_src_ip()) {
-			parse_ip(r.src_ip(), &nr.src_ip4, &nr.src_mask4);
+			if (!nstun::parse_ip4_cidr(r.src_ip(), &nr.src_ip4, &nr.src_mask4)) {
+				return cleanup_and_fail();
+			}
 		}
 		if (r.has_dst_ip()) {
-			parse_ip(r.dst_ip(), &nr.dst_ip4, &nr.dst_mask4);
+			if (!nstun::parse_ip4_cidr(r.dst_ip(), &nr.dst_ip4, &nr.dst_mask4)) {
+				return cleanup_and_fail();
+			}
 		}
 
-		if (inet_pton(AF_INET, r.redirect_ip().c_str(), &nr.redirect_ip4) != 1) {
-			LOG_E("Failed to parse redirect IP: %s", r.redirect_ip().c_str());
+		if (r.has_redirect_ip() &&
+		    inet_pton(AF_INET, r.redirect_ip().c_str(), &nr.redirect_ip4) != 1) {
+			LOG_E("Invalid redirect IPv4 address: %s", r.redirect_ip().c_str());
+			return cleanup_and_fail();
 		}
 		nr.redirect_port = r.has_redirect_port() ? r.redirect_port() : 0;
 
@@ -396,10 +358,14 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 		if (status == nstun::RuleParseStatus::IGNORE) continue;
 
 		if (r.has_src_ip()) {
-			parse_ip6(r.src_ip(), nr.src_ip6, nr.src_mask6);
+			if (!nstun::parse_ip6_cidr(r.src_ip(), nr.src_ip6, nr.src_mask6)) {
+				return cleanup_and_fail();
+			}
 		}
 		if (r.has_dst_ip()) {
-			parse_ip6(r.dst_ip(), nr.dst_ip6, nr.dst_mask6);
+			if (!nstun::parse_ip6_cidr(r.dst_ip(), nr.dst_ip6, nr.dst_mask6)) {
+				return cleanup_and_fail();
+			}
 		}
 
 		if (r.has_redirect_ip()) {
@@ -408,15 +374,17 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 				/* Proxy is always IPv4 */
 				if (inet_pton(AF_INET, r.redirect_ip().c_str(), &nr.redirect_ip4) !=
 				    1) {
-					LOG_E("Failed to parse redirect IP: %s",
+					LOG_E("Invalid redirect IPv4 address: %s",
 					    r.redirect_ip().c_str());
+					return cleanup_and_fail();
 				}
 			} else {
 				/* REDIRECT: target is IPv6 */
 				if (inet_pton(AF_INET6, r.redirect_ip().c_str(), nr.redirect_ip6) !=
 				    1) {
-					LOG_E("Failed to parse redirect IPv6: %s",
+					LOG_E("Invalid redirect IPv6 address: %s",
 					    r.redirect_ip().c_str());
+					return cleanup_and_fail();
 				}
 			}
 		}

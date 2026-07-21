@@ -147,8 +147,15 @@ OLD_EF := --experimental_mnt=old
 NEW_EF := --experimental_mnt=new
 UID := $(shell id -u)
 
-.PHONY: test
-test: $(BIN)
+.PHONY: test nstun_policy_test
+nstun_policy_test: $(SRCS_PB_CXX)
+	$(CXX) -std=c++20 -Wall -Wextra -Werror -Wno-unused -Wno-unused-parameter \
+		-Wno-c99-designator -I. \
+		$(PROTOBUF_CFLAGS) tests/nstun_policy_test.cc nstun/policy.cc logs.cc util.cc \
+		config.pb.cc -o /tmp/nsjail_nstun_policy_test $(PROTOBUF_LIBS) -lpthread
+	/tmp/nsjail_nstun_policy_test
+
+test: $(BIN) nstun_policy_test
 	# --- Basic sanity tests ---
 	$(call run_test, ./nsjail -q -Mo --chroot / --user 99999 --group 99999 -- /bin/true, 0)
 	$(call run_test, ./nsjail -q -Mo --chroot / --user 99999 --group 99999 -- /bin/false, 1)
