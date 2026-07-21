@@ -2,8 +2,10 @@
 
 #include <fcntl.h>
 #include <google/protobuf/text_format.h>
+#include <inttypes.h>
 #include <unistd.h>
 
+#include <limits>
 #include <map>
 #include <mutex>
 
@@ -12,14 +14,148 @@
 
 namespace unotify {
 
+namespace {
+/* Bound attacker-controlled telemetry retained by the privileged supervisor.
+ * The entry cap also bounds std::map/vector/object overhead not counted by the
+ * string-payload budget. */
+constexpr size_t kMaxStatsEntries = 4096;
+constexpr size_t kMaxStatsBytes = 16 * 1024 * 1024;
+/* execveat has the largest producer-generated args vector: one dirfd plus the
+ * kMaxArgs (128) entries from each of argv and envp. */
+constexpr size_t kMaxStatsArgs = 257;
+
+struct SizeResult {
+	bool success;
+	size_t value;
+};
+
+SizeResult addBytes(size_t lhs, size_t rhs) {
+	if (rhs > std::numeric_limits<size_t>::max() - lhs) {
+		return {false, 0};
+	}
+	return {true, lhs + rhs};
+}
+
+SizeResult multiplyBytes(size_t lhs, size_t rhs) {
+	if (lhs != 0 && rhs > std::numeric_limits<size_t>::max() / lhs) {
+		return {false, 0};
+	}
+	return {true, lhs * rhs};
+}
+
+SizeResult recordBytes(const SyscallRecord& rec) {
+	size_t bytes = 0;
+	auto result = addBytes(bytes, rec.name.size());
+	if (!result.success) {
+		return result;
+	}
+	bytes = result.value;
+	result = multiplyBytes(rec.args.size(), sizeof(std::string));
+	if (!result.success) {
+		return result;
+	}
+	result = addBytes(bytes, result.value);
+	if (!result.success) {
+		return result;
+	}
+	bytes = result.value;
+	for (const auto& arg : rec.args) {
+		result = addBytes(bytes, arg.size());
+		if (!result.success) {
+			return result;
+		}
+		bytes = result.value;
+	}
+	const std::string* resource_strings[] = {
+	    &rec.res.path1.path,
+	    &rec.res.path1.mode_extra,
+	    &rec.res.path2.path,
+	    &rec.res.path2.mode_extra,
+	    &rec.res.net_endpoint,
+	    &rec.res.net_path.path,
+	    &rec.res.net_path.mode_extra,
+	};
+	for (const std::string* str : resource_strings) {
+		result = addBytes(bytes, str->size());
+		if (!result.success) {
+			return result;
+		}
+		bytes = result.value;
+	}
+	return {true, bytes};
+}
+}  // namespace
+
+namespace internal {
+
+uint64_t saturatingAdd(uint64_t lhs, uint64_t rhs) {
+	if (rhs > std::numeric_limits<uint64_t>::max() - lhs) {
+		return std::numeric_limits<uint64_t>::max();
+	}
+	return lhs + rhs;
+}
+
+}  // namespace internal
+
 static std::mutex stats_mu;
-/* Aggregates syscall statistics on the fly.
- * Uses std::map which requires SyscallRecord to have operator<. */
-static std::map<SyscallRecord, size_t> stats;
+static StatsStore stats(kMaxStatsEntries, kMaxStatsBytes);
+
+StatsStore::StatsStore(size_t max_entries, size_t max_bytes)
+    : max_entries_(max_entries), max_bytes_(max_bytes) {
+}
+
+bool StatsStore::add(const SyscallRecord& rec) {
+	if (rec.args.size() > kMaxStatsArgs) {
+		dropped_ = internal::saturatingAdd(dropped_, 1);
+		return false;
+	}
+	auto it = entries_.find(rec);
+	if (it != entries_.end()) {
+		it->second = internal::saturatingAdd(it->second, 1);
+		return true;
+	}
+	if (entries_.size() >= max_entries_) {
+		dropped_ = internal::saturatingAdd(dropped_, 1);
+		return false;
+	}
+	const SizeResult rec_bytes = recordBytes(rec);
+	if (!rec_bytes.success || bytes_ > max_bytes_ || rec_bytes.value > max_bytes_ - bytes_) {
+		dropped_ = internal::saturatingAdd(dropped_, 1);
+		return false;
+	}
+	entries_.emplace(rec, 1);
+	bytes_ += rec_bytes.value;
+	return true;
+}
+
+size_t StatsStore::size() const {
+	return entries_.size();
+}
+
+size_t StatsStore::bytes() const {
+	return bytes_;
+}
+
+uint64_t StatsStore::dropped() const {
+	return dropped_;
+}
+
+uint64_t StatsStore::count(const SyscallRecord& rec) const {
+	auto it = entries_.find(rec);
+	return it == entries_.end() ? 0 : it->second;
+}
+
+const std::map<SyscallRecord, uint64_t>& StatsStore::entries() const {
+	return entries_;
+}
+
+bool StatsStore::hasOutput() const {
+	return !entries_.empty() || dropped_ != 0;
+}
 
 void addStat(const SyscallRecord& rec) {
 	std::lock_guard<std::mutex> lock(stats_mu);
-	stats[rec]++;
+	stats.add(rec);
 }
 
 static void fillPathInfoPb(Stat_Path* pb, const PathInfoRecord& rec) {
@@ -82,16 +218,19 @@ void printStats(nsj_t* nsj) {
 	if (!nsj->njc.seccomp_unotify()) {
 		return;
 	}
-	if (stats.empty()) {
-		return;	 // Do not emit if empty
-	}
 
 	std::map<PathInfoRecord, FsStats> fs_stats;
 	std::map<NetInfoRecord, NetStats> net_stats;
+	uint64_t dropped = 0;
+	bool has_entries = false;
 
 	{
 		std::lock_guard<std::mutex> lock(stats_mu);
-		for (const auto& [rec, count] : stats) {
+		if (!stats.hasOutput()) {
+			return;	 // Do not emit if empty
+		}
+		has_entries = stats.size() != 0;
+		for (const auto& [rec, count] : stats.entries()) {
 			SyscallKey sys_key{rec.name, rec.args};
 
 			if (rec.res.has_path1) {
@@ -100,8 +239,10 @@ void printStats(nsj_t* nsj) {
 					p1_key.args.push_back(
 					    "mode_extra=" + rec.res.path1.mode_extra);
 				}
-				fs_stats[rec.res.path1].count += count;
-				fs_stats[rec.res.path1].syscalls[p1_key] += count;
+				FsStats& path_stats = fs_stats[rec.res.path1];
+				path_stats.count = internal::saturatingAdd(path_stats.count, count);
+				path_stats.syscalls[p1_key] =
+				    internal::saturatingAdd(path_stats.syscalls[p1_key], count);
 			}
 			if (rec.res.has_path2) {
 				SyscallKey p2_key = sys_key;
@@ -109,8 +250,10 @@ void printStats(nsj_t* nsj) {
 					p2_key.args.push_back(
 					    "mode_extra=" + rec.res.path2.mode_extra);
 				}
-				fs_stats[rec.res.path2].count += count;
-				fs_stats[rec.res.path2].syscalls[p2_key] += count;
+				FsStats& path_stats = fs_stats[rec.res.path2];
+				path_stats.count = internal::saturatingAdd(path_stats.count, count);
+				path_stats.syscalls[p2_key] =
+				    internal::saturatingAdd(path_stats.syscalls[p2_key], count);
 			}
 			if (rec.res.has_net) {
 				NetInfoRecord net_rec;
@@ -121,10 +264,22 @@ void printStats(nsj_t* nsj) {
 				net_rec.has_path = rec.res.has_net_path;
 				net_rec.path = rec.res.net_path;
 
-				net_stats[net_rec].count += count;
-				net_stats[net_rec].syscalls[sys_key] += count;
+				NetStats& resource_stats = net_stats[net_rec];
+				resource_stats.count =
+				    internal::saturatingAdd(resource_stats.count, count);
+				resource_stats.syscalls[sys_key] = internal::saturatingAdd(
+				    resource_stats.syscalls[sys_key], count);
 			}
 		}
+		dropped = stats.dropped();
+	}
+	if (dropped != 0) {
+		LOG_W("Dropped %" PRIu64
+		      " seccomp-unotify records after reaching statistics limits",
+		    dropped);
+	}
+	if (!has_entries) {
+		return;
 	}
 
 	Stat report_pb;
