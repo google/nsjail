@@ -199,6 +199,10 @@ static bool createDirAt(int dir_fd, const char* path, mode_t mode) {
 	if (!path[0]) {
 		return true;
 	}
+	if (!util::isSafeContainmentPath(path)) {
+		LOG_E("Mount destination escapes containment via '.'/'..'/NUL: '%s'", path);
+		return false;
+	}
 
 	std::string cumulative;
 	for (const auto& component : util::strSplit(path, '/')) {
@@ -412,8 +416,12 @@ static bool mountSinglePointAt(mount_t* mpt, int root_fd) {
 	LOG_D("Mounting (new API): %s", mnt::describeMountPt(*mpt->mpt).c_str());
 
 	const char* rel_dst = util::stripLeadingSlashes(mpt->dst.c_str());
+	/* Empty / only-slashes dst means the jail root (represented as "."). */
 	if (!rel_dst[0]) {
 		rel_dst = ".";
+	} else if (!util::isSafeContainmentPath(rel_dst)) {
+		LOG_E("Mount destination escapes containment via '.'/'..'/NUL: %s", QC(mpt->dst));
+		return false;
 	}
 
 	const char* last_slash = strrchr(rel_dst, '/');
@@ -503,6 +511,13 @@ static mount_t prepareMountPoint(const nsjail::MountPt& proto) {
 		}
 	}
 	mpt.dst += proto.dst();
+
+	if (!util::isSafeContainmentPath(mpt.dst)) {
+		LOG_E("Mount destination escapes containment via '.'/'..'/NUL: %s", QC(mpt.dst));
+		/* Keep the unsafe dst so later mount steps fail closed rather than
+		 * treating a cleared path as the jail root. */
+		return mpt;
+	}
 
 	mpt.flags = proto.rw() ? 0 : (uintptr_t)MS_RDONLY;
 	if (proto.is_bind()) {

@@ -60,6 +60,9 @@ int recvFd(int sock);
 bool writeBufToFile(
     const char* filename, const void* buf, size_t len, int open_flags, bool log_errors = true);
 bool createDirRecursively(const char* dir);
+/* Reject ".", ".." and embedded NUL in mount destinations so they cannot
+ * escape the jail staging root via path traversal. */
+bool isSafeContainmentPath(const std::string& path);
 std::string* StrAppend(std::string* str, const char* format, ...)
     __attribute__((format(printf, 2, 3)));
 std::string StrPrintf(const char* format, ...) __attribute__((format(printf, 1, 2)));

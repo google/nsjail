@@ -232,9 +232,33 @@ bool writeBufToFile(
 	return true;
 }
 
+bool isSafeContainmentPath(const std::string& path) {
+	/* Empty / root-only paths refer to the containment root itself. */
+	if (path.empty()) {
+		return true;
+	}
+	/* Embedded NUL would truncate C-string APIs and hide trailing components. */
+	if (path.find('\0') != std::string::npos) {
+		return false;
+	}
+	for (const auto& component : strSplit(path, '/')) {
+		if (component.empty()) {
+			continue;
+		}
+		if (component == "." || component == "..") {
+			return false;
+		}
+	}
+	return true;
+}
+
 bool createDirRecursively(const char* dir) {
 	if (dir[0] != '/') {
 		LOG_W("The directory path must start with '/': '%s' provided", dir);
+		return false;
+	}
+	if (!isSafeContainmentPath(dir)) {
+		LOG_W("Refusing path with '.'/'..'/NUL components: '%s'", dir);
 		return false;
 	}
 
@@ -271,9 +295,12 @@ bool createDirRecursively(const char* dir) {
 			}
 		}
 
-		int dir_fd = TEMP_FAILURE_RETRY(openat(prev_dir_fd, curr, O_DIRECTORY | O_CLOEXEC));
+		/* O_NOFOLLOW: do not walk through symlinks that escape the intended tree. */
+		int dir_fd = TEMP_FAILURE_RETRY(
+		    openat(prev_dir_fd, curr, O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
 		if (dir_fd == -1) {
-			PLOG_W("openat('%d', %s, O_DIRECTORY | O_CLOEXEC)", prev_dir_fd, QC(curr));
+			PLOG_W("openat('%d', %s, O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW)", prev_dir_fd,
+			    QC(curr));
 			close(prev_dir_fd);
 			return false;
 		}
