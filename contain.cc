@@ -286,25 +286,43 @@ static bool containMakeFdsCOENaive(nsj_t* nsj) {
 	return true;
 }
 
-static bool containMakeFdsCOEProc(nsj_t* nsj) {
+static DIR* containOpenProcFdDir() {
 	int dirfd = open("/proc/self/fd", O_DIRECTORY | O_RDONLY | O_CLOEXEC);
 	if (dirfd == -1) {
 		PLOG_D("open('/proc/self/fd', O_DIRECTORY|O_RDONLY|O_CLOEXEC)");
-		return false;
+		return nullptr;
 	}
 	DIR* dir = fdopendir(dirfd);
 	if (dir == nullptr) {
 		PLOG_W("fdopendir(fd=%d)", dirfd);
 		close(dirfd);
-		return false;
+		return nullptr;
 	}
+	return dir;
+}
+
+static bool containMakeFdsCOEProc(nsj_t* nsj, DIR* proc_fd_dir) {
+	bool owned_dir = false;
+	if (proc_fd_dir == nullptr) {
+		proc_fd_dir = containOpenProcFdDir();
+		if (proc_fd_dir == nullptr) {
+			return false;
+		}
+		owned_dir = true;
+	}
+	defer {
+		if (owned_dir) {
+			closedir(proc_fd_dir);
+		}
+	};
+	rewinddir(proc_fd_dir);
+
 	/* Make all fds above stderr close-on-exec */
 	for (;;) {
 		errno = 0;
-		struct dirent* entry = readdir(dir);
+		struct dirent* entry = readdir(proc_fd_dir);
 		if (entry == nullptr && errno != 0) {
 			PLOG_D("readdir('/proc/self/fd')");
-			closedir(dir);
 			return false;
 		}
 		if (entry == nullptr) {
@@ -325,20 +343,18 @@ static bool containMakeFdsCOEProc(nsj_t* nsj) {
 		int flags = TEMP_FAILURE_RETRY(fcntl(fd, F_GETFD, 0));
 		if (flags == -1) {
 			PLOG_D("fcntl(fd=%d, F_GETFD, 0)", fd);
-			closedir(dir);
 			return false;
 		}
 		RETURN_ON_FAILURE(containMakeFdCOE(fd, containPassFd(nsj, fd)));
 	}
-	closedir(dir);
 	return true;
 }
 
-static bool containMakeFdsCOE(nsj_t* nsj) {
+static bool containMakeFdsCOE(nsj_t* nsj, DIR* proc_fd_dir) {
 	if (containMakeFdsCOECloseRange(nsj)) {
 		return true;
 	}
-	if (containMakeFdsCOEProc(nsj)) {
+	if (containMakeFdsCOEProc(nsj, proc_fd_dir)) {
 		return true;
 	}
 	if (containMakeFdsCOENaive(nsj)) {
@@ -380,8 +396,20 @@ bool setupFD(nsj_t* nsj, int fd_in, int fd_out, int fd_err) {
 }
 
 bool containProc(nsj_t* nsj) {
+	DIR* proc_fd_dir = nullptr;
+	defer {
+		if (proc_fd_dir != nullptr) {
+			closedir(proc_fd_dir);
+		}
+	};
+
 	RETURN_ON_FAILURE(containUserNs(nsj));
 	RETURN_ON_FAILURE(containInitPidNs(nsj));
+	/*
+	 * Keep the parent /proc fd directory available after mount namespace setup, so the
+	 * close_range() fallback can still enumerate all descriptors before execve().
+	 */
+	proc_fd_dir = containOpenProcFdDir();
 	RETURN_ON_FAILURE(containInitMountNs(nsj));
 	RETURN_ON_FAILURE(containInitNetNs(nsj));
 	RETURN_ON_FAILURE(containInitUtsNs(nsj));
@@ -395,7 +423,7 @@ bool containProc(nsj_t* nsj) {
 	RETURN_ON_FAILURE(containTSC(nsj));
 	RETURN_ON_FAILURE(containSetLimits(nsj));
 	RETURN_ON_FAILURE(containPrepareEnv(nsj));
-	RETURN_ON_FAILURE(containMakeFdsCOE(nsj));
+	RETURN_ON_FAILURE(containMakeFdsCOE(nsj, proc_fd_dir));
 
 	return true;
 }
