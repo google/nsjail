@@ -138,6 +138,16 @@ static constexpr SyscallDef kTracedSyscalls[] = {
 	{__NR_newfstatat, "newfstatat", "newfstatat", SyscallCategory::FS,
 	    {A::DIRFD, A::PATH, A::SKIP, A::SKIP, A::SKIP, A::SKIP}},
 #endif /* __NR_newfstatat */
+	/*
+	 * statx(dirfd, path, flags, mask, statxbuf). Modern glibc/coreutils
+	 * (ls, stat) call statx before newfstatat/openat, so without this entry
+	 * a stat of a path that is not mounted in the jail is never observed.
+	 * arg1 is the path (arg0 is the dirfd), same shape as newfstatat.
+	 */
+#ifdef __NR_statx
+	{__NR_statx, "statx", "statx", SyscallCategory::FS,
+	    {A::DIRFD, A::PATH, A::SKIP, A::SKIP, A::SKIP, A::SKIP}},
+#endif /* __NR_statx */
 #ifdef __NR_faccessat
 	{__NR_faccessat, "faccessat", "faccessat", SyscallCategory::FS,
 	    {A::DIRFD, A::PATH, A::ACCESS, A::SKIP, A::SKIP, A::SKIP}},
