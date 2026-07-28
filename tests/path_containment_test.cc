@@ -8,6 +8,7 @@
  *   ./path_containment_test
  */
 
+#include <cerrno>
 #include <cstdio>
 #include <cstring>
 #include <fcntl.h>
@@ -151,6 +152,40 @@ int main() {
 		return 1;
 	}
 
+
+	/* Symlink intermediate must fail closed under O_NOFOLLOW walk policy. */
+	(void)system("rm -rf /tmp/nsj_sym_stage /tmp/nsj_sym_escape");
+	mkdir("/tmp/nsj_sym_stage", 0755);
+	mkdir("/tmp/nsj_sym_escape", 0755);
+	if (symlink("/tmp/nsj_sym_escape", "/tmp/nsj_sym_stage/link") != 0) {
+		fprintf(stderr, "FAIL symlink setup\n");
+		return 1;
+	}
+	/* Mimic new-API component walk with O_NOFOLLOW */
+	{
+		int root = open("/tmp/nsj_sym_stage", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+		if (root < 0) {
+			perror("open stage");
+			return 1;
+		}
+		if (mkdirat(root, "link", 0755) == -1 && errno != EEXIST) {
+			/* link exists as symlink; EEXIST expected */
+		}
+		int next = openat(root, "link", O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+		if (next >= 0) {
+			fprintf(stderr, "FAIL openat(O_NOFOLLOW) followed/opened symlink\n");
+			close(next);
+			close(root);
+			return 1;
+		}
+		close(root);
+		if (access("/tmp/nsj_sym_escape/pwned", F_OK) == 0) {
+			fprintf(stderr, "FAIL escape created\n");
+			return 1;
+		}
+	}
+
 	printf("OK path_containment_test passed\n");
 	return 0;
 }
+
