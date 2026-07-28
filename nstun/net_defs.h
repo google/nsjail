@@ -13,8 +13,38 @@
 #ifndef IN_LOOPBACK
 #define IN_LOOPBACK(a) ((((long int)(a)) & 0xff000000) == 0x7f000000)
 #endif
+#ifndef IN_LINKLOCAL
+#define IN_LINKLOCAL(a) ((((long int)(a)) & 0xffff0000) == 0xa9fe0000)
+#endif
+#ifndef IN_MULTICAST
+#define IN_MULTICAST(a) ((((long int)(a)) & 0xf0000000) == 0xe0000000)
+#endif
+#ifndef IN_EXPERIMENTAL
+#define IN_EXPERIMENTAL(a) ((((long int)(a)) & 0xf0000000) == 0xf0000000)
+#endif
+#ifndef IN_ZERONET
+#define IN_ZERONET(a) ((((long int)(a)) & 0xff000000) == 0x00000000)
+#endif
 
 namespace nstun {
+
+/* Guest-chosen destinations that must never become host connect()/sendto() targets.
+ * Admin REDIRECT/ENCAP targets are configured separately and are not gated here. */
+inline bool is_forbidden_dest4(uint32_t daddr_nbo) {
+	uint32_t a = ntohl(daddr_nbo);
+	return IN_LOOPBACK(a) || IN_ZERONET(a) || IN_LINKLOCAL(a) || IN_MULTICAST(a) ||
+	       IN_EXPERIMENTAL(a) || daddr_nbo == htonl(INADDR_BROADCAST);
+}
+
+inline bool is_forbidden_dest6(const uint8_t daddr[16]) {
+	const struct in6_addr* a = reinterpret_cast<const struct in6_addr*>(daddr);
+	if (IN6_IS_ADDR_LOOPBACK(a) || IN6_IS_ADDR_UNSPECIFIED(a) || IN6_IS_ADDR_V4MAPPED(a) ||
+	    IN6_IS_ADDR_V4COMPAT(a) || IN6_IS_ADDR_LINKLOCAL(a) || IN6_IS_ADDR_SITELOCAL(a) ||
+	    IN6_IS_ADDR_MULTICAST(a)) {
+		return true;
+	}
+	return false;
+}
 
 constexpr size_t NSTUN_MTU = ((1024 * 64) - 1024);
 

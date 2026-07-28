@@ -337,7 +337,13 @@ bool flush_to_host(Context* ctx, TcpFlow* flow) {
 
 static void handle_socks5_init_host(Context* ctx, TcpFlow* flow, int fd) {
 	socks5_auth_reply buf;
-	ssize_t recv_len = recv(fd, &buf, sizeof(buf) - flow->proxy_rx_buffer.size(), MSG_DONTWAIT);
+	if (flow->proxy_rx_buffer.size() >= sizeof(buf)) {
+		LOG_W("SOCKS5 auth reply buffer overflow, resetting");
+		tcp_rst_and_destroy(ctx, flow);
+		return;
+	}
+	size_t remaining = sizeof(buf) - flow->proxy_rx_buffer.size();
+	ssize_t recv_len = recv(fd, &buf, remaining, MSG_DONTWAIT);
 	if (recv_len == 0) {
 		tcp_rst_and_destroy(ctx, flow);
 		return;
@@ -410,7 +416,16 @@ static void handle_socks5_connecting_host(Context* ctx, TcpFlow* flow, int fd) {
 			break; /* We have enough data */
 		}
 
-		ssize_t recv_len = recv(fd, &buf, expected_len - current_len, MSG_DONTWAIT);
+		if (expected_len > sizeof(buf)) {
+			LOG_W("SOCKS5 reply length %zu exceeds buffer, resetting", expected_len);
+			tcp_rst_and_destroy(ctx, flow);
+			return;
+		}
+		size_t want = expected_len - current_len;
+		if (want > sizeof(buf)) {
+			want = sizeof(buf);
+		}
+		ssize_t recv_len = recv(fd, &buf, want, MSG_DONTWAIT);
 		if (recv_len == 0) {
 			tcp_rst_and_destroy(ctx, flow);
 			return;

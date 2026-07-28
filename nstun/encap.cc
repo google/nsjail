@@ -93,6 +93,9 @@ bool parse_socks5_connect_reply(std::span<const uint8_t> data, Socks5Reply* out)
 		if (data.size() < sizeof(socks5_req6)) return false;
 		const auto* reply = reinterpret_cast<const socks5_req6*>(data.data());
 		memcpy(&out->bind_port, &reply->dst_port, sizeof(reply->dst_port));
+	} else {
+		/* Domain / unknown ATYP: not used by our CONNECT client; fail closed */
+		return false;
 	}
 
 	return true;

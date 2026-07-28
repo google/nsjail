@@ -35,7 +35,7 @@ RuleResult evaluate_rules4(Context* ctx, nstun_direction_t dir, nstun_proto_t pr
 		}
 		return res;
 	}
-	return {NSTUN_ACTION_ALLOW, 0, 0, false, {}}; /* Default allow */
+	return {NSTUN_ACTION_DROP, 0, 0, false, {}}; /* Default deny */
 }
 
 static bool ip6_masked_eq(const uint8_t* a, const uint8_t* b, const uint8_t* mask) {
@@ -80,7 +80,7 @@ RuleResult evaluate_rules6(Context* ctx, nstun_direction_t dir, nstun_proto_t pr
 		}
 		return res;
 	}
-	return {NSTUN_ACTION_ALLOW, 0, 0, false, {}}; /* Default allow */
+	return {NSTUN_ACTION_DROP, 0, 0, false, {}}; /* Default deny */
 }
 
 template <typename RuleMsg>

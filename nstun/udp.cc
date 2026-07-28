@@ -347,6 +347,14 @@ void handle_udp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> paylo
 	}
 
 	const udp_hdr* udp = reinterpret_cast<const udp_hdr*>(payload.data());
+	uint16_t udp_len = ntohs(udp->len);
+	if (udp_len < sizeof(udp_hdr) || udp_len > payload.size()) {
+		LOG_D("Invalid IPv4 UDP length %u (payload %zu), dropping", udp_len, payload.size());
+		return;
+	}
+	payload = payload.first(udp_len);
+	udp = reinterpret_cast<const udp_hdr*>(payload.data());
+
 	uint16_t guest_port = ntohs(udp->source);
 	uint16_t dest_port = ntohs(udp->dest);
 
@@ -794,6 +802,14 @@ void handle_udp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> paylo
 	if (payload.size() < sizeof(udp_hdr)) return;
 
 	const udp_hdr* udp = reinterpret_cast<const udp_hdr*>(payload.data());
+	uint16_t udp_len = ntohs(udp->len);
+	if (udp_len < sizeof(udp_hdr) || udp_len > payload.size()) {
+		LOG_D("Invalid IPv6 UDP length %u (payload %zu), dropping", udp_len, payload.size());
+		return;
+	}
+	payload = payload.first(udp_len);
+	udp = reinterpret_cast<const udp_hdr*>(payload.data());
+
 	uint16_t guest_port = ntohs(udp->source);
 	uint16_t dest_port = ntohs(udp->dest);
 

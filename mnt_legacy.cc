@@ -51,8 +51,8 @@ static bool isDirectory(const char* path) {
 	return stat(path, &st) == 0 && S_ISDIR(st.st_mode);
 }
 
-static mount_t prepareMountPoint(const nsjail::MountPt& proto) {
-	mount_t mpt = {
+static bool prepareMountPoint(const nsjail::MountPt& proto, mount_t* mpt) {
+	*mpt = {
 	    .mpt = &proto,
 	    .src = "",
 	    .dst = "",
@@ -64,51 +64,58 @@ static mount_t prepareMountPoint(const nsjail::MountPt& proto) {
 
 	if (!proto.prefix_src_env().empty()) {
 		if (const char* env = getenv(proto.prefix_src_env().c_str())) {
-			mpt.src = env;
+			mpt->src = env;
 		} else {
 			LOG_W("Environment variable not set: %s", QC(proto.prefix_src_env()));
-			return mpt;
+			return false;
 		}
 	}
-	mpt.src += proto.src();
+	mpt->src += proto.src();
 
 	if (!proto.prefix_dst_env().empty()) {
 		if (const char* env = getenv(proto.prefix_dst_env().c_str())) {
-			mpt.dst = env;
+			mpt->dst = env;
 		} else {
 			LOG_W("Environment variable not set: %s", QC(proto.prefix_dst_env()));
-			return mpt;
+			return false;
 		}
 	}
-	mpt.dst += proto.dst();
+	mpt->dst += proto.dst();
 
-	mpt.flags = proto.rw() ? 0 : (uintptr_t)MS_RDONLY;
+	std::string safe_dst;
+	if (!util::sanitizeJailRelPath(mpt->dst, &safe_dst)) {
+		LOG_E("Rejecting mount destination that escapes the jail root: %s", QC(mpt->dst));
+		return false;
+	}
+	mpt->dst = std::move(safe_dst);
+
+	mpt->flags = proto.rw() ? 0 : (uintptr_t)MS_RDONLY;
 	if (proto.is_bind()) {
-		mpt.flags |= MS_BIND | MS_REC | MS_PRIVATE;
+		mpt->flags |= MS_BIND | MS_REC | MS_PRIVATE;
 	}
 	if (proto.nosuid()) {
-		mpt.flags |= MS_NOSUID;
+		mpt->flags |= MS_NOSUID;
 	}
 	if (proto.nodev()) {
-		mpt.flags |= MS_NODEV;
+		mpt->flags |= MS_NODEV;
 	}
 	if (proto.noexec()) {
-		mpt.flags |= MS_NOEXEC;
+		mpt->flags |= MS_NOEXEC;
 	}
 
 	if (proto.has_is_dir()) {
-		mpt.is_dir = proto.is_dir();
+		mpt->is_dir = proto.is_dir();
 	} else if (!proto.src_content().empty()) {
-		mpt.is_dir = false;
-	} else if (mpt.src.empty()) {
-		mpt.is_dir = true;
-	} else if (mpt.flags & MS_BIND) {
-		mpt.is_dir = isDirectory(mpt.src.c_str());
+		mpt->is_dir = false;
+	} else if (mpt->src.empty()) {
+		mpt->is_dir = true;
+	} else if (mpt->flags & MS_BIND) {
+		mpt->is_dir = isDirectory(mpt->src.c_str());
 	} else {
-		mpt.is_dir = true;
+		mpt->is_dir = true;
 	}
 
-	return mpt;
+	return true;
 }
 
 static int tryMountRW(mount_t* mpt, const char* src, const char* dst) {
@@ -251,11 +258,15 @@ static unsigned long computeRemountFlags(const mount_t& mpt, const struct statvf
 	};
 
 	const unsigned long per_mountpoint_flags =
-	    MS_LAZYTIME | MS_MANDLOCK | MS_NOATIME | MS_NODEV | MS_NODIRATIME | MS_NOEXEC |
-	    MS_NOSUID | MS_RELATIME | MS_RDONLY | MS_SYNCHRONOUS | MS_NOSYMFOLLOW;
+	    MS_LAZYTIME | MS_NOATIME | MS_NODEV | MS_NODIRATIME | MS_NOEXEC | MS_NOSUID |
+	    MS_RELATIME | MS_RDONLY | MS_SYNCHRONOUS | MS_NOSYMFOLLOW;
 
 	unsigned long flags = MS_REMOUNT | MS_BIND | (mpt.flags & per_mountpoint_flags);
 	for (const auto& i : mountPairs) {
+		/* Do not re-introduce MS_MANDLOCK from the underlying vfs unless requested */
+		if (i.mount_flag == MS_MANDLOCK && !(mpt.flags & MS_MANDLOCK)) {
+			continue;
+		}
 		if (vfs.f_flag & i.vfs_flag) {
 			flags |= i.mount_flag;
 		}
@@ -320,7 +331,17 @@ std::unique_ptr<std::string> buildMountTree(nsj_t* nsj, std::vector<mnt::mount_t
 	}
 
 	for (const auto& proto : nsj->njc.mount()) {
-		mount_t mpt = prepareMountPoint(proto);
+		mount_t mpt;
+		if (!prepareMountPoint(proto, &mpt)) {
+			if (proto.mandatory()) {
+				LOG_E("Failed to prepare mandatory mount point: %s",
+				    mnt::describeMountPt(proto).c_str());
+				return nullptr;
+			}
+			LOG_W("Skipping invalid non-mandatory mount point: %s",
+			    mnt::describeMountPt(proto).c_str());
+			continue;
+		}
 
 		if (!mountSinglePoint(&mpt, destdir->c_str(), tmpdir->c_str())) {
 			if (mpt.mpt->mandatory()) {

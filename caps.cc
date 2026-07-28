@@ -257,28 +257,31 @@ bool initNs(nsj_t* nsj) {
 
 	/*
 	 * Make sure all other caps (those which were not explicitly requested) are removed from the
-	 * bounding set. We need to have CAP_SETPCAP to do that now
+	 * bounding set. We need CAP_SETPCAP to do that; fail closed if we cannot, otherwise a
+	 * residual bounding-set capability can be regained after exec.
 	 */
 	dbgmsg.clear();
-	if (getEffective(cap_data, CAP_SETPCAP)) {
-		for (const auto& i : capNames) {
-			if (getInheritable(cap_data, i.val)) {
-				continue;
-			}
-			if (prctl(PR_CAPBSET_READ, (unsigned long)i.val, 0UL, 0UL, 0UL) == -1 &&
-			    errno == EINVAL) {
-				LOG_D("Skipping unsupported capability: %s", i.name);
-				continue;
-			}
-			dbgmsg.append(" ").append(i.name);
-			if (prctl(PR_CAPBSET_DROP, (unsigned long)i.val, 0UL, 0UL, 0UL) == -1) {
-				PLOG_W("prctl(PR_CAPBSET_DROP, %s)", i.name);
-				return false;
-			}
-		}
-		LOG_D(
-		    "Dropped the following capabilities from the bounding set:%s", dbgmsg.c_str());
+	if (!getEffective(cap_data, CAP_SETPCAP)) {
+		LOG_E("CAP_SETPCAP is not effective; cannot drop unused capabilities from the "
+		      "bounding set");
+		return false;
 	}
+	for (const auto& i : capNames) {
+		if (getInheritable(cap_data, i.val)) {
+			continue;
+		}
+		if (prctl(PR_CAPBSET_READ, (unsigned long)i.val, 0UL, 0UL, 0UL) == -1 &&
+		    errno == EINVAL) {
+			LOG_D("Skipping unsupported capability: %s", i.name);
+			continue;
+		}
+		dbgmsg.append(" ").append(i.name);
+		if (prctl(PR_CAPBSET_DROP, (unsigned long)i.val, 0UL, 0UL, 0UL) == -1) {
+			PLOG_E("prctl(PR_CAPBSET_DROP, %s)", i.name);
+			return false;
+		}
+	}
+	LOG_D("Dropped the following capabilities from the bounding set:%s", dbgmsg.c_str());
 
 	/* Make sure inheritable set is preserved across execve via the modified ambient set */
 	dbgmsg.clear();

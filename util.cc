@@ -232,6 +232,39 @@ bool writeBufToFile(
 	return true;
 }
 
+bool sanitizeJailRelPath(const std::string& path, std::string* out) {
+	if (path.find('\0') != std::string::npos) {
+		LOG_W("Jail path contains NUL: %s", QC(path));
+		return false;
+	}
+
+	std::vector<std::string> stack;
+	for (const auto& component : strSplit(path, '/')) {
+		if (component.empty() || component == ".") {
+			continue;
+		}
+		if (component == "..") {
+			if (stack.empty()) {
+				LOG_W("Jail path escapes root via '..': %s", QC(path));
+				return false;
+			}
+			stack.pop_back();
+			continue;
+		}
+		stack.push_back(component);
+	}
+
+	/* Canonical jail path form matches existing configs ("/lib", "/tmp", "/") */
+	out->assign("/");
+	for (size_t i = 0; i < stack.size(); i++) {
+		if (i != 0) {
+			out->push_back('/');
+		}
+		out->append(stack[i]);
+	}
+	return true;
+}
+
 bool createDirRecursively(const char* dir) {
 	if (dir[0] != '/') {
 		LOG_W("The directory path must start with '/': '%s' provided", dir);
@@ -263,6 +296,17 @@ bool createDirRecursively(const char* dir) {
 		}
 		*next = '\0';
 
+		/* Refuse path-escape components even if a caller concatenates unsafely */
+		if (strcmp(curr, ".") == 0) {
+			curr = next + 1;
+			continue;
+		}
+		if (strcmp(curr, "..") == 0) {
+			LOG_W("Refusing '..' in createDirRecursively('%s')", dir);
+			close(prev_dir_fd);
+			return false;
+		}
+
 		if (mkdirat(prev_dir_fd, curr, 0755) == -1 && errno != EEXIST) {
 			if (errno != EROFS || !util::existsAsDirAt(prev_dir_fd, curr)) {
 				PLOG_W("mkdir(%s, 0755)", QC(curr));
@@ -271,9 +315,11 @@ bool createDirRecursively(const char* dir) {
 			}
 		}
 
-		int dir_fd = TEMP_FAILURE_RETRY(openat(prev_dir_fd, curr, O_DIRECTORY | O_CLOEXEC));
+		int dir_fd = TEMP_FAILURE_RETRY(
+		    openat(prev_dir_fd, curr, O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
 		if (dir_fd == -1) {
-			PLOG_W("openat('%d', %s, O_DIRECTORY | O_CLOEXEC)", prev_dir_fd, QC(curr));
+			PLOG_W("openat('%d', %s, O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW)",
+			    prev_dir_fd, QC(curr));
 			close(prev_dir_fd);
 			return false;
 		}

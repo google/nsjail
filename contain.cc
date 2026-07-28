@@ -82,8 +82,8 @@ static bool containDropPrivs(nsj_t* nsj) {
 #endif
 	if (!nsj->njc.disable_no_new_privs()) {
 		if (prctl(PR_SET_NO_NEW_PRIVS, 1UL, 0UL, 0UL, 0UL) == -1) {
-			/* Only new kernels support it */
-			PLOG_W("prctl(PR_SET_NO_NEW_PRIVS, 1)");
+			PLOG_E("prctl(PR_SET_NO_NEW_PRIVS, 1)");
+			return false;
 		}
 	}
 

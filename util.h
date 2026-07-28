@@ -60,6 +60,14 @@ int recvFd(int sock);
 bool writeBufToFile(
     const char* filename, const void* buf, size_t len, int open_flags, bool log_errors = true);
 bool createDirRecursively(const char* dir);
+/*
+ * Normalize a jail-relative mount destination and reject path escape.
+ * Disallows NUL and ".." components that would resolve outside the jail
+ * root (including via prefix_dst_env). Leading '/' and "." are normalized
+ * away; on success *out is a canonical absolute-within-jail path
+ * (e.g. "/lib", "/tmp/foo", or "/").
+ */
+bool sanitizeJailRelPath(const std::string& path, std::string* out);
 std::string* StrAppend(std::string* str, const char* format, ...)
     __attribute__((format(printf, 2, 3)));
 std::string StrPrintf(const char* format, ...) __attribute__((format(printf, 1, 2)));
