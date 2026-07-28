@@ -22,8 +22,11 @@
 #include "net.h"
 
 #include <arpa/inet.h>
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
+#include <limits.h>
 #include <linux/fib_rules.h>
 #include <net/if.h>
 #include <net/route.h>
@@ -119,6 +122,64 @@ static int getPastaFd() {
 		    fd);
 	}
 	return fd;
+}
+
+static bool makePastaFdsCOE() {
+	if (util::makeRangeCOE(STDERR_FILENO + 1, ~0U)) {
+		return true;
+	}
+
+	int dirfd = open("/proc/self/fd", O_DIRECTORY | O_RDONLY | O_CLOEXEC);
+	if (dirfd == -1) {
+		PLOG_W("open('/proc/self/fd', O_DIRECTORY|O_RDONLY|O_CLOEXEC)");
+		return false;
+	}
+	DIR* dir = fdopendir(dirfd);
+	if (dir == nullptr) {
+		PLOG_W("fdopendir(fd=%d)", dirfd);
+		close(dirfd);
+		return false;
+	}
+
+	for (;;) {
+		errno = 0;
+		struct dirent* entry = readdir(dir);
+		if (entry == nullptr) {
+			if (errno != 0) {
+				PLOG_W("readdir('/proc/self/fd')");
+				closedir(dir);
+				return false;
+			}
+			break;
+		}
+
+		char* end = nullptr;
+		errno = 0;
+		intmax_t parsed_fd = strtoimax(entry->d_name, &end, 10);
+		if (errno != 0 || end == entry->d_name || *end != '\0' ||
+		    parsed_fd <= STDERR_FILENO || parsed_fd > INT_MAX) {
+			continue;
+		}
+
+		int fd = (int)parsed_fd;
+		int flags = TEMP_FAILURE_RETRY(fcntl(fd, F_GETFD, 0));
+		if (flags == -1) {
+			if (errno == EBADF) {
+				continue;
+			}
+			PLOG_W("fcntl(fd=%d, F_GETFD, 0)", fd);
+			closedir(dir);
+			return false;
+		}
+		if (TEMP_FAILURE_RETRY(fcntl(fd, F_SETFD, flags | FD_CLOEXEC)) == -1) {
+			PLOG_W("fcntl(fd=%d, F_SETFD, FD_CLOEXEC)", fd);
+			closedir(dir);
+			return false;
+		}
+	}
+
+	closedir(dir);
+	return true;
 }
 
 extern char** environ;
@@ -359,7 +420,12 @@ static void pastaProcess(nsj_t* nsj, int pid, int err_pipe) {
 		pasta_path = argv[0];
 	}
 
-	util::makeRangeCOE(STDERR_FILENO + 1, ~0U);
+	if (!makePastaFdsCOE()) {
+		int err = errno != 0 ? errno : EIO;
+		LOG_E("Couldn't mark inherited file descriptors as close-on-exec");
+		util::writeToFd(err_pipe, &err, sizeof(err));
+		return;
+	}
 
 	/* LOG doesn't use STDERR_FILENO so it's fine to use it */
 	int err = 0;
