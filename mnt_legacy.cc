@@ -194,6 +194,10 @@ static bool mountWithDynamicContent(
 }
 
 static bool mountSinglePoint(mount_t* mpt, const char* newroot, const char* tmpdir) {
+	if (!mnt::isValidMountDestination(mpt->dst)) {
+		LOG_E("Invalid mount destination: %s", QC(mpt->dst));
+		return false;
+	}
 	LOG_D("Mounting (legacy): %s", mnt::describeMountPt(*mpt->mpt).c_str());
 
 	const std::string dstpath = std::string(newroot) + "/" + mpt->dst;

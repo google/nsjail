@@ -409,6 +409,10 @@ static bool doBindMountAt(mount_t* mpt, int root_fd, const char* rel_dst) {
 }
 
 static bool mountSinglePointAt(mount_t* mpt, int root_fd) {
+	if (!mnt::isValidMountDestination(mpt->dst)) {
+		LOG_E("Invalid mount destination: %s", QC(mpt->dst));
+		return false;
+	}
 	LOG_D("Mounting (new API): %s", mnt::describeMountPt(*mpt->mpt).c_str());
 
 	const char* rel_dst = util::stripLeadingSlashes(mpt->dst.c_str());

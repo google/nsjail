@@ -54,6 +54,15 @@
 
 namespace mnt {
 
+bool isValidMountDestination(const std::string& path) {
+	for (const auto& component : util::strSplit(path, '/')) {
+		if (component == "..") {
+			return false;
+		}
+	}
+	return true;
+}
+
 const std::string flagsToStr(unsigned long flags) {
 	std::string res;
 
