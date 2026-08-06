@@ -23,6 +23,7 @@
 #define NS_UTIL_H
 
 #include <errno.h>
+#include <fcntl.h>
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -111,6 +112,16 @@ inline bool existsAsDirAt(int dir_fd, const char* path) {
 	return false;
 }
 
+inline bool existsAsDirAtNoFollow(int dir_fd, const char* path) {
+	int saved = errno;
+	struct stat st;
+	if (fstatat(dir_fd, path, &st, AT_SYMLINK_NOFOLLOW) == 0 && S_ISDIR(st.st_mode)) {
+		return true;
+	}
+	errno = saved;
+	return false;
+}
+
 inline bool existsAsReg(const char* path) {
 	int saved = errno;
 	struct stat st;
@@ -125,6 +136,16 @@ inline bool existsAsRegAt(int dir_fd, const char* path) {
 	int saved = errno;
 	struct stat st;
 	if (fstatat(dir_fd, path, &st, 0) == 0 && S_ISREG(st.st_mode)) {
+		return true;
+	}
+	errno = saved;
+	return false;
+}
+
+inline bool existsAsRegAtNoFollow(int dir_fd, const char* path) {
+	int saved = errno;
+	struct stat st;
+	if (fstatat(dir_fd, path, &st, AT_SYMLINK_NOFOLLOW) == 0 && S_ISREG(st.st_mode)) {
 		return true;
 	}
 	errno = saved;

@@ -111,116 +111,6 @@ static bool applyMountFlags(int fd, uintptr_t flags, bool log_error = true) {
 	return true;
 }
 
-static bool isGenericMountOption(const std::string& opt) {
-	return opt == "ro" || opt == "rw" || opt == "nosuid" || opt == "suid" || opt == "nodev" ||
-	       opt == "dev" || opt == "noexec" || opt == "exec";
-}
-
-static void applyGenericMountOption(const std::string& opt, uintptr_t* flags) {
-	if (opt == "ro") {
-		*flags |= MS_RDONLY;
-	} else if (opt == "rw") {
-		*flags &= ~MS_RDONLY;
-	} else if (opt == "nosuid") {
-		*flags |= MS_NOSUID;
-	} else if (opt == "suid") {
-		*flags &= ~MS_NOSUID;
-	} else if (opt == "nodev") {
-		*flags |= MS_NODEV;
-	} else if (opt == "dev") {
-		*flags &= ~MS_NODEV;
-	} else if (opt == "noexec") {
-		*flags |= MS_NOEXEC;
-	} else if (opt == "exec") {
-		*flags &= ~MS_NOEXEC;
-	}
-}
-
-static unsigned long computeLegacyRemountFlags(const mount_t& mpt, const struct statvfs& vfs) {
-	struct {
-		const unsigned long mount_flag;
-		const unsigned long vfs_flag;
-	} static const mountPairs[] = {
-	    {MS_NOSUID, ST_NOSUID},
-	    {MS_NODEV, ST_NODEV},
-	    {MS_NOEXEC, ST_NOEXEC},
-	    {MS_SYNCHRONOUS, ST_SYNCHRONOUS},
-	    {MS_MANDLOCK, ST_MANDLOCK},
-	    {MS_NOATIME, ST_NOATIME},
-	    {MS_NODIRATIME, ST_NODIRATIME},
-	    {MS_RELATIME, ST_RELATIME},
-	    {MS_NOSYMFOLLOW, ST_NOSYMFOLLOW},
-	};
-
-	const unsigned long per_mountpoint_flags =
-	    MS_LAZYTIME | MS_MANDLOCK | MS_NOATIME | MS_NODEV | MS_NODIRATIME | MS_NOEXEC |
-	    MS_NOSUID | MS_RELATIME | MS_RDONLY | MS_SYNCHRONOUS | MS_NOSYMFOLLOW;
-
-	unsigned long flags = MS_REMOUNT | MS_BIND | (mpt.flags & per_mountpoint_flags);
-	for (const auto& i : mountPairs) {
-		if (vfs.f_flag & i.vfs_flag) {
-			flags |= i.mount_flag;
-		}
-	}
-	return flags;
-}
-
-static bool remountWithLegacyMount(const mount_t& mpt) {
-	struct statvfs vfs;
-	if (TEMP_FAILURE_RETRY(statvfs(mpt.dst.c_str(), &vfs)) == -1) {
-		PLOG_W("statvfs('%s')", mpt.dst.c_str());
-		return false;
-	}
-
-	unsigned long flags = computeLegacyRemountFlags(mpt, vfs);
-	LOG_D("Falling back to legacy remount for '%s' with flags: %s", mpt.dst.c_str(),
-	    mnt::flagsToStr(flags).c_str());
-
-	if (mount(mpt.dst.c_str(), mpt.dst.c_str(), nullptr, flags, nullptr) == -1) {
-		PLOG_W("mount('%s', flags=%s)", mpt.dst.c_str(), mnt::flagsToStr(flags).c_str());
-		return false;
-	}
-	return true;
-}
-
-static bool openMountForRemount(mount_t* mpt, int root_fd, const char* rel_dst) {
-	mpt->fd = util::syscall(
-	    __NR_open_tree, (uintptr_t)root_fd, (uintptr_t)rel_dst, (uintptr_t)OPEN_TREE_CLOEXEC);
-	if (mpt->fd < 0) {
-		PLOG_W("open_tree(root_fd, '%s')", rel_dst);
-		return false;
-	}
-	mpt->mounted = true;
-	return true;
-}
-
-static bool createDirAt(int dir_fd, const char* path, mode_t mode) {
-	path = util::stripLeadingSlashes(path);
-	if (!path[0]) {
-		return true;
-	}
-
-	std::string cumulative;
-	for (const auto& component : util::strSplit(path, '/')) {
-		if (component.empty()) {
-			continue;
-		}
-
-		if (!cumulative.empty()) {
-			cumulative += '/';
-		}
-		cumulative += component;
-
-		if (mkdirat(dir_fd, cumulative.c_str(), mode) == -1 && errno != EEXIST) {
-			if (errno != EROFS || !util::existsAsDirAt(dir_fd, cumulative.c_str())) {
-				PLOG_W("mkdirat(%d, '%s')", dir_fd, cumulative.c_str());
-				return false;
-			}
-		}
-	}
-	return true;
-}
-
 static int createDetachedTmpfs(size_t size) {
 	int fs_fd = util::syscall(__NR_fsopen, (uintptr_t)"tmpfs", (uintptr_t)FSOPEN_CLOEXEC);
 	if (fs_fd < 0) {
@@ -312,19 +202,25 @@ static int createFilesystemMount(const mount_t& mpt) {
 	return mnt_fd;
 }
 
-static bool mountSymlinkAt(mount_t* mpt, int root_fd, const char* rel_dst) {
-	LOG_D("Creating symlink: %s -> %s (fd-relative)", mpt->src.c_str(), rel_dst);
-	if (symlinkat(mpt->src.c_str(), root_fd, rel_dst) == -1) {
+static bool mountSymlinkAt(mount_t* mpt, const mnt::resolved_dst_t& resolved) {
+	if (resolved.is_root) {
+		LOG_W("Cannot create a symlink at the root mount destination");
+		return false;
+	}
+	LOG_D("Creating symlink: %s -> %s (fd-relative)", mpt->src.c_str(), resolved.leaf.c_str());
+	if (symlinkat(mpt->src.c_str(), resolved.dirfd, resolved.leaf.c_str()) == -1) {
 		if (mpt->mpt->mandatory()) {
-			PLOG_E("symlinkat('%s' -> '%s')", mpt->src.c_str(), rel_dst);
+			PLOG_E("symlinkat('%s' -> '%s')", mpt->src.c_str(), resolved.leaf.c_str());
 			return false;
 		}
-		PLOG_W("symlinkat('%s' -> '%s') failed (non-mandatory)", mpt->src.c_str(), rel_dst);
+		PLOG_W("symlinkat('%s' -> '%s') failed (non-mandatory)", mpt->src.c_str(),
+		    resolved.leaf.c_str());
 	}
 	return true;
 }
 
-static bool mountDynamicContentAt(mount_t* mpt, int root_fd, const char* rel_dst) {
+static bool mountDynamicContentAt(mount_t* mpt, int root_fd, int target_fd, const char* target_desc,
+    const mnt::resolved_dst_t& resolved) {
 	static uint64_t counter = 0;
 	std::string src_rel = ".dyn." + std::to_string(++counter);
 
@@ -340,7 +236,7 @@ static bool mountDynamicContentAt(mount_t* mpt, int root_fd, const char* rel_dst
 	close(src_fd);
 	if (!ok) {
 		LOG_W("Failed to write %zu bytes for dynamic content '%s'", content.length(),
-		    rel_dst);
+		    target_desc);
 		unlinkat(root_fd, src_rel.c_str(), 0);
 		return false;
 	}
@@ -354,32 +250,43 @@ static bool mountDynamicContentAt(mount_t* mpt, int root_fd, const char* rel_dst
 	}
 
 	if (!applyMountFlags(mnt_fd, mpt->flags & ~MS_RDONLY)) {
-		LOG_W("Failed to apply mount flags to '%s'", rel_dst);
+		LOG_W("Failed to apply mount flags to '%s'", target_desc);
 	}
 
-	if (util::syscall(__NR_move_mount, (uintptr_t)mnt_fd, (uintptr_t)"", (uintptr_t)root_fd,
-		(uintptr_t)rel_dst, (uintptr_t)MOVE_MOUNT_F_EMPTY_PATH) < 0) {
-		PLOG_W("move_mount('%s' -> '%s')", src_rel.c_str(), rel_dst);
+	if (util::syscall(__NR_move_mount, (uintptr_t)mnt_fd, (uintptr_t)"", (uintptr_t)target_fd,
+		(uintptr_t)"",
+		(uintptr_t)(MOVE_MOUNT_F_EMPTY_PATH | MOVE_MOUNT_T_EMPTY_PATH)) < 0) {
+		PLOG_W("move_mount('%s' -> '%s')", src_rel.c_str(), target_desc);
 		close(mnt_fd);
 		unlinkat(root_fd, src_rel.c_str(), 0);
 		return false;
 	}
-	close(mnt_fd);
 
 	if (unlinkat(root_fd, src_rel.c_str(), 0) == -1) {
 		PLOG_W("unlinkat(root_fd, '%s')", src_rel.c_str());
 	}
 
-	mpt->fd = syscall(__NR_open_tree, root_fd, rel_dst, (unsigned int)OPEN_TREE_CLOEXEC);
-	if (mpt->fd < 0) {
-		PLOG_W("open_tree(root_fd, '%s')", rel_dst);
+	mpt->mounted = true;
+	if (!NSJAIL_SYNC_TEST_HOOK_SUFFIX("new.before_post_attach_capture:", mpt->dst)) {
+		close(mnt_fd);
+		mpt->mounted = false;
 		return false;
 	}
-	mpt->mounted = true;
+	if (!mnt::captureMountIdentityFromFd(mnt_fd, mpt)) {
+		close(mnt_fd);
+		mpt->mounted = false;
+		return false;
+	}
+	if (!NSJAIL_SYNC_TEST_HOOK_SUFFIX("new.after_attach:", mpt->dst)) {
+		close(mnt_fd);
+		mpt->mounted = false;
+		return false;
+	}
+	mpt->fd = mnt_fd;
 	return true;
 }
 
-static bool doBindMountAt(mount_t* mpt, int root_fd, const char* rel_dst) {
+static bool doBindMountAt(mount_t* mpt, int root_fd, int target_fd, const char* target_desc) {
 	unsigned int flags = OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC;
 	if (mpt->flags & MS_REC) {
 		flags |= AT_RECURSIVE;
@@ -394,63 +301,75 @@ static bool doBindMountAt(mount_t* mpt, int root_fd, const char* rel_dst) {
 
 	/* Apply non-RO flags now; RO applied later via remount */
 	if (!applyMountFlags(mnt_fd, mpt->flags & ~MS_RDONLY)) {
-		LOG_W("Failed to apply mount flags to '%s'", rel_dst);
+		LOG_W("Failed to apply mount flags to '%s'", target_desc);
 	}
 
-	if (util::syscall(__NR_move_mount, (uintptr_t)mnt_fd, (uintptr_t)"", (uintptr_t)root_fd,
-		(uintptr_t)rel_dst, (uintptr_t)MOVE_MOUNT_F_EMPTY_PATH) < 0) {
-		PLOG_W("move_mount('%s' -> '%s')", mpt->src.c_str(), rel_dst);
+	if (util::syscall(__NR_move_mount, (uintptr_t)mnt_fd, (uintptr_t)"", (uintptr_t)target_fd,
+		(uintptr_t)"",
+		(uintptr_t)(MOVE_MOUNT_F_EMPTY_PATH | MOVE_MOUNT_T_EMPTY_PATH)) < 0) {
+		PLOG_W("move_mount('%s' -> '%s')", mpt->src.c_str(), target_desc);
 		close(mnt_fd);
 		return false;
 	}
-	close(mnt_fd);
-
-	return openMountForRemount(mpt, root_fd, rel_dst);
+	mpt->mounted = true;
+	if (!NSJAIL_SYNC_TEST_HOOK_SUFFIX("new.before_post_attach_capture:", mpt->dst)) {
+		close(mnt_fd);
+		mpt->mounted = false;
+		return false;
+	}
+	if (!mnt::captureMountIdentityFromFd(mnt_fd, mpt)) {
+		close(mnt_fd);
+		mpt->mounted = false;
+		return false;
+	}
+	if (!NSJAIL_SYNC_TEST_HOOK_SUFFIX("new.after_attach:", mpt->dst)) {
+		close(mnt_fd);
+		mpt->mounted = false;
+		return false;
+	}
+	mpt->fd = mnt_fd;
+	return true;
 }
 
 static bool mountSinglePointAt(mount_t* mpt, int root_fd) {
 	LOG_D("Mounting (new API): %s", mnt::describeMountPt(*mpt->mpt).c_str());
 
-	const char* rel_dst = util::stripLeadingSlashes(mpt->dst.c_str());
-	if (!rel_dst[0]) {
-		rel_dst = ".";
+	mnt::resolved_dst_t resolved = {
+	    .dirfd = -1,
+	    .leaf = "",
+	    .is_root = false,
+	};
+	if (!mnt::resolveMountDestination(root_fd, mpt->dst, &resolved)) {
+		return false;
 	}
-
-	const char* last_slash = strrchr(rel_dst, '/');
-	if (last_slash && last_slash != rel_dst) {
-		std::string parent(rel_dst, last_slash - rel_dst);
-		if (!createDirAt(root_fd, parent.c_str(), 0755)) {
-			LOG_W("Failed to create parent directories for '%s'", rel_dst);
-			return false;
-		}
-	}
+	defer {
+		close(resolved.dirfd);
+	};
+	const char* target_desc = resolved.is_root ? "." : resolved.leaf.c_str();
 
 	if (mpt->mpt->is_symlink()) {
-		return mountSymlinkAt(mpt, root_fd, rel_dst);
+		return mountSymlinkAt(mpt, resolved);
 	}
 
-	if (mpt->is_dir) {
-		if (strcmp(rel_dst, ".") != 0 && mkdirat(root_fd, rel_dst, 0711) == -1 &&
-		    errno != EEXIST) {
-			if (errno != EROFS || !util::existsAsDirAt(root_fd, rel_dst)) {
-				PLOG_W("mkdirat(root_fd, '%s')", rel_dst);
-			}
-		}
-	} else {
-		int fd = openat(root_fd, rel_dst, O_CREAT | O_RDONLY | O_CLOEXEC, 0644);
-		if (fd >= 0) {
-			close(fd);
-		} else if (errno != EROFS || !util::existsAsRegAt(root_fd, rel_dst)) {
-			PLOG_W("openat(root_fd, '%s', O_CREAT)", rel_dst);
-		}
+	int target_fd = -1;
+	if (!mnt::createMountTargetFd(root_fd, resolved, mpt->is_dir, &target_fd, mpt->dst)) {
+		return false;
 	}
-
+	defer {
+		close(target_fd);
+	};
 	if (!mpt->mpt->src_content().empty()) {
-		return mountDynamicContentAt(mpt, root_fd, rel_dst);
+		if (!mountDynamicContentAt(mpt, root_fd, target_fd, target_desc, resolved)) {
+			return false;
+		}
+		return true;
 	}
 
 	if (mpt->flags & MS_BIND) {
-		return doBindMountAt(mpt, root_fd, rel_dst);
+		if (!doBindMountAt(mpt, root_fd, target_fd, target_desc)) {
+			return false;
+		}
+		return true;
 	}
 
 	int mnt_fd = createFilesystemMount(*mpt);
@@ -459,18 +378,34 @@ static bool mountSinglePointAt(mount_t* mpt, int root_fd) {
 	}
 
 	if (!applyMountFlags(mnt_fd, mpt->flags & ~MS_RDONLY)) {
-		LOG_W("Failed to apply mount flags to '%s'", rel_dst);
+		LOG_W("Failed to apply mount flags to '%s'", target_desc);
 	}
 
-	if (util::syscall(__NR_move_mount, (uintptr_t)mnt_fd, (uintptr_t)"", (uintptr_t)root_fd,
-		(uintptr_t)rel_dst, (uintptr_t)MOVE_MOUNT_F_EMPTY_PATH) < 0) {
-		PLOG_W("move_mount() for '%s'", rel_dst);
+	if (util::syscall(__NR_move_mount, (uintptr_t)mnt_fd, (uintptr_t)"", (uintptr_t)target_fd,
+		(uintptr_t)"",
+		(uintptr_t)(MOVE_MOUNT_F_EMPTY_PATH | MOVE_MOUNT_T_EMPTY_PATH)) < 0) {
+		PLOG_W("move_mount() for '%s'", target_desc);
 		close(mnt_fd);
 		return false;
 	}
-	close(mnt_fd);
-
-	return openMountForRemount(mpt, root_fd, rel_dst);
+	mpt->mounted = true;
+	if (!NSJAIL_SYNC_TEST_HOOK_SUFFIX("new.before_post_attach_capture:", mpt->dst)) {
+		close(mnt_fd);
+		mpt->mounted = false;
+		return false;
+	}
+	if (!mnt::captureMountIdentityFromFd(mnt_fd, mpt)) {
+		close(mnt_fd);
+		mpt->mounted = false;
+		return false;
+	}
+	if (!NSJAIL_SYNC_TEST_HOOK_SUFFIX("new.after_attach:", mpt->dst)) {
+		close(mnt_fd);
+		mpt->mounted = false;
+		return false;
+	}
+	mpt->fd = mnt_fd;
+	return true;
 }
 
 static mount_t prepareMountPoint(const nsjail::MountPt& proto) {
@@ -482,6 +417,7 @@ static mount_t prepareMountPoint(const nsjail::MountPt& proto) {
 	    .is_dir = true,
 	    .mounted = false,
 	    .fd = -1,
+	    .identity = {},
 	};
 
 	if (!proto.prefix_src_env().empty()) {
@@ -552,11 +488,15 @@ bool remountPt(mnt::mount_t& mpt) {
 	if (!mpt.mounted || mpt.mpt->is_symlink() || mpt.fd < 0) {
 		return true;
 	}
+	defer {
+		close(mpt.fd);
+		mpt.fd = -1;
+	};
+	if (mpt.dst == "/") {
+		return true;
+	}
 
-	close(mpt.fd);
-	mpt.fd = -1;
-
-	if (!remountWithLegacyMount(mpt)) {
+	if (!mnt::applyMountFlagsToMountFd(mpt.fd, mpt.flags)) {
 		LOG_W("Failed to apply final flags to '%s'", mpt.dst.c_str());
 		return false;
 	}
@@ -626,6 +566,15 @@ std::unique_ptr<std::string> buildMountTree(nsj_t* nsj, std::vector<mnt::mount_t
 			}
 		}
 		mounted_mpts->push_back(mpt);
+		if (mpt.dst == "/" && mpt.mounted) {
+			close(root_fd);
+			root_fd = openat(AT_FDCWD, destdir->c_str(),
+			    O_RDONLY | O_CLOEXEC | O_PATH | O_DIRECTORY);
+			if (root_fd < 0) {
+				PLOG_E("openat('%s') after root mount", destdir->c_str());
+				return nullptr;
+			}
+		}
 	}
 
 	if (!nsj->is_root_rw) {

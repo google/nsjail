@@ -59,6 +59,15 @@ typedef enum {
 	NS_DIR_MAYBE,
 } isDir_t;
 
+struct mount_identity_t {
+	bool valid;
+	bool has_mount_id;
+	uint64_t ino;
+	uint64_t mnt_id;
+	dev_t dev;
+	mode_t type;
+};
+
 /* Shared mount point structure used by both legacy and new API */
 struct mount_t {
 	const nsjail::MountPt* mpt;
@@ -67,13 +76,41 @@ struct mount_t {
 	uintptr_t flags;
 	bool is_dir;
 	bool mounted;
-	int fd; /* Used by new API for deferred remount */
+	int fd; /* Used by new mount API for deferred remount */
+	mount_identity_t identity;
+};
+
+struct resolved_dst_t {
+	int dirfd;
+	std::string leaf;
+	bool is_root;
 };
 
 bool initNs(nsj_t* nsj);
 std::unique_ptr<std::string> findWorkDir(nsj_t* nsj, const char* purpose);
 const std::string describeMountPt(const nsjail::MountPt& mpt);
 const std::string flagsToStr(unsigned long flags);
+bool isGenericMountOption(const std::string& opt);
+void applyGenericMountOption(const std::string& opt, uintptr_t* flags);
+bool resolveMountDestination(int root_fd, const std::string& dst, resolved_dst_t* resolved);
+bool createMountTargetFd(
+    int root_fd, const resolved_dst_t& resolved, bool is_dir, int* target_fd,
+    const std::string& dst);
+bool applyMountFlagsToMountFd(int mount_fd, uintptr_t flags, bool log_error = true);
+const std::string procFdPath(int fd);
+bool syncTestHook(const char* point);
+bool captureMountIdentityFromFd(int fd, mount_t* mpt);
+bool captureMountedDestinationIdentity(int root_fd, mount_t* mpt);
+bool verifyMountDestinationVisible(int root_fd, const mount_t& mpt);
+
+#if defined(NSJAIL_TEST_HOOKS)
+#define NSJAIL_SYNC_TEST_HOOK(point_literal) ::mnt::syncTestHook(point_literal)
+#define NSJAIL_SYNC_TEST_HOOK_SUFFIX(prefix_literal, suffix_expr)                                   \
+	::mnt::syncTestHook((std::string(prefix_literal) + (suffix_expr)).c_str())
+#else
+#define NSJAIL_SYNC_TEST_HOOK(point_literal) true
+#define NSJAIL_SYNC_TEST_HOOK_SUFFIX(prefix_literal, suffix_expr) true
+#endif
 
 }  // namespace mnt
 
