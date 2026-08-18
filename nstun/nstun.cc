@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/epoll.h>
+#include <sys/eventfd.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
@@ -30,6 +31,11 @@
 #include "tun.h"
 #include "udp.h"
 #include "util.h"
+
+struct nstun_context_handle {
+	nstun::Context* context = nullptr;
+	std::thread worker;
+};
 
 namespace nstun {
 
@@ -91,10 +97,23 @@ static void networkLoop(Context* ctx) {
 	LOG_D("nstun network loop started on tap_fd=%d", ctx->tap_fd);
 
 	defer {
-		close(ctx->tap_fd);
-		close(ctx->epoll_fd);
-		delete ctx;
+		if (ctx->tap_fd != -1) {
+			close(ctx->tap_fd);
+			ctx->tap_fd = -1;
+		}
+		if (ctx->epoll_fd != -1) {
+			close(ctx->epoll_fd);
+			ctx->epoll_fd = -1;
+		}
+		/* The owner closes stop_fd after joining. Keeping it open prevents
+		 * reuse if the loop exits naturally before child reap. */
 	};
+
+	struct epoll_event stop_ev = {.events = EPOLLIN, .data = {.fd = ctx->stop_fd}};
+	if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, ctx->stop_fd, &stop_ev) == -1) {
+		PLOG_E("epoll_ctl(EPOLL_CTL_ADD, stop_fd)");
+		return;
+	}
 
 	struct epoll_event ev = {.events = EPOLLIN, .data = {.fd = ctx->tap_fd}};
 	if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, ctx->tap_fd, &ev) == -1) {
@@ -125,7 +144,11 @@ static void networkLoop(Context* ctx) {
 		for (int i = 0; i < nfds; ++i) {
 			int fd = events[i].data.fd;
 
-			if (fd == ctx->tap_fd) {
+			if (fd == ctx->stop_fd) {
+				uint64_t value;
+				(void)TEMP_FAILURE_RETRY(read(ctx->stop_fd, &value, sizeof(value)));
+				return;
+			} else if (fd == ctx->tap_fd) {
 				ssize_t n = TEMP_FAILURE_RETRY(
 				    read(ctx->tap_fd, buf.get(), TUN_FRAME_BUF_SIZE));
 				if (n <= 0) {
@@ -187,7 +210,14 @@ bool nstun_init_child(int sock, nsj_t* nsj) {
 	return true;
 }
 
-bool nstun_init_parent(int sock, nsj_t* nsj) {
+bool nstun_init_parent(int sock, nsj_t* nsj, struct nstun_context_handle** out_handle) {
+	if (out_handle == nullptr) {
+		LOG_E("nstun_init_parent() requires an output handle");
+		return false;
+	}
+	*out_handle = nullptr;
+	auto handle = std::make_unique<nstun_context_handle>();
+
 	int tap_fd = util::recvFd(sock);
 	if (tap_fd < 0) {
 		LOG_E("Failed to receive TAP fd from child");
@@ -288,13 +318,31 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 		close(ctx->tap_fd);
 		return false;
 	}
+	ctx->stop_fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+	if (ctx->stop_fd == -1) {
+		PLOG_E("eventfd(stop_fd)");
+		close(ctx->epoll_fd);
+		close(ctx->tap_fd);
+		return false;
+	}
 
 	auto cleanup_and_fail = [&ctx]() -> bool {
 		for (auto& [fd, _] : ctx->host_listener_fd_to_rule) {
 			close(fd);
 		}
-		close(ctx->epoll_fd);
-		close(ctx->tap_fd);
+		ctx->host_listener_fd_to_rule.clear();
+		if (ctx->stop_fd != -1) {
+			close(ctx->stop_fd);
+			ctx->stop_fd = -1;
+		}
+		if (ctx->epoll_fd != -1) {
+			close(ctx->epoll_fd);
+			ctx->epoll_fd = -1;
+		}
+		if (ctx->tap_fd != -1) {
+			close(ctx->tap_fd);
+			ctx->tap_fd = -1;
+		}
 		return false;
 	};
 
@@ -496,8 +544,34 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 	}
 
 	/* Spawn network loop thread */
-	std::thread t(nstun::networkLoop, ctx.release());
-	t.detach();
+	handle->context = ctx.get();
+	handle->worker = std::thread(nstun::networkLoop, handle->context);
+	ctx.release();
+	*out_handle = handle.release();
 
 	return true;
+}
+
+void nstun_destroy_parent(struct nstun_context_handle* handle) {
+	if (handle == nullptr) {
+		return;
+	}
+
+	if (handle->context != nullptr && handle->context->stop_fd != -1) {
+		const uint64_t one = 1;
+		if (TEMP_FAILURE_RETRY(
+			write(handle->context->stop_fd, &one, sizeof(one))) == -1 && errno != EPIPE) {
+			PLOG_W("write(stop_fd)");
+		}
+	}
+	if (handle->worker.joinable()) {
+		handle->worker.join();
+	}
+	if (handle->context != nullptr && handle->context->stop_fd != -1) {
+		close(handle->context->stop_fd);
+		handle->context->stop_fd = -1;
+	}
+	delete handle->context;
+	handle->context = nullptr;
+	delete handle;
 }

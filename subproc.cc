@@ -283,7 +283,11 @@ static void removeProc(nsj_t* nsj, pid_t pid) {
 		return;
 	}
 
-	const auto& p = nsj->pids[pid];
+	auto& p = nsj->pids[pid];
+	if (p.nstun != nullptr) {
+		nstun_destroy_parent(p.nstun);
+		p.nstun = nullptr;
+	}
 	if (p.pasta_pid > 0) {
 		LOG_D("Killing pasta pid=%d", p.pasta_pid);
 		kill(p.pasta_pid, SIGKILL);

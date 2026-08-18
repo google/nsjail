@@ -417,6 +417,15 @@ static bool spawnPasta(nsj_t* nsj, int pid) {
 }
 
 bool initParent(nsj_t* nsj, pid_t pid, int pipefd) {
+	bool nstun_started = false;
+	bool init_success = false;
+	defer {
+		if (!init_success && nstun_started && nsj->pids[pid].nstun != nullptr) {
+			nstun_destroy_parent(nsj->pids[pid].nstun);
+			nsj->pids[pid].nstun = nullptr;
+		}
+	};
+
 	if (nsj->njc.has_user_net()) {
 		if (!nsj->njc.clone_newnet()) {
 			LOG_E("Support for User-Mode Networking requested but CLONE_NEWNET "
@@ -424,10 +433,11 @@ bool initParent(nsj_t* nsj, pid_t pid, int pipefd) {
 			return false;
 		}
 		if (nsj->njc.user_net().backend() == nsjail::NsJailConfig_UserNet_Backend_NSTUN) {
-			if (!nstun_init_parent(pipefd, nsj)) {
+			if (!nstun_init_parent(pipefd, nsj, &nsj->pids[pid].nstun)) {
 				LOG_E("nstun_init_parent() failed");
 				return false;
 			}
+			nstun_started = true;
 		} else if (nsj->njc.user_net().backend() ==
 			       nsjail::NsJailConfig_UserNet_Backend_PASTA &&
 			   nsj->njc.user_net().has_pasta()) {
@@ -437,6 +447,7 @@ bool initParent(nsj_t* nsj, pid_t pid, int pipefd) {
 		}
 	}
 	if (!nsj->njc.clone_newnet()) {
+		init_success = true;
 		return true;
 	}
 #ifdef HAVE_LIBNL3
@@ -473,6 +484,7 @@ bool initParent(nsj_t* nsj, pid_t pid, int pipefd) {
 		return false;
 	}
 
+	init_success = true;
 	return true;
 #else
 	if (!nsj->njc.iface_own().empty() || !nsj->njc.macvlan_iface().empty()) {
@@ -480,6 +492,7 @@ bool initParent(nsj_t* nsj, pid_t pid, int pipefd) {
 		      "was built without libnl3 support");
 		return false;
 	}
+	init_success = true;
 	return true;
 #endif
 }

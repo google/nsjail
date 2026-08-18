@@ -38,6 +38,8 @@
 
 #include "config.pb.h"
 
+struct nstun_context_handle;
+
 static const int nssigs[] = {
     SIGINT,
     SIGQUIT,
@@ -59,6 +61,7 @@ struct pids_t {
 	int pid_syscall_fd;
 	pid_t pasta_pid;
 	pthread_t monitor_tid;
+	nstun_context_handle* nstun = nullptr;
 };
 
 struct idmap_t {
