@@ -19,9 +19,9 @@ RuleResult evaluate_rules4(Context* ctx, nstun_direction_t dir, nstun_proto_t pr
 		if (r.direction != dir) continue;
 		if (r.proto != NSTUN_PROTO_ANY && r.proto != proto) continue;
 
-		if (r.src_ip4 != 0 && (src_ip4 & r.src_mask4) != (r.src_ip4 & r.src_mask4))
+		if (r.src_mask4 != 0 && (src_ip4 & r.src_mask4) != (r.src_ip4 & r.src_mask4))
 			continue;
-		if (r.dst_ip4 != 0 && (dst_ip4 & r.dst_mask4) != (r.dst_ip4 & r.dst_mask4))
+		if (r.dst_mask4 != 0 && (dst_ip4 & r.dst_mask4) != (r.dst_ip4 & r.dst_mask4))
 			continue;
 
 		if (r.sport_start != 0 && (sport < r.sport_start || sport > r.sport_end)) continue;
@@ -59,9 +59,9 @@ RuleResult evaluate_rules6(Context* ctx, nstun_direction_t dir, nstun_proto_t pr
 		if (r.direction != dir) continue;
 		if (r.proto != NSTUN_PROTO_ANY && r.proto != proto) continue;
 
-		if (!ip6_is_zero(r.src_ip6) && !ip6_masked_eq(src_ip6, r.src_ip6, r.src_mask6))
+		if (!ip6_is_zero(r.src_mask6) && !ip6_masked_eq(src_ip6, r.src_ip6, r.src_mask6))
 			continue;
-		if (!ip6_is_zero(r.dst_ip6) && !ip6_masked_eq(dst_ip6, r.dst_ip6, r.dst_mask6))
+		if (!ip6_is_zero(r.dst_mask6) && !ip6_masked_eq(dst_ip6, r.dst_ip6, r.dst_mask6))
 			continue;
 
 		if (r.sport_start != 0 && (sport < r.sport_start || sport > r.sport_end)) continue;
