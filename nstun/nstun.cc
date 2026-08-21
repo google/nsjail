@@ -351,6 +351,16 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 					return cleanup_and_fail();
 				}
 
+				if (nr.proto == NSTUN_PROTO_UDP) {
+					if (setsockopt(fd, IPPROTO_IP, IP_PKTINFO, &opt,
+						sizeof(opt)) == -1) {
+						PLOG_E(
+						    "setsockopt(IP_PKTINFO) for HOST_TO_GUEST UDP");
+						close(fd);
+						return cleanup_and_fail();
+					}
+				}
+
 				struct sockaddr_in addr = INIT_SOCKADDR_IN(AF_INET);
 				addr.sin_port = htons(port);
 				addr.sin_addr.s_addr = nr.src_ip4;
@@ -459,6 +469,16 @@ bool nstun_init_parent(int sock, nsj_t* nsj) {
 					PLOG_E("setsockopt(IPV6_V6ONLY)");
 					close(fd);
 					return cleanup_and_fail();
+				}
+
+				if (nr.proto == NSTUN_PROTO_UDP) {
+					if (setsockopt(fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &opt,
+						sizeof(opt)) == -1) {
+						PLOG_E("setsockopt(IPV6_RECVPKTINFO) for "
+						       "HOST_TO_GUEST UDP6");
+						close(fd);
+						return cleanup_and_fail();
+					}
 				}
 
 				struct sockaddr_in6 addr = INIT_SOCKADDR_IN6(AF_INET6);

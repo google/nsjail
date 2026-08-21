@@ -25,6 +25,45 @@ static constexpr size_t UDP_QUEUE_PACKET_MAX = 1500; /* Typ. Ethernet MTU: cap q
 /* UDP idle timeouts (seconds) */
 static constexpr time_t UDP_TIMEOUT_ESTABLISHED = 60;
 static constexpr time_t UDP_TIMEOUT_CONNECTING = 5; /* SOCKS5 TCP setup */
+
+static bool udp_get_dst4(struct msghdr* msg, uint32_t* dst) {
+	if (msg->msg_flags & MSG_CTRUNC) {
+		return false;
+	}
+
+	for (struct cmsghdr* cmsg = CMSG_FIRSTHDR(msg); cmsg != nullptr;
+	    cmsg = CMSG_NXTHDR(msg, cmsg)) {
+		if (cmsg->cmsg_level == IPPROTO_IP && cmsg->cmsg_type == IP_PKTINFO &&
+		    cmsg->cmsg_len >= CMSG_LEN(sizeof(struct in_pktinfo))) {
+			const auto* pktinfo =
+			    reinterpret_cast<const struct in_pktinfo*>(CMSG_DATA(cmsg));
+			*dst = pktinfo->ipi_addr.s_addr;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static bool udp_get_dst6(struct msghdr* msg, uint8_t dst[IPV6_ADDR_LEN]) {
+	if (msg->msg_flags & MSG_CTRUNC) {
+		return false;
+	}
+
+	for (struct cmsghdr* cmsg = CMSG_FIRSTHDR(msg); cmsg != nullptr;
+	    cmsg = CMSG_NXTHDR(msg, cmsg)) {
+		if (cmsg->cmsg_level == IPPROTO_IPV6 && cmsg->cmsg_type == IPV6_PKTINFO &&
+		    cmsg->cmsg_len >= CMSG_LEN(sizeof(struct in6_pktinfo))) {
+			const auto* pktinfo =
+			    reinterpret_cast<const struct in6_pktinfo*>(CMSG_DATA(cmsg));
+			memcpy(dst, &pktinfo->ipi6_addr, IPV6_ADDR_LEN);
+			return true;
+		}
+	}
+
+	return false;
+}
+
 static void udp_destroy_flow(Context* ctx, UdpFlow* flow) {
 	if (flow->host_fd != -1 && !flow->host_fd_is_listener) {
 		epoll_ctl(ctx->epoll_fd, EPOLL_CTL_DEL, flow->host_fd, nullptr);
@@ -612,16 +651,18 @@ void handle_host_udp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 	}
 	uint8_t (*bufs)[NSTUN_MTU] = bufs_ptr.get();
 	static thread_local struct sockaddr_storage client_addrs[VLEN];
+	alignas(struct cmsghdr) uint8_t control_bufs[VLEN][CMSG_SPACE(sizeof(struct in6_pktinfo))];
 
 	for (int i = 0; i < VLEN; ++i) {
+		memset(&msgs[i], 0, sizeof(msgs[i]));
 		iovecs[i].iov_base = bufs[i];
 		iovecs[i].iov_len = sizeof(bufs[i]);
 		msgs[i].msg_hdr.msg_iov = &iovecs[i];
 		msgs[i].msg_hdr.msg_iovlen = 1;
 		msgs[i].msg_hdr.msg_name = &client_addrs[i];
 		msgs[i].msg_hdr.msg_namelen = sizeof(client_addrs[i]);
-		msgs[i].msg_hdr.msg_control = nullptr;
-		msgs[i].msg_hdr.msg_controllen = 0;
+		msgs[i].msg_hdr.msg_control = control_bufs[i];
+		msgs[i].msg_hdr.msg_controllen = sizeof(control_bufs[i]);
 	}
 
 	int retval = recvmmsg(listen_fd, msgs, VLEN, MSG_DONTWAIT, nullptr);
@@ -642,9 +683,27 @@ void handle_host_udp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 			struct sockaddr_in6* client6 =
 			    reinterpret_cast<struct sockaddr_in6*>(client_ss);
 			struct sockaddr_in6 server6 = INIT_SOCKADDR_IN6(AF_INET6);
-			if (i == 0) {
-				socklen_t servlen6 = sizeof(server6);
-				getsockname(listen_fd, (struct sockaddr*)&server6, &servlen6);
+			socklen_t servlen6 = sizeof(server6);
+			if (getsockname(listen_fd, (struct sockaddr*)&server6, &servlen6) == -1) {
+				PLOG_E("getsockname() for inbound UDP6");
+				continue;
+			}
+
+			uint8_t packet_dst6[IPV6_ADDR_LEN];
+			if (!udp_get_dst6(&msgs[i].msg_hdr, packet_dst6)) {
+				LOG_W("Missing destination address for inbound IPv6 UDP datagram");
+				continue;
+			}
+			memcpy(&server6.sin6_addr, packet_dst6, sizeof(packet_dst6));
+
+			RuleResult policy = evaluate_rules6(ctx, NSTUN_DIR_HOST_TO_GUEST,
+			    NSTUN_PROTO_UDP, client6->sin6_addr.s6_addr, server6.sin6_addr.s6_addr,
+			    ntohs(client6->sin6_port), ntohs(server6.sin6_port));
+
+			if (policy.action == NSTUN_ACTION_DROP ||
+			    policy.action == NSTUN_ACTION_REJECT) {
+				LOG_W("Blocking inbound UDP6 datagram by HOST_TO_GUEST policy");
+				continue;
 			}
 
 			/* Loopback→gateway rewrite for IPv6: prevent martian drops in guest */
@@ -696,9 +755,28 @@ void handle_host_udp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 			struct sockaddr_in* client4 =
 			    reinterpret_cast<struct sockaddr_in*>(client_ss);
 			struct sockaddr_in server_addr = INIT_SOCKADDR_IN(AF_INET);
-			if (i == 0) {
-				socklen_t servlen = sizeof(server_addr);
-				getsockname(listen_fd, (struct sockaddr*)&server_addr, &servlen);
+			socklen_t servlen = sizeof(server_addr);
+			if (getsockname(listen_fd, (struct sockaddr*)&server_addr, &servlen) ==
+			    -1) {
+				PLOG_E("getsockname() for inbound UDP");
+				continue;
+			}
+
+			uint32_t packet_dst4 = 0;
+			if (!udp_get_dst4(&msgs[i].msg_hdr, &packet_dst4)) {
+				LOG_W("Missing destination address for inbound IPv4 UDP datagram");
+				continue;
+			}
+			server_addr.sin_addr.s_addr = packet_dst4;
+
+			RuleResult policy = evaluate_rules4(ctx, NSTUN_DIR_HOST_TO_GUEST,
+			    NSTUN_PROTO_UDP, client4->sin_addr.s_addr, server_addr.sin_addr.s_addr,
+			    ntohs(client4->sin_port), ntohs(server_addr.sin_port));
+
+			if (policy.action == NSTUN_ACTION_DROP ||
+			    policy.action == NSTUN_ACTION_REJECT) {
+				LOG_W("Blocking inbound UDP datagram by HOST_TO_GUEST policy");
+				continue;
 			}
 
 			uint32_t client_ip = client4->sin_addr.s_addr;

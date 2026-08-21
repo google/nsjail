@@ -1056,6 +1056,53 @@ void handle_host_tcp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 		return;
 	}
 
+	/*
+	 * A HOST_TO_GUEST listener is created from a REDIRECT rule, but the
+	 * accepted peer still has to pass the ordered HOST_TO_GUEST policy.
+	 * Evaluate the real peer tuple before creating a flow into the guest.
+	 */
+	if (rule.is_ipv6) {
+		const struct sockaddr_in6* client6 =
+		    reinterpret_cast<const struct sockaddr_in6*>(&client_ss);
+		struct sockaddr_in6 server6 = INIT_SOCKADDR_IN6(AF_INET6);
+		socklen_t servlen6 = sizeof(server6);
+		if (getsockname(fd, (struct sockaddr*)&server6, &servlen6) == -1) {
+			PLOG_E("getsockname() for inbound TCP6");
+			close(fd);
+			return;
+		}
+
+		RuleResult policy = evaluate_rules6(ctx, NSTUN_DIR_HOST_TO_GUEST, NSTUN_PROTO_TCP,
+		    client6->sin6_addr.s6_addr, server6.sin6_addr.s6_addr,
+		    ntohs(client6->sin6_port), ntohs(server6.sin6_port));
+
+		if (policy.action == NSTUN_ACTION_DROP || policy.action == NSTUN_ACTION_REJECT) {
+			LOG_W("Blocking inbound TCP6 connection by HOST_TO_GUEST policy");
+			close(fd);
+			return;
+		}
+	} else {
+		const struct sockaddr_in* client4 =
+		    reinterpret_cast<const struct sockaddr_in*>(&client_ss);
+		struct sockaddr_in server4 = INIT_SOCKADDR_IN(AF_INET);
+		socklen_t servlen4 = sizeof(server4);
+		if (getsockname(fd, (struct sockaddr*)&server4, &servlen4) == -1) {
+			PLOG_E("getsockname() for inbound TCP");
+			close(fd);
+			return;
+		}
+
+		RuleResult policy = evaluate_rules4(ctx, NSTUN_DIR_HOST_TO_GUEST, NSTUN_PROTO_TCP,
+		    client4->sin_addr.s_addr, server4.sin_addr.s_addr, ntohs(client4->sin_port),
+		    ntohs(server4.sin_port));
+
+		if (policy.action == NSTUN_ACTION_DROP || policy.action == NSTUN_ACTION_REJECT) {
+			LOG_W("Blocking inbound TCP connection by HOST_TO_GUEST policy");
+			close(fd);
+			return;
+		}
+	}
+
 	LOG_D("Accepted fd=%d", fd);
 
 	int opt = 1;
