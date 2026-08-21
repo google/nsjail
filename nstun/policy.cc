@@ -124,6 +124,15 @@ RuleParseStatus fill_rule_common(const RuleMsg& r, nstun_rule_t* nr) {
 		nr->proto = NSTUN_PROTO_ANY;
 	}
 
+	if ((r.has_sport() && r.sport() > UINT16_MAX) ||
+	    (r.has_sport_end() && r.sport_end() > UINT16_MAX) ||
+	    (r.has_dport() && r.dport() > UINT16_MAX) ||
+	    (r.has_dport_end() && r.dport_end() > UINT16_MAX) ||
+	    (r.has_redirect_port() && r.redirect_port() > UINT16_MAX)) {
+		LOG_E("NSTUN rule contains a port outside the valid range");
+		return RuleParseStatus::ABORT;
+	}
+
 	nr->sport_start = r.has_sport() ? r.sport() : 0;
 	nr->sport_end = r.has_sport_end() ? r.sport_end() : nr->sport_start;
 
