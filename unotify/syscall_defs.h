@@ -241,12 +241,20 @@ constexpr size_t kTracedSyscallCount = sizeof(kTracedSyscalls) / sizeof(kTracedS
 /*
  * Build the kafel policy string from the table.
  * Called by sandbox.cc - no manual syscall list maintenance needed.
+ *
+ * The syscall number is used rather than the name. kafel resolves names from a
+ * per-architecture table, and those tables are not equally complete, so a name
+ * that resolves on one architecture can be unknown on another; kafel_compile()
+ * then fails and nsjail does not start at all. The number is a compile time
+ * constant of the architecture being built for. The name is kept as a comment
+ * so the generated policy stays readable.
  */
 inline std::string buildKafelPolicy() {
 	std::string p = "POLICY unotify {\n  USER_NOTIF {\n";
 	for (size_t i = 0; i < kTracedSyscallCount; i++) {
 		if (i > 0) p += ", ";
-		p += kTracedSyscalls[i].kafel_name;
+		p += "SYSCALL[" + std::to_string(kTracedSyscalls[i].nr) + "] /* " +
+		     kTracedSyscalls[i].kafel_name + " */";
 	}
 	p += "\n  }\n}\nUSE unotify DEFAULT ALLOW\n";
 	return p;
