@@ -37,6 +37,18 @@
 
 namespace cgroup {
 
+static size_t getMemSwMax(nsj_t* nsj) {
+	size_t memsw_max = nsj->njc.cgroup_mem_memsw_max();
+	if (nsj->njc.cgroup_mem_swap_max() >= (ssize_t)0) {
+		memsw_max = nsj->njc.cgroup_mem_swap_max() + nsj->njc.cgroup_mem_max();
+	}
+	return memsw_max;
+}
+
+static bool needMemoryCgroup(nsj_t* nsj) {
+	return nsj->njc.cgroup_mem_max() != (size_t)0 || getMemSwMax(nsj) != (size_t)0;
+}
+
 static bool createCgroup(const std::string& cgroup_path, pid_t pid) {
 	LOG_D("Create %s for pid=%d", QC(cgroup_path), (int)pid);
 	if (mkdir(cgroup_path.c_str(), 0700) == -1 && errno != EEXIST) {
@@ -65,10 +77,7 @@ static bool addPidToTaskList(const std::string& cgroup_path, pid_t pid) {
 }
 
 static bool initNsFromParentMem(nsj_t* nsj, pid_t pid) {
-	size_t memsw_max = nsj->njc.cgroup_mem_memsw_max();
-	if (nsj->njc.cgroup_mem_swap_max() >= (ssize_t)0) {
-		memsw_max = nsj->njc.cgroup_mem_swap_max() + nsj->njc.cgroup_mem_max();
-	}
+	size_t memsw_max = getMemSwMax(nsj);
 
 	if (nsj->njc.cgroup_mem_max() == (size_t)0 && memsw_max == (size_t)0) {
 		return true;
@@ -174,8 +183,7 @@ static void removeCgroup(const std::string& cgroup_path) {
 }
 
 void finishFromParent(nsj_t* nsj, pid_t pid) {
-	if (nsj->njc.cgroup_mem_max() != (size_t)0 ||
-	    nsj->njc.cgroup_mem_memsw_max() != (size_t)0) {
+	if (needMemoryCgroup(nsj)) {
 		std::string mem_cgroup_path = nsj->njc.cgroup_mem_mount() + '/' +
 					      nsj->njc.cgroup_mem_parent() + "/NSJAIL." +
 					      std::to_string(pid);
