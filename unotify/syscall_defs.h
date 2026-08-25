@@ -76,6 +76,11 @@ static constexpr SyscallDef kTracedSyscalls[] = {
 	{__NR_lstat, "newlstat", "lstat", SyscallCategory::FS,
 	    {A::PATH, A::SKIP, A::SKIP, A::SKIP, A::SKIP, A::SKIP}},
 #endif /* __NR_lstat */
+	/* statfs(path, buf) reads filesystem state through a path, like stat above. */
+#ifdef __NR_statfs
+	{__NR_statfs, "statfs", "statfs", SyscallCategory::FS,
+	    {A::PATH, A::SKIP, A::SKIP, A::SKIP, A::SKIP, A::SKIP}},
+#endif /* __NR_statfs */
 #ifdef __NR_access
 	{__NR_access, "access", "access", SyscallCategory::FS,
 	    {A::PATH, A::ACCESS, A::SKIP, A::SKIP, A::SKIP, A::SKIP}},
@@ -92,6 +97,14 @@ static constexpr SyscallDef kTracedSyscalls[] = {
 	{__NR_lchown, "lchown", "lchown", SyscallCategory::FS,
 	    {A::PATH, A::UID, A::GID, A::SKIP, A::SKIP, A::SKIP}},
 #endif /* __NR_lchown */
+	/*
+	 * truncate(path, length) writes to a file without opening it, so without
+	 * this entry the content change is not observed at all.
+	 */
+#ifdef __NR_truncate
+	{__NR_truncate, "truncate", "truncate", SyscallCategory::FS,
+	    {A::PATH, A::SKIP, A::SKIP, A::SKIP, A::SKIP, A::SKIP}},
+#endif /* __NR_truncate */
 #ifdef __NR_readlink
 	{__NR_readlink, "readlink", "readlink", SyscallCategory::FS,
 	    {A::PATH, A::SKIP, A::SKIP, A::SKIP, A::SKIP, A::SKIP}},
@@ -125,6 +138,45 @@ static constexpr SyscallDef kTracedSyscalls[] = {
 	    {A::PATH, A::SKIP, A::SKIP, A::SKIP, A::SKIP, A::SKIP}},
 #endif /* __NR_chroot */
 
+	/*
+	 * Extended attributes are file metadata addressed by path, like chmod and
+	 * chown above. setxattr and removexattr modify a file, getxattr and
+	 * listxattr read it. The l* variants do not follow symlinks, the same
+	 * distinction as stat and lstat.
+	 */
+#ifdef __NR_setxattr
+	{__NR_setxattr, "setxattr", "setxattr", SyscallCategory::FS,
+	    {A::PATH, A::SKIP, A::SKIP, A::SKIP, A::SKIP, A::SKIP}},
+#endif /* __NR_setxattr */
+#ifdef __NR_lsetxattr
+	{__NR_lsetxattr, "lsetxattr", "lsetxattr", SyscallCategory::FS,
+	    {A::PATH, A::SKIP, A::SKIP, A::SKIP, A::SKIP, A::SKIP}},
+#endif /* __NR_lsetxattr */
+#ifdef __NR_getxattr
+	{__NR_getxattr, "getxattr", "getxattr", SyscallCategory::FS,
+	    {A::PATH, A::SKIP, A::SKIP, A::SKIP, A::SKIP, A::SKIP}},
+#endif /* __NR_getxattr */
+#ifdef __NR_lgetxattr
+	{__NR_lgetxattr, "lgetxattr", "lgetxattr", SyscallCategory::FS,
+	    {A::PATH, A::SKIP, A::SKIP, A::SKIP, A::SKIP, A::SKIP}},
+#endif /* __NR_lgetxattr */
+#ifdef __NR_listxattr
+	{__NR_listxattr, "listxattr", "listxattr", SyscallCategory::FS,
+	    {A::PATH, A::SKIP, A::SKIP, A::SKIP, A::SKIP, A::SKIP}},
+#endif /* __NR_listxattr */
+#ifdef __NR_llistxattr
+	{__NR_llistxattr, "llistxattr", "llistxattr", SyscallCategory::FS,
+	    {A::PATH, A::SKIP, A::SKIP, A::SKIP, A::SKIP, A::SKIP}},
+#endif /* __NR_llistxattr */
+#ifdef __NR_removexattr
+	{__NR_removexattr, "removexattr", "removexattr", SyscallCategory::FS,
+	    {A::PATH, A::SKIP, A::SKIP, A::SKIP, A::SKIP, A::SKIP}},
+#endif /* __NR_removexattr */
+#ifdef __NR_lremovexattr
+	{__NR_lremovexattr, "lremovexattr", "lremovexattr", SyscallCategory::FS,
+	    {A::PATH, A::SKIP, A::SKIP, A::SKIP, A::SKIP, A::SKIP}},
+#endif /* __NR_lremovexattr */
+
 	/* FS - arg0 = dirfd, arg1 = path */
 #ifdef __NR_openat
 	{__NR_openat, "openat", "openat", SyscallCategory::FS,
@@ -152,6 +204,16 @@ static constexpr SyscallDef kTracedSyscalls[] = {
 	{__NR_faccessat, "faccessat", "faccessat", SyscallCategory::FS,
 	    {A::DIRFD, A::PATH, A::ACCESS, A::SKIP, A::SKIP, A::SKIP}},
 #endif /* __NR_faccessat */
+	/*
+	 * faccessat2(dirfd, path, mode, flags) is what glibc's faccessat() uses on
+	 * modern kernels; it only falls back to faccessat when the kernel lacks it.
+	 * Without this entry an access check made through glibc's faccessat() is
+	 * never observed; a plain access(2) is still traced by its own entry.
+	 */
+#ifdef __NR_faccessat2
+	{__NR_faccessat2, "faccessat2", "faccessat2", SyscallCategory::FS,
+	    {A::DIRFD, A::PATH, A::ACCESS, A::SKIP, A::SKIP, A::SKIP}},
+#endif /* __NR_faccessat2 */
 #ifdef __NR_fchmodat
 	{__NR_fchmodat, "fchmodat", "fchmodat", SyscallCategory::FS,
 	    {A::DIRFD, A::PATH, A::OCTAL, A::SKIP, A::SKIP, A::SKIP}},
@@ -241,12 +303,20 @@ constexpr size_t kTracedSyscallCount = sizeof(kTracedSyscalls) / sizeof(kTracedS
 /*
  * Build the kafel policy string from the table.
  * Called by sandbox.cc - no manual syscall list maintenance needed.
+ *
+ * The syscall number is used rather than the name. kafel resolves names from a
+ * per-architecture table, and those tables are not equally complete, so a name
+ * that resolves on one architecture can be unknown on another; kafel_compile()
+ * then fails and nsjail does not start at all. The number is a compile time
+ * constant of the architecture being built for. The name is kept as a comment
+ * so the generated policy stays readable.
  */
 inline std::string buildKafelPolicy() {
 	std::string p = "POLICY unotify {\n  USER_NOTIF {\n";
 	for (size_t i = 0; i < kTracedSyscallCount; i++) {
 		if (i > 0) p += ", ";
-		p += kTracedSyscalls[i].kafel_name;
+		p += "SYSCALL[" + std::to_string(kTracedSyscalls[i].nr) + "] /* " +
+		     kTracedSyscalls[i].kafel_name + " */";
 	}
 	p += "\n  }\n}\nUSE unotify DEFAULT ALLOW\n";
 	return p;
