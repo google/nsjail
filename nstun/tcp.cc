@@ -232,7 +232,27 @@ static void tcp_rst_and_destroy(Context* ctx, TcpFlow* flow) {
 	tcp_destroy_flow(ctx, flow);
 }
 
+static void release_tcp_rx_buffer(Context* ctx, TcpFlow* flow) {
+	size_t bytes = flow->rx_buffer.size();
+	if (bytes == 0) {
+		flow->rx_sent_offset = 0;
+		return;
+	}
+	if (!ctx->tcp_rx_buffer_budget.release(bytes)) {
+		LOG_F("TCP rx buffer budget accounting underflow: used=%zu release=%zu",
+		    ctx->tcp_rx_buffer_budget.used(), bytes);
+		abort();
+	}
+	flow->rx_buffer.clear();
+	flow->rx_sent_offset = 0;
+	/* Keep normal-flow allocations reusable, but release large retained buffers. */
+	if (flow->rx_buffer.capacity() > TCP_RECV_BUF_SIZE) {
+		std::vector<uint8_t>().swap(flow->rx_buffer);
+	}
+}
+
 void tcp_destroy_flow(Context* ctx, TcpFlow* flow) {
+	release_tcp_rx_buffer(ctx, flow);
 	if (flow->host_fd != -1) {
 		epoll_ctl(ctx->epoll_fd, EPOLL_CTL_DEL, flow->host_fd, nullptr);
 		ctx->flows_by_fd.erase(flow->host_fd);
@@ -304,8 +324,7 @@ bool flush_to_host(Context* ctx, TcpFlow* flow) {
 	if (written > 0) {
 		flow->rx_sent_offset += written;
 		if (flow->rx_sent_offset >= flow->rx_buffer.size()) {
-			flow->rx_buffer.clear();
-			flow->rx_sent_offset = 0;
+			release_tcp_rx_buffer(ctx, flow);
 		}
 
 		/* We made progress, remove EPOLLOUT if empty */
@@ -614,10 +633,16 @@ static void tcp_process_data(Context* ctx, TcpFlow* flow, const tcp_hdr* tcp,
 				const uint8_t* new_data = data + overlap;
 				size_t new_data_len = data_len - overlap;
 
-				if (flow->rx_buffer.size() + new_data_len >
-				    TCP_RX_BUFFER_HARD_CAP) {
+				if (new_data_len >
+				    TCP_RX_BUFFER_HARD_CAP - flow->rx_buffer.size()) {
 					LOG_D("TCP rx_buffer reached 8MB limit (DoS protection), "
 					      "dropping");
+					return;
+				}
+				if (!ctx->tcp_rx_buffer_budget.try_reserve(new_data_len)) {
+					LOG_D("Aggregate TCP rx_buffer reached %zuMB limit (DoS "
+					      "protection), dropping",
+					    ctx->tcp_rx_buffer_budget.limit() / (1024 * 1024));
 					return;
 				}
 
