@@ -177,6 +177,8 @@ static const struct custom_option custom_opts[] = {
     { { "use_core_scheduling", no_argument, nullptr, 0x709 }, "Enable Linux core scheduling (PR_SCHED_CORE, requires kernel >= 5.14)" },
     { { "user_net", no_argument, nullptr, 0x70A }, "Enable user-mode networking (nstun backend)" },
     { { "oom_score_adj", required_argument, nullptr, 0x800 }, "OOM score adjustment for the sandbox (-1000 to 1000) (default: not set)" },
+    { { "init", no_argument, NULL, 0x907 }, "Run an init process inside the container. Incompatible with disable_clone_newpid and with RERUN and LISTEN modes. Implicitly enabled in EXECVE mode unless disable_clone_newpid is also provided." },
+
 };
 // clang-format on
 
@@ -992,6 +994,9 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 		case 0x800:
 			nsj->njc.set_oom_score_adj((int32_t)strtol(optarg, NULL, 0));
 			break;
+		case 0x907:
+			nsj->njc.set_init(true);
+			break;
 		default:
 			cmdlineUsage(argv[0]);
 			return nullptr;
@@ -1013,6 +1018,21 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 	if (nsj->njc.cgroup_mem_memsw_max() > (size_t)0 &&
 	    nsj->njc.cgroup_mem_swap_max() >= (ssize_t)0) {
 		LOG_F("cannot set both cgroup_mem_memsw_max and cgroup_mem_swap_max");
+	}
+
+	if (nsj->njc.init()) {
+		if (nsj->njc.mode() == nsjail::Mode::LISTEN ||
+		    nsj->njc.mode() == nsjail::Mode::RERUN) {
+			LOG_F("cannot enable init process with mode LISTEN or RERUN");
+		}
+		if (!nsj->njc.clone_newpid()) {
+			LOG_F("cannot enable init process with disable_clone_newpid");
+		}
+	}
+
+	if (nsj->njc.mode() == nsjail::Mode::EXECVE && nsj->njc.clone_newpid()) {
+		nsj->njc.set_init(true);
+		LOG_D("enabling init process for execve mode");
 	}
 
 	return nsj;

@@ -28,6 +28,7 @@
 
 namespace pid {
 
+bool newInitProc();
 bool initNs(nsj_t* nsj);
 
 }  // namespace pid

@@ -435,6 +435,9 @@ message NsJailConfig {
 	/* Binary path (with arguments) to be executed. If not specified here, it
 	   can be specified with cmd-line as "-- /path/to/command arg1 arg2" */
 	optional Exe exec_bin = 98;
+
+	/* Run an init process inside the container. */
+	optional bool init = 102 [default = false];
 }
 
 // vim: set noexpandtab ts=4 sw=4:

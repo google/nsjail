@@ -33,21 +33,9 @@
 
 namespace pid {
 
-bool initNs(nsj_t* nsj) {
-	if (nsj->njc.mode() != nsjail::Mode::EXECVE) {
-		return true;
-	}
-	if (!nsj->njc.clone_newpid()) {
-		return true;
-	}
-
+bool newInitProc() {
 	LOG_D("Creating a dummy 'init' process");
 
-	/*
-	 * If -Me is used then we need to create permanent init inside PID ns, otherwise only the
-	 * first clone/fork will work, and the rest will fail with ENOMEM (see 'man pid_namespaces'
-	 * for details on this behavior)
-	 */
 	pid_t pid = subproc::cloneProc(CLONE_FS, 0);
 	if (pid == -1) {
 		PLOG_E("Couldn't create a dummy init process");
@@ -82,6 +70,23 @@ bool initNs(nsj_t* nsj) {
 	for (;;) {
 		pause();
 	}
+}
+
+bool initNs(nsj_t* nsj) {
+	if (nsj->njc.mode() != nsjail::Mode::EXECVE) {
+		return true;
+	}
+	if (!nsj->njc.init()) {
+		return true;
+	}
+
+	/*
+	 * If -Me is used then we need to create permanent init inside PID ns, otherwise only the
+	 * first clone/fork will work, and the rest will fail with ENOMEM (see 'man pid_namespaces'
+	 * for details on this behavior)
+	 */
+
+	return newInitProc();
 }
 
 }  // namespace pid
