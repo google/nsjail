@@ -38,6 +38,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <limits>
+
 #include "logs.h"
 #include "macros.h"
 #include "subproc.h"
@@ -342,8 +344,9 @@ static uid_t parseUid(const std::string& id) {
 	if (pw != nullptr) {
 		return pw->pw_uid;
 	}
-	if (util::isANumber(id.c_str())) {
-		return (uid_t)strtoimax(id.c_str(), NULL, 0);
+	uint64_t parsed = 0;
+	if (util::parseUint64(id.c_str(), &parsed) && parsed <= std::numeric_limits<uid_t>::max()) {
+		return (uid_t)parsed;
 	}
 	return (uid_t)-1;
 }
@@ -356,8 +359,9 @@ static gid_t parseGid(const std::string& id) {
 	if (gr != nullptr) {
 		return gr->gr_gid;
 	}
-	if (util::isANumber(id.c_str())) {
-		return (gid_t)strtoimax(id.c_str(), NULL, 0);
+	uint64_t parsed = 0;
+	if (util::parseUint64(id.c_str(), &parsed) && parsed <= std::numeric_limits<gid_t>::max()) {
+		return (gid_t)parsed;
 	}
 	return (gid_t)-1;
 }

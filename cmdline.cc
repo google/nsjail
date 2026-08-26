@@ -43,9 +43,11 @@
 #include <unistd.h>
 
 #include <cstddef>
+#include <limits>
 #include <memory>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "caps.h"
@@ -182,6 +184,33 @@ static const struct custom_option custom_opts[] = {
 
 static const char* logYesNo(bool yes) {
 	return (yes ? "true" : "false");
+}
+
+template <typename T>
+static bool parseUnsignedOption(const char* option, const char* arg, T* value) {
+	static_assert(std::is_integral_v<T> && std::is_unsigned_v<T>);
+
+	uint64_t parsed = 0;
+	if (!util::parseUint64(arg, &parsed) || parsed > std::numeric_limits<T>::max()) {
+		LOG_E("Invalid integer value for --%s: %s", option, QC(arg));
+		return false;
+	}
+	*value = (T)parsed;
+	return true;
+}
+
+template <typename T>
+static bool parseSignedOption(const char* option, const char* arg, T* value) {
+	static_assert(std::is_integral_v<T> && std::is_signed_v<T>);
+
+	int64_t parsed = 0;
+	if (!util::parseInt64(arg, &parsed) || parsed < std::numeric_limits<T>::min() ||
+	    parsed > std::numeric_limits<T>::max()) {
+		LOG_E("Invalid integer value for --%s: %s", option, QC(arg));
+		return false;
+	}
+	*value = (T)parsed;
+	return true;
 }
 
 size_t GetConsoleLength(const std::string& str) {
@@ -342,7 +371,8 @@ nsjail::RLimit parseRLimitType(int res, const char* optarg) {
 	if (strcasecmp(optarg, "inf") == 0) {
 		return nsjail::RLimit::INF;
 	}
-	if (util::isANumber(optarg)) {
+	uint64_t value = 0;
+	if (util::parseUint64(optarg, &value)) {
 		return nsjail::RLimit::VALUE;
 	}
 	LOG_F("RLIMIT %s (%d) needs a numeric value or 'max'/'hard'/'def'/'soft'/'inf' "
@@ -365,15 +395,16 @@ uint64_t parseRLimit(int res, const char* optarg, unsigned long mul) {
 	if (strcasecmp(optarg, "max") == 0 || strcasecmp(optarg, "hard") == 0) {
 		return cur.rlim_max;
 	}
-	if (!util::isANumber(optarg)) {
+	uint64_t val = 0;
+	if (!util::parseUint64(optarg, &val)) {
 		LOG_F("RLIMIT %s (%d) needs a numeric value or 'max'/'hard'/'def'/'soft'/'inf' "
 		      "value (%s provided)",
 		    util::rLimName(res).c_str(), res, QC(optarg));
 	}
-	errno = 0;
-	uint64_t val = strtoull(optarg, NULL, 0);
-	if (val == ULLONG_MAX && errno != 0) {
-		PLOG_F("strtoull('%s', 0)", optarg);
+	if (mul != 0 && val > std::numeric_limits<uint64_t>::max() / mul) {
+		LOG_F("RLIMIT %s (%d) value overflows after applying its unit multiplier (%s "
+		      "provided)",
+		    util::rLimName(res).c_str(), res, QC(optarg));
 	}
 	return val * mul;
 }
@@ -383,6 +414,14 @@ static std::string argFromVec(const std::vector<std::string>& vec, size_t pos) {
 		return "";
 	}
 	return vec[pos];
+}
+
+static bool parseMappingCount(const char* option, const std::string& arg, size_t* count) {
+	if (arg.empty()) {
+		*count = 0;
+		return true;
+	}
+	return parseUnsignedOption(option, arg.c_str(), count);
 }
 
 static bool setupArgv(nsj_t* nsj, int argc, char** argv, int optind) {
@@ -527,29 +566,41 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 		case 'c':
 			nsj->chroot = optarg;
 			break;
-		case 'p':
-			if (!util::isANumber(optarg)) {
-				LOG_E("Couldn't parse TCP port '%s'", optarg);
+		case 'p': {
+			uint32_t value = 0;
+			if (!parseUnsignedOption("port", optarg, &value)) {
 				return nullptr;
 			}
-			nsj->njc.set_port(strtoumax(optarg, NULL, 0));
+			nsj->njc.set_port(value);
 			nsj->njc.set_mode(nsjail::Mode::LISTEN);
-			break;
+		} break;
 		case 0x604:
 			nsj->njc.set_bindhost(optarg);
 			break;
-		case 0x608:
-			nsj->njc.set_max_conns(strtoul(optarg, NULL, 0));
-			break;
-		case 'i':
-			nsj->njc.set_max_conns_per_ip(strtoul(optarg, NULL, 0));
-			break;
+		case 0x608: {
+			uint32_t value = 0;
+			if (!parseUnsignedOption("max_conns", optarg, &value)) {
+				return nullptr;
+			}
+			nsj->njc.set_max_conns(value);
+		} break;
+		case 'i': {
+			uint32_t value = 0;
+			if (!parseUnsignedOption("max_conns_per_ip", optarg, &value)) {
+				return nullptr;
+			}
+			nsj->njc.set_max_conns_per_ip(value);
+		} break;
 		case 'l':
 			logs::logFile(optarg, STDERR_FILENO);
 			break;
-		case 'L':
-			logs::logFile("", std::strtol(optarg, NULL, 0));
-			break;
+		case 'L': {
+			int value = 0;
+			if (!parseSignedOption("log_fd", optarg, &value)) {
+				return nullptr;
+			}
+			logs::logFile("", value);
+		} break;
 		case 'd':
 			nsj->njc.set_daemon(true);
 			break;
@@ -565,9 +616,13 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 		case 'e':
 			nsj->njc.set_keep_env(true);
 			break;
-		case 't':
-			nsj->njc.set_time_limit((uint64_t)strtoull(optarg, NULL, 0));
-			break;
+		case 't': {
+			uint32_t value = 0;
+			if (!parseUnsignedOption("time_limit", optarg, &value)) {
+				return nullptr;
+			}
+			nsj->njc.set_time_limit(value);
+		} break;
 		case 'h': /* help */
 			logs::logFile("", STDOUT_FILENO);
 			cmdlineUsage(argv[0]);
@@ -689,17 +744,23 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 			nsj->njc.set_skip_setsid(true);
 			break;
 		case 0x0505: {
-			int fd = (int)strtol(optarg, NULL, 0);
-			nsj->openfds.push_back(fd);
-			nsj->passfds.push_back(fd);
-		}
-			break;
+			int value = 0;
+			if (!parseSignedOption("pass_fd", optarg, &value)) {
+				return nullptr;
+			}
+			nsj->openfds.push_back(value);
+			nsj->passfds.push_back(value);
+		} break;
 		case 0x0507:
 			nsj->njc.set_disable_no_new_privs(true);
 			break;
-		case 0x0508:
-			nsj->njc.set_max_cpus(strtoul(optarg, NULL, 0));
-			break;
+		case 0x0508: {
+			uint32_t value = 0;
+			if (!parseUnsignedOption("max_cpus", optarg, &value)) {
+				return nullptr;
+			}
+			nsj->njc.set_max_cpus(value);
+		} break;
 		case 0x0509: {
 			int cap = caps::nameToVal(optarg);
 			if (cap == -1) {
@@ -753,7 +814,10 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 			std::string i_id = argFromVec(subopts, 0);
 			std::string o_id = argFromVec(subopts, 1);
 			std::string cnt = argFromVec(subopts, 2);
-			size_t count = strtoul(cnt.c_str(), nullptr, 0);
+			size_t count = 0;
+			if (!parseMappingCount("user", cnt, &count)) {
+				return nullptr;
+			}
 			if (!user::parseId(nsj.get(), i_id, o_id, count,
 				/* is_gid= */ false,
 				/* is_newidmap= */ false)) {
@@ -765,7 +829,10 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 			std::string i_id = argFromVec(subopts, 0);
 			std::string o_id = argFromVec(subopts, 1);
 			std::string cnt = argFromVec(subopts, 2);
-			size_t count = strtoul(cnt.c_str(), nullptr, 0);
+			size_t count = 0;
+			if (!parseMappingCount("group", cnt, &count)) {
+				return nullptr;
+			}
 			if (!user::parseId(nsj.get(), i_id, o_id, count,
 				/* is_gid= */ true,
 				/* is_newidmap= */ false)) {
@@ -777,7 +844,10 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 			std::string i_id = argFromVec(subopts, 0);
 			std::string o_id = argFromVec(subopts, 1);
 			std::string cnt = argFromVec(subopts, 2);
-			size_t count = strtoul(cnt.c_str(), nullptr, 0);
+			size_t count = 0;
+			if (!parseMappingCount("uid_mapping", cnt, &count)) {
+				return nullptr;
+			}
 			if (!user::parseId(nsj.get(), i_id, o_id, count,
 				/* is_gid= */ false,
 				/* is_newidmap= */ true)) {
@@ -789,7 +859,10 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 			std::string i_id = argFromVec(subopts, 0);
 			std::string o_id = argFromVec(subopts, 1);
 			std::string cnt = argFromVec(subopts, 2);
-			size_t count = strtoul(cnt.c_str(), nullptr, 0);
+			size_t count = 0;
+			if (!parseMappingCount("gid_mapping", cnt, &count)) {
+				return nullptr;
+			}
 			if (!user::parseId(nsj.get(), i_id, o_id, count,
 				/* is_gid= */ true,
 				/* is_newidmap= */ true)) {
@@ -923,42 +996,66 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 		case 0x709:
 			nsj->njc.set_use_core_scheduling(true);
 			break;
-		case 0x801:
-			nsj->njc.set_cgroup_mem_max((size_t)strtoull(optarg, NULL, 0));
-			break;
+		case 0x801: {
+			uint64_t value = 0;
+			if (!parseUnsignedOption("cgroup_mem_max", optarg, &value)) {
+				return nullptr;
+			}
+			nsj->njc.set_cgroup_mem_max(value);
+		} break;
 		case 0x802:
 			nsj->njc.set_cgroup_mem_mount(optarg);
 			break;
 		case 0x803:
 			nsj->njc.set_cgroup_mem_parent(optarg);
 			break;
-		case 0x804:
-			nsj->njc.set_cgroup_mem_memsw_max((size_t)strtoull(optarg, NULL, 0));
-			break;
-		case 0x805:
-			nsj->njc.set_cgroup_mem_swap_max((ssize_t)strtoll(optarg, NULL, 0));
-			break;
-		case 0x811:
-			nsj->njc.set_cgroup_pids_max((unsigned int)strtoul(optarg, NULL, 0));
-			break;
+		case 0x804: {
+			uint64_t value = 0;
+			if (!parseUnsignedOption("cgroup_mem_memsw_max", optarg, &value)) {
+				return nullptr;
+			}
+			nsj->njc.set_cgroup_mem_memsw_max(value);
+		} break;
+		case 0x805: {
+			int64_t value = 0;
+			if (!parseSignedOption("cgroup_mem_swap_max", optarg, &value)) {
+				return nullptr;
+			}
+			nsj->njc.set_cgroup_mem_swap_max(value);
+		} break;
+		case 0x811: {
+			uint64_t value = 0;
+			if (!parseUnsignedOption("cgroup_pids_max", optarg, &value)) {
+				return nullptr;
+			}
+			nsj->njc.set_cgroup_pids_max(value);
+		} break;
 		case 0x812:
 			nsj->njc.set_cgroup_pids_mount(optarg);
 			break;
 		case 0x813:
 			nsj->njc.set_cgroup_pids_parent(optarg);
 			break;
-		case 0x821:
-			nsj->njc.set_cgroup_net_cls_classid((unsigned int)strtoul(optarg, NULL, 0));
-			break;
+		case 0x821: {
+			uint32_t value = 0;
+			if (!parseUnsignedOption("cgroup_net_cls_classid", optarg, &value)) {
+				return nullptr;
+			}
+			nsj->njc.set_cgroup_net_cls_classid(value);
+		} break;
 		case 0x822:
 			nsj->njc.set_cgroup_net_cls_mount(optarg);
 			break;
 		case 0x823:
 			nsj->njc.set_cgroup_net_cls_parent(optarg);
 			break;
-		case 0x831:
-			nsj->njc.set_cgroup_cpu_ms_per_sec((unsigned int)strtoul(optarg, NULL, 0));
-			break;
+		case 0x831: {
+			uint32_t value = 0;
+			if (!parseUnsignedOption("cgroup_cpu_ms_per_sec", optarg, &value)) {
+				return nullptr;
+			}
+			nsj->njc.set_cgroup_cpu_ms_per_sec(value);
+		} break;
 		case 0x832:
 			nsj->njc.set_cgroup_cpu_mount(optarg);
 			break;
@@ -989,12 +1086,20 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 		case 0x906:
 			nsj->njc.set_seccomp_unotify_report(optarg);
 			break;
-		case 0x903:
-			nsj->njc.set_nice_level((int)strtol(optarg, NULL, 0));
-			break;
-		case 0x800:
-			nsj->njc.set_oom_score_adj((int32_t)strtol(optarg, NULL, 0));
-			break;
+		case 0x903: {
+			int32_t value = 0;
+			if (!parseSignedOption("nice_level", optarg, &value)) {
+				return nullptr;
+			}
+			nsj->njc.set_nice_level(value);
+		} break;
+		case 0x800: {
+			int32_t value = 0;
+			if (!parseSignedOption("oom_score_adj", optarg, &value)) {
+				return nullptr;
+			}
+			nsj->njc.set_oom_score_adj(value);
+		} break;
 		default:
 			cmdlineUsage(argv[0]);
 			return nullptr;

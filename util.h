@@ -65,7 +65,8 @@ std::string* StrAppend(std::string* str, const char* format, ...)
 std::string StrPrintf(const char* format, ...) __attribute__((format(printf, 1, 2)));
 const std::string StrQuote(const std::string& str);
 bool StrEq(const std::string_view& s1, const std::string_view& s2);
-bool isANumber(const char* s);
+bool parseInt64(const char* str, int64_t* value);
+bool parseUint64(const char* str, uint64_t* value);
 uint64_t rnd64(void);
 const std::string sigName(int signo);
 const std::string rLimName(int res);
