@@ -1,11 +1,15 @@
 #include "unotify/stats.h"
 
+#include <errno.h>
 #include <fcntl.h>
 #include <google/protobuf/text_format.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #include <map>
 #include <mutex>
+#include <vector>
 
 #include "logs.h"
 #include "util.h"
@@ -16,6 +20,41 @@ static std::mutex stats_mu;
 /* Aggregates syscall statistics on the fly.
  * Uses std::map which requires SyscallRecord to have operator<. */
 static std::map<SyscallRecord, size_t> stats;
+
+/* Reports can contain traced argv and environment data. Write privately and replace the
+ * destination instead of following it. */
+static bool writeReportAtomically(const std::string& path, const std::string& report) {
+	std::string tmp_template = path + ".tmp.XXXXXX";
+	std::vector<char> tmp_path(tmp_template.begin(), tmp_template.end());
+	tmp_path.push_back('\0');
+
+	int fd = mkostemp(tmp_path.data(), O_CLOEXEC);
+	if (fd == -1) {
+		return false;
+	}
+
+	if (!util::writeToFd(fd, report.data(), report.size())) {
+		int saved_errno = errno != 0 ? errno : EIO;
+		close(fd);
+		unlink(tmp_path.data());
+		errno = saved_errno;
+		return false;
+	}
+	if (close(fd) == -1) {
+		int saved_errno = errno;
+		unlink(tmp_path.data());
+		errno = saved_errno;
+		return false;
+	}
+
+	if (rename(tmp_path.data(), path.c_str()) == -1) {
+		int saved_errno = errno;
+		unlink(tmp_path.data());
+		errno = saved_errno;
+		return false;
+	}
+	return true;
+}
 
 void addStat(const SyscallRecord& rec) {
 	std::lock_guard<std::mutex> lock(stats_mu);
@@ -178,8 +217,7 @@ void printStats(nsj_t* nsj) {
 	LOG_I("unotify report:\n%s", text_report.c_str());
 
 	if (!nsj->njc.seccomp_unotify_report().empty()) {
-		if (!util::writeBufToFile(nsj->njc.seccomp_unotify_report().c_str(),
-			text_report.data(), text_report.size(), O_CREAT | O_WRONLY | O_TRUNC)) {
+		if (!writeReportAtomically(nsj->njc.seccomp_unotify_report(), text_report)) {
 			PLOG_W("Failed to write unotify report to %s",
 			    nsj->njc.seccomp_unotify_report().c_str());
 		}
