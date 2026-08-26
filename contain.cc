@@ -26,6 +26,7 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <limits.h>
+#include <poll.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -95,11 +96,31 @@ static bool containDropPrivs(nsj_t* nsj) {
 	return true;
 }
 
-static bool containPrepareEnv(nsj_t* nsj) {
+bool setupParentDeathSignal(int parent_fd, pid_t expected_parent) {
 	if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0, 0, 0) == -1) {
 		PLOG_E("prctl(PR_SET_PDEATHSIG, SIGKILL)");
 		return false;
 	}
+	if (parent_fd != -1) {
+		struct pollfd pfd = {.fd = parent_fd, .events = POLLIN, .revents = 0};
+		if (poll(&pfd, 1, 0) == -1) {
+			PLOG_E("poll(parent_fd=%d)", parent_fd);
+			return false;
+		}
+		if (pfd.revents & (POLLHUP | POLLERR | POLLNVAL)) {
+			LOG_E("Parent process exited before PR_SET_PDEATHSIG was installed");
+			return false;
+		}
+	} else if (getppid() != expected_parent) {
+		LOG_E("Parent process changed before PR_SET_PDEATHSIG was installed");
+		return false;
+	}
+	return true;
+}
+
+static bool containPrepareEnv(nsj_t* nsj, int parent_fd, pid_t expected_parent) {
+	/* Effective UID/GID changes clear PDEATHSIG, so restore it after containUserNs(). */
+	RETURN_ON_FAILURE(setupParentDeathSignal(parent_fd, expected_parent));
 	unsigned long personality = 0;
 	if (nsj->njc.persona_addr_compat_layout()) {
 		personality |= ADDR_COMPAT_LAYOUT;
@@ -409,7 +430,7 @@ bool setupFD(nsj_t* nsj, int fd_in, int fd_out, int fd_err) {
 	return true;
 }
 
-bool containProc(nsj_t* nsj) {
+bool containProc(nsj_t* nsj, int parent_fd, pid_t expected_parent) {
 	RETURN_ON_FAILURE(containUserNs(nsj));
 	RETURN_ON_FAILURE(containInitPidNs(nsj));
 	RETURN_ON_FAILURE(containInitMountNs(nsj));
@@ -424,7 +445,7 @@ bool containProc(nsj_t* nsj) {
 	RETURN_ON_FAILURE(containCoreSched(nsj));
 	RETURN_ON_FAILURE(containTSC(nsj));
 	RETURN_ON_FAILURE(containSetLimits(nsj));
-	RETURN_ON_FAILURE(containPrepareEnv(nsj));
+	RETURN_ON_FAILURE(containPrepareEnv(nsj, parent_fd, expected_parent));
 	RETURN_ON_FAILURE(containMakeFdsCOE(nsj));
 
 	return true;
