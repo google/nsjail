@@ -35,6 +35,7 @@
 #include <sys/personality.h>
 #include <sys/prctl.h>
 #include <sys/resource.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -239,6 +240,34 @@ static bool containPassFd(nsj_t* nsj, int fd) {
 	return (std::find(nsj->openfds.begin(), nsj->openfds.end(), fd) != nsj->openfds.end());
 }
 
+static bool containExplicitPassFd(nsj_t* nsj, int fd) {
+	return (std::find(nsj->passfds.begin(), nsj->passfds.end(), fd) != nsj->passfds.end());
+}
+
+static bool containValidateDefaultStdioFds(nsj_t* nsj) {
+	for (int fd = STDIN_FILENO; fd <= STDERR_FILENO; fd++) {
+		if (containExplicitPassFd(nsj, fd)) {
+			continue;
+		}
+
+		struct stat st;
+		if (TEMP_FAILURE_RETRY(fstat(fd, &st)) == -1) {
+			if (errno == EBADF) {
+				continue;
+			}
+			PLOG_E("fstat(fd=%d)", fd);
+			return false;
+		}
+		if (S_ISDIR(st.st_mode)) {
+			LOG_E("Default stdio fd=%d is a directory. Refusing to pass a directory fd "
+			      "into the sandbox; use --pass_fd=%d to pass it explicitly",
+			    fd, fd);
+			return false;
+		}
+	}
+	return true;
+}
+
 static bool containMakeFdCOE(int fd, bool pass_fd) {
 	int flags = TEMP_FAILURE_RETRY(fcntl(fd, F_GETFD, 0));
 	if (flags == -1) {
@@ -335,6 +364,7 @@ static bool containMakeFdsCOEProc(nsj_t* nsj) {
 }
 
 static bool containMakeFdsCOE(nsj_t* nsj) {
+	RETURN_ON_FAILURE(containValidateDefaultStdioFds(nsj));
 	if (containMakeFdsCOECloseRange(nsj)) {
 		return true;
 	}
