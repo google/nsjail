@@ -84,7 +84,7 @@ std::unique_ptr<std::string> buildMountTree(nsj_t*, std::vector<mnt::mount_t>*) 
 namespace mnt {
 namespace newapi {
 
-static bool applyMountFlags(int fd, uintptr_t flags, bool log_error = true) {
+static bool applyMountFlags(int fd, uintptr_t flags, bool log_error = true, bool recursive = false) {
 	struct mount_attr attr = {};
 
 	if (flags & MS_RDONLY) {
@@ -101,7 +101,8 @@ static bool applyMountFlags(int fd, uintptr_t flags, bool log_error = true) {
 	}
 
 	if (util::syscall(__NR_mount_setattr, (uintptr_t)fd, (uintptr_t)"",
-		(uintptr_t)AT_EMPTY_PATH, (uintptr_t)&attr, sizeof(attr)) < 0) {
+		(uintptr_t)(AT_EMPTY_PATH | (recursive ? AT_RECURSIVE : 0)), (uintptr_t)&attr,
+		sizeof(attr)) < 0) {
 		if (log_error) {
 			PLOG_W("mount_setattr(fd=%d, flags=0x%" PRIx64 ")", fd,
 			    (uint64_t)attr.attr_set);
@@ -392,8 +393,16 @@ static bool doBindMountAt(mount_t* mpt, int root_fd, const char* rel_dst) {
 		return false;
 	}
 
-	/* Apply non-RO flags now; RO applied later via remount */
-	if (!applyMountFlags(mnt_fd, mpt->flags & ~MS_RDONLY)) {
+	/*
+	 * Apply non-RO flags now; RO applied later via remount.
+	 * When the bind is recursive (MS_REC), open_tree above cloned the whole
+	 * subtree (AT_RECURSIVE), so the nosuid/nodev/noexec attributes must be
+	 * applied recursively as well -- otherwise nested submounts of the source
+	 * keep their original suid/dev/exec-permitting attributes inside the jail.
+	 * This mirrors the recursive read-only pass done later on the root.
+	 */
+	if (!applyMountFlags(
+		mnt_fd, mpt->flags & ~MS_RDONLY, true, (mpt->flags & MS_REC) != 0)) {
 		LOG_W("Failed to apply mount flags to '%s'", rel_dst);
 	}
 
