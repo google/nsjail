@@ -102,12 +102,16 @@ static bool hasGidMapSelf(nsj_t* nsj) {
 	return false;
 }
 
+static bool shouldDenySetGroups(nsj_t* nsj) {
+	return nsj->njc.clone_newuser() && nsj->orig_euid != 0 && hasGidMapSelf(nsj);
+}
+
 static bool setGroupsDeny(nsj_t* nsj, pid_t pid) {
 	/*
 	 * No need to write 'deny' to /proc/pid/setgroups if our euid==0, as writing to
 	 * uid_map/gid_map will succeed anyway
 	 */
-	if (!nsj->njc.clone_newuser() || nsj->orig_euid == 0 || !hasGidMapSelf(nsj)) {
+	if (!shouldDenySetGroups(nsj)) {
 		return true;
 	}
 
@@ -288,11 +292,27 @@ bool initNsFromChild(nsj_t* nsj) {
 
 	LOG_D("setgroups(%zu, %s)", groups.size(), groupsString.c_str());
 	if (setgroups(groups.size(), groups.data()) == -1) {
-		/* Indicate error if specific groups were requested */
-		if (groups.size() > 0) {
+		const int setgroupsErrno = errno;
+		/* EPERM is expected after the parent writes "deny" to /proc/pid/setgroups. */
+		if (!shouldDenySetGroups(nsj) || setgroupsErrno != EPERM) {
+			errno = setgroupsErrno;
 			PLOG_E("setgroups(%zu, %s) failed", groups.size(), groupsString.c_str());
 			return false;
 		}
+
+		const int remainingGroups = getgroups(0, nullptr);
+		if (remainingGroups == -1) {
+			PLOG_E("getgroups(0, nullptr) failed");
+			return false;
+		}
+		if (remainingGroups != 0) {
+			errno = setgroupsErrno;
+			PLOG_E("setgroups(%zu, %s) failed and %d supplementary group(s) remain",
+			    groups.size(), groupsString.c_str(), remainingGroups);
+			return false;
+		}
+
+		errno = setgroupsErrno;
 		PLOG_D("setgroups(%zu, %s) failed", groups.size(), groupsString.c_str());
 	}
 
