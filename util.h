@@ -23,6 +23,7 @@
 #define NS_UTIL_H
 
 #include <errno.h>
+#include <fcntl.h>
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -60,6 +61,9 @@ int recvFd(int sock);
 bool writeBufToFile(
     const char* filename, const void* buf, size_t len, int open_flags, bool log_errors = true);
 bool createDirRecursively(const char* dir);
+/* Reject ".", ".." and embedded NUL in mount destinations so they cannot
+ * escape the jail staging root via path traversal. */
+bool isSafeContainmentPath(const std::string& path);
 std::string* StrAppend(std::string* str, const char* format, ...)
     __attribute__((format(printf, 2, 3)));
 std::string StrPrintf(const char* format, ...) __attribute__((format(printf, 1, 2)));
@@ -105,7 +109,7 @@ inline bool existsAsDir(const char* path) {
 inline bool existsAsDirAt(int dir_fd, const char* path) {
 	int saved = errno;
 	struct stat st;
-	if (fstatat(dir_fd, path, &st, 0) == 0 && S_ISDIR(st.st_mode)) {
+	if (fstatat(dir_fd, path, &st, AT_SYMLINK_NOFOLLOW) == 0 && S_ISDIR(st.st_mode)) {
 		return true;
 	}
 	errno = saved;
@@ -125,7 +129,7 @@ inline bool existsAsReg(const char* path) {
 inline bool existsAsRegAt(int dir_fd, const char* path) {
 	int saved = errno;
 	struct stat st;
-	if (fstatat(dir_fd, path, &st, 0) == 0 && S_ISREG(st.st_mode)) {
+	if (fstatat(dir_fd, path, &st, AT_SYMLINK_NOFOLLOW) == 0 && S_ISREG(st.st_mode)) {
 		return true;
 	}
 	errno = saved;

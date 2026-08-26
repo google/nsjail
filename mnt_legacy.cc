@@ -83,6 +83,13 @@ static mount_t prepareMountPoint(const nsjail::MountPt& proto) {
 	}
 	mpt.dst += proto.dst();
 
+	if (!util::isSafeContainmentPath(mpt.dst)) {
+		LOG_E("Mount destination escapes containment via '.'/'..'/NUL: %s", QC(mpt.dst));
+		/* Keep the unsafe dst so later mount steps fail closed rather than
+		 * treating a cleared path as the jail root. */
+		return mpt;
+	}
+
 	mpt.flags = proto.rw() ? 0 : (uintptr_t)MS_RDONLY;
 	if (proto.is_bind()) {
 		mpt.flags |= MS_BIND | MS_REC | MS_PRIVATE;
@@ -197,7 +204,16 @@ static bool mountWithDynamicContent(
 static bool mountSinglePoint(mount_t* mpt, const char* newroot, const char* tmpdir) {
 	LOG_D("Mounting (legacy): %s", mnt::describeMountPt(*mpt->mpt).c_str());
 
+	if (!util::isSafeContainmentPath(mpt->dst)) {
+		LOG_E("Mount destination escapes containment via '.'/'..'/NUL: %s", QC(mpt->dst));
+		return false;
+	}
+
 	const std::string dstpath = std::string(newroot) + "/" + mpt->dst;
+	if (!util::isSafeContainmentPath(dstpath)) {
+		LOG_E("Resolved mount path escapes containment: %s", QC(dstpath));
+		return false;
+	}
 	std::string srcpath = mpt->src.empty() ? "none" : mpt->src;
 
 	if (!util::createDirRecursively(dstpath.c_str())) {
