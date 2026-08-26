@@ -151,6 +151,7 @@ struct IcmpFlow : public Flow {
 struct Context {
 	int epoll_fd;
 	int tap_fd;
+	int stop_fd = -1;
 	struct nsj_t* nsj;
 
 	/* IP addresses in network byte order */
