@@ -161,7 +161,12 @@ static const std::string concatArgs(const std::vector<const char*>& argv) {
 	return ret;
 }
 
-static void newProc(nsj_t* nsj, int netfd, int fd_in, int fd_out, int fd_err, int pipefd) {
+static void newProc(
+    nsj_t* nsj, int netfd, int fd_in, int fd_out, int fd_err, int pipefd, pid_t expected_parent) {
+	/* Arm before setup begins; containProc() re-arms after changing credentials. */
+	if (!contain::setupParentDeathSignal(pipefd, expected_parent)) {
+		return;
+	}
 	if (nsj->njc.has_oom_score_adj()) {
 		std::string score = std::to_string(nsj->njc.oom_score_adj());
 		if (!util::writeBufToFile(
@@ -206,7 +211,7 @@ static void newProc(nsj_t* nsj, int netfd, int fd_in, int fd_out, int fd_err, in
 			}
 		}
 	}
-	if (!contain::containProc(nsj)) {
+	if (!contain::containProc(nsj, pipefd, expected_parent)) {
 		return;
 	}
 	if (!nsj->njc.keep_env()) {
@@ -528,11 +533,12 @@ pid_t runChild(nsj_t* nsj, int netfd, int fd_in, int fd_out, int fd_err) {
 	flags |= (nsj->njc.clone_newtime() ? CLONE_NEWTIME : 0);
 
 	if (nsj->njc.mode() == nsjail::Mode::EXECVE) {
+		const pid_t expected_parent = getppid();
 		LOG_D("unshare(flags: %s)", cloneFlagsToStr(flags).c_str());
 		if (unshare(flags) == -1) {
 			PLOG_F("unshare(%s)", cloneFlagsToStr(flags).c_str());
 		}
-		newProc(nsj, netfd, fd_in, fd_out, fd_err, -1);
+		newProc(nsj, netfd, fd_in, fd_out, fd_err, -1, expected_parent);
 		LOG_F("Launching new process failed");
 	}
 
@@ -550,7 +556,7 @@ pid_t runChild(nsj_t* nsj, int netfd, int fd_in, int fd_out, int fd_err) {
 	pid_t pid = cloneProc(flags, SIGCHLD);
 	if (pid == 0) {
 		close(parent_fd);
-		newProc(nsj, netfd, fd_in, fd_out, fd_err, child_fd);
+		newProc(nsj, netfd, fd_in, fd_out, fd_err, child_fd, 0);
 		util::writeToFd(child_fd, &kSubprocErrorChar, sizeof(kSubprocErrorChar));
 		LOG_F("Launching child process failed");
 	}

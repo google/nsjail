@@ -23,13 +23,15 @@
 #define NS_CONTAIN_H
 
 #include <stdbool.h>
+#include <sys/types.h>
 
 #include "nsjail.h"
 
 namespace contain {
 
 bool setupFD(nsj_t* nsj, int fd_in, int fd_out, int fd_err);
-bool containProc(nsj_t* nsj);
+bool setupParentDeathSignal(int parent_fd, pid_t expected_parent);
+bool containProc(nsj_t* nsj, int parent_fd, pid_t expected_parent);
 
 }  // namespace contain
 
