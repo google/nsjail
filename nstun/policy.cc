@@ -1,6 +1,11 @@
 #include "policy.h"
 
+#include <arpa/inet.h>
 #include <string.h>
+
+#include <charconv>
+#include <limits>
+#include <string>
 
 #include "core.h"
 #include "logs.h"
@@ -11,6 +16,72 @@
 #include "nsjail.h"
 
 namespace nstun {
+
+static bool parse_prefix(const std::string& str, int max_bits, std::string* ip_str, int* bits) {
+	*ip_str = str;
+	*bits = max_bits;
+
+	size_t pos = str.find('/');
+	if (pos == std::string::npos) return true;
+
+	*ip_str = str.substr(0, pos);
+	const char* begin = str.data() + pos + 1;
+	const char* end = str.data() + str.size();
+	int parsed_bits = 0;
+	auto [ptr, ec] = std::from_chars(begin, end, parsed_bits);
+	if (begin == end || ec != std::errc() || ptr != end || parsed_bits < 0 ||
+	    parsed_bits > max_bits) {
+		LOG_E("Invalid CIDR prefix length: %s", str.c_str());
+		return false;
+	}
+
+	*bits = parsed_bits;
+	return true;
+}
+
+bool parse_ip4_cidr(const std::string& str, uint32_t* ip, uint32_t* mask) {
+	std::string ip_str;
+	int bits;
+	if (!parse_prefix(str, 32, &ip_str, &bits)) return false;
+
+	uint32_t parsed_ip;
+	if (inet_pton(AF_INET, ip_str.c_str(), &parsed_ip) != 1) {
+		LOG_E("Invalid IPv4 address: %s", str.c_str());
+		return false;
+	}
+
+	uint32_t host_mask = bits == 0 ? 0 : std::numeric_limits<uint32_t>::max() << (32 - bits);
+	*ip = parsed_ip;
+	*mask = htonl(host_mask);
+	return true;
+}
+
+bool parse_ip6_cidr(const std::string& str, uint8_t* ip6, uint8_t* mask6) {
+	std::string ip_str;
+	int bits;
+	if (!parse_prefix(str, 128, &ip_str, &bits)) return false;
+
+	uint8_t parsed_ip6[IPV6_ADDR_LEN];
+	if (inet_pton(AF_INET6, ip_str.c_str(), parsed_ip6) != 1) {
+		LOG_E("Invalid IPv6 address: %s", str.c_str());
+		return false;
+	}
+
+	uint8_t parsed_mask6[IPV6_ADDR_LEN] = {};
+	for (size_t i = 0; i < IPV6_ADDR_LEN; i++) {
+		if (bits >= 8) {
+			parsed_mask6[i] = 0xFF;
+			bits -= 8;
+		} else if (bits > 0) {
+			parsed_mask6[i] = (uint8_t)(0xFF << (8 - bits));
+			bits = 0;
+		}
+	}
+
+	memcpy(ip6, parsed_ip6, IPV6_ADDR_LEN);
+	memcpy(mask6, parsed_mask6, IPV6_ADDR_LEN);
+	return true;
+}
 
 RuleResult evaluate_rules4(Context* ctx, nstun_direction_t dir, nstun_proto_t proto,
     uint32_t src_ip4, uint32_t dst_ip4, uint16_t sport, uint16_t dport) {
@@ -85,6 +156,31 @@ RuleResult evaluate_rules6(Context* ctx, nstun_direction_t dir, nstun_proto_t pr
 
 template <typename RuleMsg>
 RuleParseStatus fill_rule_common(const RuleMsg& r, nstun_rule_t* nr) {
+	auto set_port_range = [](const char* name, bool has_start, uint32_t start, bool has_end,
+				  uint32_t end, uint16_t* out_start, uint16_t* out_end) {
+		if (has_end && !has_start) {
+			LOG_E("%s_end requires %s", name, name);
+			return false;
+		}
+		if (!has_start) {
+			*out_start = 0;
+			*out_end = 0;
+			return true;
+		}
+		if (start == 0 || start > std::numeric_limits<uint16_t>::max()) {
+			LOG_E("Invalid %s: %u", name, start);
+			return false;
+		}
+		uint32_t range_end = has_end ? end : start;
+		if (range_end < start || range_end > std::numeric_limits<uint16_t>::max()) {
+			LOG_E("Invalid %s range: %u-%u", name, start, range_end);
+			return false;
+		}
+		*out_start = (uint16_t)start;
+		*out_end = (uint16_t)range_end;
+		return true;
+	};
+
 	if ((r.action() == nsjail::NsJailConfig_UserNet_NstunRule_Action_ENCAP_SOCKS5 ||
 		r.action() == nsjail::NsJailConfig_UserNet_NstunRule_Action_ENCAP_CONNECT) &&
 	    r.proto() == nsjail::NsJailConfig_UserNet_NstunRule_Protocol_ICMP) {
@@ -124,11 +220,18 @@ RuleParseStatus fill_rule_common(const RuleMsg& r, nstun_rule_t* nr) {
 		nr->proto = NSTUN_PROTO_ANY;
 	}
 
-	nr->sport_start = r.has_sport() ? r.sport() : 0;
-	nr->sport_end = r.has_sport_end() ? r.sport_end() : nr->sport_start;
-
-	nr->dport_start = r.has_dport() ? r.dport() : 0;
-	nr->dport_end = r.has_dport_end() ? r.dport_end() : nr->dport_start;
+	if (!set_port_range("sport", r.has_sport(), r.sport(), r.has_sport_end(), r.sport_end(),
+		&nr->sport_start, &nr->sport_end)) {
+		return RuleParseStatus::ABORT;
+	}
+	if (!set_port_range("dport", r.has_dport(), r.dport(), r.has_dport_end(), r.dport_end(),
+		&nr->dport_start, &nr->dport_end)) {
+		return RuleParseStatus::ABORT;
+	}
+	if (r.has_redirect_port() && r.redirect_port() > std::numeric_limits<uint16_t>::max()) {
+		LOG_E("Invalid redirect_port: %u", r.redirect_port());
+		return RuleParseStatus::ABORT;
+	}
 
 	return RuleParseStatus::OK;
 }
