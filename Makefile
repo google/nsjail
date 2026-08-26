@@ -221,8 +221,8 @@ endif
 	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --chroot / -m none:/tmp:tmpfs:ro --user 99999 --group 99999 -- /bin/bash -c 'touch /tmp/nsjail_test || exit 77', 77)
 	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --chroot / -R /tmp --user 99999 --group 99999 -- /bin/bash -c 'touch /tmp/nsjail_test || exit 77', 77)
 	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --chroot / -B /tmp --user 99999 --group 99999 -- /bin/bash -c 'touch /tmp/nsjail_test && rm -f /tmp/nsjail_test', 0)
-	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --chroot / --user 99999 --group 99999 -- /bin/bash -c 'touch /run/user/$(UID)/nsjail_test2 && exit 77', 77) # --rw (or lack of thereof) doesn't change already mounted tmpfs
-	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --chroot / --user 99999 --group 99999 --rw -- /bin/bash -c 'touch /run/user/$(UID)/nsjail_test2 && exit 77', 77) # --rw (or lack of thereof) doesn't affect already mounted tmpfs
+	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --chroot / --user 99999 --group 99999 -- /bin/bash -c 'touch /run/user/$(UID)/nsjail_test2 || exit 77', 77)
+	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --chroot / --user 99999 --group 99999 --rw -- /bin/bash -c 'touch /run/user/$(UID)/nsjail_test2 && exit 77', 77)
 	$(call run_test, rm -f /run/user/$(UID)/nsjail_test2, 0)
 	$(call run_test, ./nsjail $(OLD_EF) --config configs/bash-with-fake-geteuid.cfg -q -t 1 < /dev/null, 0)
 	$(call run_test, ./nsjail $(OLD_EF) --config configs/bash-with-fake-geteuid.json -q -t 1 < /dev/null, 0)
