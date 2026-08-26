@@ -547,8 +547,8 @@ void nstun_destroy_parent(struct nstun_context_handle* handle) {
 
 	if (handle->context != nullptr && handle->context->stop_fd != -1) {
 		const uint64_t one = 1;
-		if (TEMP_FAILURE_RETRY(
-			write(handle->context->stop_fd, &one, sizeof(one))) == -1 && errno != EPIPE) {
+		if (TEMP_FAILURE_RETRY(write(handle->context->stop_fd, &one, sizeof(one))) == -1 &&
+		    errno != EPIPE) {
 			PLOG_W("write(stop_fd)");
 		}
 	}

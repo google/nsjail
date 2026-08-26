@@ -84,7 +84,8 @@ std::unique_ptr<std::string> buildMountTree(nsj_t*, std::vector<mnt::mount_t>*) 
 namespace mnt {
 namespace newapi {
 
-static bool applyMountFlags(int fd, uintptr_t flags, bool log_error = true, bool recursive = false) {
+static bool applyMountFlags(
+    int fd, uintptr_t flags, bool log_error = true, bool recursive = false) {
 	struct mount_attr attr = {};
 
 	if (flags & MS_RDONLY) {
@@ -185,8 +186,8 @@ static bool remountWithLegacyMount(const mount_t& mpt) {
 }
 
 static bool openMountForRemount(mount_t* mpt, int parent_fd, const char* basename) {
-	mpt->fd = util::syscall(
-	    __NR_open_tree, (uintptr_t)parent_fd, (uintptr_t)basename, (uintptr_t)OPEN_TREE_CLOEXEC);
+	mpt->fd = util::syscall(__NR_open_tree, (uintptr_t)parent_fd, (uintptr_t)basename,
+	    (uintptr_t)OPEN_TREE_CLOEXEC);
 	if (mpt->fd < 0) {
 		PLOG_W("open_tree(parent_fd, '%s')", basename);
 		return false;
@@ -417,7 +418,8 @@ static bool mountSymlinkAt(mount_t* mpt, int parent_fd, const char* basename) {
 			PLOG_E("symlinkat('%s' -> '%s')", mpt->src.c_str(), basename);
 			return false;
 		}
-		PLOG_W("symlinkat('%s' -> '%s') failed (non-mandatory)", mpt->src.c_str(), basename);
+		PLOG_W(
+		    "symlinkat('%s' -> '%s') failed (non-mandatory)", mpt->src.c_str(), basename);
 	}
 	return true;
 }
@@ -492,8 +494,7 @@ static bool doBindMountAt(mount_t* mpt, int parent_fd, const char* basename) {
 	 * keep their original suid/dev/exec-permitting attributes inside the jail.
 	 * This mirrors the recursive read-only pass done later on the root.
 	 */
-	if (!applyMountFlags(
-		mnt_fd, mpt->flags & ~MS_RDONLY, true, (mpt->flags & MS_REC) != 0)) {
+	if (!applyMountFlags(mnt_fd, mpt->flags & ~MS_RDONLY, true, (mpt->flags & MS_REC) != 0)) {
 		LOG_W("Failed to apply mount flags to '%s'", basename);
 	}
 
@@ -542,8 +543,8 @@ static bool mountSinglePointAt(mount_t* mpt, int root_fd) {
 			}
 		}
 	} else {
-		int fd = openat(parent_fd, basename.c_str(),
-		    O_CREAT | O_RDONLY | O_CLOEXEC | O_NOFOLLOW, 0644);
+		int fd = openat(
+		    parent_fd, basename.c_str(), O_CREAT | O_RDONLY | O_CLOEXEC | O_NOFOLLOW, 0644);
 		if (fd >= 0) {
 			close(fd);
 		} else if (errno != EROFS || !util::existsAsRegAt(parent_fd, basename.c_str())) {

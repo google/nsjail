@@ -52,8 +52,7 @@ struct nsj_t;
 struct nstun_context_handle;
 
 bool nstun_init_child(int sock, struct nsj_t* nsj);
-bool nstun_init_parent(
-	int sock, struct nsj_t* nsj, struct nstun_context_handle** out_handle);
+bool nstun_init_parent(int sock, struct nsj_t* nsj, struct nstun_context_handle** out_handle);
 void nstun_destroy_parent(struct nstun_context_handle* handle);
 
 #ifdef __cplusplus

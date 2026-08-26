@@ -179,7 +179,7 @@ void handle_icmp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> payl
 			LOG_D("ICMPv6 dropped by policy");
 			return;
 		} else if (rule.action == NSTUN_ACTION_ENCAP_SOCKS5 ||
-		           rule.action == NSTUN_ACTION_ENCAP_CONNECT) {
+			   rule.action == NSTUN_ACTION_ENCAP_CONNECT) {
 			LOG_D("Proxy encapsulation is not supported for ICMPv6, dropping");
 			return;
 		} else if (rule.action == NSTUN_ACTION_REJECT) {
@@ -303,7 +303,7 @@ void handle_icmp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> payl
 			LOG_D("ICMP dropped by policy");
 			return;
 		} else if (rule.action == NSTUN_ACTION_ENCAP_SOCKS5 ||
-		           rule.action == NSTUN_ACTION_ENCAP_CONNECT) {
+			   rule.action == NSTUN_ACTION_ENCAP_CONNECT) {
 			LOG_D("Proxy encapsulation is not supported for ICMP, dropping");
 			return;
 		} else if (rule.action == NSTUN_ACTION_REJECT) {

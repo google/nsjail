@@ -300,8 +300,8 @@ bool createDirRecursively(const char* dir) {
 		int dir_fd = TEMP_FAILURE_RETRY(
 		    openat(prev_dir_fd, curr, O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
 		if (dir_fd == -1) {
-			PLOG_W("openat('%d', %s, O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW)", prev_dir_fd,
-			    QC(curr));
+			PLOG_W("openat('%d', %s, O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW)",
+			    prev_dir_fd, QC(curr));
 			close(prev_dir_fd);
 			return false;
 		}

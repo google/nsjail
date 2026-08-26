@@ -340,7 +340,8 @@ bool remountPt(mnt::mount_t& mpt) {
 				}
 				std::string mp(p, endp - p);
 				if (mp != mpt.dst && mp.compare(0, prefix.size(), prefix) == 0) {
-					/* best-effort; remountOne logs any submount it can't re-flag */
+					/* best-effort; remountOne logs any submount it can't
+					 * re-flag */
 					remountOne(mp, mpt);
 				}
 			}

@@ -139,10 +139,9 @@ bool applyPolicy(nsj_t* nsj, int pipefd) {
 			 * running with NO seccomp policy at all despite one being requested.
 			 * Fail loudly instead of silently dropping the requested policy.
 			 */
-			LOG_E(
-			    "seccomp_unotify was requested but this execution mode has no "
-			    "supervisor to receive the notification fd; refusing to run the "
-			    "sandboxee without the requested seccomp policy");
+			LOG_E("seccomp_unotify was requested but this execution mode has no "
+			      "supervisor to receive the notification fd; refusing to run the "
+			      "sandboxee without the requested seccomp policy");
 			return false;
 		}
 		if (!installUnotifyFilter(nsj, pipefd)) {
