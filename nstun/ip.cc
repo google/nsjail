@@ -176,10 +176,19 @@ void handle_ip6(Context* ctx, std::span<const uint8_t> payload) {
 		}
 	}
 
-	/* SSRF gate: reject packets to loopback, v4-mapped, link-local, or site-local.
+	/* SSRF gate: reject packets to the unspecified address, loopback, v4-mapped,
+	 * link-local, site-local, or multicast.
 	 * This is the single authoritative check - L4 handlers rely on this
 	 * and do NOT duplicate it. Redirect rules in policy may still target
 	 * ::1 intentionally (admin-controlled). */
+	if (IN6_IS_ADDR_UNSPECIFIED((const struct in6_addr*)ip6->daddr)) {
+		/* connect() to :: reaches ::1 on Linux, exactly as connect() to 0.0.0.0
+		 * reaches 127.0.0.1. Without this the guest would get at host loopback
+		 * services; handle_ip4() rejects INADDR_ANY for the same reason. */
+		LOG_W("Dropping IPv6 packet to the unspecified address: %s",
+		    ip6_to_string(ip6->daddr).c_str());
+		return;
+	}
 	if (IN6_IS_ADDR_LOOPBACK((const struct in6_addr*)ip6->daddr)) {
 		LOG_D("Dropping IPv6 packet to loopback: %s", ip6_to_string(ip6->daddr).c_str());
 		return;
@@ -197,6 +206,13 @@ void handle_ip6(Context* ctx, std::span<const uint8_t> payload) {
 	if (IN6_IS_ADDR_LINKLOCAL((const struct in6_addr*)ip6->daddr) ||
 	    IN6_IS_ADDR_SITELOCAL((const struct in6_addr*)ip6->daddr)) {
 		LOG_D("Dropping IPv6 packet to link/site-local address: %s",
+		    ip6_to_string(ip6->daddr).c_str());
+		return;
+	}
+	if (IN6_IS_ADDR_MULTICAST((const struct in6_addr*)ip6->daddr)) {
+		/* nstun is a TUN (L3) device and joins no groups; forwarding these
+		 * would emit guest multicast onto the host's network instead. */
+		LOG_D("Dropping IPv6 packet to multicast address: %s",
 		    ip6_to_string(ip6->daddr).c_str());
 		return;
 	}
