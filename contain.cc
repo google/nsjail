@@ -147,7 +147,16 @@ static bool containPrepareEnv(nsj_t* nsj, int parent_fd, pid_t expected_parent) 
 		PLOG_W("setpriority(%d)", nsj->njc.nice_level());
 	}
 	if (!nsj->njc.skip_setsid()) {
-		setsid();
+		if (setsid() == -1) {
+			const int saved_errno = errno;
+			if (saved_errno == EPERM && getsid(0) == getpid()) {
+				LOG_D("Process is already a session leader (SID == PID)");
+			} else {
+				errno = saved_errno;
+				PLOG_E("setsid()");
+				return false;
+			}
+		}
 	}
 	return true;
 }
