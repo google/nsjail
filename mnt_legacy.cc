@@ -38,6 +38,7 @@
 
 #include "logs.h"
 #include "macros.h"
+#include "mountinfo.h"
 #include "mnt.h"
 #include "util.h"
 
@@ -338,7 +339,12 @@ bool remountPt(mnt::mount_t& mpt) {
 				if (endp == nullptr) {
 					continue;
 				}
-				std::string mp(p, endp - p);
+				std::string mp;
+				if (!mountinfo::decodePath(std::string_view(p, endp - p), &mp)) {
+					LOG_W(
+					    "Invalid escaped mount point in /proc/self/mountinfo");
+					continue;
+				}
 				if (mp != mpt.dst && mp.compare(0, prefix.size(), prefix) == 0) {
 					/* best-effort; remountOne logs any submount it can't
 					 * re-flag */

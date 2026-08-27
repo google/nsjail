@@ -45,7 +45,7 @@ endif
 
 BIN = nsjail
 LIBS = kafel/libkafel.a
-TEST_BINS = tests/nstun_buffer_budget_test tests/nstun_policy_test tests/nstun_ip_test
+TEST_BINS = tests/mountinfo_path_test tests/nstun_buffer_budget_test tests/nstun_policy_test tests/nstun_ip_test
 
 # If PASTA_BIN_PATH is not provided in env, dynamically search for it if EMBED_PASTA is requested
 # or fallback to it naturally.
@@ -62,7 +62,7 @@ ifneq ($(PASTA_BIN_PATH),)
 	CXXFLAGS += -DPASTA_BIN_PATH='"$(PASTA_BIN_PATH)"'
 endif
 
-SRCS_CXX = caps.cc cgroup.cc cgroup2.cc cmdline.cc config.cc contain.cc cpu.cc logs.cc mnt.cc mnt_legacy.cc mnt_newapi.cc net.cc nsjail.cc pid.cc sandbox.cc subproc.cc uts.cc user.cc unotify/unotify.cc unotify/stats.cc unotify/syscall.cc util.cc nstun/nstun.cc nstun/policy.cc nstun/encap.cc nstun/iface.cc nstun/tun.cc nstun/ip.cc nstun/icmp.cc nstun/udp.cc nstun/tcp.cc
+SRCS_CXX = caps.cc cgroup.cc cgroup2.cc cmdline.cc config.cc contain.cc cpu.cc logs.cc mountinfo.cc mnt.cc mnt_legacy.cc mnt_newapi.cc net.cc nsjail.cc pid.cc sandbox.cc subproc.cc uts.cc user.cc unotify/unotify.cc unotify/stats.cc unotify/syscall.cc util.cc nstun/nstun.cc nstun/policy.cc nstun/encap.cc nstun/iface.cc nstun/tun.cc nstun/ip.cc nstun/icmp.cc nstun/udp.cc nstun/tcp.cc
 SRCS_PROTO = config.proto unotify/unotify.proto
 
 SRCS_PB_CXX = $(SRCS_PROTO:.proto=.pb.cc)
@@ -161,6 +161,7 @@ test-cmdline: $(BIN)
 
 .PHONY: test
 test: $(BIN) $(TEST_BINS) test-cmdline
+	$(call run_test, ./tests/mountinfo_path_test, 0)
 	$(call run_test, ./tests/nstun_buffer_budget_test, 0)
 	$(call run_test, ./tests/nstun_policy_test, 0)
 	$(call run_test, ./tests/nstun_ip_test, 0)
@@ -263,6 +264,9 @@ endif
 tests/nstun_buffer_budget_test: tests/nstun_buffer_budget_test.cc nstun/buffer_budget.h
 	$(CXX) $(filter-out -c,$(CXXFLAGS)) $< -o $@
 
+tests/mountinfo_path_test: tests/mountinfo_path_test.cc mountinfo.cc mountinfo.h
+	$(CXX) $(filter-out -c,$(CXXFLAGS)) tests/mountinfo_path_test.cc mountinfo.cc -o $@
+
 tests/nstun_policy_test: tests/nstun_policy_test.cc nstun/policy.cc logs.cc util.cc $(SRCS_PB_CXX)
 	$(CXX) $(filter-out -c,$(CXXFLAGS)) tests/nstun_policy_test.cc nstun/policy.cc logs.cc util.cc $(SRCS_PB_CXX) -o $@ $(LDFLAGS)
 
@@ -286,7 +290,9 @@ cpu.o: cpu.h nsjail.h config.pb.h logs.h util.h
 logs.o: logs.h macros.h util.h nsjail.h config.pb.h
 mnt.o: mnt.h nsjail.h config.pb.h logs.h macros.h mnt_legacy.h mnt_newapi.h
 mnt.o: subproc.h util.h
-mnt_legacy.o: mnt_legacy.h mnt.h nsjail.h config.pb.h logs.h macros.h util.h
+mountinfo.o: mountinfo.h
+mnt_legacy.o: mnt_legacy.h mnt.h nsjail.h config.pb.h logs.h macros.h
+mnt_legacy.o: mountinfo.h util.h
 mnt_newapi.o: mnt_newapi.h mnt.h nsjail.h config.pb.h logs.h util.h
 net.o: net.h nsjail.h config.pb.h logs.h macros.h nstun/nstun.h util.h
 nsjail.o: nsjail.h config.pb.h cgroup2.h cmdline.h logs.h macros.h net.h
