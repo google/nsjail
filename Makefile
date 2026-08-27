@@ -171,6 +171,8 @@ test: $(BIN) $(TEST_BINS) test-cmdline
 ifeq ($(UID),0)
 	$(call run_test, setpriv --reuid 1000 --regid 1000 --groups 1234 -- ./nsjail -q -Mo --user 65534 --group 65534 --disable_clone_newnet --disable_clone_newcgroup --disable_clone_newns --disable_clone_newpid --disable_clone_newipc --disable_clone_newuts --disable_proc -- /bin/true, 255)
 	$(call run_test, setpriv --reuid 1000 --regid 1000 --clear-groups -- ./nsjail -q -Mo --user 65534 --group 65534 --disable_clone_newnet --disable_clone_newcgroup --disable_clone_newns --disable_clone_newpid --disable_clone_newipc --disable_clone_newuts --disable_proc -- /bin/true, 0)
+	$(call run_test, setsid --fork --wait ./nsjail -q -Me --disable_clone_newuser --disable_clone_newnet --disable_clone_newcgroup --disable_clone_newns --disable_clone_newpid --disable_clone_newipc --disable_clone_newuts --disable_proc --chroot / -- /bin/true, 0)
+	$(call run_test, strace -f -qq -e inject=setsid:error=EPERM ./nsjail -q -Me --disable_clone_newuser --disable_clone_newnet --disable_clone_newcgroup --disable_clone_newns --disable_clone_newpid --disable_clone_newipc --disable_clone_newuts --disable_proc --chroot / -- /bin/true, 255)
 endif
 	$(call run_test, ./nsjail -q -Mo --chroot / --user 99999 --group 99999 -- /bin/true < /tmp, 255)
 	$(call run_test, ./nsjail -q -Mo --chroot / --user 99999 --group 99999 --pass_fd 0 -- /bin/true < /tmp, 0)
