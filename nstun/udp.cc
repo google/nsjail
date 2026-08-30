@@ -557,9 +557,11 @@ void handle_udp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> paylo
 		/* Use the redirect destination stored in the flow at creation time.
 		 * Do NOT re-evaluate the rule - it may yield different results
 		 * for packets on an already-established flow. */
-		if (flow->redirect_ip4 && flow->redirect_port) {
-			dest_addr.sin_addr.s_addr = flow->redirect_ip4;
-			dest_addr.sin_port = htons(flow->redirect_port);
+		if (flow->is_redirected) {
+			dest_addr.sin_addr.s_addr =
+			    flow->redirect_ip4 ? flow->redirect_ip4 : ip->daddr;
+			dest_addr.sin_port =
+			    flow->redirect_port ? htons(flow->redirect_port) : htons(dest_port);
 		} else {
 			dest_addr.sin_addr.s_addr = ip->daddr;
 			dest_addr.sin_port = htons(dest_port);
@@ -1047,10 +1049,11 @@ void handle_udp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> paylo
 		 * Do NOT re-evaluate the rule for packets on an existing flow. */
 		bool has_redirect = !std::equal(std::begin(flow->redirect_ip6),
 		    std::end(flow->redirect_ip6), std::begin(std::array<uint8_t, IPV6_ADDR_LEN>{}));
-		if (has_redirect && flow->redirect_port) {
-			memcpy(
-			    &dest_addr.sin6_addr, flow->redirect_ip6, sizeof(dest_addr.sin6_addr));
-			dest_addr.sin6_port = htons(flow->redirect_port);
+		if (flow->is_redirected) {
+			memcpy(&dest_addr.sin6_addr, has_redirect ? flow->redirect_ip6 : ip->daddr,
+			    sizeof(dest_addr.sin6_addr));
+			dest_addr.sin6_port =
+			    flow->redirect_port ? htons(flow->redirect_port) : htons(dest_port);
 		} else {
 			memcpy(&dest_addr.sin6_addr, ip->daddr, sizeof(dest_addr.sin6_addr));
 			dest_addr.sin6_port = htons(dest_port);

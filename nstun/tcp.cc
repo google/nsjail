@@ -891,7 +891,15 @@ void handle_tcp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> paylo
 		}
 
 		struct sockaddr_in dest_addr = INIT_SOCKADDR_IN(AF_INET);
-		if (rule.redirect_ip4 && rule.redirect_port) {
+		if (rule.action == NSTUN_ACTION_REDIRECT) {
+			dest_addr.sin_addr.s_addr =
+			    rule.redirect_ip4 ? rule.redirect_ip4 : key4.daddr4;
+			dest_addr.sin_port =
+			    rule.redirect_port ? htons(rule.redirect_port) : tcp->dest;
+			LOG_D("Redirecting TCP flow guest %u to host %s:%u via policy (fd=%d)",
+			    guest_port, ip4_to_string(dest_addr.sin_addr.s_addr).c_str(),
+			    ntohs(dest_addr.sin_port), fd);
+		} else if (rule.redirect_ip4 && rule.redirect_port) {
 			dest_addr.sin_addr.s_addr = rule.redirect_ip4;
 			dest_addr.sin_port = htons(rule.redirect_port);
 			LOG_D("Redirecting TCP flow guest %u to host %s:%u via policy (fd=%d)",
@@ -1360,14 +1368,16 @@ void handle_tcp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> paylo
 		} else {
 			/* Direct IPv6 connection (or IPv6 redirect) */
 			struct sockaddr_in6 dest_addr = INIT_SOCKADDR_IN6(AF_INET6);
-			if (rule.has_redirect_ip6 && rule.redirect_port) {
-				memcpy(&dest_addr.sin6_addr, rule.redirect_ip6,
+			if (rule.action == NSTUN_ACTION_REDIRECT) {
+				memcpy(&dest_addr.sin6_addr,
+				    rule.has_redirect_ip6 ? rule.redirect_ip6 : key6.daddr6,
 				    sizeof(dest_addr.sin6_addr));
-				dest_addr.sin6_port = htons(rule.redirect_port);
+				dest_addr.sin6_port =
+				    rule.redirect_port ? htons(rule.redirect_port) : tcp->dest;
 				LOG_D("Redirecting IPv6 TCP flow guest %u to %s:%u via policy "
 				      "(fd=%d)",
-				    guest_port, ip6_to_string(rule.redirect_ip6).c_str(),
-				    rule.redirect_port, fd);
+				    guest_port, ip6_to_string(dest_addr.sin6_addr.s6_addr).c_str(),
+				    ntohs(dest_addr.sin6_port), fd);
 			} else {
 				memcpy(
 				    &dest_addr.sin6_addr, key6.daddr6, sizeof(dest_addr.sin6_addr));
