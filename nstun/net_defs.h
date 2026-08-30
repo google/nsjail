@@ -31,6 +31,19 @@ inline bool ip6_is_aws_local_service(const uint8_t addr[16]) {
 	return memcmp(addr, prefix, sizeof(prefix)) == 0;
 }
 
+inline bool sockaddr_matches_ip4(const struct sockaddr_storage& peer, uint32_t expected_addr) {
+	if (peer.ss_family != AF_INET) return false;
+	const auto* peer4 = reinterpret_cast<const struct sockaddr_in*>(&peer);
+	return peer4->sin_addr.s_addr == expected_addr;
+}
+
+inline bool sockaddr_matches_ip6(
+    const struct sockaddr_storage& peer, const uint8_t expected_addr[IPV6_ADDR_LEN]) {
+	if (peer.ss_family != AF_INET6) return false;
+	const auto* peer6 = reinterpret_cast<const struct sockaddr_in6*>(&peer);
+	return memcmp(&peer6->sin6_addr, expected_addr, IPV6_ADDR_LEN) == 0;
+}
+
 struct __attribute__((packed)) ip4_hdr {
 	uint8_t ihl_version; /* version << 4 | ihl */
 	uint8_t tos;
