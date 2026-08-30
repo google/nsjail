@@ -496,6 +496,10 @@ static bool doBindMountAt(mount_t* mpt, int parent_fd, const char* basename) {
 	 */
 	if (!applyMountFlags(mnt_fd, mpt->flags & ~MS_RDONLY, true, (mpt->flags & MS_REC) != 0)) {
 		LOG_W("Failed to apply mount flags to '%s'", basename);
+		if ((mpt->flags & MS_REC) && (mpt->flags & (MS_NOSUID | MS_NODEV | MS_NOEXEC))) {
+			close(mnt_fd);
+			return false;
+		}
 	}
 
 	if (util::syscall(__NR_move_mount, (uintptr_t)mnt_fd, (uintptr_t)"", (uintptr_t)parent_fd,
