@@ -8,6 +8,7 @@
 
 #include "config.pb.h"
 #include "nstun/policy.h"
+#include "nstun/tcp.h"
 
 static uint32_t parse_ip4(const char* str) {
 	uint32_t addr;
@@ -62,6 +63,33 @@ static nstun::RuleParseStatus parse_common(
 	return nstun::fill_rule_common(rule, parsed);
 }
 
+static void test_ipv6_redirect_presence() {
+	auto* ctx = new nstun::Context();
+	nstun_rule_t rule = {};
+	rule.direction = NSTUN_DIR_GUEST_TO_HOST;
+	rule.action = NSTUN_ACTION_REDIRECT;
+	rule.proto = NSTUN_PROTO_TCP;
+	rule.is_ipv6 = true;
+	rule.redirect_port = 8443;
+	ctx->rules.push_back(rule);
+
+	std::array<uint8_t, 16> src = {};
+	std::array<uint8_t, 16> dst = {};
+	auto result = nstun::evaluate_rules6(
+	    ctx, NSTUN_DIR_GUEST_TO_HOST, NSTUN_PROTO_TCP, src.data(), dst.data(), 12345, 443);
+	assert(result.action == NSTUN_ACTION_REDIRECT);
+	assert(!result.has_redirect_ip6);
+	assert(result.redirect_port == 8443);
+
+	std::array<uint8_t, 16> redirect = {};
+	assert(inet_pton(AF_INET6, "2001:db8::1", redirect.data()) == 1);
+	std::copy(redirect.begin(), redirect.end(), ctx->rules[0].redirect_ip6);
+	result = nstun::evaluate_rules6(
+	    ctx, NSTUN_DIR_GUEST_TO_HOST, NSTUN_PROTO_TCP, src.data(), dst.data(), 12345, 443);
+	assert(result.has_redirect_ip6);
+	assert(std::equal(redirect.begin(), redirect.end(), result.redirect_ip6));
+}
+
 static void test_port_validation() {
 	nsjail::NsJailConfig_UserNet_NstunRule rule;
 	nstun_rule_t parsed = {};
@@ -97,6 +125,7 @@ static void test_port_validation() {
 int main() {
 	test_ip4_cidr();
 	test_ip6_cidr();
+	test_ipv6_redirect_presence();
 	test_port_validation();
 	return 0;
 }
