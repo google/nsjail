@@ -12,6 +12,7 @@
 
 #include "core.h"
 #include "encap.h"
+#include "flow_limit.h"
 #include "icmp.h"
 #include "logs.h"
 #include "macros.h"
@@ -431,7 +432,8 @@ void handle_udp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> paylo
 		flow = it->second.get();
 		flow->last_active = time(NULL);
 	} else {
-		if (ctx->ipv4_udp_flows_by_key.size() >= NSTUN_MAX_FLOWS) {
+		if (flow_limit_reached(ctx->ipv4_udp_flows_by_key.size(),
+			ctx->ipv6_udp_flows_by_key.size(), NSTUN_MAX_FLOWS)) {
 			LOG_W(
 			    "Maximum number of UDP flows (%zu) reached, dropping", NSTUN_MAX_FLOWS);
 			return;
@@ -732,8 +734,9 @@ void handle_host_udp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 				flow = it->second.get();
 				flow->last_active = time(NULL);
 			} else {
-				if (ctx->ipv6_udp_flows_by_key.size() >= NSTUN_MAX_FLOWS) {
-					LOG_W("Maximum number of IPv6 UDP flows reached, dropping");
+				if (flow_limit_reached(ctx->ipv4_udp_flows_by_key.size(),
+					ctx->ipv6_udp_flows_by_key.size(), NSTUN_MAX_FLOWS)) {
+					LOG_W("Maximum number of UDP flows reached, dropping");
 					continue;
 				}
 				auto flow_ptr = std::make_unique<UdpFlow>();
@@ -798,7 +801,8 @@ void handle_host_udp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 				flow = it->second.get();
 				flow->last_active = time(NULL);
 			} else {
-				if (ctx->ipv4_udp_flows_by_key.size() >= NSTUN_MAX_FLOWS) {
+				if (flow_limit_reached(ctx->ipv4_udp_flows_by_key.size(),
+					ctx->ipv6_udp_flows_by_key.size(), NSTUN_MAX_FLOWS)) {
 					LOG_W("Maximum number of UDP flows reached, dropping");
 					continue;
 				}
@@ -919,9 +923,10 @@ void handle_udp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> paylo
 		flow = it->second.get();
 		flow->last_active = time(NULL);
 	} else {
-		if (ctx->ipv6_udp_flows_by_key.size() >= NSTUN_MAX_FLOWS) {
-			LOG_W("Maximum number of IPv6 UDP flows (%zu) reached, dropping",
-			    NSTUN_MAX_FLOWS);
+		if (flow_limit_reached(ctx->ipv4_udp_flows_by_key.size(),
+			ctx->ipv6_udp_flows_by_key.size(), NSTUN_MAX_FLOWS)) {
+			LOG_W(
+			    "Maximum number of UDP flows (%zu) reached, dropping", NSTUN_MAX_FLOWS);
 			return;
 		}
 

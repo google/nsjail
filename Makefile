@@ -45,7 +45,7 @@ endif
 
 BIN = nsjail
 LIBS = kafel/libkafel.a
-TEST_BINS = tests/nstun_buffer_budget_test tests/nstun_policy_test tests/nstun_ip_test
+TEST_BINS = tests/nstun_buffer_budget_test tests/nstun_flow_limit_test tests/nstun_policy_test tests/nstun_ip_test
 
 # If PASTA_BIN_PATH is not provided in env, dynamically search for it if EMBED_PASTA is requested
 # or fallback to it naturally.
@@ -162,6 +162,7 @@ test-cmdline: $(BIN)
 .PHONY: test
 test: $(BIN) $(TEST_BINS) test-cmdline
 	$(call run_test, ./tests/nstun_buffer_budget_test, 0)
+	$(call run_test, ./tests/nstun_flow_limit_test, 0)
 	$(call run_test, ./tests/nstun_policy_test, 0)
 	$(call run_test, ./tests/nstun_ip_test, 0)
 	# --- Basic sanity tests ---
@@ -263,6 +264,9 @@ endif
 	@echo ""
 
 tests/nstun_buffer_budget_test: tests/nstun_buffer_budget_test.cc nstun/buffer_budget.h
+	$(CXX) $(filter-out -c,$(CXXFLAGS)) $< -o $@
+
+tests/nstun_flow_limit_test: tests/nstun_flow_limit_test.cc nstun/flow_limit.h
 	$(CXX) $(filter-out -c,$(CXXFLAGS)) $< -o $@
 
 tests/nstun_policy_test: tests/nstun_policy_test.cc nstun/policy.cc logs.cc util.cc $(SRCS_PB_CXX)
