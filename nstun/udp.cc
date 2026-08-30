@@ -17,6 +17,7 @@
 #include "macros.h"
 #include "policy.h"
 #include "tun.h"
+#include "udp_peer.h"
 
 namespace nstun {
 
@@ -608,6 +609,11 @@ static void handle_host_udp(Context* ctx, UdpFlow* flow) {
 		uint8_t* data_ptr = bufs[i];
 		size_t data_len = msgs[i].msg_len;
 		struct sockaddr_storage* src_addr_storage = &src_addrs[i];
+
+		if (!udp_peer_matches_flow(*flow, *src_addr_storage)) {
+			LOG_W("Dropping UDP datagram from unexpected peer");
+			continue;
+		}
 
 		if (flow->use_socks5) {
 			if (data_len < sizeof(socks5_udp_hdr))
