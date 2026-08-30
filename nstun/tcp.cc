@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include "encap.h"
+#include "flow_limit.h"
 #include "logs.h"
 #include "macros.h"
 #include "policy.h"
@@ -850,7 +851,8 @@ void handle_tcp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> paylo
 		flow = it->second.get();
 		flow->last_active = time(NULL);
 	} else {
-		if (ctx->ipv4_tcp_flows_by_key.size() >= NSTUN_MAX_FLOWS) {
+		if (flow_limit_reached(ctx->ipv4_tcp_flows_by_key.size(),
+			ctx->ipv6_tcp_flows_by_key.size(), NSTUN_MAX_FLOWS)) {
 			LOG_W(
 			    "Maximum number of TCP flows (%zu) reached, dropping", NSTUN_MAX_FLOWS);
 			return;
@@ -1292,9 +1294,10 @@ void handle_tcp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> paylo
 		flow = it->second.get();
 		flow->last_active = time(NULL);
 	} else {
-		if (ctx->ipv6_tcp_flows_by_key.size() >= NSTUN_MAX_FLOWS) {
-			LOG_W("Maximum number of IPv6 TCP flows (%zu) reached, dropping",
-			    NSTUN_MAX_FLOWS);
+		if (flow_limit_reached(ctx->ipv4_tcp_flows_by_key.size(),
+			ctx->ipv6_tcp_flows_by_key.size(), NSTUN_MAX_FLOWS)) {
+			LOG_W(
+			    "Maximum number of TCP flows (%zu) reached, dropping", NSTUN_MAX_FLOWS);
 			return;
 		}
 

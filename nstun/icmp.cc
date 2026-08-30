@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include "core.h"
+#include "flow_limit.h"
 #include "logs.h"
 #include "macros.h"
 #include "policy.h"
@@ -211,9 +212,10 @@ void handle_icmp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> payl
 				flow = it->second.get();
 				flow->last_active = time(NULL);
 			} else {
-				if (ctx->ipv6_icmp_flows_by_key.size() >= NSTUN_MAX_FLOWS) {
-					LOG_W("Maximum number of IPv6 ICMP flows (%zu) reached, "
-					      "dropping",
+				if (flow_limit_reached(ctx->ipv4_icmp_flows_by_key.size(),
+					ctx->ipv6_icmp_flows_by_key.size(), NSTUN_MAX_FLOWS)) {
+					LOG_W(
+					    "Maximum number of ICMP flows (%zu) reached, dropping",
 					    NSTUN_MAX_FLOWS);
 					return;
 				}
@@ -329,7 +331,8 @@ void handle_icmp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> payl
 				flow = it->second.get();
 				flow->last_active = time(NULL);
 			} else {
-				if (ctx->ipv4_icmp_flows_by_key.size() >= NSTUN_MAX_FLOWS) {
+				if (flow_limit_reached(ctx->ipv4_icmp_flows_by_key.size(),
+					ctx->ipv6_icmp_flows_by_key.size(), NSTUN_MAX_FLOWS)) {
 					LOG_W(
 					    "Maximum number of ICMP flows (%zu) reached, dropping",
 					    NSTUN_MAX_FLOWS);
