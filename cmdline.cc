@@ -1133,6 +1133,10 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 	    nsj->njc.cgroup_mem_swap_max() >= (ssize_t)0) {
 		LOG_F("cannot set both cgroup_mem_memsw_max and cgroup_mem_swap_max");
 	}
+	if (nsj->njc.cgroup_mem_memsw_max() > (size_t)0 &&
+	    nsj->njc.cgroup_mem_memsw_max() < nsj->njc.cgroup_mem_max()) {
+		LOG_F("cgroup_mem_memsw_max cannot be smaller than cgroup_mem_max");
+	}
 
 	return nsj;
 }
