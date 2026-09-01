@@ -297,6 +297,34 @@ static bool remountOne(const std::string& path, const mnt::mount_t& mpt) {
 	return true;
 }
 
+/*
+ * Mount points in /proc/self/mountinfo are escaped: space, tab, newline and
+ * backslash are written as octal escapes. Decode the field before comparing it
+ * with the mount destination.
+ */
+static bool decodeMountInfoPath(const char* begin, const char* end, std::string* decoded) {
+	decoded->clear();
+	decoded->reserve(end - begin);
+
+	for (const char* p = begin; p < end; p++) {
+		if (*p != '\\') {
+			decoded->push_back(*p);
+			continue;
+		}
+		if (end - p < 4 || p[1] < '0' || p[1] > '3' || p[2] < '0' || p[2] > '7' ||
+		    p[3] < '0' || p[3] > '7') {
+			return false;
+		}
+		const unsigned int value = ((p[1] - '0') << 6) | ((p[2] - '0') << 3) | (p[3] - '0');
+		if (value == 0) {
+			return false;
+		}
+		decoded->push_back(static_cast<char>(value));
+		p += 3;
+	}
+	return true;
+}
+
 bool remountPt(mnt::mount_t& mpt) {
 	if (!mpt.mounted || mpt.mpt->is_symlink()) {
 		return true;
@@ -338,7 +366,11 @@ bool remountPt(mnt::mount_t& mpt) {
 				if (endp == nullptr) {
 					continue;
 				}
-				std::string mp(p, endp - p);
+				std::string mp;
+				if (!decodeMountInfoPath(p, endp, &mp)) {
+					LOG_W("Malformed mount point in /proc/self/mountinfo");
+					continue;
+				}
 				if (mp != mpt.dst && mp.compare(0, prefix.size(), prefix) == 0) {
 					/* best-effort; remountOne logs any submount it can't
 					 * re-flag */
