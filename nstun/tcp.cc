@@ -582,8 +582,22 @@ static void tcp_process_data(Context* ctx, TcpFlow* flow, const tcp_hdr* tcp,
 	uint32_t seq = ntohl(tcp->seq);
 	uint32_t ack = ntohl(tcp->ack_seq);
 
-	if (flow->inbound && flow->state == TcpState::SYN_SENT &&
-	    (tcp->flags & NSTUN_TCP_FLAG_SYN) && (tcp->flags & NSTUN_TCP_FLAG_ACK)) {
+	if (tcp->flags & NSTUN_TCP_FLAG_RST) {
+		LOG_D("Received RST from guest");
+		tcp_destroy_flow(ctx, flow);
+		return;
+	}
+
+	if (flow->state == TcpState::SYN_SENT) {
+		if (!flow->inbound || !(tcp->flags & NSTUN_TCP_FLAG_SYN) ||
+		    !(tcp->flags & NSTUN_TCP_FLAG_ACK)) {
+			LOG_D("Ignoring packet before the TCP handshake is complete");
+			return;
+		}
+		if (ack != flow->seq_to_guest) {
+			LOG_D("Ignoring SYN-ACK with invalid ACK number");
+			return;
+		}
 		flow->state = TcpState::ESTABLISHED;
 		flow->ack_from_guest = ack;
 		flow->seq_from_guest = seq + 1;
@@ -607,15 +621,8 @@ static void tcp_process_data(Context* ctx, TcpFlow* flow, const tcp_hdr* tcp,
 		return;
 	}
 
-	if (tcp->flags & NSTUN_TCP_FLAG_RST) {
-		LOG_D("Received RST from guest");
-		tcp_destroy_flow(ctx, flow);
-		return;
-	}
-
 	if (flow->state == TcpState::ESTABLISHED || flow->state == TcpState::FIN_WAIT_1 ||
-	    flow->state == TcpState::FIN_WAIT_2 || flow->state == TcpState::SYN_SENT ||
-	    flow->state == TcpState::CLOSE_WAIT) {
+	    flow->state == TcpState::FIN_WAIT_2 || flow->state == TcpState::CLOSE_WAIT) {
 		const uint8_t* data = payload.data() + doff;
 		size_t data_len = payload.size() - doff;
 
