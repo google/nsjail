@@ -24,6 +24,10 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/mount.h>
+// clang-format off
+/* <linux/mount.h> must follow <sys/mount.h>, see google/nsjail#250 */
+#include <linux/mount.h>
+// clang-format on
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <sys/syscall.h>
@@ -38,6 +42,7 @@
 
 #include "logs.h"
 #include "macros.h"
+#include "missing_defs.h"
 #include "mnt.h"
 #include "util.h"
 
@@ -325,6 +330,40 @@ static bool decodeMountInfoPath(const char* begin, const char* end, std::string*
 	return true;
 }
 
+/*
+ * Apply the requested restrictions to a whole mount subtree in one call.
+ * Unlike a bind remount, mount_setattr(AT_RECURSIVE) also covers submounts
+ * that reject MS_REMOUNT (autofs, for one) and mounts the kernel locked
+ * together when the user namespace was created. Restrictions are only set,
+ * never cleared, which is what the kernel permits on locked mounts.
+ */
+static bool setSubtreeAttrs(const std::string& path, uintptr_t flags) {
+	struct mount_attr attr = {};
+
+	if (flags & MS_RDONLY) {
+		attr.attr_set |= MOUNT_ATTR_RDONLY;
+	}
+	if (flags & MS_NOSUID) {
+		attr.attr_set |= MOUNT_ATTR_NOSUID;
+	}
+	if (flags & MS_NODEV) {
+		attr.attr_set |= MOUNT_ATTR_NODEV;
+	}
+	if (flags & MS_NOEXEC) {
+		attr.attr_set |= MOUNT_ATTR_NOEXEC;
+	}
+	if (attr.attr_set == 0) {
+		return true;
+	}
+
+	if (util::syscall(__NR_mount_setattr, (uintptr_t)AT_FDCWD, (uintptr_t)path.c_str(),
+		(uintptr_t)AT_RECURSIVE, (uintptr_t)&attr, sizeof(attr)) < 0) {
+		PLOG_D("mount_setattr('%s', AT_RECURSIVE)", path.c_str());
+		return false;
+	}
+	return true;
+}
+
 bool remountPt(mnt::mount_t& mpt) {
 	if (!mpt.mounted || mpt.mpt->is_symlink()) {
 		return true;
@@ -345,6 +384,12 @@ bool remountPt(mnt::mount_t& mpt) {
 	 * attributes with mount_setattr(AT_RECURSIVE).
 	 */
 	if (mpt.flags & MS_REC) {
+		if (setSubtreeAttrs(mpt.dst, mpt.flags)) {
+			return true;
+		}
+		LOG_D("mount_setattr() failed for '%s', re-flagging each submount instead",
+		    mpt.dst.c_str());
+
 		FILE* f = fopen("/proc/self/mountinfo", "re");
 		if (f != nullptr) {
 			char* line = nullptr;
