@@ -146,6 +146,7 @@ endef
 
 OLD_EF := --experimental_mnt=old
 NEW_EF := --experimental_mnt=new
+MNTCT := /tmp/nsjail-mnt-containment-test
 UID := $(shell id -u)
 
 .PHONY: test-cmdline
@@ -159,8 +160,31 @@ test-cmdline: $(BIN)
 	$(call run_test, ./nsjail --rlimit_cpu 1.5 --help > /dev/null, 255)
 	$(call run_test, ./nsjail --time_limit 0x10 --cgroup_mem_swap_max=-1 --user 1000:1000:1 --help > /dev/null, 0)
 
+.PHONY: test-containment
+test-containment: $(BIN)
+	# --- Mount destination containment: final-component symlinks must not be followed ---
+	$(call run_test, rm -rf $(MNTCT) && mkdir -p $(MNTCT)/dst_dir $(MNTCT)/bind_dir && touch $(MNTCT)/bind_file && ln -s $(MNTCT)/dst_dir/pwned $(MNTCT)/bind_dir/evil && chmod 777 $(MNTCT)/dst_dir, 0)
+	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --user 99999 --group 99999 --disable_proc -B "$(MNTCT)/bind_dir:/d" -B "$(MNTCT)/bind_file:/d/f" -B "/bin:/bin" -B "/lib:/lib" -- /bin/true, 0)
+	$(call run_test, ./nsjail $(NEW_EF) -q -Mo --user 99999 --group 99999 --disable_proc -B "$(MNTCT)/bind_dir:/d" -B "$(MNTCT)/bind_file:/d/f" -B "/bin:/bin" -B "/lib:/lib" -- /bin/true, 0)
+	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --user 99999 --group 99999 --disable_proc -s "$(MNTCT)/dst_dir/pwned:/escfile" -B "$(MNTCT)/bind_file:/escfile" -B "/bin:/bin" -B "/lib:/lib" -- /bin/true; test ! -f "$(MNTCT)/dst_dir/pwned", 0)
+	$(call run_test, ./nsjail $(NEW_EF) -q -Mo --user 99999 --group 99999 --disable_proc -s "$(MNTCT)/dst_dir/pwned:/escfile" -B "$(MNTCT)/bind_file:/escfile" -B "/bin:/bin" -B "/lib:/lib" -- /bin/true; test ! -f "$(MNTCT)/dst_dir/pwned", 0)
+	$(call run_test, ./nsjail $(NEW_EF) -q -Mo --user 99999 --group 99999 --disable_proc --config tests/mnt_dst_symlink_escape.cfg -- /bin/true && test ! -f "$(MNTCT)/dst_dir/pwned", 0)
+	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --user 99999 --group 99999 --disable_proc --config tests/mnt_dst_symlink_escape.cfg -- /bin/true && test ! -f "$(MNTCT)/dst_dir/pwned", 0)
+	$(call run_test, ./nsjail $(NEW_EF) -q -Mo --user 99999 --group 99999 --disable_proc -B "$(MNTCT)/bind_dir:/d" -B "$(MNTCT)/bind_file:/d/evil" -B "/bin:/bin" -B "/lib:/lib" -- /bin/true; test ! -f "$(MNTCT)/dst_dir/pwned", 0)
+	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --user 99999 --group 99999 --disable_proc -B "$(MNTCT)/bind_dir:/d" -B "$(MNTCT)/bind_file:/d/evil" -B "/bin:/bin" -B "/lib:/lib" -- /bin/true; test ! -f "$(MNTCT)/dst_dir/pwned", 0)
+	# prefix ambiguity: a planted symlink at "/escdir" must not affect "/escdir-2"
+	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --user 99999 --group 99999 --disable_proc -s "$(MNTCT)/dst_dir/pwned:/escdir" -B "$(MNTCT)/bind_dir:/escdir-2" -B "$(MNTCT)/bind_file:/escdir-2/f" -B "/bin:/bin" -B "/lib:/lib" -- /bin/true; test ! -f "$(MNTCT)/dst_dir/pwned", 0)
+	$(call run_test, ./nsjail $(NEW_EF) -q -Mo --user 99999 --group 99999 --disable_proc -s "$(MNTCT)/dst_dir/pwned:/escdir" -B "$(MNTCT)/bind_dir:/escdir-2" -B "$(MNTCT)/bind_file:/escdir-2/f" -B "/bin:/bin" -B "/lib:/lib" -- /bin/true; test ! -f "$(MNTCT)/dst_dir/pwned", 0)
+	# trailing slash is normalized and stays inside the staging root (legacy)
+	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --user 99999 --group 99999 --disable_proc -B "$(MNTCT)/bind_dir:/d/" -B "/bin:/bin" -B "/lib:/lib" -- /bin/true, 0)
+	# new-API backend has always rejected trailing-slash destinations (fail closed)
+	$(call run_test, ./nsjail $(NEW_EF) -q -Mo --user 99999 --group 99999 --disable_proc -B "$(MNTCT)/bind_dir:/d/" -B "/bin:/bin" -B "/lib:/lib" -- /bin/true, 255)
+	# a trailing slash cannot target a planted symlink either
+	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --user 99999 --group 99999 --disable_proc -s "$(MNTCT)/dst_dir/pwned:/escfile/" -B "$(MNTCT)/bind_file:/escfile/" -B "/bin:/bin" -B "/lib:/lib" -- /bin/true; test ! -f "$(MNTCT)/dst_dir/pwned", 0)
+	$(call run_test, ./nsjail $(NEW_EF) -q -Mo --user 99999 --group 99999 --disable_proc -s "$(MNTCT)/dst_dir/pwned:/escfile/" -B "$(MNTCT)/bind_file:/escfile/" -B "/bin:/bin" -B "/lib:/lib" -- /bin/true; test ! -f "$(MNTCT)/dst_dir/pwned", 0)
+
 .PHONY: test
-test: $(BIN) $(TEST_BINS) test-cmdline
+test: $(BIN) $(TEST_BINS) test-cmdline test-containment
 	$(call run_test, ./tests/nstun_buffer_budget_test, 0)
 	$(call run_test, ./tests/nstun_policy_test, 0)
 	$(call run_test, ./tests/nstun_ip_test, 0)
