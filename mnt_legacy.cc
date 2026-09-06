@@ -131,20 +131,22 @@ static int tryMountRW(mount_t* mpt, const char* src, const char* dst) {
 	return res;
 }
 
-static bool createMountTarget(const std::string& path, bool is_dir) {
+static bool createMountTarget(int parent_fd, const std::string& basename, bool is_dir) {
 	if (is_dir) {
-		if (mkdir(path.c_str(), 0711) == -1 && errno != EEXIST) {
-			if (errno != EROFS || !util::existsAsDir(path.c_str())) {
-				PLOG_W("mkdir('%s')", path.c_str());
+		if (mkdirat(parent_fd, basename.c_str(), 0711) == -1 && errno != EEXIST) {
+			if (errno != EROFS || !util::existsAsDirAt(parent_fd, basename.c_str())) {
+				PLOG_W("mkdirat(%d, '%s')", parent_fd, basename.c_str());
 				return false;
 			}
 		}
 	} else {
-		int fd =
-		    TEMP_FAILURE_RETRY(open(path.c_str(), O_CREAT | O_RDONLY | O_CLOEXEC, 0644));
+		/* O_NOFOLLOW: never create through a symlink planted at the destination. */
+		int fd = TEMP_FAILURE_RETRY(openat(parent_fd, basename.c_str(),
+		    O_CREAT | O_RDONLY | O_CLOEXEC | O_NOFOLLOW, 0644));
 		if (fd == -1) {
-			if (errno != EROFS || !util::existsAsReg(path.c_str())) {
-				PLOG_W("open('%s', O_CREAT)", path.c_str());
+			if (errno != EROFS || !util::existsAsRegAt(parent_fd, basename.c_str())) {
+				PLOG_W("openat(%d, '%s', O_CREAT|O_NOFOLLOW)", parent_fd,
+				    basename.c_str());
 				return false;
 			}
 			return true;
@@ -154,15 +156,15 @@ static bool createMountTarget(const std::string& path, bool is_dir) {
 	return true;
 }
 
-static bool mountSymlink(mount_t* mpt, const std::string& dstpath) {
-	LOG_D("Creating symlink: %s -> %s", mpt->src.c_str(), dstpath.c_str());
-	if (symlink(mpt->src.c_str(), dstpath.c_str()) == -1) {
+static bool mountSymlink(mount_t* mpt, int parent_fd, const std::string& basename) {
+	LOG_D("Creating symlink: %s -> %s", mpt->src.c_str(), basename.c_str());
+	if (symlinkat(mpt->src.c_str(), parent_fd, basename.c_str()) == -1) {
 		if (mpt->mpt->mandatory()) {
-			PLOG_E("symlink('%s' -> '%s')", mpt->src.c_str(), dstpath.c_str());
+			PLOG_E("symlinkat('%s' -> '%s')", mpt->src.c_str(), basename.c_str());
 			return false;
 		}
-		PLOG_W("symlink('%s' -> '%s') failed (non-mandatory)", mpt->src.c_str(),
-		    dstpath.c_str());
+		PLOG_W("symlinkat('%s' -> '%s') failed (non-mandatory)", mpt->src.c_str(),
+		    basename.c_str());
 	}
 	return true;
 }
@@ -216,16 +218,37 @@ static bool mountSinglePoint(mount_t* mpt, const char* newroot, const char* tmpd
 	}
 	std::string srcpath = mpt->src.empty() ? "none" : mpt->src;
 
-	if (!util::createDirRecursively(dstpath.c_str())) {
+	int parent_fd = -1;
+	std::string basename;
+	if (!util::openParentNoFollow(dstpath.c_str(), &parent_fd, &basename)) {
 		LOG_W("Failed to create parent directories for '%s'", dstpath.c_str());
 		return false;
 	}
+	defer {
+		close(parent_fd);
+	};
 
 	if (mpt->mpt->is_symlink()) {
-		return mountSymlink(mpt, dstpath);
+		return mountSymlink(mpt, parent_fd, basename);
 	}
 
-	if (!createMountTarget(dstpath, mpt->is_dir)) {
+	/*
+	 * mount(2) and open(O_CREAT) resolve the final path component, so a
+	 * symlink planted at the destination (by an earlier symlink mount or
+	 * inside a bound directory) would move the mount or the creation outside
+	 * the staging root. Everything before the final component is guaranteed
+	 * symlink-free by openParentNoFollow(), and staging is single-threaded
+	 * inside a private tmpfs, so a NOFOLLOW check of the final component is
+	 * sufficient to anchor the path-based mount(2).
+	 */
+	struct stat st;
+	if (fstatat(parent_fd, basename.c_str(), &st, AT_SYMLINK_NOFOLLOW) == 0 &&
+	    S_ISLNK(st.st_mode)) {
+		LOG_E("Mount destination final component is a symlink: %s", QC(dstpath));
+		return false;
+	}
+
+	if (!createMountTarget(parent_fd, basename, mpt->is_dir)) {
 		return false;
 	}
 

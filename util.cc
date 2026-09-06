@@ -253,13 +253,31 @@ bool isSafeContainmentPath(const std::string& path) {
 	return true;
 }
 
-bool createDirRecursively(const char* dir) {
-	if (dir[0] != '/') {
-		LOG_W("The directory path must start with '/': '%s' provided", dir);
+bool openParentNoFollow(const char* path, int* parent_fd_out, std::string* basename_out) {
+	if (path[0] != '/') {
+		LOG_W("The directory path must start with '/': '%s' provided", path);
 		return false;
 	}
-	if (!isSafeContainmentPath(dir)) {
-		LOG_W("Refusing path with '.'/'..'/NUL components: '%s'", dir);
+	if (!isSafeContainmentPath(path)) {
+		LOG_W("Refusing path with '.'/'..'/NUL components: '%s'", path);
+		return false;
+	}
+
+	const std::string path_str(path);
+	const size_t last_slash = path_str.find_last_of('/');
+	std::string parent =
+	    (last_slash == std::string::npos) ? std::string("/") : path_str.substr(0, last_slash);
+	std::string basename =
+	    (last_slash == std::string::npos) ? path_str : path_str.substr(last_slash + 1);
+	if (parent.empty()) {
+		parent = "/";
+	}
+	if (basename.empty()) {
+		/* Trailing slash or empty tail: the walked directory itself (e.g. the
+		 * staging root). Mirror the new-API backend's "." convention. */
+		basename = ".";
+	} else if (basename == "." || basename == "..") {
+		LOG_W("Unsafe final path component in '%s'", path);
 		return false;
 	}
 
@@ -269,27 +287,27 @@ bool createDirRecursively(const char* dir) {
 		return false;
 	}
 
-	char path[PATH_MAX];
-	if (snprintf(path, sizeof(path), "%s", dir) >= (int)sizeof(path)) {
-		LOG_W("Directory path is too long: '%s'", dir);
+	char walk[PATH_MAX];
+	if (snprintf(walk, sizeof(walk), "%s", parent.c_str()) >= (int)sizeof(walk)) {
+		LOG_W("Directory path is too long: '%s'", parent.c_str());
 		close(prev_dir_fd);
 		return false;
 	}
-	char* curr = path;
+	char* curr = walk;
 	for (;;) {
 		while (*curr == '/') {
 			curr++;
 		}
-
-		char* next = strchr(curr, '/');
-		if (next == nullptr) {
-			close(prev_dir_fd);
-			return true;
+		if (*curr == '\0') {
+			break;
 		}
-		*next = '\0';
+		char* next = strchr(curr, '/');
+		if (next != nullptr) {
+			*next = '\0';
+		}
 
 		if (mkdirat(prev_dir_fd, curr, 0755) == -1 && errno != EEXIST) {
-			if (errno != EROFS || !util::existsAsDirAt(prev_dir_fd, curr)) {
+			if (errno != EROFS || !existsAsDirAt(prev_dir_fd, curr)) {
 				PLOG_W("mkdir(%s, 0755)", QC(curr));
 				close(prev_dir_fd);
 				return false;
@@ -307,8 +325,16 @@ bool createDirRecursively(const char* dir) {
 		}
 		close(prev_dir_fd);
 		prev_dir_fd = dir_fd;
+
+		if (next == nullptr) {
+			break;
+		}
 		curr = next + 1;
 	}
+
+	*parent_fd_out = prev_dir_fd;
+	*basename_out = basename;
+	return true;
 }
 
 std::string* StrAppend(std::string* str, const char* format, ...) {
