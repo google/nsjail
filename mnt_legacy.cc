@@ -251,7 +251,13 @@ static bool mountSinglePoint(mount_t* mpt, const char* newroot, const char* tmpd
 	return true;
 }
 
-static unsigned long computeRemountFlags(const mount_t& mpt, const struct statvfs& vfs) {
+/*
+ * The per-mount-point flags a mount already carries, in MS_* form. A MS_REMOUNT
+ * which doesn't re-state them asks the kernel to *clear* them, and clearing a
+ * flag that is locked -- as nosuid/nodev/noexec are on every mount a user
+ * namespace inherits -- fails with EPERM.
+ */
+static unsigned long currentMountFlags(const struct statvfs& vfs) {
 	struct {
 		const unsigned long mount_flag;
 		const unsigned long vfs_flag;
@@ -267,17 +273,21 @@ static unsigned long computeRemountFlags(const mount_t& mpt, const struct statvf
 	    {MS_NOSYMFOLLOW, ST_NOSYMFOLLOW},
 	};
 
-	const unsigned long per_mountpoint_flags =
-	    MS_LAZYTIME | MS_MANDLOCK | MS_NOATIME | MS_NODEV | MS_NODIRATIME | MS_NOEXEC |
-	    MS_NOSUID | MS_RELATIME | MS_RDONLY | MS_SYNCHRONOUS | MS_NOSYMFOLLOW;
-
-	unsigned long flags = MS_REMOUNT | MS_BIND | (mpt.flags & per_mountpoint_flags);
+	unsigned long flags = 0;
 	for (const auto& i : mountPairs) {
 		if (vfs.f_flag & i.vfs_flag) {
 			flags |= i.mount_flag;
 		}
 	}
 	return flags;
+}
+
+static unsigned long computeRemountFlags(const mount_t& mpt, const struct statvfs& vfs) {
+	const unsigned long per_mountpoint_flags =
+	    MS_LAZYTIME | MS_MANDLOCK | MS_NOATIME | MS_NODEV | MS_NODIRATIME | MS_NOEXEC |
+	    MS_NOSUID | MS_RELATIME | MS_RDONLY | MS_SYNCHRONOUS | MS_NOSYMFOLLOW;
+
+	return MS_REMOUNT | MS_BIND | (mpt.flags & per_mountpoint_flags) | currentMountFlags(vfs);
 }
 
 static bool remountOne(const std::string& path, const mnt::mount_t& mpt) {
@@ -400,9 +410,27 @@ std::unique_ptr<std::string> buildMountTree(nsj_t* nsj, std::vector<mnt::mount_t
 	}
 
 	if (!nsj->is_root_rw) {
-		if (mount(destdir->c_str(), destdir->c_str(), nullptr,
-			MS_REMOUNT | MS_BIND | MS_RDONLY, nullptr) == -1) {
-			PLOG_E("mount('%s', MS_REMOUNT|MS_BIND|MS_RDONLY)", destdir->c_str());
+		/*
+		 * The top mount at destdir is nsjail's own tmpfs, unless a mount point with
+		 * dst:"/" -- the bind --chroot inserts, or a config-supplied one -- has been
+		 * mounted over it. That bind inherits the nosuid/nodev/noexec flags of the
+		 * filesystem the chroot directory lives on, and inside a user namespace those
+		 * flags are locked. Naming only MS_RDONLY would ask for them to be cleared and
+		 * fail with EPERM, so nsjail would refuse to start for any chroot directory on
+		 * /tmp, /run, /var/tmp or a nosuid-mounted /home. Re-state what the mount
+		 * already carries, exactly like remountOne() does for every other mount point.
+		 */
+		unsigned long flags = MS_REMOUNT | MS_BIND | MS_RDONLY;
+		struct statvfs vfs;
+		if (TEMP_FAILURE_RETRY(statvfs(destdir->c_str(), &vfs)) == -1) {
+			PLOG_W("statvfs('%s')", destdir->c_str());
+		} else {
+			flags |= currentMountFlags(vfs);
+		}
+
+		if (mount(destdir->c_str(), destdir->c_str(), nullptr, flags, nullptr) == -1) {
+			PLOG_E("mount('%s', flags=%s)", destdir->c_str(),
+			    mnt::flagsToStr(flags).c_str());
 			return nullptr;
 		}
 	}
