@@ -3,86 +3,45 @@
 #include <netinet/in.h>
 #include <string.h>
 
+#include "byte_reader.h"
 #include "core.h"
 #include "icmp.h"
+#include "ipparse.h"
 #include "logs.h"
 #include "tcp.h"
 #include "udp.h"
 
 namespace nstun {
 
-/*
- * Skip IPv6 extension headers to locate the first L4 header.
- *
- * Returns the L4 protocol number (e.g. IPPROTO_TCP) on success,
- * or -1 if the chain is malformed, too deep, or contains a fragment
- * (which nstun does not reassemble).
- *
- * `ptr` and `rem` are advanced past each extension header so the
- * caller can read the L4 header directly from `ptr`.
- */
-static int skip_ipv6_ext_headers(int next_header, const uint8_t*& ptr, size_t& rem) {
-	constexpr int MAX_EXT = 8; /* Defense: cap chain depth */
-	for (int i = 0; i < MAX_EXT; ++i) {
-		ssize_t ext_len;
-		switch (next_header) {
-		case IPPROTO_HOPOPTS: /* Hop-by-Hop Options */
-		case IPPROTO_DSTOPTS: /* Destination Options */
-		case IPPROTO_ROUTING: /* Routing */
-		case 139:	      /* Host Identity Protocol */
-		case 140: {	      /* Shim6 */
-			if (rem < 2) return -1;
-			size_t len = ((size_t)ptr[1] + 1) * 8;
-			ext_len = (len <= rem) ? (ssize_t)len : -1;
-			break;
-		}
-		case IPPROTO_FRAGMENT:
-			/* nstun does not reassemble fragments. Drop unconditionally
-			 * to match IPv4 behavior and prevent L4 port-based rule
-			 * bypass via non-first fragments. */
-			return -1;
-		case IPPROTO_AH: { /* Authentication Header */
-			if (rem < 2) return -1;
-			size_t len = ((size_t)ptr[1] + 2) * 4;
-			ext_len = (len <= rem) ? (ssize_t)len : -1;
-			break;
-		}
-		default:
-			ext_len = 0; /* Not an extension header: this is the L4 protocol */
-			break;
-		}
-
-		if (ext_len < 0) return -1;	      /* Malformed or unsupported */
-		if (ext_len == 0) return next_header; /* Reached L4 */
-
-		next_header = ptr[0]; /* Next Header field is first byte of ext header */
-		ptr += ext_len;
-		rem -= ext_len;
-	}
-	return -1; /* Extension header chain too deep */
-}
-
 void handle_ip4(Context* ctx, std::span<const uint8_t> payload) {
-	if (payload.size() < sizeof(ip4_hdr)) {
+	ByteReader r(payload);
+	ip4_hdr ip4_copy;
+	if (!r.peek(&ip4_copy)) {
 		return;
 	}
 
-	const ip4_hdr* ip = reinterpret_cast<const ip4_hdr*>(payload.data());
-	uint8_t ihl = ip4_ihl(ip) * 4;
-
+	uint8_t ihl = ip4_ihl(&ip4_copy) * 4;
 	if (ihl < sizeof(ip4_hdr) || ihl > payload.size()) {
 		LOG_D("Invalid IPv4 IHL");
 		return;
 	}
 
-	uint16_t tot_len = ntohs(ip->tot_len);
+	uint16_t tot_len = ntohs(ip4_copy.tot_len);
 	if (tot_len < ihl || tot_len > payload.size()) {
 		LOG_D("Invalid IPv4 tot_len");
 		return;
 	}
 
-	const uint8_t* l4_payload = payload.data() + ihl;
+	if (!r.skip(ihl)) {
+		LOG_D("Invalid IPv4 IHL");
+		return;
+	}
 	size_t l4_len = tot_len - ihl;
+	if (r.remaining() < l4_len) {
+		LOG_D("Invalid IPv4 tot_len");
+		return;
+	}
+	const ip4_hdr* ip = reinterpret_cast<const ip4_hdr*>(payload.data());
 
 	/* Drop IP fragments: nstun does not reassemble, and non-first
 	 * fragments have no L4 header - parsing them would bypass rules */
@@ -113,15 +72,20 @@ void handle_ip4(Context* ctx, std::span<const uint8_t> payload) {
 		return;
 	}
 	uint16_t src_port = 0, dest_port = 0;
-	auto l4_span = payload.subspan(ihl, l4_len);
-	if (ip->protocol == IPPROTO_TCP && l4_span.size() >= sizeof(tcp_hdr)) {
-		const tcp_hdr* tcp = reinterpret_cast<const tcp_hdr*>(l4_span.data());
-		src_port = ntohs(tcp->source);
-		dest_port = ntohs(tcp->dest);
-	} else if (ip->protocol == IPPROTO_UDP && l4_span.size() >= sizeof(udp_hdr)) {
-		const udp_hdr* udp = reinterpret_cast<const udp_hdr*>(l4_span.data());
-		src_port = ntohs(udp->source);
-		dest_port = ntohs(udp->dest);
+	auto l4_span = r.span().subspan(0, l4_len);
+	ByteReader l4(l4_span);
+	if (ip->protocol == IPPROTO_TCP) {
+		tcp_hdr tcp;
+		if (l4.peek(&tcp)) {
+			src_port = ntohs(tcp.source);
+			dest_port = ntohs(tcp.dest);
+		}
+	} else if (ip->protocol == IPPROTO_UDP) {
+		udp_hdr udp;
+		if (l4.peek(&udp)) {
+			src_port = ntohs(udp.source);
+			dest_port = ntohs(udp.dest);
+		}
 	}
 
 	if (src_port != 0 && dest_port != 0) {
@@ -150,17 +114,26 @@ void handle_ip4(Context* ctx, std::span<const uint8_t> payload) {
 }
 
 void handle_ip6(Context* ctx, std::span<const uint8_t> payload) {
-	if (payload.size() < sizeof(ip6_hdr)) {
+	ByteReader r(payload);
+	ip6_hdr ip6_copy;
+	if (!r.peek(&ip6_copy)) {
 		return;
 	}
 
-	const ip6_hdr* ip6 = reinterpret_cast<const ip6_hdr*>(payload.data());
-	uint16_t payload_len = ntohs(ip6->payload_len);
-
+	uint16_t payload_len = ntohs(ip6_copy.payload_len);
 	if (payload_len + sizeof(ip6_hdr) > payload.size()) {
 		LOG_D("Invalid IPv6 payload_len");
 		return;
 	}
+	if (!r.skip(sizeof(ip6_hdr))) {
+		return;
+	}
+	if (r.remaining() < payload_len) {
+		LOG_D("Invalid IPv6 payload_len");
+		return;
+	}
+	ByteReader body(r.span().subspan(0, payload_len));
+	const ip6_hdr* ip6 = reinterpret_cast<const ip6_hdr*>(payload.data());
 
 	/* Source IP filtering */
 	if (memcmp(ip6->saddr, ctx->guest_ip6, IPV6_ADDR_LEN) != 0) {
@@ -224,24 +197,25 @@ void handle_ip6(Context* ctx, std::span<const uint8_t> payload) {
 	 * Each header's "Next Header" field identifies what follows.
 	 * We only need to find the L4 header, not process the extensions.
 	 */
-	const uint8_t* l4_payload = payload.data() + sizeof(ip6_hdr);
-	size_t remaining = payload_len;
-
-	int l4_proto = skip_ipv6_ext_headers(ip6->next_header, l4_payload, remaining);
+	int l4_proto = skip_ipv6_ext_headers(ip6->next_header, body);
 	if (l4_proto < 0) {
 		LOG_D("Failed to parse IPv6 extension headers");
 		return;
 	}
 
 	uint16_t src_port = 0, dest_port = 0;
-	if (l4_proto == IPPROTO_TCP && remaining >= sizeof(tcp_hdr)) {
-		const tcp_hdr* tcp = reinterpret_cast<const tcp_hdr*>(l4_payload);
-		src_port = ntohs(tcp->source);
-		dest_port = ntohs(tcp->dest);
-	} else if (l4_proto == IPPROTO_UDP && remaining >= sizeof(udp_hdr)) {
-		const udp_hdr* udp = reinterpret_cast<const udp_hdr*>(l4_payload);
-		src_port = ntohs(udp->source);
-		dest_port = ntohs(udp->dest);
+	if (l4_proto == IPPROTO_TCP) {
+		tcp_hdr tcp;
+		if (body.peek(&tcp)) {
+			src_port = ntohs(tcp.source);
+			dest_port = ntohs(tcp.dest);
+		}
+	} else if (l4_proto == IPPROTO_UDP) {
+		udp_hdr udp;
+		if (body.peek(&udp)) {
+			src_port = ntohs(udp.source);
+			dest_port = ntohs(udp.dest);
+		}
 	}
 
 	if (src_port != 0 && dest_port != 0) {
@@ -256,13 +230,13 @@ void handle_ip6(Context* ctx, std::span<const uint8_t> payload) {
 
 	switch (l4_proto) {
 	case IPPROTO_ICMPV6:
-		handle_icmp6(ctx, ip6, std::span<const uint8_t>(l4_payload, remaining));
+		handle_icmp6(ctx, ip6, body.span());
 		break;
 	case IPPROTO_UDP:
-		handle_udp6(ctx, ip6, std::span<const uint8_t>(l4_payload, remaining));
+		handle_udp6(ctx, ip6, body.span());
 		break;
 	case IPPROTO_TCP:
-		handle_tcp6(ctx, ip6, std::span<const uint8_t>(l4_payload, remaining));
+		handle_tcp6(ctx, ip6, body.span());
 		break;
 	default:
 		LOG_D("Unknown IPv6 next_header: %u", l4_proto);
