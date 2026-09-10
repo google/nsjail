@@ -714,8 +714,8 @@ void handle_host_udp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 			}
 
 			FlowKey6 key6 = {};
-			bool has_redirect_ip6 =
-			    !IN6_IS_ADDR_UNSPECIFIED((const struct in6_addr*)rule.redirect_ip6);
+			const in6_addr redirect_addr = ip6_from_bytes(rule.redirect_ip6);
+			bool has_redirect_ip6 = !IN6_IS_ADDR_UNSPECIFIED(&redirect_addr);
 			if (has_redirect_ip6) {
 				memcpy(key6.saddr6, rule.redirect_ip6, sizeof(key6.saddr6));
 			} else {

@@ -162,10 +162,12 @@ void handle_ip6(Context* ctx, std::span<const uint8_t> payload) {
 		return;
 	}
 
+	const in6_addr src_addr = ip6_from_bytes(ip6->saddr);
+	const in6_addr dst_addr = ip6_from_bytes(ip6->daddr);
+
 	/* Source IP filtering */
 	if (memcmp(ip6->saddr, ctx->guest_ip6, IPV6_ADDR_LEN) != 0) {
-		if (IN6_IS_ADDR_LINKLOCAL((const struct in6_addr*)ip6->saddr) ||
-		    IN6_IS_ADDR_SITELOCAL((const struct in6_addr*)ip6->saddr)) {
+		if (IN6_IS_ADDR_LINKLOCAL(&src_addr) || IN6_IS_ADDR_SITELOCAL(&src_addr)) {
 			LOG_D("Dropping IPv6 packet with link/site-local source address: %s",
 			    ip6_to_string(ip6->saddr).c_str());
 			return;
@@ -181,7 +183,7 @@ void handle_ip6(Context* ctx, std::span<const uint8_t> payload) {
 	 * This is the single authoritative check - L4 handlers rely on this
 	 * and do NOT duplicate it. Redirect rules in policy may still target
 	 * ::1 intentionally (admin-controlled). */
-	if (IN6_IS_ADDR_UNSPECIFIED((const struct in6_addr*)ip6->daddr)) {
+	if (IN6_IS_ADDR_UNSPECIFIED(&dst_addr)) {
 		/* connect() to :: reaches ::1 on Linux, exactly as connect() to 0.0.0.0
 		 * reaches 127.0.0.1. Without this the guest would get at host loopback
 		 * services; handle_ip4() rejects INADDR_ANY for the same reason. */
@@ -189,28 +191,28 @@ void handle_ip6(Context* ctx, std::span<const uint8_t> payload) {
 		    ip6_to_string(ip6->daddr).c_str());
 		return;
 	}
-	if (IN6_IS_ADDR_LOOPBACK((const struct in6_addr*)ip6->daddr)) {
+	if (IN6_IS_ADDR_LOOPBACK(&dst_addr)) {
 		LOG_D("Dropping IPv6 packet to loopback: %s", ip6_to_string(ip6->daddr).c_str());
 		return;
 	}
-	if (IN6_IS_ADDR_V4MAPPED((const struct in6_addr*)ip6->daddr)) {
+	if (IN6_IS_ADDR_V4MAPPED(&dst_addr)) {
 		LOG_D("Dropping IPv6 packet to v4-mapped address (use IPv4 directly): %s",
 		    ip6_to_string(ip6->daddr).c_str());
 		return;
 	}
-	if (IN6_IS_ADDR_V4COMPAT((const struct in6_addr*)ip6->daddr)) {
+	if (IN6_IS_ADDR_V4COMPAT(&dst_addr)) {
 		LOG_D("Dropping IPv6 packet to v4-compatible address (deprecated): %s",
 		    ip6_to_string(ip6->daddr).c_str());
 		return;
 	}
-	if (IN6_IS_ADDR_LINKLOCAL((const struct in6_addr*)ip6->daddr) ||
-	    IN6_IS_ADDR_SITELOCAL((const struct in6_addr*)ip6->daddr) ||
+	if (IN6_IS_ADDR_LINKLOCAL(&dst_addr) ||
+	    IN6_IS_ADDR_SITELOCAL(&dst_addr) ||
 	    ip6_is_aws_local_service(ip6->daddr)) {
 		LOG_D("Dropping IPv6 packet to link/site-local or AWS local-service address: %s",
 		    ip6_to_string(ip6->daddr).c_str());
 		return;
 	}
-	if (IN6_IS_ADDR_MULTICAST((const struct in6_addr*)ip6->daddr)) {
+	if (IN6_IS_ADDR_MULTICAST(&dst_addr)) {
 		/* nstun is a TUN (L3) device and joins no groups; forwarding these
 		 * would emit guest multicast onto the host's network instead. */
 		LOG_D("Dropping IPv6 packet to multicast address: %s",
