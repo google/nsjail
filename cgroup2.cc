@@ -127,16 +127,51 @@ static void removeCgroup(const std::string& cgroup_path) {
 	}
 }
 
+/*
+ * cgroup v2 has no combined memory+swap knob, so cgroup_mem_memsw_max is emulated with
+ * memory.max plus memory.swap.max. Resolve both values in one place so that the setup and
+ * the controller check can never disagree.
+ *
+ * A negative *swap_max means memory.swap.max is left alone, and a zero *mem_max means
+ * memory.max is left alone.
+ */
+void effectiveMemLimits(const nsj_t* nsj, size_t* mem_max, ssize_t* swap_max) {
+	*mem_max = nsj->njc.cgroup_mem_max();
+	*swap_max = nsj->njc.cgroup_mem_swap_max();
+
+	size_t memsw_max = nsj->njc.cgroup_mem_memsw_max();
+	if (memsw_max == (size_t)0) {
+		return;
+	}
+	if (*mem_max == (size_t)0) {
+		/*
+		 * A combined ceiling with no separate RAM limit: cap RAM with the combined
+		 * value and deny swap, so that the total stays bounded by what was asked for.
+		 */
+		*mem_max = memsw_max;
+		*swap_max = (ssize_t)0;
+		return;
+	}
+	if (memsw_max < *mem_max) {
+		/*
+		 * Argument validation rejects this combination. Avoid unsigned
+		 * underflow if the helper is called directly.
+		 */
+		*swap_max = (ssize_t)-1;
+		return;
+	}
+	*swap_max = (ssize_t)(memsw_max - *mem_max);
+}
+
 static bool needMemoryController(nsj_t* nsj) {
 	/*
 	 * Check if we need 'memory'
 	 * This matches the check in initNsFromParentMem()
 	 */
-	ssize_t swap_max = nsj->njc.cgroup_mem_swap_max();
-	if (nsj->njc.cgroup_mem_memsw_max() > (size_t)0) {
-		swap_max = nsj->njc.cgroup_mem_memsw_max() - nsj->njc.cgroup_mem_max();
-	}
-	if (nsj->njc.cgroup_mem_max() == (size_t)0 && swap_max < (ssize_t)0) {
+	size_t mem_max;
+	ssize_t swap_max;
+	effectiveMemLimits(nsj, &mem_max, &swap_max);
+	if (mem_max == (size_t)0 && swap_max < (ssize_t)0) {
 		return false;
 	}
 	return true;
@@ -206,10 +241,9 @@ bool detectCgroupv2(nsj_t* nsj) {
 }
 
 static bool initNsFromParentMem(nsj_t* nsj, pid_t pid) {
-	ssize_t swap_max = nsj->njc.cgroup_mem_swap_max();
-	if (nsj->njc.cgroup_mem_memsw_max() > (size_t)0) {
-		swap_max = nsj->njc.cgroup_mem_memsw_max() - nsj->njc.cgroup_mem_max();
-	}
+	size_t mem_max;
+	ssize_t swap_max;
+	effectiveMemLimits(nsj, &mem_max, &swap_max);
 
 	if (!needMemoryController(nsj)) {
 		return true;
@@ -219,9 +253,9 @@ static bool initNsFromParentMem(nsj_t* nsj, pid_t pid) {
 	RETURN_ON_FAILURE(createCgroup(cgroup_path, pid));
 	RETURN_ON_FAILURE(addPidToProcList(cgroup_path, pid));
 
-	if (nsj->njc.cgroup_mem_max() > (size_t)0) {
-		RETURN_ON_FAILURE(writeToCgroup(
-		    cgroup_path, "memory.max", std::to_string(nsj->njc.cgroup_mem_max())));
+	if (mem_max > (size_t)0) {
+		RETURN_ON_FAILURE(
+		    writeToCgroup(cgroup_path, "memory.max", std::to_string(mem_max)));
 	}
 
 	if (swap_max >= (ssize_t)0) {

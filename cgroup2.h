@@ -35,6 +35,7 @@ bool initUser(nsj_t* nsj);
 void finishFromParent(nsj_t* nsj, pid_t pid);
 bool setup(nsj_t* nsj);
 bool detectCgroupv2(nsj_t* nsj);
+void effectiveMemLimits(const nsj_t* nsj, size_t* mem_max, ssize_t* swap_max);
 
 }  // namespace cgroup2
 
