@@ -327,7 +327,9 @@ static bool initCloneNs(nsj_t* nsj) {
 		} else {
 			success = legacy::remountPt(mpt);
 		}
-		if (!success && mpt.mpt->mandatory()) {
+		/* An optional mount may be absent, but an attached mount must
+		 * satisfy its final security attributes before exec. */
+		if (!success) {
 			return false;
 		}
 	}
