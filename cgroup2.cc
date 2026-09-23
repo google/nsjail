@@ -32,6 +32,8 @@
 #include <sys/vfs.h>
 #include <unistd.h>
 
+#include <sstream>
+
 #include "logs.h"
 #include "util.h"
 
@@ -42,7 +44,7 @@ static bool addPidToProcList(const std::string& cgroup_path, pid_t pid) {
 
 	LOG_D("Adding pid='%s' to cgroup.procs", pid_str.c_str());
 	if (!util::writeBufToFile((cgroup_path + "/cgroup.procs").c_str(), pid_str.c_str(),
-		pid_str.length(), O_WRONLY)) {
+		pid_str.length(), O_WRONLY | O_CLOEXEC)) {
 		LOG_W("Could not update cgroup.procs");
 		return false;
 	}
@@ -88,13 +90,13 @@ static bool enableCgroupSubtree(nsj_t* nsj, const std::string& controller, pid_t
 	 * process into a child cgroup before trying a second time.
 	 */
 	if (util::writeBufToFile((cgroup_path + "/cgroup.subtree_control").c_str(), val.c_str(),
-		val.length(), O_WRONLY, false)) {
+		val.length(), O_WRONLY | O_CLOEXEC, false)) {
 		return true;
 	}
 	if (errno == EBUSY) {
 		RETURN_ON_FAILURE(moveSelfIntoChildCgroup(nsj));
 		if (util::writeBufToFile((cgroup_path + "/cgroup.subtree_control").c_str(),
-			val.c_str(), val.length(), O_WRONLY)) {
+			val.c_str(), val.length(), O_WRONLY | O_CLOEXEC)) {
 			return true;
 		}
 	}
@@ -113,7 +115,8 @@ static bool writeToCgroup(
 	LOG_I("Setting '%s' to '%s'", resource.c_str(), value.c_str());
 
 	if (!util::writeBufToFile(
-		(cgroup_path + "/" + resource).c_str(), value.c_str(), value.length(), O_WRONLY)) {
+		(cgroup_path + "/" + resource).c_str(), value.c_str(), value.length(),
+		O_WRONLY | O_CLOEXEC)) {
 		LOG_W("Could not update %s", resource.c_str());
 		return false;
 	}
@@ -150,11 +153,16 @@ static bool needCpuController(nsj_t* nsj) {
 	return nsj->njc.cgroup_cpu_ms_per_sec() != 0U;
 }
 
-/*
- * We will use this buf to read from cgroup.subtree_control to see if
- * the root cgroup has the necessary controllers listed
- */
-#define SUBTREE_CONTROL_BUF_LEN 0x40
+static bool hasController(const std::string& controllers, const std::string& controller) {
+	std::istringstream ss(controllers);
+	std::string word;
+	while (ss >> word) {
+		if (word == controller) {
+			return true;
+		}
+	}
+	return false;
+}
 
 bool setup(nsj_t* nsj) {
 	/*
@@ -162,32 +170,22 @@ bool setup(nsj_t* nsj) {
 	 * the controllers we need are there.
 	 */
 	auto p = nsj->njc.cgroupv2_mount() + "/cgroup.subtree_control";
-	char buf[SUBTREE_CONTROL_BUF_LEN];
-	int read = util::readFromFile(p.c_str(), buf, SUBTREE_CONTROL_BUF_LEN - 1);
-	if (read < 0) {
+	std::string subtree_control;
+	if (!util::readFromFileToStr(p.c_str(), &subtree_control)) {
 		LOG_W("cgroupv2 setup: Could not read root subtree_control");
 		return false;
 	}
-	buf[read] = 0;
 
-	/* Are the controllers we need there? */
-	bool subtree_ok = (!needMemoryController(nsj) || strstr(buf, "memory")) &&
-			  (!needPidsController(nsj) || strstr(buf, "pids")) &&
-			  (!needCpuController(nsj) || strstr(buf, "cpu"));
-	if (!subtree_ok) {
-		/* Now we can write to the root cgroup.subtree_control */
-		if (needMemoryController(nsj)) {
-			RETURN_ON_FAILURE(enableCgroupSubtree(nsj, "memory", getpid()));
-		}
-
-		if (needPidsController(nsj)) {
-			RETURN_ON_FAILURE(enableCgroupSubtree(nsj, "pids", getpid()));
-		}
-
-		if (needCpuController(nsj)) {
-			RETURN_ON_FAILURE(enableCgroupSubtree(nsj, "cpu", getpid()));
-		}
+	if (needMemoryController(nsj) && !hasController(subtree_control, "memory")) {
+		RETURN_ON_FAILURE(enableCgroupSubtree(nsj, "memory", getpid()));
 	}
+	if (needPidsController(nsj) && !hasController(subtree_control, "pids")) {
+		RETURN_ON_FAILURE(enableCgroupSubtree(nsj, "pids", getpid()));
+	}
+	if (needCpuController(nsj) && !hasController(subtree_control, "cpu")) {
+		RETURN_ON_FAILURE(enableCgroupSubtree(nsj, "cpu", getpid()));
+	}
+
 	return true;
 }
 
