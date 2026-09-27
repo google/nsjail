@@ -173,7 +173,31 @@ void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt
 	msg.append("\n");
 	/* End printing logs */
 
-	TEMP_FAILURE_RETRY(write(_log_fd, msg.c_str(), msg.size()));
+	/*
+	 * The log fd can be a pipe or socket (--log_fd), where write() may
+	 * return a short count for messages larger than the pipe buffer or
+	 * under memory pressure. A single write() silently truncated such
+	 * messages; write the remainder instead, giving up only on hard
+	 * errors or when a non-blocking fd cannot take more data.
+	 */
+	size_t log_off = 0;
+	while (log_off < msg.size()) {
+		ssize_t log_sz = TEMP_FAILURE_RETRY(
+		    write(_log_fd, msg.data() + log_off, msg.size() - log_off));
+		if (log_sz < 0) {
+			if (errno == EAGAIN || errno == EWOULDBLOCK) {
+				break;
+			}
+			if (errno == EINTR) {
+				continue;
+			}
+			break;
+		}
+		if (log_sz == 0) {
+			break;
+		}
+		log_off += (size_t)log_sz;
+	}
 
 	if (ll == FATAL) {
 		_exit(0xff);
