@@ -12,7 +12,7 @@ namespace mnt {
 namespace legacy {
 
 std::unique_ptr<std::string> buildMountTree(nsj_t* nsj, std::vector<mnt::mount_t>* mounted_mpts);
-bool remountPt(mnt::mount_t& mpt);
+bool remountPt(mnt::mount_t& mpt, const std::string& root_dir);
 
 }  // namespace legacy
 }  // namespace mnt
