@@ -90,7 +90,8 @@ void logFile(const std::string& log_file, int log_fd) {
 	int newlogfd = -1;
 	if (!log_file.empty()) {
 		newlogfd = TEMP_FAILURE_RETRY(
-		    open(log_file.c_str(), O_CREAT | O_RDWR | O_APPEND | O_CLOEXEC, 0640));
+		    open(log_file.c_str(), O_CREAT | O_RDWR | O_APPEND | O_CLOEXEC | O_NOFOLLOW,
+			0640));
 		if (newlogfd == -1) {
 			PLOG_W("Couldn't open('%s')", log_file.c_str());
 		}
