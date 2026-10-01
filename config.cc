@@ -32,6 +32,7 @@
 #include <sys/types.h>
 
 #include <list>
+#include <limits>
 #include <string>
 
 #include "caps.h"
@@ -47,6 +48,10 @@ namespace config {
 
 uint64_t adjustRLimit(int res, const nsjail::RLimit& rl, const uint64_t val, unsigned long mul) {
 	if (rl == nsjail::RLimit::VALUE) {
+		if (mul != 0 && val > std::numeric_limits<uint64_t>::max() / mul) {
+			LOG_F("RLIMIT %s (%d) value overflows after applying its unit multiplier",
+			    util::rLimName(res).c_str(), res);
+		}
 		return (val * mul);
 	}
 	if (rl == nsjail::RLimit::SOFT) {
