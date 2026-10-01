@@ -688,6 +688,16 @@ int systemExe(const std::vector<std::string>& args, char** env) {
 
 	if (pid == 0) {
 		close(sv[0]);
+		/*
+		 * Do not expose supervisor-owned descriptors to external helpers.
+		 * sv[1] already has FD_CLOEXEC, so it remains usable if execve()
+		 * fails, but is automatically closed after a successful exec.
+		 */
+		if (!util::makeRangeCOE(STDERR_FILENO + 1, ~0U)) {
+			PLOG_W("Couldn't mark inherited file descriptors close-on-exec");
+			util::writeToFd(sv[1], "A", 1);
+			_exit(0xff);
+		}
 		execve(argv[0], (char* const*)argv.data(), (char* const*)env);
 		PLOG_W("execve('%s')", argv[0]);
 		util::writeToFd(sv[1], "A", 1);

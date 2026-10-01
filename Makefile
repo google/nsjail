@@ -45,7 +45,7 @@ endif
 
 BIN = nsjail
 LIBS = kafel/libkafel.a
-TEST_BINS = tests/nstun_buffer_budget_test tests/nstun_policy_test tests/nstun_ip_test
+TEST_BINS = tests/nstun_buffer_budget_test tests/nstun_policy_test tests/nstun_ip_test tests/systemexe_fd_test
 
 # If PASTA_BIN_PATH is not provided in env, dynamically search for it if EMBED_PASTA is requested
 # or fallback to it naturally.
@@ -164,6 +164,7 @@ test: $(BIN) $(TEST_BINS) test-cmdline
 	$(call run_test, ./tests/nstun_buffer_budget_test, 0)
 	$(call run_test, ./tests/nstun_policy_test, 0)
 	$(call run_test, ./tests/nstun_ip_test, 0)
+	$(call run_test, ./tests/systemexe_fd_test, 0)
 	# --- Basic sanity tests ---
 	$(call run_test, ./nsjail -q -Mo --chroot / --user 99999 --group 99999 -- /bin/true, 0)
 	$(call run_test, ./nsjail -q -Mo --chroot / --user 99999 --group 99999 -- /bin/false, 1)
@@ -264,6 +265,9 @@ endif
 
 tests/nstun_buffer_budget_test: tests/nstun_buffer_budget_test.cc nstun/buffer_budget.h
 	$(CXX) $(filter-out -c,$(CXXFLAGS)) $< -o $@
+
+tests/systemexe_fd_test: tests/systemexe_fd_test.cc $(filter-out nsjail.o,$(SRCS_CXX:.cc=.o)) $(SRCS_PB_O)
+	$(CXX) $(filter-out -c,$(CXXFLAGS)) tests/systemexe_fd_test.cc $(filter-out nsjail.o,$(SRCS_CXX:.cc=.o)) $(SRCS_PB_O) -o $@ $(LIBS) $(LDFLAGS)
 
 tests/nstun_policy_test: tests/nstun_policy_test.cc nstun/policy.cc logs.cc util.cc $(SRCS_PB_CXX)
 	$(CXX) $(filter-out -c,$(CXXFLAGS)) tests/nstun_policy_test.cc nstun/policy.cc logs.cc util.cc $(SRCS_PB_CXX) -o $@ $(LDFLAGS)
