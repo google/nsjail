@@ -25,6 +25,10 @@ inline bool ip4_is_link_local(uint32_t addr_nbo) {
 	return (ntohl(addr_nbo) & 0xFFFF0000U) == 0xA9FE0000U;
 }
 
+inline bool ip4_is_multicast(uint32_t addr_nbo) {
+	return (ntohl(addr_nbo) & 0xF0000000U) == 0xE0000000U;
+}
+
 inline bool ip6_is_aws_local_service(const uint8_t addr[16]) {
 	/* AWS reserves fd00:ec2::/32 for instance-local services, including IMDS. */
 	constexpr uint8_t prefix[] = {0xFD, 0x00, 0x0E, 0xC2};

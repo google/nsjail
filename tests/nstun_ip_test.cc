@@ -28,6 +28,15 @@ int main() {
 	assert(!nstun::ip4_is_link_local(parse_ip4("127.0.0.1")));
 	assert(!nstun::ip4_is_link_local(parse_ip4("10.0.0.1")));
 
+	assert(!nstun::ip4_is_multicast(parse_ip4("223.255.255.255")));
+	assert(nstun::ip4_is_multicast(parse_ip4("224.0.0.0")));
+	assert(nstun::ip4_is_multicast(parse_ip4("224.0.0.251")));
+	assert(nstun::ip4_is_multicast(parse_ip4("239.255.255.250")));
+	assert(nstun::ip4_is_multicast(parse_ip4("239.255.255.255")));
+	assert(!nstun::ip4_is_multicast(parse_ip4("240.0.0.0")));
+	assert(!nstun::ip4_is_multicast(parse_ip4("10.0.0.1")));
+	assert(!nstun::ip4_is_multicast(parse_ip4("127.0.0.1")));
+
 	assert(!ip6_is_aws_local_service("fd00:ec1:ffff:ffff:ffff:ffff:ffff:ffff"));
 	assert(ip6_is_aws_local_service("fd00:ec2::"));
 	assert(ip6_is_aws_local_service("fd00:ec2::254"));
