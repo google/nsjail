@@ -316,37 +316,44 @@ bool remountPt(mnt::mount_t& mpt) {
 	 * recursive read-only pass and the new-mount-API backend, which applies the
 	 * attributes with mount_setattr(AT_RECURSIVE).
 	 */
-	if (mpt.flags & MS_REC) {
+	if ((mpt.flags & MS_REC) && (mpt.flags & (MS_NOSUID | MS_NODEV | MS_NOEXEC))) {
 		FILE* f = fopen("/proc/self/mountinfo", "re");
-		if (f != nullptr) {
-			char* line = nullptr;
-			size_t len = 0;
-			const std::string prefix = (mpt.dst == "/") ? "/" : (mpt.dst + "/");
-			while (getline(&line, &len, f) != -1) {
-				/* mountinfo field 5 (0-indexed 4) is the mount point */
-				char* p = line;
-				for (int i = 0; i < 4 && p != nullptr; i++) {
-					p = strchr(p, ' ');
-					if (p != nullptr) {
-						p++;
-					}
-				}
-				if (p == nullptr) {
-					continue;
-				}
-				char* endp = strchr(p, ' ');
-				if (endp == nullptr) {
-					continue;
-				}
-				std::string mp(p, endp - p);
-				if (mp != mpt.dst && mp.compare(0, prefix.size(), prefix) == 0) {
-					/* best-effort; remountOne logs any submount it can't
-					 * re-flag */
-					remountOne(mp, mpt);
+		if (f == nullptr) {
+			PLOG_W("fopen('/proc/self/mountinfo')");
+			return false;
+		}
+
+		bool success = true;
+		char* line = nullptr;
+		size_t len = 0;
+		const std::string prefix = (mpt.dst == "/") ? "/" : (mpt.dst + "/");
+		while (getline(&line, &len, f) != -1) {
+			/* mountinfo field 5 (0-indexed 4) is the mount point */
+			char* p = line;
+			for (int i = 0; i < 4 && p != nullptr; i++) {
+				p = strchr(p, ' ');
+				if (p != nullptr) {
+					p++;
 				}
 			}
-			free(line);
-			fclose(f);
+			if (p == nullptr) {
+				continue;
+			}
+			char* endp = strchr(p, ' ');
+			if (endp == nullptr) {
+				continue;
+			}
+			std::string mp(p, endp - p);
+			if (mp != mpt.dst && mp.compare(0, prefix.size(), prefix) == 0 &&
+			    !remountOne(mp, mpt)) {
+				success = false;
+				break;
+			}
+		}
+		free(line);
+		fclose(f);
+		if (!success) {
+			return false;
 		}
 	}
 	return true;
