@@ -260,6 +260,17 @@ static bool initCloneNs(nsj_t* nsj) {
 		return false;
 	}
 
+	/* The legacy backend discovers nested mounts through /proc/self/mountinfo.
+	 * Apply its remount pass while the original procfs is still visible; the
+	 * final jail may intentionally omit /proc. */
+	if (!nsj->mnt_newapi) {
+		for (auto& mpt : mounted_mpts) {
+			if (!legacy::remountPt(mpt, *destdir)) {
+				return false;
+			}
+		}
+	}
+
 	if (!nsj->njc.no_pivotroot()) {
 		/*
 		 * This requires some explanation: It's actually possible to pivot_root('/', '/').
@@ -319,15 +330,12 @@ static bool initCloneNs(nsj_t* nsj) {
 		}
 	}
 
-	/* Remounting R/O, if needed. Only for mount points that were actually mounted */
+	/* The new mount API keeps a mount fd, so it does not need /proc inside the jail. */
 	for (auto& mpt : mounted_mpts) {
-		bool success;
-		if (nsj->mnt_newapi) {
-			success = newapi::remountPt(mpt);
-		} else {
-			success = legacy::remountPt(mpt);
+		if (!nsj->mnt_newapi) {
+			continue;
 		}
-		if (!success && mpt.mpt->mandatory()) {
+		if (!newapi::remountPt(mpt) && mpt.mpt->mandatory()) {
 			return false;
 		}
 	}

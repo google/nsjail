@@ -23,6 +23,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <stdlib.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
@@ -297,12 +298,38 @@ static bool remountOne(const std::string& path, const mnt::mount_t& mpt) {
 	return true;
 }
 
-bool remountPt(mnt::mount_t& mpt) {
+static std::string normalizeMountPath(const std::string& path) {
+	/* mountinfo reports canonical paths, without repeated or trailing slashes. */
+	std::string normalized;
+	normalized.reserve(path.size());
+	for (char ch : path) {
+		if (ch == '/' && !normalized.empty() && normalized.back() == '/') {
+			continue;
+		}
+		normalized.push_back(ch);
+	}
+	if (normalized.size() > 1 && normalized.back() == '/') {
+		normalized.pop_back();
+	}
+	return normalized;
+}
+
+bool remountPt(mnt::mount_t& mpt, const std::string& root_dir) {
 	if (!mpt.mounted || mpt.mpt->is_symlink()) {
 		return true;
 	}
 
-	if (!remountOne(mpt.dst, mpt)) {
+	const char* relative_dst = util::stripLeadingSlashes(mpt.dst.c_str());
+	std::string dst_path = normalizeMountPath(
+	    relative_dst[0] ? root_dir + "/" + relative_dst : root_dir);
+	char* canonical_dst_path = realpath(dst_path.c_str(), nullptr);
+	if (!canonical_dst_path) {
+		PLOG_W("realpath('%s')", dst_path.c_str());
+		return false;
+	}
+	dst_path = normalizeMountPath(canonical_dst_path);
+	free(canonical_dst_path);
+	if (!remountOne(dst_path, mpt)) {
 		return false;
 	}
 
@@ -318,35 +345,46 @@ bool remountPt(mnt::mount_t& mpt) {
 	 */
 	if (mpt.flags & MS_REC) {
 		FILE* f = fopen("/proc/self/mountinfo", "re");
-		if (f != nullptr) {
-			char* line = nullptr;
-			size_t len = 0;
-			const std::string prefix = (mpt.dst == "/") ? "/" : (mpt.dst + "/");
-			while (getline(&line, &len, f) != -1) {
-				/* mountinfo field 5 (0-indexed 4) is the mount point */
-				char* p = line;
-				for (int i = 0; i < 4 && p != nullptr; i++) {
-					p = strchr(p, ' ');
-					if (p != nullptr) {
-						p++;
-					}
-				}
-				if (p == nullptr) {
-					continue;
-				}
-				char* endp = strchr(p, ' ');
-				if (endp == nullptr) {
-					continue;
-				}
-				std::string mp(p, endp - p);
-				if (mp != mpt.dst && mp.compare(0, prefix.size(), prefix) == 0) {
-					/* best-effort; remountOne logs any submount it can't
-					 * re-flag */
-					remountOne(mp, mpt);
+		if (f == nullptr) {
+			PLOG_W("fopen('/proc/self/mountinfo')");
+			return false;
+		}
+
+		char* line = nullptr;
+		size_t len = 0;
+		const std::string prefix = dst_path + "/";
+		bool success = true;
+		while (getline(&line, &len, f) != -1) {
+			/* mountinfo field 5 (0-indexed 4) is the mount point */
+			char* p = line;
+			for (int i = 0; i < 4 && p != nullptr; i++) {
+				p = strchr(p, ' ');
+				if (p != nullptr) {
+					p++;
 				}
 			}
-			free(line);
-			fclose(f);
+			if (p == nullptr) {
+				continue;
+			}
+			char* endp = strchr(p, ' ');
+			if (endp == nullptr) {
+				continue;
+			}
+			std::string mp(p, endp - p);
+			if (mp != dst_path && mp.compare(0, prefix.size(), prefix) == 0 &&
+			    !remountOne(mp, mpt)) {
+				success = false;
+				break;
+			}
+		}
+		if (ferror(f)) {
+			PLOG_W("reading '/proc/self/mountinfo'");
+			success = false;
+		}
+		free(line);
+		fclose(f);
+		if (!success) {
+			return false;
 		}
 	}
 	return true;
