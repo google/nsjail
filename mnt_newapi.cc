@@ -455,6 +455,11 @@ static bool mountDynamicContentAt(mount_t* mpt, int root_fd, int parent_fd, cons
 
 	if (!applyMountFlags(mnt_fd, mpt->flags & ~MS_RDONLY)) {
 		LOG_W("Failed to apply mount flags to '%s'", basename);
+		if (mpt->flags & (MS_NOSUID | MS_NODEV | MS_NOEXEC)) {
+			close(mnt_fd);
+			unlinkat(root_fd, src_rel.c_str(), 0);
+			return false;
+		}
 	}
 
 	if (util::syscall(__NR_move_mount, (uintptr_t)mnt_fd, (uintptr_t)"", (uintptr_t)parent_fd,
@@ -567,6 +572,10 @@ static bool mountSinglePointAt(mount_t* mpt, int root_fd) {
 
 	if (!applyMountFlags(mnt_fd, mpt->flags & ~MS_RDONLY)) {
 		LOG_W("Failed to apply mount flags to '%s'", basename.c_str());
+		if (mpt->flags & (MS_NOSUID | MS_NODEV | MS_NOEXEC)) {
+			close(mnt_fd);
+			return false;
+		}
 	}
 
 	if (util::syscall(__NR_move_mount, (uintptr_t)mnt_fd, (uintptr_t)"", (uintptr_t)parent_fd,
