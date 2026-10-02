@@ -144,7 +144,8 @@ static bool containPrepareEnv(nsj_t* nsj, int parent_fd, pid_t expected_parent) 
 	LOG_D("setpriority(%d)", nsj->njc.nice_level());
 	errno = 0;
 	if (setpriority(PRIO_PROCESS, 0, nsj->njc.nice_level()) == -1 && errno != 0) {
-		PLOG_W("setpriority(%d)", nsj->njc.nice_level());
+		PLOG_E("setpriority(%d)", nsj->njc.nice_level());
+		return false;
 	}
 	if (!nsj->njc.skip_setsid()) {
 		if (setsid() == -1) {
