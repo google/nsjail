@@ -249,6 +249,9 @@ void handle_icmp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> payl
 				flow->last_active = time(NULL);
 				flow->is_redirected = rule.has_redirect_ip6;
 				memcpy(flow->orig_dest_ip6, ip->daddr, sizeof(flow->orig_dest_ip6));
+				memcpy(flow->host_peer_ip6,
+				    rule.has_redirect_ip6 ? rule.redirect_ip6 : ip->daddr,
+				    sizeof(flow->host_peer_ip6));
 
 				ctx->ipv6_icmp_flows_by_key[key6] = std::move(flow_ptr);
 				ctx->flows_by_fd[fd] = flow;
@@ -373,6 +376,8 @@ void handle_icmp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> payl
 				flow->last_active = time(NULL);
 				flow->is_redirected = (rule.redirect_ip4 != 0);
 				flow->orig_dest_ip4 = ip->daddr;
+				flow->host_peer_ip4 =
+				    (rule.redirect_ip4 != 0) ? rule.redirect_ip4 : ip->daddr;
 
 				ctx->ipv4_icmp_flows_by_key[key4] = std::move(flow_ptr);
 				ctx->flows_by_fd[fd] = flow;
@@ -440,6 +445,14 @@ static void handle_host_icmp(Context* ctx, IcmpFlow* flow) {
 		uint8_t* data_ptr = bufs[i];
 		size_t recv_len = msgs[i].msg_len;
 		struct sockaddr_storage* src_addr_storage = &src_addrs[i];
+
+		bool peer_matches = flow->is_ipv6
+					? sockaddr_matches_ip6(*src_addr_storage, flow->host_peer_ip6)
+					: sockaddr_matches_ip4(*src_addr_storage, flow->host_peer_ip4);
+		if (!peer_matches) {
+			LOG_W("Dropping ICMP datagram from unexpected peer");
+			continue;
+		}
 
 		if (flow->is_ipv6) {
 			if ((size_t)recv_len >= sizeof(icmp6_hdr)) {

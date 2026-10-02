@@ -138,6 +138,10 @@ struct IcmpFlow : public Flow {
 		uint32_t orig_dest_ip4;
 		uint8_t orig_dest_ip6[IPV6_ADDR_LEN];
 	};
+	union {
+		uint32_t host_peer_ip4;
+		uint8_t host_peer_ip6[IPV6_ADDR_LEN];
+	};
 
 	~IcmpFlow() override {
 		if (host_fd != -1) ::close(host_fd);
