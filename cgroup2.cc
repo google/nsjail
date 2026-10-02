@@ -268,7 +268,7 @@ static bool initNsFromParentCpu(nsj_t* nsj, pid_t pid) {
 	 * This indicates that the group may consume up to $MAX in each $PERIOD
 	 * duration.
 	 */
-	std::string cpu_ms_per_sec_str = std::to_string(nsj->njc.cgroup_cpu_ms_per_sec() * 1000U);
+	std::string cpu_ms_per_sec_str = std::to_string((uint64_t)nsj->njc.cgroup_cpu_ms_per_sec() * 1000ULL);
 	cpu_ms_per_sec_str += " 1000000";
 	return writeToCgroup(cgroup_path, "cpu.max", cpu_ms_per_sec_str);
 }
