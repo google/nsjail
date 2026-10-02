@@ -357,8 +357,11 @@ int main(int argc, char* argv[]) {
 	if (!nsj) {
 		LOG_F("Couldn't parse cmdline options");
 	}
-	if (nsj->njc.daemon() && (daemon(/* nochdir= */ 1, /* noclose= */ 0) == -1)) {
-		PLOG_F("daemon");
+	if (nsj->njc.daemon()) {
+		if (daemon(/* nochdir= */ 1, /* noclose= */ 0) == -1) {
+			PLOG_F("daemon");
+		}
+		logs::closeLogStderr();
 	}
 	cmdline::logParams(nsj.get());
 	if (!nsjail::setSigHandlers()) {

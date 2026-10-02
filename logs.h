@@ -91,6 +91,8 @@ void logStop(int sig);
 void setLogLevel(enum llevel_t ll);
 enum llevel_t getLogLevel(void);
 void logFile(const std::string& log_file, int log_fd);
+bool setLogStderrLevel(enum llevel_t ll);
+void closeLogStderr(void);
 bool logSet();
 int logFd();
 

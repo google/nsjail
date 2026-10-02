@@ -73,6 +73,9 @@ Log file (default: use log_fd)
 \fB\-\-log_fd\fR|\fB\-L\fR VALUE
 Log FD (default: 2)
 .TP
+\fB\-\-log_stderr_level\fR VALUE
+Also write messages at or above this level to stderr: debug|info|warning|error|fatal. Can be lower or higher than the main log level. No effect when the log already goes to stderr, or in daemon mode (default: unset)
+.TP
 \fB\-\-time_limit\fR|\fB\-t\fR VALUE
 Maximum time that a jail can exist, in seconds (default: 600)
 .TP
