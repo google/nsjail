@@ -34,6 +34,7 @@
 #include <string>
 #include <vector>
 
+#include "bounds_safety.h"
 #include "nsjail.h"
 
 #define RETURN_ON_FAILURE(expr)                                                                    \
@@ -47,7 +48,7 @@
 
 namespace util {
 
-ssize_t readFromFd(int fd, void* buf, size_t len);
+ssize_t readFromFd(int fd, void* NSJAIL_SIZED_BY(len) buf, size_t len);
 ssize_t readFromFile(const char* fname, void* buf, size_t len);
 bool readFromFileToStr(const char* fname, std::string* str);
 bool writeToFd(int fd, const void* buf, size_t len);

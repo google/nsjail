@@ -43,6 +43,12 @@ ifdef DEBUG
 	CXXFLAGS += -g -ggdb -gdwarf-4
 endif
 
+# Optional Clang -fbounds-safety (OFF by default). Requires a toolchain with
+# ptrcheck.h / -fbounds-safety. Default builds leave NSJAIL_* macros inert.
+ifdef ENABLE_FBOUNDS_SAFETY
+	CXXFLAGS += -DNSJAIL_SUPPORT_FBOUNDS_SAFETY -fbounds-safety
+endif
+
 BIN = nsjail
 LIBS = kafel/libkafel.a
 TEST_BINS = tests/nstun_buffer_budget_test tests/nstun_policy_test tests/nstun_ip_test tests/nstun_udp_peer_test
