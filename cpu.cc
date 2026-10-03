@@ -99,10 +99,10 @@ bool initCpu(nsj_t* nsj) {
 	    listCpusInSet(orig_mask.get()).c_str(), available_cpus);
 
 	if (nsj->njc.max_cpus() > available_cpus) {
-		LOG_W(
+		LOG_E(
 		    "Number of requested CPUs is bigger than number of available CPUs (%zu > %zu)",
 		    (size_t)nsj->njc.max_cpus(), available_cpus);
-		return true;
+		return false;
 	}
 	if (nsj->njc.max_cpus() == available_cpus) {
 		LOG_D(
