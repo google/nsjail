@@ -158,6 +158,7 @@ test-cmdline: $(BIN)
 	$(call run_test, ./nsjail --user 1000:1000:1.5 --help > /dev/null, 255)
 	$(call run_test, ./nsjail --rlimit_cpu 1.5 --help > /dev/null, 255)
 	$(call run_test, ./nsjail --time_limit 0x10 --cgroup_mem_swap_max=-1 --user 1000:1000:1 --help > /dev/null, 0)
+	$(call run_test, ./nsjail -Mo --cgroup_mem_max=200 --cgroup_mem_memsw_max=100 -- /bin/true, 255)
 
 .PHONY: test
 test: $(BIN) $(TEST_BINS) test-cmdline
