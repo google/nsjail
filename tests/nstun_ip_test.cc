@@ -62,5 +62,16 @@ int main() {
 	assert(nstun::sockaddr_matches_ip6(peer6("2001:db8::10"), expected6.data()));
 	assert(!nstun::sockaddr_matches_ip6(peer6("2001:db8::11"), expected6.data()));
 	assert(!nstun::sockaddr_matches_ip6(peer4("203.0.113.10"), expected6.data()));
+
+	assert(nstun::ip4_is_host_local_route(parse_ip4("127.0.0.1")));
+	assert(!nstun::ip4_is_host_local_route(parse_ip4("8.8.8.8")));
+
+	std::array<uint8_t, 16> lo6 = {};
+	lo6[15] = 1;
+	assert(nstun::ip6_is_host_local_route(lo6.data()));
+
+	std::array<uint8_t, 16> routed6 = {};
+	assert(inet_pton(AF_INET6, "2001:db8::1", routed6.data()) == 1);
+	assert(!nstun::ip6_is_host_local_route(routed6.data()));
 	return 0;
 }

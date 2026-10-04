@@ -103,9 +103,22 @@ RuleResult evaluate_rules4(Context* ctx, nstun_direction_t dir, nstun_proto_t pr
 		    r.action == NSTUN_ACTION_ENCAP_CONNECT) {
 			res.redirect_ip4 = r.redirect_ip4;
 			res.redirect_port = r.redirect_port;
+		} else if (r.action == NSTUN_ACTION_ALLOW && dir == NSTUN_DIR_GUEST_TO_HOST) {
+			if (ip4_is_host_local_route(dst_ip4)) {
+				LOG_W("Rejecting direct guest flow to host-local route: %s",
+				    ip4_to_string(dst_ip4).c_str());
+				res.action = NSTUN_ACTION_REJECT;
+			}
 		}
 		return res;
 	}
+
+	if (dir == NSTUN_DIR_GUEST_TO_HOST && ip4_is_host_local_route(dst_ip4)) {
+		LOG_W("Rejecting direct guest flow to host-local route: %s",
+		    ip4_to_string(dst_ip4).c_str());
+		return {NSTUN_ACTION_REJECT, 0, 0, false, {}};
+	}
+
 	return {NSTUN_ACTION_ALLOW, 0, 0, false, {}}; /* Default allow */
 }
 
@@ -148,9 +161,22 @@ RuleResult evaluate_rules6(Context* ctx, nstun_direction_t dir, nstun_proto_t pr
 			/* proxy is always IPv4 */
 			res.redirect_ip4 = r.redirect_ip4;
 			res.redirect_port = r.redirect_port;
+		} else if (r.action == NSTUN_ACTION_ALLOW && dir == NSTUN_DIR_GUEST_TO_HOST) {
+			if (ip6_is_host_local_route(dst_ip6)) {
+				LOG_W("Rejecting direct IPv6 guest flow to host-local route: %s",
+				    ip6_to_string(dst_ip6).c_str());
+				res.action = NSTUN_ACTION_REJECT;
+			}
 		}
 		return res;
 	}
+
+	if (dir == NSTUN_DIR_GUEST_TO_HOST && ip6_is_host_local_route(dst_ip6)) {
+		LOG_W("Rejecting direct IPv6 guest flow to host-local route: %s",
+		    ip6_to_string(dst_ip6).c_str());
+		return {NSTUN_ACTION_REJECT, 0, 0, false, {}};
+	}
+
 	return {NSTUN_ACTION_ALLOW, 0, 0, false, {}}; /* Default allow */
 }
 
