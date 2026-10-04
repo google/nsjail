@@ -4,10 +4,13 @@
 #include <string>
 
 #include <arpa/inet.h>
+#include <linux/rtnetlink.h>
 #include <netinet/in.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 /* From <linux/in.h>, can't include directly due to conflicts with <netinet/in.h> */
 #ifndef IN_LOOPBACK
@@ -29,6 +32,108 @@ inline bool ip6_is_aws_local_service(const uint8_t addr[16]) {
 	/* AWS reserves fd00:ec2::/32 for instance-local services, including IMDS. */
 	constexpr uint8_t prefix[] = {0xFD, 0x00, 0x0E, 0xC2};
 	return memcmp(addr, prefix, sizeof(prefix)) == 0;
+}
+
+inline bool ip4_is_host_local_route(uint32_t addr_nbo) {
+	int fd = socket(AF_NETLINK, SOCK_RAW | SOCK_CLOEXEC, NETLINK_ROUTE);
+	if (fd == -1) {
+		return false;
+	}
+
+	struct {
+		struct nlmsghdr n;
+		struct rtmsg r;
+		char buf[128];
+	} req = {};
+
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
+	req.n.nlmsg_flags = NLM_F_REQUEST;
+	req.n.nlmsg_type = RTM_GETROUTE;
+	req.r.rtm_family = AF_INET;
+	req.r.rtm_dst_len = 32;
+
+	struct rtattr* rta = (struct rtattr*)(((char*)&req) + NLMSG_ALIGN(req.n.nlmsg_len));
+	rta->rta_type = RTA_DST;
+	rta->rta_len = RTA_LENGTH(sizeof(uint32_t));
+	memcpy(RTA_DATA(rta), &addr_nbo, sizeof(uint32_t));
+	req.n.nlmsg_len = NLMSG_ALIGN(req.n.nlmsg_len) + RTA_ALIGN(rta->rta_len);
+
+	struct sockaddr_nl sa = {};
+	sa.nl_family = AF_NETLINK;
+	if (sendto(fd, &req, req.n.nlmsg_len, 0, (struct sockaddr*)&sa, sizeof(sa)) < 0) {
+		close(fd);
+		return false;
+	}
+
+	char rsp_buf[4096];
+	ssize_t len = recv(fd, rsp_buf, sizeof(rsp_buf), 0);
+	close(fd);
+	if (len <= 0) {
+		return false;
+	}
+
+	for (struct nlmsghdr* nlh = (struct nlmsghdr*)rsp_buf;
+	     NLMSG_OK(nlh, static_cast<size_t>(len)); nlh = NLMSG_NEXT(nlh, len)) {
+		if (nlh->nlmsg_type == NLMSG_ERROR) {
+			return false;
+		}
+		if (nlh->nlmsg_type == RTM_NEWROUTE) {
+			const struct rtmsg* rtm = (const struct rtmsg*)NLMSG_DATA(nlh);
+			return rtm->rtm_type == RTN_LOCAL;
+		}
+	}
+	return false;
+}
+
+inline bool ip6_is_host_local_route(const uint8_t addr[IPV6_ADDR_LEN]) {
+	int fd = socket(AF_NETLINK, SOCK_RAW | SOCK_CLOEXEC, NETLINK_ROUTE);
+	if (fd == -1) {
+		return false;
+	}
+
+	struct {
+		struct nlmsghdr n;
+		struct rtmsg r;
+		char buf[128];
+	} req = {};
+
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
+	req.n.nlmsg_flags = NLM_F_REQUEST;
+	req.n.nlmsg_type = RTM_GETROUTE;
+	req.r.rtm_family = AF_INET6;
+	req.r.rtm_dst_len = 128;
+
+	struct rtattr* rta = (struct rtattr*)(((char*)&req) + NLMSG_ALIGN(req.n.nlmsg_len));
+	rta->rta_type = RTA_DST;
+	rta->rta_len = RTA_LENGTH(IPV6_ADDR_LEN);
+	memcpy(RTA_DATA(rta), addr, IPV6_ADDR_LEN);
+	req.n.nlmsg_len = NLMSG_ALIGN(req.n.nlmsg_len) + RTA_ALIGN(rta->rta_len);
+
+	struct sockaddr_nl sa = {};
+	sa.nl_family = AF_NETLINK;
+	if (sendto(fd, &req, req.n.nlmsg_len, 0, (struct sockaddr*)&sa, sizeof(sa)) < 0) {
+		close(fd);
+		return false;
+	}
+
+	char rsp_buf[4096];
+	ssize_t len = recv(fd, rsp_buf, sizeof(rsp_buf), 0);
+	close(fd);
+	if (len <= 0) {
+		return false;
+	}
+
+	for (struct nlmsghdr* nlh = (struct nlmsghdr*)rsp_buf;
+	     NLMSG_OK(nlh, static_cast<size_t>(len)); nlh = NLMSG_NEXT(nlh, len)) {
+		if (nlh->nlmsg_type == NLMSG_ERROR) {
+			return false;
+		}
+		if (nlh->nlmsg_type == RTM_NEWROUTE) {
+			const struct rtmsg* rtm = (const struct rtmsg*)NLMSG_DATA(nlh);
+			return rtm->rtm_type == RTN_LOCAL;
+		}
+	}
+	return false;
 }
 
 inline bool sockaddr_matches_ip4(const struct sockaddr_storage& peer, uint32_t expected_addr) {
