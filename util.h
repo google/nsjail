@@ -60,7 +60,14 @@ int recvFd(int sock);
 
 bool writeBufToFile(
     const char* filename, const void* buf, size_t len, int open_flags, bool log_errors = true);
-bool createDirRecursively(const char* dir);
+/* Create the parent directories of the final path component (if missing) and
+ * return an O_NOFOLLOW-walked fd of that parent together with the unresolved
+ * final component, so that callers can address the destination relative to
+ * *parent_fd_out without ever traversing a planted symlink. A trailing slash
+ * or an empty final component is encoded as "." (the walked directory itself,
+ * e.g. the staging root). Returns false if any parent component is a symlink
+ * or the path is unsafe. */
+bool openParentNoFollow(const char* path, int* parent_fd_out, std::string* basename_out);
 /* Reject ".", ".." and embedded NUL in mount destinations so they cannot
  * escape the jail staging root via path traversal. */
 bool isSafeContainmentPath(const std::string& path);
