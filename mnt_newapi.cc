@@ -182,6 +182,28 @@ static bool remountWithLegacyMount(const mount_t& mpt) {
 		PLOG_W("mount('%s', flags=%s)", mpt.dst.c_str(), mnt::flagsToStr(flags).c_str());
 		return false;
 	}
+
+	if ((mpt.flags & (MS_RDONLY | MS_REC)) == (MS_RDONLY | MS_REC)) {
+		struct mount_attr attr = {};
+		attr.attr_set = MOUNT_ATTR_RDONLY;
+		if (mpt.flags & MS_NOSUID) {
+			attr.attr_set |= MOUNT_ATTR_NOSUID;
+		}
+		if (mpt.flags & MS_NODEV) {
+			attr.attr_set |= MOUNT_ATTR_NODEV;
+		}
+		if (mpt.flags & MS_NOEXEC) {
+			attr.attr_set |= MOUNT_ATTR_NOEXEC;
+		}
+		if (util::syscall(__NR_mount_setattr, (uintptr_t)AT_FDCWD,
+			(uintptr_t)mpt.dst.c_str(),
+			(uintptr_t)(AT_SYMLINK_NOFOLLOW | AT_NO_AUTOMOUNT | AT_RECURSIVE),
+			(uintptr_t)&attr, sizeof(attr)) < 0) {
+			PLOG_W("mount_setattr('%s', flags=0x%" PRIx64 ", AT_RECURSIVE)",
+			    mpt.dst.c_str(), (uint64_t)attr.attr_set);
+			return false;
+		}
+	}
 	return true;
 }
 
