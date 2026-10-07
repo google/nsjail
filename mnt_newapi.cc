@@ -514,7 +514,7 @@ static bool doBindMountAt(mount_t* mpt, int parent_fd, const char* basename) {
 	return openMountForRemount(mpt, parent_fd, basename);
 }
 
-static bool mountSinglePointAt(mount_t* mpt, int root_fd) {
+static bool mountSinglePointAt(mount_t* mpt, int root_fd, int staging_fd) {
 	LOG_D("Mounting (new API): %s", mnt::describeMountPt(*mpt->mpt).c_str());
 
 	const char* rel_dst = util::stripLeadingSlashes(mpt->dst.c_str());
@@ -558,7 +558,10 @@ static bool mountSinglePointAt(mount_t* mpt, int root_fd) {
 	}
 
 	if (!mpt->mpt->src_content().empty()) {
-		return mountDynamicContentAt(mpt, root_fd, parent_fd, basename.c_str());
+		/* Dynamic-content scratch must be created on the writable staging tmpfs,
+		 * not on root_fd (which, after a root overmount, is the read-only visible
+		 * root used only for destination resolution). */
+		return mountDynamicContentAt(mpt, staging_fd, parent_fd, basename.c_str());
 	}
 
 	if (mpt->flags & MS_BIND) {
@@ -738,17 +741,58 @@ std::unique_ptr<std::string> buildMountTree(nsj_t* nsj, std::vector<mnt::mount_t
 		close(root_fd);
 	};
 
+	/*
+	 * A stable handle to the writable staging tmpfs. root_fd is refreshed to the
+	 * (read-only) visible root once a root overmount happens, but dynamic-content
+	 * mounts still need a writable directory to stage their backing file in.
+	 */
+	int staging_fd = TEMP_FAILURE_RETRY(fcntl(root_fd, F_DUPFD_CLOEXEC, 0));
+	if (staging_fd < 0) {
+		PLOG_E("fcntl(root_fd, F_DUPFD_CLOEXEC)");
+		return nullptr;
+	}
+	defer {
+		close(staging_fd);
+	};
+
 	/* Build entire mount tree using fd-relative operations */
 	for (const auto& proto : nsj->njc.mount()) {
 		mount_t mpt = prepareMountPoint(proto);
 
-		if (!mountSinglePointAt(&mpt, root_fd)) {
+		if (!mountSinglePointAt(&mpt, root_fd, staging_fd)) {
 			if (mpt.mpt->mandatory()) {
 				LOG_E("Failed to mount mandatory point: %s", QC(mpt.dst));
 				return nullptr;
 			}
 		}
 		mounted_mpts->push_back(mpt);
+
+		/*
+		 * A mount whose destination is the jail root -- the src:"/" dst:"/" bind that
+		 * --chroot inserts ahead of every other mount, or one from a config file --
+		 * is move_mount()ed over the staging root. root_fd was opened before that and
+		 * now refers to the tmpfs left *underneath* the new root, so every subsequent
+		 * mount point resolved through it is attached out of sight of the sandboxee:
+		 * its configured source is silently ignored for a destination that is already
+		 * a mount point, and the jail aborts for a plain-directory destination.
+		 *
+		 * Re-open root_fd against destdir whenever a root-destination mount was
+		 * processed so the rest of the tree is built on the now-visible root. This is
+		 * keyed on the destination alone, not on the mount having succeeded: if the
+		 * root mount half-completed (the overmount happened but the follow-up failed)
+		 * root_fd would otherwise be left stale, and if nothing was overmounted the
+		 * re-open simply returns an equivalent handle to the staging root.
+		 */
+		if (!util::stripLeadingSlashes(mpt.dst.c_str())[0]) {
+			int nroot = openat(AT_FDCWD, destdir->c_str(),
+			    O_RDONLY | O_CLOEXEC | O_PATH | O_DIRECTORY);
+			if (nroot < 0) {
+				PLOG_E("openat('%s') to refresh root fd", destdir->c_str());
+				return nullptr;
+			}
+			close(root_fd);
+			root_fd = nroot;
+		}
 	}
 
 	if (!nsj->is_root_rw) {
