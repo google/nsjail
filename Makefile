@@ -227,6 +227,13 @@ endif
 	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --chroot / --user 99999 --group 99999 -- /bin/bash -c 'touch /run/user/$(UID)/nsjail_test2 || exit 77', 77)
 	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --chroot / --user 99999 --group 99999 --rw -- /bin/bash -c 'touch /run/user/$(UID)/nsjail_test2 && exit 77', 77)
 	$(call run_test, rm -f /run/user/$(UID)/nsjail_test2, 0)
+	# A jail root that lives on a nosuid,nodev filesystem (/dev/shm here, but /tmp,
+	# /run and /var/tmp are the same nearly everywhere): the read-only pass over the
+	# root must keep the flags that mount already carries, since a user namespace
+	# locks them and the kernel refuses a remount that would clear them.
+	$(call run_test, mkdir -p /dev/shm/nsjail_test_root, 0)
+	$(call run_test, ./nsjail $(OLD_EF) -q -Mo --config tests/chroot_nosuid_root.cfg --user 99999 --group 99999 -- /bin/true, 0)
+	$(call run_test, rm -rf /dev/shm/nsjail_test_root, 0)
 	$(call run_test, ./nsjail $(OLD_EF) --config configs/bash-with-fake-geteuid.cfg -q -t 1 < /dev/null, 0)
 	$(call run_test, ./nsjail $(OLD_EF) --config configs/bash-with-fake-geteuid.json -q -t 1 < /dev/null, 0)
 	$(call run_test, ./nsjail $(OLD_EF) --config configs/static-busybox-with-execveat.cfg -q -t 1, 137)
@@ -248,6 +255,13 @@ endif
 	$(call run_test, ./nsjail $(NEW_EF) -q -Mo --chroot / --user 99999 --group 99999 -- /bin/bash -c 'touch /run/user/$(UID)/nsjail_test2 || exit 77', 77)
 	$(call run_test, ./nsjail $(NEW_EF) -q -Mo --chroot / --user 99999 --group 99999 --rw -- /bin/bash -c 'touch /run/user/$(UID)/nsjail_test2 && exit 77', 77)
 	$(call run_test, rm -f /run/user/$(UID)/nsjail_test2, 0)
+	# A jail root that lives on a nosuid,nodev filesystem (/dev/shm here, but /tmp,
+	# /run and /var/tmp are the same nearly everywhere): the read-only pass over the
+	# root must keep the flags that mount already carries, since a user namespace
+	# locks them and the kernel refuses a remount that would clear them.
+	$(call run_test, mkdir -p /dev/shm/nsjail_test_root, 0)
+	$(call run_test, ./nsjail $(NEW_EF) -q -Mo --config tests/chroot_nosuid_root.cfg --user 99999 --group 99999 -- /bin/true, 0)
+	$(call run_test, rm -rf /dev/shm/nsjail_test_root, 0)
 	$(call run_test, ./nsjail $(NEW_EF) --config configs/bash-with-fake-geteuid.cfg -q -t 1 < /dev/null, 0)
 	$(call run_test, ./nsjail $(NEW_EF) --config configs/bash-with-fake-geteuid.json -q -t 1 < /dev/null, 0)
 	$(call run_test, ./nsjail $(NEW_EF) --config configs/static-busybox-with-execveat.cfg -q -t 1, 137)
