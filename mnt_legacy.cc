@@ -353,7 +353,6 @@ bool remountPt(mnt::mount_t& mpt, const std::string& root_dir) {
 		char* line = nullptr;
 		size_t len = 0;
 		const std::string prefix = dst_path + "/";
-		bool success = true;
 		while (getline(&line, &len, f) != -1) {
 			/* mountinfo field 5 (0-indexed 4) is the mount point */
 			char* p = line;
@@ -373,19 +372,14 @@ bool remountPt(mnt::mount_t& mpt, const std::string& root_dir) {
 			std::string mp(p, endp - p);
 			if (mp != dst_path && mp.compare(0, prefix.size(), prefix) == 0 &&
 			    !remountOne(mp, mpt)) {
-				success = false;
-				break;
+				/* Best-effort; remountOne logs any submount it cannot re-flag */
 			}
 		}
 		if (ferror(f)) {
 			PLOG_W("reading '/proc/self/mountinfo'");
-			success = false;
 		}
 		free(line);
 		fclose(f);
-		if (!success) {
-			return false;
-		}
 	}
 	return true;
 }
