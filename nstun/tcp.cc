@@ -1,4 +1,5 @@
 #include "tcp.h"
+#include <array>
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -75,7 +76,7 @@ static void tcp_send_rst6(Context* ctx, const FlowKey6& key6, uint32_t seq, uint
 	tcp_send_packet6(ctx, &dummy_flow, NSTUN_TCP_FLAG_RST | NSTUN_TCP_FLAG_ACK);
 }
 
-static size_t tcp_build_options(uint8_t flags, uint8_t* options) {
+static size_t tcp_build_options(uint8_t flags, std::span<uint8_t> options) {
 	size_t opt_len = 0;
 	if (flags & TH_SYN) {
 		tcp_opt_mss* mss_opt = reinterpret_cast<tcp_opt_mss*>(&options[opt_len]);
@@ -110,10 +111,16 @@ void tcp_send_packet4(Context* ctx, TcpFlow* flow, uint8_t flags, const uint8_t*
 
 	/* Single-threaded network loop: use static buffer for header only */
 	static thread_local uint8_t frame_buf[sizeof(ip4_hdr) + sizeof(tcp_hdr) + 40];
+	std::span<uint8_t> frame_span(frame_buf);
 
-	ip4_hdr* r_ip = reinterpret_cast<ip4_hdr*>(frame_buf);
-	tcp_hdr* r_tcp = reinterpret_cast<tcp_hdr*>(frame_buf + sizeof(ip4_hdr));
-	uint8_t* r_opt = frame_buf + sizeof(ip4_hdr) + sizeof(tcp_hdr);
+	// NOLINTBEGIN: reinterpret_cast into known-size span is safe here
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunsafe-buffer-usage"
+	ip4_hdr* r_ip = reinterpret_cast<ip4_hdr*>(frame_span.data());
+	tcp_hdr* r_tcp = reinterpret_cast<tcp_hdr*>(frame_span.subspan(sizeof(ip4_hdr)).data());
+#pragma clang diagnostic pop
+	std::span<uint8_t> r_opt_span = frame_span.subspan(sizeof(ip4_hdr) + sizeof(tcp_hdr));
+	uint8_t* r_opt = r_opt_span.data();
 
 	/* IPv4 */
 	ip4_set_ihl_version(r_ip, 4, sizeof(ip4_hdr) / 4);
@@ -170,10 +177,16 @@ void tcp_send_packet6(Context* ctx, TcpFlow* flow, uint8_t flags, const uint8_t*
 
 	/* Single-threaded network loop: use static buffer to avoid 63KB stack allocation */
 	static thread_local uint8_t frame_buf[sizeof(ip6_hdr) + sizeof(tcp_hdr) + 40];
+	std::span<uint8_t> frame_span(frame_buf);
 
-	ip6_hdr* r_ip = reinterpret_cast<ip6_hdr*>(frame_buf);
-	tcp_hdr* r_tcp = reinterpret_cast<tcp_hdr*>(frame_buf + sizeof(ip6_hdr));
-	uint8_t* r_opt = frame_buf + sizeof(ip6_hdr) + sizeof(tcp_hdr);
+	// NOLINTBEGIN: reinterpret_cast into known-size span is safe here
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunsafe-buffer-usage"
+	ip6_hdr* r_ip = reinterpret_cast<ip6_hdr*>(frame_span.data());
+	tcp_hdr* r_tcp = reinterpret_cast<tcp_hdr*>(frame_span.subspan(sizeof(ip6_hdr)).data());
+#pragma clang diagnostic pop
+	std::span<uint8_t> r_opt_span = frame_span.subspan(sizeof(ip6_hdr) + sizeof(tcp_hdr));
+	uint8_t* r_opt = r_opt_span.data();
 
 	/* IPv6 */
 	r_ip->vtf = htonl(0x60000000); /* Version 6 */
@@ -460,8 +473,9 @@ static void handle_socks5_connecting_host(Context* ctx, TcpFlow* flow, int fd) {
 }
 
 static void handle_http_connect_wait_host(Context* ctx, TcpFlow* flow, int fd) {
-	uint8_t buf[HTTP_PROXY_RESPONSE_MAX];
-	ssize_t recv_len = recv(fd, buf, sizeof(buf), MSG_DONTWAIT);
+	uint8_t buf_storage[HTTP_PROXY_RESPONSE_MAX];
+	std::span<uint8_t> buf(buf_storage);
+	ssize_t recv_len = recv(fd, buf.data(), buf.size(), MSG_DONTWAIT);
 	if (recv_len == 0) {
 		tcp_rst_and_destroy(ctx, flow);
 		return;
@@ -473,7 +487,7 @@ static void handle_http_connect_wait_host(Context* ctx, TcpFlow* flow, int fd) {
 	}
 
 	auto& rx = flow->proxy_rx_buffer;
-	rx.insert(rx.end(), buf, buf + recv_len);
+	rx.insert(rx.end(), buf.data(), buf.data() + recv_len);
 
 	size_t end_of_headers = nstun::find_end_of_headers(rx);
 	if (end_of_headers == 0) {
@@ -511,8 +525,9 @@ static void handle_http_connect_wait_host(Context* ctx, TcpFlow* flow, int fd) {
 }
 
 static void handle_data_transfer_host(Context* ctx, TcpFlow* flow, int fd) {
-	uint8_t buf[TCP_RECV_BUF_SIZE];
-	ssize_t recv_len = recv(fd, buf, sizeof(buf), MSG_DONTWAIT);
+	uint8_t buf_storage[TCP_RECV_BUF_SIZE];
+	std::span<uint8_t> buf(buf_storage);
+	ssize_t recv_len = recv(fd, buf.data(), buf.size(), MSG_DONTWAIT);
 	if (recv_len == 0) {
 		handle_host_tcp_data_eof(ctx, flow, fd);
 		return;
@@ -523,7 +538,7 @@ static void handle_data_transfer_host(Context* ctx, TcpFlow* flow, int fd) {
 		return;
 	}
 
-	flow->tx_buffer.insert(flow->tx_buffer.end(), buf, buf + recv_len);
+	flow->tx_buffer.insert(flow->tx_buffer.end(), buf.data(), buf.data() + recv_len);
 
 	if (flow->tx_buffer.size() > TCP_TX_BUFFER_HARD_CAP) {
 		LOG_W("TCP tx_buffer reached %zuMB hard cap, RST",
@@ -1191,10 +1206,10 @@ void handle_host_tcp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 		getsockname(fd, (struct sockaddr*)&server6, &servlen6);
 
 		/* Loopback→gateway rewrite for IPv6: prevent martian drops in guest */
-		uint8_t client_ip6[IPV6_ADDR_LEN];
-		memcpy(client_ip6, &client6->sin6_addr, sizeof(client_ip6));
+		std::array<uint8_t, IPV6_ADDR_LEN> client_ip6{};
+		memcpy(client_ip6.data(), &client6->sin6_addr, IPV6_ADDR_LEN);
 		if (IN6_IS_ADDR_LOOPBACK(&client6->sin6_addr)) {
-			memcpy(client_ip6, ctx->host_ip6, sizeof(client_ip6));
+			memcpy(client_ip6.data(), ctx->host_ip6, IPV6_ADDR_LEN);
 		}
 
 		FlowKey6 key6 = {};
@@ -1204,7 +1219,7 @@ void handle_host_tcp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 		if (!has_redirect_ip6) {
 			memcpy(key6.saddr6, ctx->guest_ip6, sizeof(key6.saddr6));
 		}
-		memcpy(key6.daddr6, client_ip6, sizeof(key6.daddr6));
+		memcpy(key6.daddr6, client_ip6.data(), sizeof(key6.daddr6));
 		key6.sport = rule.redirect_port ? htons(rule.redirect_port) : server6.sin6_port;
 		key6.dport = client6->sin6_port;
 
