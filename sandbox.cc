@@ -187,8 +187,8 @@ bool preparePolicy(nsj_t* nsj) {
 	kafel_ctxt_t ctxt = kafel_ctxt_create();
 	std::string combined_seccomp_policy;
 	if (!nsj->njc.seccomp_policy_file().empty()) {
-		FILE* f = fopen(nsj->njc.seccomp_policy_file().c_str(), "r");
-		if (!f) {
+		int fd = open(nsj->njc.seccomp_policy_file().c_str(), O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
+		FILE* f = fd == -1 ? NULL : fdopen(fd, "r"); if (!f) {
 			PLOG_W("Couldn't open the kafel seccomp policy file '%s'",
 			    nsj->njc.seccomp_policy_file().c_str());
 			kafel_ctxt_destroy(&ctxt);
