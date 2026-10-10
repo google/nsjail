@@ -25,6 +25,18 @@ inline bool ip4_is_link_local(uint32_t addr_nbo) {
 	return (ntohl(addr_nbo) & 0xFFFF0000U) == 0xA9FE0000U;
 }
 
+inline uint32_t ip4_from_bytes(const uint8_t addr[IPV4_ADDR_LEN]) {
+	uint32_t out;
+	memcpy(&out, addr, sizeof(out));
+	return out;
+}
+
+inline in6_addr ip6_from_bytes(const uint8_t addr[IPV6_ADDR_LEN]) {
+	in6_addr out;
+	memcpy(&out, addr, sizeof(out));
+	return out;
+}
+
 inline bool ip6_is_aws_local_service(const uint8_t addr[16]) {
 	/* AWS reserves fd00:ec2::/32 for instance-local services, including IMDS. */
 	constexpr uint8_t prefix[] = {0xFD, 0x00, 0x0E, 0xC2};

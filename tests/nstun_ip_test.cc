@@ -36,6 +36,16 @@ static sockaddr_storage peer6(const char* ip) {
 }
 
 int main() {
+	alignas(4) uint8_t unaligned_ip4[nstun::IPV4_ADDR_LEN + 1] = {};
+	uint32_t loopback4 = parse_ip4("127.0.0.1");
+	memcpy(unaligned_ip4 + 1, &loopback4, sizeof(loopback4));
+	assert(nstun::ip4_from_bytes(unaligned_ip4 + 1) == loopback4);
+
+	alignas(in6_addr) uint8_t unaligned_ip6[nstun::IPV6_ADDR_LEN + 1] = {};
+	assert(inet_pton(AF_INET6, "::1", unaligned_ip6 + 1) == 1);
+	in6_addr loopback6 = nstun::ip6_from_bytes(unaligned_ip6 + 1);
+	assert(IN6_IS_ADDR_LOOPBACK(&loopback6));
+
 	assert(!nstun::ip4_is_link_local(parse_ip4("169.253.255.255")));
 	assert(nstun::ip4_is_link_local(parse_ip4("169.254.0.0")));
 	assert(nstun::ip4_is_link_local(parse_ip4("169.254.169.254")));
