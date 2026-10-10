@@ -291,7 +291,7 @@ static bool remountOne(const std::string& path, const mnt::mount_t& mpt) {
 	unsigned long flags = computeRemountFlags(mpt, vfs);
 	LOG_D("Remounting '%s' with flags: %s", path.c_str(), mnt::flagsToStr(flags).c_str());
 
-	if (mount(path.c_str(), path.c_str(), nullptr, flags, nullptr) == -1) {
+	if (RETRY_ON_EBUSY(mount(path.c_str(), path.c_str(), nullptr, flags, nullptr)) == -1) {
 		PLOG_W("mount('%s', flags=%s)", path.c_str(), mnt::flagsToStr(flags).c_str());
 		return false;
 	}
@@ -438,8 +438,8 @@ std::unique_ptr<std::string> buildMountTree(nsj_t* nsj, std::vector<mnt::mount_t
 	}
 
 	if (!nsj->is_root_rw) {
-		if (mount(destdir->c_str(), destdir->c_str(), nullptr,
-			MS_REMOUNT | MS_BIND | MS_RDONLY, nullptr) == -1) {
+		if (RETRY_ON_EBUSY(mount(destdir->c_str(), destdir->c_str(), nullptr,
+			MS_REMOUNT | MS_BIND | MS_RDONLY, nullptr)) == -1) {
 			PLOG_E("mount('%s', MS_REMOUNT|MS_BIND|MS_RDONLY)", destdir->c_str());
 			return nullptr;
 		}

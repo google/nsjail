@@ -178,7 +178,8 @@ static bool remountWithLegacyMount(const mount_t& mpt) {
 	LOG_D("Falling back to legacy remount for '%s' with flags: %s", mpt.dst.c_str(),
 	    mnt::flagsToStr(flags).c_str());
 
-	if (mount(mpt.dst.c_str(), mpt.dst.c_str(), nullptr, flags, nullptr) == -1) {
+	if (RETRY_ON_EBUSY(mount(mpt.dst.c_str(), mpt.dst.c_str(), nullptr, flags, nullptr)) ==
+	    -1) {
 		PLOG_W("mount('%s', flags=%s)", mpt.dst.c_str(), mnt::flagsToStr(flags).c_str());
 		return false;
 	}
@@ -754,9 +755,9 @@ std::unique_ptr<std::string> buildMountTree(nsj_t* nsj, std::vector<mnt::mount_t
 	if (!nsj->is_root_rw) {
 		struct mount_attr ro_attr = {};
 		ro_attr.attr_set = MOUNT_ATTR_RDONLY;
-		if (util::syscall(__NR_mount_setattr, (uintptr_t)root_fd, (uintptr_t)"",
-			(uintptr_t)(AT_EMPTY_PATH | AT_RECURSIVE), (uintptr_t)&ro_attr,
-			sizeof(ro_attr)) < 0) {
+		if (RETRY_ON_EBUSY(util::syscall(__NR_mount_setattr, (uintptr_t)root_fd,
+			(uintptr_t)"", (uintptr_t)(AT_EMPTY_PATH | AT_RECURSIVE),
+			(uintptr_t)&ro_attr, sizeof(ro_attr))) < 0) {
 			PLOG_E("mount_setattr(root_fd, MOUNT_ATTR_RDONLY)");
 			return nullptr;
 		}
