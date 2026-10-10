@@ -1,0 +1,2 @@
+ERRNO(1) { ptrace }
+DEFAULT ALLOW

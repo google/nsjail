@@ -23,7 +23,7 @@ endif
 NL3_EXISTS := $(shell pkg-config --exists libnl-route-3.0 && echo yes)
 
 COMMON_FLAGS += -O2 -c \
-	-D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 \
+	-D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -fstack-protector-strong -D_FORTIFY_SOURCE=2 \
 	-fPIE \
 	-Wformat -Wformat-security -Wno-format-nonliteral \
 	-Wall -Wextra -Werror \
@@ -32,7 +32,7 @@ COMMON_FLAGS += -O2 -c \
 CXXFLAGS += $(USER_DEFINES) $(COMMON_FLAGS) $(PROTOBUF_CFLAGS) -I. \
 	-std=c++20 -fno-exceptions -Wno-unused -Wno-unused-parameter -Wno-c99-designator
 
-LDFLAGS += -pie -Wl,-z,noexecstack -lpthread $(PROTOBUF_LIBS)
+LDFLAGS += -pie -Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now -lpthread $(PROTOBUF_LIBS)
 
 ifeq ($(NL3_EXISTS), yes)
 	CXXFLAGS += $(shell pkg-config --cflags libnl-route-3.0) -DHAVE_LIBNL3
@@ -338,3 +338,16 @@ nstun/tcp.o: nstun/nstun.h nstun/encap.h logs.h macros.h nstun/policy.h
 nstun/tcp.o: nstun/tun.h util.h nsjail.h config.pb.h
 config.pb.o: config.pb.h
 unotify/unotify.pb.o: unotify/unotify.pb.h
+
+# ---- Sanitizer & fuzzing targets (security hardening) ----
+SAN_FLAGS := -fsanitize=address,undefined -fno-omit-frame-pointer -g -O1
+
+asan: kafel_init
+	$(CXX) $(filter-out -c,$(CXXFLAGS)) $(SAN_FLAGS) $(PROTOBUF_CFLAGS) -I. -Ikafel/include -I/usr/include/libnl3 -DHAVE_LIBNL3 $(SRCS_CXX) config.pb.cc unotify/unotify.pb.cc $(LIBS) -o nsjail-asan $(LDFLAGS) -fsanitize=address,undefined $(PROTOBUF_LIBS) -lnl-route-3 -lnl-3
+
+fuzz-nstun: kafel_init
+	clang++ -std=c++20 -g -O1 -fsanitize=fuzzer,address,undefined -fno-omit-frame-pointer -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -I. -Ikafel/include $(PROTOBUF_CFLAGS) fuzz/nstun_fuzz.cc fuzz/nstun_shim.cc nstun/*.cc logs.cc util.cc config.pb.cc $(PROTOBUF_LIBS) -lpthread -o fuzz/nstun_fuzz
+
+fuzz-kafel: kafel_init
+	(cd kafel && $(MAKE) --no-print-directory clean; LDFLAGS="" CC=clang CFLAGS="-fPIE -fsanitize=fuzzer-no-link,address,undefined -fno-omit-frame-pointer -g -O1 -Wno-error" $(MAKE) --no-print-directory); \
+	clang -g -O1 -fsanitize=fuzzer,address,undefined -fno-omit-frame-pointer -Ikafel/include fuzz/kafel_fuzz.c kafel/libkafel.a -o fuzz/kafel_fuzz
