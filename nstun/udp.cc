@@ -701,6 +701,13 @@ void handle_host_udp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 				continue;
 			}
 			memcpy(&server6.sin6_addr, packet_dst6, sizeof(packet_dst6));
+			if (!rule_matches6(rule, NSTUN_DIR_HOST_TO_GUEST, NSTUN_PROTO_UDP,
+				client6->sin6_addr.s6_addr, server6.sin6_addr.s6_addr,
+				ntohs(client6->sin6_port), ntohs(server6.sin6_port))) {
+				LOG_W("Blocking inbound UDP6 datagram outside listener REDIRECT "
+				      "rule");
+				continue;
+			}
 
 			RuleResult policy = evaluate_rules6(ctx, NSTUN_DIR_HOST_TO_GUEST,
 			    NSTUN_PROTO_UDP, client6->sin6_addr.s6_addr, server6.sin6_addr.s6_addr,
@@ -774,6 +781,13 @@ void handle_host_udp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 				continue;
 			}
 			server_addr.sin_addr.s_addr = packet_dst4;
+			if (!rule_matches4(rule, NSTUN_DIR_HOST_TO_GUEST, NSTUN_PROTO_UDP,
+				client4->sin_addr.s_addr, server_addr.sin_addr.s_addr,
+				ntohs(client4->sin_port), ntohs(server_addr.sin_port))) {
+				LOG_W(
+				    "Blocking inbound UDP datagram outside listener REDIRECT rule");
+				continue;
+			}
 
 			RuleResult policy = evaluate_rules4(ctx, NSTUN_DIR_HOST_TO_GUEST,
 			    NSTUN_PROTO_UDP, client4->sin_addr.s_addr, server_addr.sin_addr.s_addr,

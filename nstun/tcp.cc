@@ -1110,6 +1110,13 @@ void handle_host_tcp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 			close(fd);
 			return;
 		}
+		if (!rule_matches6(rule, NSTUN_DIR_HOST_TO_GUEST, NSTUN_PROTO_TCP,
+			client6->sin6_addr.s6_addr, server6.sin6_addr.s6_addr,
+			ntohs(client6->sin6_port), ntohs(server6.sin6_port))) {
+			LOG_W("Blocking inbound TCP6 connection outside listener REDIRECT rule");
+			close(fd);
+			return;
+		}
 
 		RuleResult policy = evaluate_rules6(ctx, NSTUN_DIR_HOST_TO_GUEST, NSTUN_PROTO_TCP,
 		    client6->sin6_addr.s6_addr, server6.sin6_addr.s6_addr,
@@ -1127,6 +1134,13 @@ void handle_host_tcp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 		socklen_t servlen4 = sizeof(server4);
 		if (getsockname(fd, (struct sockaddr*)&server4, &servlen4) == -1) {
 			PLOG_E("getsockname() for inbound TCP");
+			close(fd);
+			return;
+		}
+		if (!rule_matches4(rule, NSTUN_DIR_HOST_TO_GUEST, NSTUN_PROTO_TCP,
+			client4->sin_addr.s_addr, server4.sin_addr.s_addr, ntohs(client4->sin_port),
+			ntohs(server4.sin_port))) {
+			LOG_W("Blocking inbound TCP connection outside listener REDIRECT rule");
 			close(fd);
 			return;
 		}
