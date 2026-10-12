@@ -46,6 +46,7 @@ endif
 BIN = nsjail
 LIBS = kafel/libkafel.a
 TEST_BINS = tests/nstun_buffer_budget_test tests/nstun_policy_test tests/nstun_ip_test tests/nstun_udp_peer_test
+PID_INIT_INJECT = tests/pid_init_failure_inject.so
 
 # If PASTA_BIN_PATH is not provided in env, dynamically search for it if EMBED_PASTA is requested
 # or fallback to it naturally.
@@ -89,6 +90,9 @@ endif
 %.o: %.cc | $(SRCS_PB_H)
 	$(CXX) $(CXXFLAGS) $< -o $@
 
+$(PID_INIT_INJECT): tests/pid_init_failure_inject.cc
+	$(CXX) -shared -fPIC -std=c++20 -Wall -Wextra -Werror $< -o $@ -ldl
+
 # Protobuf Generation
 # We only define the recipe for the .cc file to prevent race conditions.
 $(SRCS_PB_CXX): $(SRCS_PROTO)
@@ -110,7 +114,7 @@ kafel/libkafel.a: kafel_init
 
 # Utilities
 clean:
-	$(RM) core Makefile.bak $(OBJS) $(SRCS_PB_CXX) $(SRCS_PB_H) $(SRCS_PB_O) $(BIN) $(TEST_BINS)
+	$(RM) core Makefile.bak $(OBJS) $(SRCS_PB_CXX) $(SRCS_PB_H) $(SRCS_PB_O) $(BIN) $(TEST_BINS) $(PID_INIT_INJECT)
 ifneq ("$(wildcard kafel/Makefile)","")
 	+$(MAKE) -C kafel clean
 endif
@@ -160,7 +164,7 @@ test-cmdline: $(BIN)
 	$(call run_test, ./nsjail --time_limit 0x10 --cgroup_mem_swap_max=-1 --user 1000:1000:1 --help > /dev/null, 0)
 
 .PHONY: test
-test: $(BIN) $(TEST_BINS) test-cmdline
+test: $(BIN) $(TEST_BINS) $(PID_INIT_INJECT) test-cmdline
 	$(call run_test, ./tests/nstun_buffer_budget_test, 0)
 	$(call run_test, ./tests/nstun_policy_test, 0)
 	$(call run_test, ./tests/nstun_ip_test, 0)
@@ -174,6 +178,9 @@ ifeq ($(UID),0)
 	$(call run_test, setpriv --reuid 1000 --regid 1000 --clear-groups -- ./nsjail -q -Mo --user 65534 --group 65534 --disable_clone_newnet --disable_clone_newcgroup --disable_clone_newns --disable_clone_newpid --disable_clone_newipc --disable_clone_newuts --disable_proc -- /bin/true, 0)
 	$(call run_test, setsid --fork --wait ./nsjail -q -Me --disable_clone_newuser --disable_clone_newnet --disable_clone_newcgroup --disable_clone_newns --disable_clone_newpid --disable_clone_newipc --disable_clone_newuts --disable_proc --chroot / -- /bin/true, 0)
 	$(call run_test, strace -f -qq -e inject=setsid:error=EPERM ./nsjail -q -Me --disable_clone_newuser --disable_clone_newnet --disable_clone_newcgroup --disable_clone_newns --disable_clone_newpid --disable_clone_newipc --disable_clone_newuts --disable_proc --chroot / -- /bin/true, 255)
+	$(call run_test, NSJAIL_TEST_FAIL_INIT=pdeathsig LD_PRELOAD=$(CURDIR)/$(PID_INIT_INJECT) ./nsjail -q -Me --disable_clone_newuser --disable_clone_newnet --disable_clone_newcgroup --disable_clone_newns --disable_clone_newipc --disable_clone_newuts --disable_proc --chroot / -- /bin/true, 255)
+	$(call run_test, NSJAIL_TEST_FAIL_INIT=dumpable LD_PRELOAD=$(CURDIR)/$(PID_INIT_INJECT) ./nsjail -q -Me --disable_clone_newuser --disable_clone_newnet --disable_clone_newcgroup --disable_clone_newns --disable_clone_newipc --disable_clone_newuts --disable_proc --chroot / -- /bin/true, 255)
+	$(call run_test, NSJAIL_TEST_FAIL_INIT=sigaction LD_PRELOAD=$(CURDIR)/$(PID_INIT_INJECT) ./nsjail -q -Me --disable_clone_newuser --disable_clone_newnet --disable_clone_newcgroup --disable_clone_newns --disable_clone_newipc --disable_clone_newuts --disable_proc --chroot / -- /bin/true, 255)
 endif
 	$(call run_test, ./nsjail -q -Mo --chroot / --user 99999 --group 99999 -- /bin/true < /tmp, 255)
 	$(call run_test, ./nsjail -q -Mo --chroot / --user 99999 --group 99999 --pass_fd 0 -- /bin/true < /tmp, 0)
