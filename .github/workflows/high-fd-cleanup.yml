@@ -1,0 +1,37 @@
+name: High FD cleanup regression
+
+on:
+  push:
+    paths:
+      - contain.cc
+      - Makefile
+      - tests/high_fd_cleanup_*
+      - .github/workflows/high-fd-cleanup.yml
+  pull_request:
+    paths:
+      - contain.cc
+      - Makefile
+      - tests/high_fd_cleanup_*
+      - .github/workflows/high-fd-cleanup.yml
+
+permissions:
+  contents: read
+
+jobs:
+  high-fd-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential libprotobuf-dev protobuf-compiler pkg-config \
+            libnl-3-dev libnl-route-3-dev flex bison
+      - name: Build nsjail
+        run: make -j2
+      - name: High FD cleanup regression
+        run: sudo make test-high-fd
