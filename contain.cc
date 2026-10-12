@@ -333,30 +333,16 @@ static bool containMakeFdsCOECloseRange(nsj_t* nsj) {
 	return true;
 }
 
-static bool containMakeFdsCOENaive(nsj_t* nsj) {
-	/*
-	 * Don't use getrlimit(RLIMIT_NOFILE) here, as it can return an artifically small value
-	 * (e.g. 32), which could be smaller than a maximum assigned number to file-descriptors
-	 * in this process. Just use some reasonably sane value (e.g. 1024)
-	 */
-	for (unsigned fd = 0; fd < 1024; fd++) {
-		RETURN_ON_FAILURE(containMakeFdCOE(fd, containPassFd(nsj, fd)));
-	}
-	return true;
-}
-
-static bool containMakeFdsCOEProc(nsj_t* nsj) {
-	int dirfd = open("/proc/self/fd", O_DIRECTORY | O_RDONLY | O_CLOEXEC);
-	if (dirfd == -1) {
-		PLOG_D("open('/proc/self/fd', O_DIRECTORY|O_RDONLY|O_CLOEXEC)");
+static bool containMakeFdsCOEProc(nsj_t* nsj, int* proc_fd) {
+	if (*proc_fd == -1) {
 		return false;
 	}
-	DIR* dir = fdopendir(dirfd);
+	DIR* dir = fdopendir(*proc_fd);
 	if (dir == nullptr) {
-		PLOG_W("fdopendir(fd=%d)", dirfd);
-		close(dirfd);
+		PLOG_W("fdopendir(fd=%d)", *proc_fd);
 		return false;
 	}
+	*proc_fd = -1; /* fdopendir() owns the descriptor now. */
 	/* Make all fds above stderr close-on-exec */
 	for (;;) {
 		errno = 0;
@@ -393,18 +379,15 @@ static bool containMakeFdsCOEProc(nsj_t* nsj) {
 	return true;
 }
 
-static bool containMakeFdsCOE(nsj_t* nsj) {
+static bool containMakeFdsCOE(nsj_t* nsj, int* proc_fd) {
 	RETURN_ON_FAILURE(containValidateDefaultStdioFds(nsj));
 	if (containMakeFdsCOECloseRange(nsj)) {
 		return true;
 	}
-	if (containMakeFdsCOEProc(nsj)) {
+	if (containMakeFdsCOEProc(nsj, proc_fd)) {
 		return true;
 	}
-	if (containMakeFdsCOENaive(nsj)) {
-		return true;
-	}
-	LOG_E("Couldn't mark relevant file-descriptors as close-on-exec with any known method");
+	LOG_E("Couldn't safely mark all file descriptors as close-on-exec");
 	return false;
 }
 
@@ -440,6 +423,16 @@ bool setupFD(nsj_t* nsj, int fd_in, int fd_out, int fd_err) {
 }
 
 bool containProc(nsj_t* nsj, int parent_fd, pid_t expected_parent) {
+	/* Keep a view of all descriptors available after mount/chroot setup removes /proc. */
+	int proc_fd = open("/proc/self/fd", O_DIRECTORY | O_RDONLY | O_CLOEXEC);
+	if (proc_fd == -1) {
+		PLOG_D("open('/proc/self/fd', O_DIRECTORY|O_RDONLY|O_CLOEXEC)");
+	}
+	defer {
+		if (proc_fd != -1) {
+			close(proc_fd);
+		}
+	};
 	RETURN_ON_FAILURE(containUserNs(nsj));
 	RETURN_ON_FAILURE(containInitPidNs(nsj));
 	RETURN_ON_FAILURE(containInitMountNs(nsj));
@@ -455,7 +448,7 @@ bool containProc(nsj_t* nsj, int parent_fd, pid_t expected_parent) {
 	RETURN_ON_FAILURE(containTSC(nsj));
 	RETURN_ON_FAILURE(containSetLimits(nsj));
 	RETURN_ON_FAILURE(containPrepareEnv(nsj, parent_fd, expected_parent));
-	RETURN_ON_FAILURE(containMakeFdsCOE(nsj));
+	RETURN_ON_FAILURE(containMakeFdsCOE(nsj, &proc_fd));
 
 	return true;
 }
