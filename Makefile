@@ -45,7 +45,7 @@ endif
 
 BIN = nsjail
 LIBS = kafel/libkafel.a
-TEST_BINS = tests/nstun_buffer_budget_test tests/nstun_policy_test tests/nstun_ip_test tests/nstun_udp_peer_test
+TEST_BINS = tests/nstun_buffer_budget_test tests/nstun_policy_test tests/nstun_ip_test tests/nstun_udp_peer_test tests/nstun_tcp_capacity_test
 
 # If PASTA_BIN_PATH is not provided in env, dynamically search for it if EMBED_PASTA is requested
 # or fallback to it naturally.
@@ -160,7 +160,7 @@ test-cmdline: $(BIN)
 	$(call run_test, ./nsjail --time_limit 0x10 --cgroup_mem_swap_max=-1 --user 1000:1000:1 --help > /dev/null, 0)
 
 .PHONY: test
-test: $(BIN) $(TEST_BINS) test-cmdline
+test: $(BIN) $(TEST_BINS) test-cmdline test-nstun-tcp-capacity
 	$(call run_test, ./tests/nstun_buffer_budget_test, 0)
 	$(call run_test, ./tests/nstun_policy_test, 0)
 	$(call run_test, ./tests/nstun_ip_test, 0)
@@ -262,6 +262,21 @@ endif
 	@echo "  ✅ All tests passed!"
 	@echo "========================================"
 	@echo ""
+
+.PHONY: test-nstun-tcp-capacity
+test-nstun-tcp-capacity: tests/nstun_tcp_capacity_test
+	@./tests/nstun_tcp_capacity_test; rc=$$?; \
+	if [ "$$rc" -eq 77 ]; then \
+		echo "SKIP: nstun_tcp_capacity_test (insufficient RLIMIT_NOFILE)"; \
+	elif [ "$$rc" -eq 0 ]; then \
+		echo "PASS: nstun_tcp_capacity_test"; \
+	else \
+		echo "FAIL: nstun_tcp_capacity_test (exit $$rc)"; \
+		exit 1; \
+	fi
+
+tests/nstun_tcp_capacity_test: tests/nstun_tcp_capacity_test.cc $(filter-out nsjail.o,$(OBJS)) $(LIBS)
+	$(CXX) $(filter-out -c,$(CXXFLAGS)) $< $(filter-out nsjail.o,$(OBJS)) $(LIBS) -o $@ $(LDFLAGS)
 
 tests/nstun_buffer_budget_test: tests/nstun_buffer_budget_test.cc nstun/buffer_budget.h
 	$(CXX) $(filter-out -c,$(CXXFLAGS)) $< -o $@

@@ -1077,13 +1077,6 @@ void handle_host_tcp(Context* ctx, TcpFlow* flow, uint32_t events) {
 
 void handle_host_tcp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rule) {
 	LOG_D("handle_host_tcp_accept listen_fd=%d", listen_fd);
-	size_t tcp_flow_count =
-	    ctx->ipv4_tcp_flows_by_key.size() + ctx->ipv6_tcp_flows_by_key.size();
-	if (tcp_flow_count >= NSTUN_MAX_FLOWS) {
-		LOG_W("Max TCP flows (%zu) reached, dropping inbound connection", tcp_flow_count);
-		return;
-	}
-
 	struct sockaddr_storage client_ss = {};
 	socklen_t addrlen = sizeof(client_ss);
 	int fd = accept4(
@@ -1094,6 +1087,15 @@ void handle_host_tcp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 		}
 		return;
 	}
+
+	size_t tcp_flow_count =
+	    ctx->ipv4_tcp_flows_by_key.size() + ctx->ipv6_tcp_flows_by_key.size();
+	if (tcp_flow_count >= NSTUN_MAX_FLOWS) {
+		LOG_W("Max TCP flows (%zu) reached, dropping inbound connection", tcp_flow_count);
+		close(fd);
+		return;
+	}
+
 
 	/*
 	 * A HOST_TO_GUEST listener is created from a REDIRECT rule, but the
