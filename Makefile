@@ -45,7 +45,7 @@ endif
 
 BIN = nsjail
 LIBS = kafel/libkafel.a
-TEST_BINS = tests/nstun_buffer_budget_test tests/nstun_policy_test tests/nstun_ip_test tests/nstun_udp_peer_test
+TEST_BINS = tests/nstun_buffer_budget_test tests/nstun_policy_test tests/nstun_ip_test tests/nstun_ipparse_test tests/nstun_udp_peer_test
 
 # If PASTA_BIN_PATH is not provided in env, dynamically search for it if EMBED_PASTA is requested
 # or fallback to it naturally.
@@ -62,7 +62,7 @@ ifneq ($(PASTA_BIN_PATH),)
 	CXXFLAGS += -DPASTA_BIN_PATH='"$(PASTA_BIN_PATH)"'
 endif
 
-SRCS_CXX = caps.cc cgroup.cc cgroup2.cc cmdline.cc config.cc contain.cc cpu.cc logs.cc mnt.cc mnt_legacy.cc mnt_newapi.cc net.cc nsjail.cc pid.cc sandbox.cc subproc.cc uts.cc user.cc unotify/unotify.cc unotify/stats.cc unotify/syscall.cc util.cc nstun/nstun.cc nstun/policy.cc nstun/encap.cc nstun/iface.cc nstun/tun.cc nstun/ip.cc nstun/icmp.cc nstun/udp.cc nstun/tcp.cc
+SRCS_CXX = caps.cc cgroup.cc cgroup2.cc cmdline.cc config.cc contain.cc cpu.cc logs.cc mnt.cc mnt_legacy.cc mnt_newapi.cc net.cc nsjail.cc pid.cc sandbox.cc subproc.cc uts.cc user.cc unotify/unotify.cc unotify/stats.cc unotify/syscall.cc util.cc nstun/nstun.cc nstun/policy.cc nstun/encap.cc nstun/iface.cc nstun/tun.cc nstun/ip.cc nstun/ipparse.cc nstun/icmp.cc nstun/udp.cc nstun/tcp.cc
 SRCS_PROTO = config.proto unotify/unotify.proto
 
 SRCS_PB_CXX = $(SRCS_PROTO:.proto=.pb.cc)
@@ -164,6 +164,7 @@ test: $(BIN) $(TEST_BINS) test-cmdline
 	$(call run_test, ./tests/nstun_buffer_budget_test, 0)
 	$(call run_test, ./tests/nstun_policy_test, 0)
 	$(call run_test, ./tests/nstun_ip_test, 0)
+	$(call run_test, ./tests/nstun_ipparse_test, 0)
 	$(call run_test, ./tests/nstun_udp_peer_test, 0)
 	# --- Basic sanity tests ---
 	$(call run_test, ./nsjail -q -Mo --chroot / --user 99999 --group 99999 -- /bin/true, 0)
@@ -272,6 +273,9 @@ tests/nstun_policy_test: tests/nstun_policy_test.cc nstun/policy.cc logs.cc util
 tests/nstun_ip_test: tests/nstun_ip_test.cc nstun/net_defs.h
 	$(CXX) $(filter-out -c,$(CXXFLAGS)) tests/nstun_ip_test.cc -o $@
 
+tests/nstun_ipparse_test: tests/nstun_ipparse_test.cc nstun/ipparse.cc nstun/ipparse.h
+	$(CXX) $(filter-out -c,$(CXXFLAGS)) tests/nstun_ipparse_test.cc nstun/ipparse.cc -o $@
+
 tests/nstun_udp_peer_test: tests/nstun_udp_peer_test.cc nstun/udp_peer.h nstun/core.h
 	$(CXX) $(filter-out -c,$(CXXFLAGS)) tests/nstun_udp_peer_test.cc -o $@
 
@@ -326,7 +330,8 @@ nstun/iface.o: config.pb.h nstun/nstun.h
 nstun/tun.o: nstun/tun.h nstun/core.h nstun/buffer_budget.h nstun/net_defs.h
 nstun/tun.o: nstun/nstun.h nstun/icmp.h nstun/ip.h logs.h
 nstun/ip.o: nstun/ip.h nstun/core.h nstun/buffer_budget.h nstun/net_defs.h
-nstun/ip.o: nstun/nstun.h nstun/icmp.h logs.h nstun/tcp.h nstun/udp.h
+nstun/ip.o: nstun/nstun.h nstun/icmp.h nstun/ipparse.h logs.h nstun/tcp.h nstun/udp.h
+nstun/ipparse.o: nstun/ipparse.h
 nstun/icmp.o: nstun/icmp.h nstun/core.h nstun/buffer_budget.h
 nstun/icmp.o: nstun/net_defs.h nstun/nstun.h logs.h macros.h nstun/policy.h
 nstun/icmp.o: nstun/tun.h
