@@ -492,15 +492,35 @@ static bool doBindMountAt(mount_t* mpt, int parent_fd, const char* basename) {
 	}
 
 	/*
-	 * Apply non-RO flags now; RO applied later via remount.
-	 * When the bind is recursive (MS_REC), open_tree above cloned the whole
-	 * subtree (AT_RECURSIVE), so the nosuid/nodev/noexec attributes must be
-	 * applied recursively as well -- otherwise nested submounts of the source
-	 * keep their original suid/dev/exec-permitting attributes inside the jail.
-	 * This mirrors the recursive read-only pass done later on the root.
+	 * Restrict cloned submounts now, but leave the top bind writable during
+	 * staging if its source was writable. Later mounts may need to create
+	 * targets beneath it. remountPt() makes the top read-only after staging,
+	 * while the original nested mounts remain read-only.
 	 */
-	if (!applyMountFlags(mnt_fd, mpt->flags & ~MS_RDONLY, true, (mpt->flags & MS_REC) != 0)) {
+	const bool recursive_ro = (mpt->flags & (MS_REC | MS_RDONLY)) == (MS_REC | MS_RDONLY);
+	struct statvfs original_vfs = {};
+	if (recursive_ro && fstatvfs(mnt_fd, &original_vfs) == -1) {
+		PLOG_W("fstatvfs(bind mount fd) for '%s'", basename);
+		close(mnt_fd);
+		return false;
+	}
+	const uintptr_t early_flags = recursive_ro ? mpt->flags : (mpt->flags & ~MS_RDONLY);
+	if (!applyMountFlags(mnt_fd, early_flags, true, (mpt->flags & MS_REC) != 0)) {
 		LOG_W("Failed to apply mount flags to '%s'", basename);
+		if (recursive_ro) {
+			close(mnt_fd);
+			return false;
+		}
+	}
+	if (recursive_ro && !(original_vfs.f_flag & ST_RDONLY)) {
+		struct mount_attr writable_top = {};
+		writable_top.attr_clr = MOUNT_ATTR_RDONLY;
+		if (util::syscall(__NR_mount_setattr, (uintptr_t)mnt_fd, (uintptr_t)"",
+			(uintptr_t)AT_EMPTY_PATH, (uintptr_t)&writable_top, sizeof(writable_top)) < 0) {
+			PLOG_W("mount_setattr(clear top-level readonly) for '%s'", basename);
+			close(mnt_fd);
+			return false;
+		}
 	}
 
 	if (util::syscall(__NR_move_mount, (uintptr_t)mnt_fd, (uintptr_t)"", (uintptr_t)parent_fd,
