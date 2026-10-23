@@ -492,14 +492,12 @@ static bool doBindMountAt(mount_t* mpt, int parent_fd, const char* basename) {
 	}
 
 	/*
-	 * Apply non-RO flags now; RO applied later via remount.
 	 * When the bind is recursive (MS_REC), open_tree above cloned the whole
-	 * subtree (AT_RECURSIVE), so the nosuid/nodev/noexec attributes must be
-	 * applied recursively as well -- otherwise nested submounts of the source
-	 * keep their original suid/dev/exec-permitting attributes inside the jail.
-	 * This mirrors the recursive read-only pass done later on the root.
+	 * subtree (AT_RECURSIVE), so all requested per-mount restrictions must be
+	 * applied recursively as well. The later bind remount only affects the top
+	 * mount and cannot make nested submounts read-only.
 	 */
-	if (!applyMountFlags(mnt_fd, mpt->flags & ~MS_RDONLY, true, (mpt->flags & MS_REC) != 0)) {
+	if (!applyMountFlags(mnt_fd, mpt->flags, true, (mpt->flags & MS_REC) != 0)) {
 		LOG_W("Failed to apply mount flags to '%s'", basename);
 	}
 
