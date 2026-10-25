@@ -163,6 +163,11 @@
 		"ERRNO(1337) { geteuid }\t",
 		"ERRNO(1) { ptrace, sched_setaffinity }\t\t",
 		"KILL_PROCESS { syslog }\t\t",
+		"ERRNO(38) {",
+		"io_uring_setup,",
+		"io_uring_enter,",
+		"io_uring_register",
+		"}",
 		"DEFAULT ALLOW\t\t\t"
 	],
 	"execBin": {
