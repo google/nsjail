@@ -94,8 +94,18 @@ static bool initNsFromParentMem(nsj_t* nsj, pid_t pid) {
 	RETURN_ON_FAILURE(writeToCgroup(
 	    mem_cgroup_path + "/memory.oom_control", "0", "memory cgroup oom control"));
 
-	if (nsj->njc.cgroup_mem_max() > (size_t)0) {
-		std::string mem_max_str = std::to_string(nsj->njc.cgroup_mem_max());
+	size_t mem_max = nsj->njc.cgroup_mem_max();
+	if (mem_max == (size_t)0 && nsj->njc.cgroup_mem_memsw_max() > (size_t)0) {
+		/*
+		 * The kernel rejects memory.memsw.limit_in_bytes below memory.limit_in_bytes,
+		 * which is unlimited here. Default the RAM limit to the memsw value, as
+		 * cgroup2.cc does.
+		 */
+		mem_max = nsj->njc.cgroup_mem_memsw_max();
+	}
+
+	if (mem_max > (size_t)0) {
+		std::string mem_max_str = std::to_string(mem_max);
 		RETURN_ON_FAILURE(writeToCgroup(mem_cgroup_path + "/memory.limit_in_bytes",
 		    mem_max_str, "memory cgroup max limit"));
 	}
