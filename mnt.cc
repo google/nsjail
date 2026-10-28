@@ -265,7 +265,7 @@ static bool initCloneNs(nsj_t* nsj) {
 	 * final jail may intentionally omit /proc. */
 	if (!nsj->mnt_newapi) {
 		for (auto& mpt : mounted_mpts) {
-			if (!legacy::remountPt(mpt, *destdir)) {
+			if (!legacy::remountPt(mpt, *destdir) && mpt.mpt->mandatory()) {
 				return false;
 			}
 		}
