@@ -289,8 +289,8 @@ tests/nstun_buffer_budget_test: tests/nstun_buffer_budget_test.cc nstun/buffer_b
 tests/nstun_policy_test: tests/nstun_policy_test.cc nstun/policy.cc logs.cc util.cc $(SRCS_PB_CXX)
 	$(CXX) $(filter-out -c,$(CXXFLAGS)) tests/nstun_policy_test.cc nstun/policy.cc logs.cc util.cc $(SRCS_PB_CXX) -o $@ $(LDFLAGS)
 
-tests/nstun_ip_test: tests/nstun_ip_test.cc nstun/net_defs.h
-	$(CXX) $(filter-out -c,$(CXXFLAGS)) tests/nstun_ip_test.cc -o $@
+tests/nstun_ip_test: tests/nstun_ip_test.cc nstun/ip.cc nstun/net_defs.h logs.h
+	$(CXX) $(filter-out -c,$(CXXFLAGS)) tests/nstun_ip_test.cc nstun/ip.cc -o $@
 
 tests/nstun_udp_peer_test: tests/nstun_udp_peer_test.cc nstun/udp_peer.h nstun/core.h
 	$(CXX) $(filter-out -c,$(CXXFLAGS)) tests/nstun_udp_peer_test.cc -o $@
