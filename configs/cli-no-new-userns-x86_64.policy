@@ -1,0 +1,93 @@
+// Opt-in example for native x86_64 CLI workloads. See the adjacent .md.
+// Every rule is scoped to x86_64; other targets have no allowed syscalls.
+// This is a small allowlist, not an addition to another seccomp policy.
+
+#define CLONE_NEWUSER 0x10000000
+
+ERRNO(1) {
+  clone ON x86_64 { (clone_flags & CLONE_NEWUSER) != 0 },
+  unshare ON x86_64 { (unshare_flags & CLONE_NEWUSER) != 0 },
+  setns ON x86_64
+}
+
+// Classic seccomp cannot inspect the structure pointed to by clone3.
+// ENOSYS permits fallback in applications that implement that fallback.
+ERRNO(38) { clone3 ON x86_64 }
+
+ALLOW {
+  clone ON x86_64 { (clone_flags & CLONE_NEWUSER) == 0 },
+  unshare ON x86_64 { (unshare_flags & CLONE_NEWUSER) == 0 },
+  vfork ON x86_64,
+  read ON x86_64,
+  write ON x86_64,
+  readv ON x86_64,
+  writev ON x86_64,
+  openat ON x86_64,
+  close ON x86_64,
+  close_range ON x86_64,
+  newfstat ON x86_64,
+  newfstatat ON x86_64,
+  lseek ON x86_64,
+  pread64 ON x86_64,
+  access ON x86_64,
+  faccessat ON x86_64,
+  faccessat2 ON x86_64,
+  readlink ON x86_64,
+  readlinkat ON x86_64,
+  getcwd ON x86_64,
+  chdir ON x86_64,
+  getdents64 ON x86_64,
+  dup ON x86_64,
+  dup2 ON x86_64,
+  dup3 ON x86_64,
+  pipe ON x86_64,
+  pipe2 ON x86_64,
+  fcntl ON x86_64,
+  ioctl ON x86_64,
+  mmap ON x86_64,
+  mprotect ON x86_64,
+  munmap ON x86_64,
+  mremap ON x86_64,
+  madvise ON x86_64,
+  brk ON x86_64,
+  rt_sigaction ON x86_64,
+  rt_sigprocmask ON x86_64,
+  rt_sigsuspend ON x86_64,
+  rt_sigreturn ON x86_64,
+  sigaltstack ON x86_64,
+  futex ON x86_64,
+  set_tid_address ON x86_64,
+  set_robust_list ON x86_64,
+  rseq ON x86_64,
+  arch_prctl ON x86_64,
+  sched_getaffinity ON x86_64,
+  sched_yield ON x86_64,
+  clock_gettime ON x86_64,
+  clock_nanosleep ON x86_64,
+  nanosleep ON x86_64,
+  getrandom ON x86_64,
+  prlimit64 ON x86_64,
+  getrlimit ON x86_64,
+  getrusage ON x86_64,
+  getpid ON x86_64,
+  getppid ON x86_64,
+  gettid ON x86_64,
+  getuid ON x86_64,
+  geteuid ON x86_64,
+  getgid ON x86_64,
+  getegid ON x86_64,
+  getpgrp ON x86_64,
+  getpgid ON x86_64,
+  setpgid ON x86_64,
+  wait4 ON x86_64,
+  waitid ON x86_64,
+  kill ON x86_64,
+  tgkill ON x86_64,
+  execve ON x86_64,
+  execveat ON x86_64,
+  exit ON x86_64,
+  exit_group ON x86_64
+}
+
+// Includes x32-numbered calls and any syscall omitted from the allowlist.
+DEFAULT KILL_PROCESS
