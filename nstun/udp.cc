@@ -205,7 +205,7 @@ static void handle_udp_tcp_connecting(Context* ctx, UdpFlow* flow, uint32_t even
 		udp_destroy_flow(ctx, flow);
 		return;
 	}
-	struct epoll_event ev = {.events = EPOLLIN | EPOLLERR | EPOLLHUP, .data = {.fd = fd}};
+	struct epoll_event ev = {.events = EPOLLIN | EPOLLERR | EPOLLHUP, .data = {.u64 = static_cast<uint32_t>(fd)}};
 	epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, fd, &ev);
 
 	if (flow->use_socks5) {
@@ -306,7 +306,7 @@ static void handle_udp_socks5_associate(Context* ctx, UdpFlow* flow, uint32_t ev
 		udp_destroy_flow(ctx, flow);
 		return;
 	}
-	struct epoll_event ev = {.events = EPOLLIN, .data = {.fd = udp_fd}};
+	struct epoll_event ev = {.events = EPOLLIN, .data = {.u64 = static_cast<uint32_t>(udp_fd)}};
 	if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, udp_fd, &ev) == -1) {
 		close(udp_fd);
 		udp_destroy_flow(ctx, flow);
@@ -465,7 +465,7 @@ void handle_udp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> paylo
 			};
 
 			struct epoll_event ev = {.events = EPOLLIN | EPOLLOUT | EPOLLERR | EPOLLHUP,
-			    .data = {.fd = tcp_fd}};
+			    .data = {.u64 = static_cast<uint32_t>(tcp_fd)}};
 			if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, tcp_fd, &ev) == -1) return;
 
 			struct sockaddr_in dest_addr = INIT_SOCKADDR_IN(AF_INET);
@@ -500,7 +500,7 @@ void handle_udp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> paylo
 				return;
 			}
 
-			struct epoll_event ev = {.events = EPOLLIN, .data = {.fd = fd}};
+			struct epoll_event ev = {.events = EPOLLIN, .data = {.u64 = static_cast<uint32_t>(fd)}};
 			if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1) {
 				PLOG_E("epoll_ctl(EPOLL_CTL_ADD) for UDP host socket failed");
 				return;
@@ -961,7 +961,7 @@ void handle_udp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> paylo
 			};
 
 			struct epoll_event ev = {.events = EPOLLIN | EPOLLOUT | EPOLLERR | EPOLLHUP,
-			    .data = {.fd = tcp_fd}};
+			    .data = {.u64 = static_cast<uint32_t>(tcp_fd)}};
 			if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, tcp_fd, &ev) == -1) return;
 
 			struct sockaddr_in dest_addr = INIT_SOCKADDR_IN(AF_INET);
@@ -995,7 +995,7 @@ void handle_udp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> paylo
 				return;
 			}
 
-			struct epoll_event ev = {.events = EPOLLIN, .data = {.fd = fd}};
+			struct epoll_event ev = {.events = EPOLLIN, .data = {.u64 = static_cast<uint32_t>(fd)}};
 			if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1) {
 				PLOG_E("epoll_ctl(EPOLL_CTL_ADD) for IPv6 UDP host socket failed");
 				return;

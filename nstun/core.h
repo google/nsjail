@@ -63,6 +63,7 @@ class Flow {
 public:
 	time_t last_active = 0;
 	bool is_ipv6 = false;
+	uint32_t epoll_generation = 0; /* Zero for untagged non-TCP registrations. */
 
 	virtual ~Flow() = default;
 	virtual void handle_host_event(Context* ctx, int fd, uint32_t events) = 0;
@@ -174,6 +175,7 @@ struct Context {
 	/* Unified host mapping for all encapsulated flows */
 	std::map<int, Flow*> flows_by_fd; // Observer pointer
 	BufferBudget tcp_rx_buffer_budget{NSTUN_MAX_TCP_RX_BUFFERED_BYTES};
+	uint32_t next_tcp_epoll_generation = 0;
 
 	/* IPv6 maps (Owning) */
 	std::map<FlowKey6, std::unique_ptr<UdpFlow>> ipv6_udp_flows_by_key;

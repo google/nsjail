@@ -232,6 +232,16 @@ static void tcp_rst_and_destroy(Context* ctx, TcpFlow* flow) {
 	tcp_destroy_flow(ctx, flow);
 }
 
+static uint32_t next_tcp_epoll_generation(Context* ctx) {
+	if (++ctx->next_tcp_epoll_generation == 0) ++ctx->next_tcp_epoll_generation;
+	return ctx->next_tcp_epoll_generation;
+}
+
+static uint64_t tcp_epoll_data(const TcpFlow* flow) {
+	return (static_cast<uint64_t>(flow->epoll_generation) << 32) |
+	    static_cast<uint32_t>(flow->host_fd);
+}
+
 static void release_tcp_rx_buffer(Context* ctx, TcpFlow* flow) {
 	size_t bytes = flow->rx_buffer.size();
 	if (bytes == 0) {
@@ -330,7 +340,8 @@ bool flush_to_host(Context* ctx, TcpFlow* flow) {
 		/* We made progress, remove EPOLLOUT if empty */
 		if (flow->rx_buffer.empty() && flow->epoll_out_registered) {
 			struct epoll_event ev = {
-			    .events = EPOLLIN | EPOLLERR | EPOLLHUP, .data = {.fd = flow->host_fd}};
+			    .events = EPOLLIN | EPOLLERR | EPOLLHUP,
+			    .data = {.u64 = tcp_epoll_data(flow)}};
 			epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, flow->host_fd, &ev);
 			flow->epoll_out_registered = false;
 		}
@@ -342,7 +353,7 @@ bool flush_to_host(Context* ctx, TcpFlow* flow) {
 		/* Apply backpressure, register EPOLLOUT */
 		if (!flow->epoll_out_registered) {
 			struct epoll_event ev = {.events = EPOLLIN | EPOLLOUT | EPOLLERR | EPOLLHUP,
-			    .data = {.fd = flow->host_fd}};
+			    .data = {.u64 = tcp_epoll_data(flow)}};
 			epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, flow->host_fd, &ev);
 			flow->epoll_out_registered = true;
 		}
@@ -541,7 +552,7 @@ static void handle_data_transfer_host(Context* ctx, TcpFlow* flow, int fd) {
 			struct epoll_event ev = {
 			    .events = EPOLLERR | EPOLLHUP |
 				      (flow->epoll_out_registered ? (uint32_t)EPOLLOUT : 0),
-			    .data = {.fd = fd}};
+			    .data = {.u64 = tcp_epoll_data(flow)}};
 			epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, fd, &ev);
 			flow->epoll_in_disabled = true;
 		}
@@ -614,7 +625,7 @@ static void tcp_process_data(Context* ctx, TcpFlow* flow, const tcp_hdr* tcp,
 			struct epoll_event ev = {
 			    .events = EPOLLIN | EPOLLERR | EPOLLHUP |
 				      (flow->epoll_out_registered ? (uint32_t)EPOLLOUT : 0),
-			    .data = {.fd = flow->host_fd}};
+			    .data = {.u64 = tcp_epoll_data(flow)}};
 			epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, flow->host_fd, &ev);
 			flow->epoll_in_disabled = false;
 		}
@@ -722,7 +733,7 @@ static void tcp_process_data(Context* ctx, TcpFlow* flow, const tcp_hdr* tcp,
 							      (flow->epoll_out_registered
 								      ? (uint32_t)EPOLLOUT
 								      : 0),
-						    .data = {.fd = flow->host_fd}};
+						    .data = {.u64 = tcp_epoll_data(flow)}};
 						epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD,
 						    flow->host_fd, &ev);
 						flow->epoll_in_disabled = false;
@@ -911,8 +922,11 @@ void handle_tcp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> paylo
 			    ip4_to_string(key4.daddr4).c_str(), dest_port, fd);
 		}
 
+		uint32_t generation = next_tcp_epoll_generation(ctx);
 		struct epoll_event ev = {
-		    .events = EPOLLIN | EPOLLOUT | EPOLLERR | EPOLLHUP, .data = {.fd = fd}};
+		    .events = EPOLLIN | EPOLLOUT | EPOLLERR | EPOLLHUP,
+		    .data = {.u64 = (static_cast<uint64_t>(generation) << 32) |
+					static_cast<uint32_t>(fd)}};
 		if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1) {
 			PLOG_E("epoll_ctl(EPOLL_CTL_ADD)");
 			close(fd);
@@ -924,6 +938,7 @@ void handle_tcp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> paylo
 		flow->key4 = key4;
 		init_outbound_flow_common(
 		    flow, fd, /*is_ipv6=*/false, proxy_mode_from_action(rule.action), seq + 1);
+		flow->epoll_generation = generation;
 
 		ctx->ipv4_tcp_flows_by_key[key4] = std::move(flow_ptr);
 		ctx->flows_by_fd[fd] = flow;
@@ -944,7 +959,8 @@ void handle_host_tcp_connected(Context* ctx, TcpFlow* flow, int fd) {
 		return;
 	}
 
-	struct epoll_event ev = {.events = EPOLLIN | EPOLLERR | EPOLLHUP, .data = {.fd = fd}};
+	struct epoll_event ev = {
+	    .events = EPOLLIN | EPOLLERR | EPOLLHUP, .data = {.u64 = tcp_epoll_data(flow)}};
 	epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, fd, &ev);
 	flow->epoll_out_registered = false;
 
@@ -1000,7 +1016,7 @@ void handle_host_tcp_data_eof(Context* ctx, TcpFlow* flow, int fd) {
 			struct epoll_event ev = {
 			    .events = EPOLLERR | EPOLLHUP |
 				      (flow->epoll_out_registered ? (uint32_t)EPOLLOUT : 0),
-			    .data = {.fd = fd}};
+			    .data = {.u64 = tcp_epoll_data(flow)}};
 			if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, fd, &ev) == -1) {
 				PLOG_E("epoll_ctl(EPOLL_CTL_MOD) failed in eof");
 			} else {
@@ -1024,7 +1040,8 @@ void handle_host_tcp(Context* ctx, TcpFlow* flow, uint32_t events) {
 			/* Avoid immediate EPOLLOUT spin, wait for data */
 			if (flow->epoll_out_registered) {
 				struct epoll_event ev_mod = {
-				    .events = EPOLLIN | EPOLLERR | EPOLLHUP, .data = {.fd = fd}};
+				    .events = EPOLLIN | EPOLLERR | EPOLLHUP,
+				    .data = {.u64 = tcp_epoll_data(flow)}};
 				epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, fd, &ev_mod);
 				flow->epoll_out_registered = false;
 			}
@@ -1159,8 +1176,10 @@ void handle_host_tcp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 	flow = flow_ptr.get();
 	flow->host_fd = fd;
 	flow->is_ipv6 = rule.is_ipv6;
+	flow->epoll_generation = next_tcp_epoll_generation(ctx);
 
-	struct epoll_event ev = {.events = EPOLLIN | EPOLLERR | EPOLLHUP, .data = {.fd = fd}};
+	struct epoll_event ev = {
+	    .events = EPOLLIN | EPOLLERR | EPOLLHUP, .data = {.u64 = tcp_epoll_data(flow)}};
 	if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1) {
 		PLOG_E("epoll_ctl(EPOLL_CTL_ADD) for host accept");
 		return;
@@ -1338,8 +1357,11 @@ void handle_tcp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> paylo
 			PLOG_W("setsockopt(TCP_NODELAY)");
 		}
 
+		uint32_t generation = next_tcp_epoll_generation(ctx);
 		struct epoll_event ev = {
-		    .events = EPOLLIN | EPOLLOUT | EPOLLERR | EPOLLHUP, .data = {.fd = fd}};
+		    .events = EPOLLIN | EPOLLOUT | EPOLLERR | EPOLLHUP,
+		    .data = {.u64 = (static_cast<uint64_t>(generation) << 32) |
+					static_cast<uint32_t>(fd)}};
 		if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1) {
 			PLOG_E("epoll_ctl(EPOLL_CTL_ADD) for IPv6 TCP");
 			close(fd);
@@ -1351,6 +1373,7 @@ void handle_tcp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> paylo
 		flow->key6 = key6;
 		init_outbound_flow_common(
 		    flow, fd, /*is_ipv6=*/true, proxy_mode_from_action(rule.action), seq + 1);
+		flow->epoll_generation = generation;
 
 		ctx->ipv6_tcp_flows_by_key[key6] = std::move(flow_ptr);
 		ctx->flows_by_fd[fd] = flow;
