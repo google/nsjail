@@ -68,6 +68,8 @@ static void garbage_collect(Context* ctx) {
 	do_gc(ctx->ipv6_tcp_flows_by_key);
 	do_gc(ctx->ipv6_udp_flows_by_key);
 	do_gc(ctx->ipv6_icmp_flows_by_key);
+	tcp_retry_deferred_writes(ctx);
+	tcp_resume_tx_budget_blocked_flows(ctx);
 }
 
 void handle_host_events(Context* ctx, uint64_t event_data, uint32_t events) {
@@ -182,6 +184,7 @@ static void networkLoop(Context* ctx) {
 				handle_host_events(ctx, event_data, events[i].events);
 			}
 		}
+		tcp_finish_host_event_batch(ctx);
 	}
 }
 

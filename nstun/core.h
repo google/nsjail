@@ -20,6 +20,7 @@ namespace nstun {
 
 constexpr size_t NSTUN_MAX_FLOWS = 1024;
 constexpr size_t NSTUN_MAX_TCP_RX_BUFFERED_BYTES = 64 * 1024 * 1024;
+constexpr size_t NSTUN_MAX_TCP_TX_BUFFERED_BYTES = 64 * 1024 * 1024;
 
 // Removed MemcmpLess in favor of C++20 operator<=>
 
@@ -175,6 +176,9 @@ struct Context {
 	/* Unified host mapping for all encapsulated flows */
 	std::map<int, Flow*> flows_by_fd; // Observer pointer
 	BufferBudget tcp_rx_buffer_budget{NSTUN_MAX_TCP_RX_BUFFERED_BYTES};
+	BufferBudget tcp_tx_buffer_budget{NSTUN_MAX_TCP_TX_BUFFERED_BYTES};
+	std::deque<TcpFlow*> tcp_tx_budget_waiters;
+	bool tcp_tx_waiter_resume_pending = false;
 	uint32_t next_tcp_epoll_generation = 0;
 
 	/* IPv6 maps (Owning) */
