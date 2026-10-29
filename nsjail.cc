@@ -264,8 +264,16 @@ static int listenMode(nsj_t* nsj) {
 			if (connfd >= 0) {
 				int in[2];
 				int out[2];
-				if (pipe(in) != 0 || pipe(out) != 0) {
+				if (pipe(in) != 0) {
 					PLOG_E("pipe");
+					close(connfd);
+					continue;
+				}
+				if (pipe(out) != 0) {
+					PLOG_E("pipe");
+					close(in[0]);
+					close(in[1]);
+					close(connfd);
 					continue;
 				}
 
