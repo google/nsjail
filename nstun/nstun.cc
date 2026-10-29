@@ -68,9 +68,27 @@ static void garbage_collect(Context* ctx) {
 	do_gc(ctx->ipv6_tcp_flows_by_key);
 	do_gc(ctx->ipv6_udp_flows_by_key);
 	do_gc(ctx->ipv6_icmp_flows_by_key);
+	tcp_retry_deferred_writes(ctx);
+	tcp_resume_tx_budget_blocked_flows(ctx);
 }
 
-static void handle_host_events(Context* ctx, int fd, uint32_t events) {
+void handle_host_events(Context* ctx, uint64_t event_data, uint32_t events) {
+	int fd = static_cast<int>(static_cast<uint32_t>(event_data));
+	uint32_t generation = static_cast<uint32_t>(event_data >> 32);
+	if (generation != 0) {
+		auto it = ctx->flows_by_fd.find(fd);
+		if (it == ctx->flows_by_fd.end() || it->second->epoll_generation != generation) {
+			LOG_D("Stale TCP epoll generation for fd %d, skipping", fd);
+			return;
+		}
+		it->second->handle_host_event(ctx, fd, events);
+		return;
+	}
+	auto it_flow = ctx->flows_by_fd.find(fd);
+	if (it_flow != ctx->flows_by_fd.end() && it_flow->second->epoll_generation != 0) {
+		LOG_D("Untagged stale epoll event for tagged TCP fd %d, skipping", fd);
+		return;
+	}
 	auto it_listener = ctx->host_listener_fd_to_rule.find(fd);
 	if (it_listener != ctx->host_listener_fd_to_rule.end()) {
 		if (it_listener->second.proto == NSTUN_PROTO_TCP) {
@@ -108,13 +126,15 @@ static void networkLoop(Context* ctx) {
 		 * reuse if the loop exits naturally before child reap. */
 	};
 
-	struct epoll_event stop_ev = {.events = EPOLLIN, .data = {.fd = ctx->stop_fd}};
+	struct epoll_event stop_ev = {
+	    .events = EPOLLIN, .data = {.u64 = static_cast<uint32_t>(ctx->stop_fd)}};
 	if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, ctx->stop_fd, &stop_ev) == -1) {
 		PLOG_E("epoll_ctl(EPOLL_CTL_ADD, stop_fd)");
 		return;
 	}
 
-	struct epoll_event ev = {.events = EPOLLIN, .data = {.fd = ctx->tap_fd}};
+	struct epoll_event ev = {
+	    .events = EPOLLIN, .data = {.u64 = static_cast<uint32_t>(ctx->tap_fd)}};
 	if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, ctx->tap_fd, &ev) == -1) {
 		PLOG_E("epoll_ctl(EPOLL_CTL_ADD, tap_fd)");
 		return;
@@ -141,13 +161,15 @@ static void networkLoop(Context* ctx) {
 		}
 
 		for (int i = 0; i < nfds; ++i) {
-			int fd = events[i].data.fd;
+			uint64_t event_data = events[i].data.u64;
+			int fd = static_cast<int>(static_cast<uint32_t>(event_data));
+			uint32_t generation = static_cast<uint32_t>(event_data >> 32);
 
-			if (fd == ctx->stop_fd) {
+			if (generation == 0 && fd == ctx->stop_fd) {
 				uint64_t value;
 				(void)TEMP_FAILURE_RETRY(read(ctx->stop_fd, &value, sizeof(value)));
 				return;
-			} else if (fd == ctx->tap_fd) {
+			} else if (generation == 0 && fd == ctx->tap_fd) {
 				ssize_t n = TEMP_FAILURE_RETRY(
 				    read(ctx->tap_fd, buf.get(), TUN_FRAME_BUF_SIZE));
 				if (n <= 0) {
@@ -159,9 +181,10 @@ static void networkLoop(Context* ctx) {
 				}
 				handle_tun_frame(ctx, buf.get(), n);
 			} else {
-				handle_host_events(ctx, fd, events[i].events);
+				handle_host_events(ctx, event_data, events[i].events);
 			}
 		}
+		tcp_finish_host_event_batch(ctx);
 	}
 }
 
@@ -390,7 +413,7 @@ bool nstun_init_parent(int sock, nsj_t* nsj, struct nstun_context_handle** out_h
 					}
 				}
 
-				struct epoll_event ev = {.events = EPOLLIN, .data = {.fd = fd}};
+				struct epoll_event ev = {.events = EPOLLIN, .data = {.u64 = static_cast<uint32_t>(fd)}};
 				if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1) {
 					PLOG_E("epoll_ctl(EPOLL_CTL_ADD) for HOST_TO_GUEST");
 					close(fd);
@@ -516,7 +539,7 @@ bool nstun_init_parent(int sock, nsj_t* nsj, struct nstun_context_handle** out_h
 					}
 				}
 
-				struct epoll_event ev = {.events = EPOLLIN, .data = {.fd = fd}};
+				struct epoll_event ev = {.events = EPOLLIN, .data = {.u64 = static_cast<uint32_t>(fd)}};
 				if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1) {
 					PLOG_E("epoll_ctl(EPOLL_CTL_ADD) for HOST_TO_GUEST IPv6");
 					close(fd);

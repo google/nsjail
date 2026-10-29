@@ -11,6 +11,8 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <algorithm>
+
 #include "encap.h"
 #include "logs.h"
 #include "macros.h"
@@ -232,6 +234,111 @@ static void tcp_rst_and_destroy(Context* ctx, TcpFlow* flow) {
 	tcp_destroy_flow(ctx, flow);
 }
 
+static void release_tcp_tx_bytes(Context* ctx, size_t bytes) {
+	if (!ctx->tcp_tx_buffer_budget.release(bytes)) {
+		LOG_F("TCP tx buffer budget accounting underflow: used=%zu release=%zu",
+		    ctx->tcp_tx_buffer_budget.used(), bytes);
+		abort();
+	}
+}
+
+static void clear_tx_budget_blocked(Context* ctx, TcpFlow* flow) {
+	if (!flow->tx_budget_blocked) return;
+	flow->tx_budget_blocked = false;
+	auto& waiters = ctx->tcp_tx_budget_waiters;
+	waiters.erase(std::remove(waiters.begin(), waiters.end(), flow), waiters.end());
+}
+
+static void mark_tx_budget_blocked(Context* ctx, TcpFlow* flow) {
+	if (flow->tx_budget_blocked) return;
+	flow->tx_budget_blocked = true;
+	ctx->tcp_tx_budget_waiters.push_back(flow);
+}
+
+static uint32_t next_tcp_epoll_generation(Context* ctx) {
+	if (++ctx->next_tcp_epoll_generation == 0) ++ctx->next_tcp_epoll_generation;
+	return ctx->next_tcp_epoll_generation;
+}
+
+static uint64_t tcp_epoll_data(const TcpFlow* flow) {
+	return (static_cast<uint64_t>(flow->epoll_generation) << 32) |
+	    static_cast<uint32_t>(flow->host_fd);
+}
+
+static bool pause_host_reads(Context* ctx, TcpFlow* flow) {
+	if (flow->epoll_in_disabled) return true;
+	if (flow->epoll_detached) {
+		flow->epoll_in_disabled = true;
+		return true;
+	}
+	struct epoll_event ev = {
+	    .events = EPOLLERR | EPOLLHUP |
+		      (flow->epoll_out_registered ? (uint32_t)EPOLLOUT : 0),
+	    .data = {.u64 = tcp_epoll_data(flow)}};
+	if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, flow->host_fd, &ev) == -1) {
+		PLOG_E("epoll_ctl(EPOLL_CTL_MOD) failed pausing TCP host reads");
+		return false;
+	}
+	flow->epoll_in_disabled = true;
+	return true;
+}
+
+static void resume_host_reads_if_possible(Context* ctx, TcpFlow* flow) {
+	if (!flow->epoll_in_disabled || flow->host_eof ||
+	    flow->tx_buffer.size() - flow->tx_acked_offset >= TCP_TX_BUFFER_RESUME) {
+		return;
+	}
+	if (ctx->tcp_tx_buffer_budget.used() == ctx->tcp_tx_buffer_budget.limit()) {
+		mark_tx_budget_blocked(ctx, flow);
+		return;
+	}
+	struct epoll_event ev = {
+	    .events = EPOLLIN | EPOLLERR | EPOLLHUP |
+		      (flow->epoll_out_registered ? (uint32_t)EPOLLOUT : 0),
+	    .data = {.u64 = tcp_epoll_data(flow)}};
+	int operation = flow->epoll_detached ? EPOLL_CTL_ADD : EPOLL_CTL_MOD;
+	if (epoll_ctl(ctx->epoll_fd, operation, flow->host_fd, &ev) == -1) {
+		PLOG_E("epoll_ctl failed resuming TCP host reads");
+		return;
+	}
+	flow->epoll_in_disabled = false;
+	flow->epoll_detached = false;
+	clear_tx_budget_blocked(ctx, flow);
+}
+
+void tcp_resume_tx_budget_blocked_flows(Context* ctx) {
+	ctx->tcp_tx_waiter_resume_pending = false;
+	if (ctx->tcp_tx_budget_waiters.empty() ||
+	    ctx->tcp_tx_buffer_budget.used() == ctx->tcp_tx_buffer_budget.limit()) {
+		return;
+	}
+	/* Limit data-bearing wakeups to the amount of new space. Idle sockets
+	 * consume no budget, so rearm them without starving a later ready flow. */
+	size_t available =
+	    ctx->tcp_tx_buffer_budget.limit() - ctx->tcp_tx_buffer_budget.used();
+	size_t wake_slots = std::min<size_t>(
+	    64, (available + TCP_RECV_BUF_SIZE - 1) / TCP_RECV_BUF_SIZE);
+	size_t to_inspect = ctx->tcp_tx_budget_waiters.size();
+	while (wake_slots > 0 && to_inspect-- > 0 && !ctx->tcp_tx_budget_waiters.empty()) {
+		TcpFlow* flow = ctx->tcp_tx_budget_waiters.front();
+		ctx->tcp_tx_budget_waiters.pop_front();
+		uint8_t pending;
+		ssize_t peek_len = recv(flow->host_fd, &pending, 1, MSG_PEEK | MSG_DONTWAIT);
+		flow->tx_budget_blocked = false;
+		resume_host_reads_if_possible(ctx, flow);
+		if (flow->epoll_in_disabled && !flow->host_eof) {
+			flow->tx_budget_blocked = true;
+			ctx->tcp_tx_budget_waiters.push_back(flow);
+		} else if (peek_len > 0) {
+			wake_slots--;
+		}
+	}
+}
+
+void tcp_finish_host_event_batch(Context* ctx) {
+	if (ctx->tcp_tx_waiter_resume_pending) tcp_resume_tx_budget_blocked_flows(ctx);
+}
+
 static void release_tcp_rx_buffer(Context* ctx, TcpFlow* flow) {
 	size_t bytes = flow->rx_buffer.size();
 	if (bytes == 0) {
@@ -253,6 +360,8 @@ static void release_tcp_rx_buffer(Context* ctx, TcpFlow* flow) {
 
 void tcp_destroy_flow(Context* ctx, TcpFlow* flow) {
 	release_tcp_rx_buffer(ctx, flow);
+	const size_t tx_bytes = flow->tx_buffer.size();
+	clear_tx_budget_blocked(ctx, flow);
 	if (flow->host_fd != -1) {
 		epoll_ctl(ctx->epoll_fd, EPOLL_CTL_DEL, flow->host_fd, nullptr);
 		ctx->flows_by_fd.erase(flow->host_fd);
@@ -264,6 +373,8 @@ void tcp_destroy_flow(Context* ctx, TcpFlow* flow) {
 	} else {
 		ctx->ipv4_tcp_flows_by_key.erase(flow->key4);
 	}
+	release_tcp_tx_bytes(ctx, tx_bytes);
+	tcp_resume_tx_budget_blocked_flows(ctx);
 }
 
 void push_to_guest(Context* ctx, TcpFlow* flow) {
@@ -329,9 +440,22 @@ bool flush_to_host(Context* ctx, TcpFlow* flow) {
 
 		/* We made progress, remove EPOLLOUT if empty */
 		if (flow->rx_buffer.empty() && flow->epoll_out_registered) {
-			struct epoll_event ev = {
-			    .events = EPOLLIN | EPOLLERR | EPOLLHUP, .data = {.fd = flow->host_fd}};
-			epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, flow->host_fd, &ev);
+			if (!flow->epoll_detached) {
+				if (flow->host_eof) {
+					/* EOF is level-triggered. With no pending write, remove
+					 * the socket instead of polling an idle HUP forever. */
+					if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_DEL, flow->host_fd, nullptr) == 0)
+						flow->epoll_detached = true;
+					else
+						PLOG_E("epoll_ctl(EPOLL_CTL_DEL) after TCP write drain");
+				} else {
+					struct epoll_event ev = {
+					    .events = EPOLLERR | EPOLLHUP |
+						      (flow->epoll_in_disabled ? 0 : (uint32_t)EPOLLIN),
+					    .data = {.u64 = tcp_epoll_data(flow)}};
+					epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, flow->host_fd, &ev);
+				}
+			}
 			flow->epoll_out_registered = false;
 		}
 
@@ -340,10 +464,20 @@ bool flush_to_host(Context* ctx, TcpFlow* flow) {
 
 	} else if (written < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
 		/* Apply backpressure, register EPOLLOUT */
-		if (!flow->epoll_out_registered) {
-			struct epoll_event ev = {.events = EPOLLIN | EPOLLOUT | EPOLLERR | EPOLLHUP,
-			    .data = {.fd = flow->host_fd}};
-			epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, flow->host_fd, &ev);
+		if (!flow->epoll_out_registered || (flow->host_eof && flow->epoll_detached)) {
+			struct epoll_event ev = {.events = EPOLLOUT | EPOLLERR | EPOLLHUP |
+				    ((!flow->epoll_in_disabled && !flow->host_eof)
+					? (uint32_t)EPOLLIN
+					: 0),
+			    .data = {.u64 = tcp_epoll_data(flow)}};
+			if (!flow->epoll_detached || flow->host_eof) {
+				int operation = flow->epoll_detached ? EPOLL_CTL_ADD : EPOLL_CTL_MOD;
+				if (epoll_ctl(ctx->epoll_fd, operation, flow->host_fd, &ev) == -1) {
+					PLOG_E("epoll_ctl failed watching pending TCP host write");
+				} else {
+					flow->epoll_detached = false;
+				}
+				}
 			flow->epoll_out_registered = true;
 		}
 		return false;
@@ -352,6 +486,22 @@ bool flush_to_host(Context* ctx, TcpFlow* flow) {
 		tcp_rst_and_destroy(ctx, flow);
 		return true;
 	}
+}
+
+void tcp_retry_deferred_writes(Context* ctx) {
+	/* A detached host socket cannot notify EPOLLOUT. Retry queued guest
+	 * writes on the existing two-second GC tick without invalidating a map
+	 * while iterating it: flush_to_host may destroy a failed flow. */
+	std::vector<TcpFlow*> pending;
+	for (auto const& [_, owned] : ctx->ipv4_tcp_flows_by_key) {
+		if (owned->epoll_detached && owned->rx_sent_offset < owned->rx_buffer.size())
+			pending.push_back(owned.get());
+	}
+	for (auto const& [_, owned] : ctx->ipv6_tcp_flows_by_key) {
+		if (owned->epoll_detached && owned->rx_sent_offset < owned->rx_buffer.size())
+			pending.push_back(owned.get());
+	}
+	for (TcpFlow* flow : pending) flush_to_host(ctx, flow);
 }
 
 static void handle_socks5_init_host(Context* ctx, TcpFlow* flow, int fd) {
@@ -461,7 +611,31 @@ static void handle_socks5_connecting_host(Context* ctx, TcpFlow* flow, int fd) {
 
 static void handle_http_connect_wait_host(Context* ctx, TcpFlow* flow, int fd) {
 	uint8_t buf[HTTP_PROXY_RESPONSE_MAX];
-	ssize_t recv_len = recv(fd, buf, sizeof(buf), MSG_DONTWAIT);
+	auto& rx = flow->proxy_rx_buffer;
+	if (rx.size() >= HTTP_PROXY_RESPONSE_MAX) {
+		LOG_E("HTTP proxy response too long");
+		tcp_rst_and_destroy(ctx, flow);
+		return;
+	}
+	/* Inspect the response without consuming any tunnel payload. Once the
+	 * header ends, ordinary budgeted host reads own every following byte. */
+	ssize_t peek_len = recv(fd, buf, HTTP_PROXY_RESPONSE_MAX - rx.size(),
+	    MSG_PEEK | MSG_DONTWAIT);
+	if (peek_len == 0) {
+		tcp_rst_and_destroy(ctx, flow);
+		return;
+	}
+	if (peek_len < 0) {
+		if (errno == EAGAIN || errno == EWOULDBLOCK) return;
+		tcp_rst_and_destroy(ctx, flow);
+		return;
+	}
+	size_t old_size = rx.size();
+	rx.insert(rx.end(), buf, buf + peek_len);
+	size_t end_of_headers = nstun::find_end_of_headers(rx);
+	rx.resize(old_size);
+	size_t to_consume = end_of_headers ? end_of_headers - old_size : peek_len;
+	ssize_t recv_len = recv(fd, buf, to_consume, MSG_DONTWAIT);
 	if (recv_len == 0) {
 		tcp_rst_and_destroy(ctx, flow);
 		return;
@@ -472,12 +646,11 @@ static void handle_http_connect_wait_host(Context* ctx, TcpFlow* flow, int fd) {
 		return;
 	}
 
-	auto& rx = flow->proxy_rx_buffer;
 	rx.insert(rx.end(), buf, buf + recv_len);
 
-	size_t end_of_headers = nstun::find_end_of_headers(rx);
+	end_of_headers = nstun::find_end_of_headers(rx);
 	if (end_of_headers == 0) {
-		if (rx.size() > HTTP_PROXY_RESPONSE_MAX) {
+		if (rx.size() >= HTTP_PROXY_RESPONSE_MAX) {
 			LOG_E("HTTP proxy response too long");
 			tcp_rst_and_destroy(ctx, flow);
 			return;
@@ -492,11 +665,6 @@ static void handle_http_connect_wait_host(Context* ctx, TcpFlow* flow, int fd) {
 		return;
 	}
 
-	/* Anything after the headers is tunnelled payload - forward it */
-	if (rx.size() > end_of_headers) {
-		flow->tx_buffer.insert(
-		    flow->tx_buffer.end(), rx.data() + end_of_headers, rx.data() + rx.size());
-	}
 	/* Release proxy negotiation buffer - no longer needed */
 	rx.clear();
 	rx.shrink_to_fit();
@@ -505,15 +673,35 @@ static void handle_http_connect_wait_host(Context* ctx, TcpFlow* flow, int fd) {
 	tcp_send_packet(ctx, flow, NSTUN_TCP_FLAG_SYN | NSTUN_TCP_FLAG_ACK);
 	flow->seq_to_guest++;
 
-	if (!flow->tx_buffer.empty()) {
-		push_to_guest(ctx, flow);
-	}
 }
 
 static void handle_data_transfer_host(Context* ctx, TcpFlow* flow, int fd) {
 	uint8_t buf[TCP_RECV_BUF_SIZE];
-	ssize_t recv_len = recv(fd, buf, sizeof(buf), MSG_DONTWAIT);
+	size_t budget_available =
+	    ctx->tcp_tx_buffer_budget.limit() - ctx->tcp_tx_buffer_budget.used();
+	if (budget_available == 0) {
+		if (!pause_host_reads(ctx, flow)) {
+			tcp_rst_and_destroy(ctx, flow);
+			return;
+		}
+		mark_tx_budget_blocked(ctx, flow);
+		return;
+	}
+	size_t reserved = std::min(sizeof(buf), budget_available);
+	if (!ctx->tcp_tx_buffer_budget.try_reserve(reserved)) {
+		LOG_F("TCP tx buffer budget changed during a single-threaded host read");
+		abort();
+	}
+	ssize_t recv_len = recv(fd, buf, reserved, MSG_DONTWAIT);
+	size_t unused = reserved - (recv_len > 0 ? static_cast<size_t>(recv_len) : 0);
+	if (unused != 0) {
+		release_tcp_tx_bytes(ctx, unused);
+		/* A one-byte host read can free almost an entire reservation. Wake
+		 * another blocked flow after this epoll batch, not once per read. */
+		if (!ctx->tcp_tx_budget_waiters.empty()) ctx->tcp_tx_waiter_resume_pending = true;
+	}
 	if (recv_len == 0) {
+		clear_tx_budget_blocked(ctx, flow);
 		handle_host_tcp_data_eof(ctx, flow, fd);
 		return;
 	}
@@ -537,14 +725,7 @@ static void handle_data_transfer_host(Context* ctx, TcpFlow* flow, int fd) {
 	}
 
 	if (flow->tx_buffer.size() - flow->tx_acked_offset > TCP_TX_BUFFER_BACKPRESSURE) {
-		if (!flow->epoll_in_disabled) {
-			struct epoll_event ev = {
-			    .events = EPOLLERR | EPOLLHUP |
-				      (flow->epoll_out_registered ? (uint32_t)EPOLLOUT : 0),
-			    .data = {.fd = fd}};
-			epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, fd, &ev);
-			flow->epoll_in_disabled = true;
-		}
+		if (!pause_host_reads(ctx, flow)) tcp_rst_and_destroy(ctx, flow);
 	}
 }
 
@@ -610,14 +791,7 @@ static void tcp_process_data(Context* ctx, TcpFlow* flow, const tcp_hdr* tcp,
 			push_to_guest(ctx, flow);
 		}
 
-		if (flow->epoll_in_disabled) {
-			struct epoll_event ev = {
-			    .events = EPOLLIN | EPOLLERR | EPOLLHUP |
-				      (flow->epoll_out_registered ? (uint32_t)EPOLLOUT : 0),
-			    .data = {.fd = flow->host_fd}};
-			epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, flow->host_fd, &ev);
-			flow->epoll_in_disabled = false;
-		}
+		resume_host_reads_if_possible(ctx, flow);
 		return;
 	}
 
@@ -712,21 +886,21 @@ static void tcp_process_data(Context* ctx, TcpFlow* flow, const tcp_hdr* tcp,
 						flow->tx_buffer.erase(flow->tx_buffer.begin(),
 						    flow->tx_buffer.begin() + erase_len);
 						flow->tx_acked_offset -= erase_len;
+						release_tcp_tx_bytes(ctx, erase_len);
+						if (flow->tx_buffer.capacity() > TCP_RECV_BUF_SIZE &&
+						    (flow->tx_buffer.empty() ||
+							flow->tx_buffer.capacity() / 4 >
+							    flow->tx_buffer.size())) {
+							/* Erase does not release vector capacity. A mostly
+							 * acknowledged flow must not retain a large allocation. */
+							std::vector<uint8_t> compacted(
+							    flow->tx_buffer.begin(), flow->tx_buffer.end());
+							flow->tx_buffer.swap(compacted);
+						}
+						tcp_resume_tx_budget_blocked_flows(ctx);
 					}
 
-					if (flow->epoll_in_disabled && !flow->host_eof &&
-					    (flow->tx_buffer.size() - flow->tx_acked_offset <
-						TCP_TX_BUFFER_RESUME)) {
-						struct epoll_event ev = {
-						    .events = EPOLLIN | EPOLLERR | EPOLLHUP |
-							      (flow->epoll_out_registered
-								      ? (uint32_t)EPOLLOUT
-								      : 0),
-						    .data = {.fd = flow->host_fd}};
-						epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD,
-						    flow->host_fd, &ev);
-						flow->epoll_in_disabled = false;
-					}
+					resume_host_reads_if_possible(ctx, flow);
 
 					push_to_guest(ctx, flow);
 				} else if (acked_bytes == 0 && data_len == 0 &&
@@ -768,6 +942,10 @@ static void tcp_process_data(Context* ctx, TcpFlow* flow, const tcp_hdr* tcp,
 
 			push_to_guest(ctx, flow);
 			return;
+		}
+		if (flow->host_eof && flow->guest_eof && flow->fin_acked &&
+		    flow->tx_buffer.empty()) {
+			tcp_destroy_flow(ctx, flow);
 		}
 	}
 }
@@ -911,8 +1089,11 @@ void handle_tcp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> paylo
 			    ip4_to_string(key4.daddr4).c_str(), dest_port, fd);
 		}
 
+		uint32_t generation = next_tcp_epoll_generation(ctx);
 		struct epoll_event ev = {
-		    .events = EPOLLIN | EPOLLOUT | EPOLLERR | EPOLLHUP, .data = {.fd = fd}};
+		    .events = EPOLLIN | EPOLLOUT | EPOLLERR | EPOLLHUP,
+		    .data = {.u64 = (static_cast<uint64_t>(generation) << 32) |
+					static_cast<uint32_t>(fd)}};
 		if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1) {
 			PLOG_E("epoll_ctl(EPOLL_CTL_ADD)");
 			close(fd);
@@ -924,6 +1105,7 @@ void handle_tcp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> paylo
 		flow->key4 = key4;
 		init_outbound_flow_common(
 		    flow, fd, /*is_ipv6=*/false, proxy_mode_from_action(rule.action), seq + 1);
+		flow->epoll_generation = generation;
 
 		ctx->ipv4_tcp_flows_by_key[key4] = std::move(flow_ptr);
 		ctx->flows_by_fd[fd] = flow;
@@ -944,7 +1126,8 @@ void handle_host_tcp_connected(Context* ctx, TcpFlow* flow, int fd) {
 		return;
 	}
 
-	struct epoll_event ev = {.events = EPOLLIN | EPOLLERR | EPOLLHUP, .data = {.fd = fd}};
+	struct epoll_event ev = {
+	    .events = EPOLLIN | EPOLLERR | EPOLLHUP, .data = {.u64 = tcp_epoll_data(flow)}};
 	epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, fd, &ev);
 	flow->epoll_out_registered = false;
 
@@ -996,18 +1179,27 @@ void handle_host_tcp_data_eof(Context* ctx, TcpFlow* flow, int fd) {
 	    flow->epoll_in_disabled);
 	if (!flow->host_eof) {
 		flow->host_eof = true;
-		if (!flow->epoll_in_disabled) {
-			struct epoll_event ev = {
-			    .events = EPOLLERR | EPOLLHUP |
-				      (flow->epoll_out_registered ? (uint32_t)EPOLLOUT : 0),
-			    .data = {.fd = fd}};
-			if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, fd, &ev) == -1) {
-				PLOG_E("epoll_ctl(EPOLL_CTL_MOD) failed in eof");
+		clear_tx_budget_blocked(ctx, flow);
+		if (!flow->epoll_detached) {
+			if (flow->rx_sent_offset < flow->rx_buffer.size()) {
+				struct epoll_event ev = {
+				    .events = EPOLLOUT | EPOLLERR | EPOLLHUP,
+				    .data = {.u64 = tcp_epoll_data(flow)}};
+				if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, fd, &ev) == -1) {
+					PLOG_E("epoll_ctl(EPOLL_CTL_MOD) after TCP EOF");
+				} else {
+					flow->epoll_out_registered = true;
+				}
 			} else {
-				LOG_D("epoll_ctl(EPOLL_CTL_MOD) removed EPOLLIN successfully");
+				if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_DEL, fd, nullptr) == -1) {
+					PLOG_E("epoll_ctl(EPOLL_CTL_DEL) after TCP EOF");
+				} else {
+					flow->epoll_detached = true;
+				}
+				flow->epoll_out_registered = false;
 			}
-			flow->epoll_in_disabled = true;
 		}
+		flow->epoll_in_disabled = true;
 	}
 	push_to_guest(ctx, flow);
 }
@@ -1024,7 +1216,8 @@ void handle_host_tcp(Context* ctx, TcpFlow* flow, uint32_t events) {
 			/* Avoid immediate EPOLLOUT spin, wait for data */
 			if (flow->epoll_out_registered) {
 				struct epoll_event ev_mod = {
-				    .events = EPOLLIN | EPOLLERR | EPOLLHUP, .data = {.fd = fd}};
+				    .events = EPOLLIN | EPOLLERR | EPOLLHUP,
+				    .data = {.u64 = tcp_epoll_data(flow)}};
 				epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, fd, &ev_mod);
 				flow->epoll_out_registered = false;
 			}
@@ -1042,7 +1235,12 @@ void handle_host_tcp(Context* ctx, TcpFlow* flow, uint32_t events) {
 		}
 	}
 
-	if ((events & EPOLLOUT) && flow->rx_buffer.size() > flow->rx_sent_offset) {
+	if ((events & (EPOLLOUT | EPOLLHUP | EPOLLERR)) && flow->host_eof &&
+	    flow->rx_buffer.size() > flow->rx_sent_offset) {
+		if (flow->state == TcpState::ESTABLISHED || flow->state == TcpState::CLOSE_WAIT) {
+			if (flush_to_host(ctx, flow)) return;
+		}
+	} else if ((events & EPOLLOUT) && flow->rx_buffer.size() > flow->rx_sent_offset) {
 		if (flow->state == TcpState::ESTABLISHED || flow->state == TcpState::CLOSE_WAIT) {
 			if (flush_to_host(ctx, flow)) {
 				return; /* Flow was destroyed */
@@ -1054,21 +1252,71 @@ void handle_host_tcp(Context* ctx, TcpFlow* flow, uint32_t events) {
 	 * If we didn't already process this via EPOLLIN above, clean up now
 	 * to avoid spinning forever on a hung-up fd */
 	if (events & (EPOLLHUP | EPOLLERR)) {
-		if (flow->host_eof && flow->guest_eof) {
+		if (!flow->host_eof) {
+			uint8_t pending;
+			ssize_t peek_len = recv(fd, &pending, 1, MSG_PEEK | MSG_DONTWAIT);
+			if (peek_len > 0 &&
+			    (flow->state == TcpState::CLOSING || flow->state == TcpState::TIME_WAIT)) {
+				/* These states have no host-data handler. Never dispatch a
+				 * HUP-only event with unread bytes to their aborting stub. */
+				tcp_rst_and_destroy(ctx, flow);
+				return;
+			}
+			/* epoll_wait snapshots events before earlier events in the batch
+			 * can release budget and re-arm this flow. A stale HUP-only event
+			 * may therefore have readable data even if EPOLLIN is enabled now.
+			 * Drain available bytes through the same budgeted state handler.
+			 * Respect the per-flow backpressure mark as well as the shared
+			 * budget; a closing peer cannot monopolize the network loop. */
+			for (size_t reads = 0;
+			     peek_len > 0 && reads < 8 &&
+			     flow->tx_buffer.size() - flow->tx_acked_offset < TCP_TX_BUFFER_BACKPRESSURE &&
+			     ctx->tcp_tx_buffer_budget.used() < ctx->tcp_tx_buffer_budget.limit();
+			     ++reads) {
+				handle_host_tcp_data(ctx, flow, fd);
+				if (ctx->flows_by_fd.find(fd) == ctx->flows_by_fd.end()) return;
+				if (flow->host_eof) {
+					peek_len = 0;
+					break;
+				}
+				peek_len = recv(fd, &pending, 1, MSG_PEEK | MSG_DONTWAIT);
+			}
+			if (peek_len != 0) {
+				/* Keep unread bytes in the kernel until a guest ACK or another
+				 * flow releases space. HUP is level-triggered even without IN. */
+				if ((events & EPOLLERR) || flow->state == TcpState::CLOSING ||
+				    flow->state == TcpState::TIME_WAIT) {
+					tcp_rst_and_destroy(ctx, flow);
+					return;
+				}
+				if (!flow->epoll_detached &&
+				    epoll_ctl(ctx->epoll_fd, EPOLL_CTL_DEL, fd, nullptr) == -1) {
+					PLOG_E("epoll_ctl(EPOLL_CTL_DEL) failed deferring TCP HUP");
+					tcp_rst_and_destroy(ctx, flow);
+					return;
+				}
+				flow->epoll_detached = true;
+				flow->epoll_in_disabled = true;
+				if (ctx->tcp_tx_buffer_budget.used() == ctx->tcp_tx_buffer_budget.limit()) {
+					mark_tx_budget_blocked(ctx, flow);
+				}
+				return;
+			}
+		}
+		if (flow->host_eof && flow->guest_eof && flow->fin_acked &&
+		    flow->tx_buffer.empty()) {
 			/* Both sides are done, destroy the flow */
 			tcp_destroy_flow(ctx, flow);
 			return;
 		}
 		if (!flow->host_eof) {
-			/* Treat HUP as EOF from host */
-			flow->host_eof = true;
-			flow->epoll_in_disabled = true;
-			push_to_guest(ctx, flow);
+			/* A zero-byte peek above verified EOF. */
+			handle_host_tcp_data_eof(ctx, flow, fd);
 			if (ctx->flows_by_fd.find(fd) == ctx->flows_by_fd.end()) {
 				return;
 			}
 		}
-		if (flow->guest_eof) {
+		if (flow->guest_eof && flow->fin_acked && flow->tx_buffer.empty()) {
 			tcp_destroy_flow(ctx, flow);
 			return;
 		}
@@ -1159,8 +1407,10 @@ void handle_host_tcp_accept(Context* ctx, int listen_fd, const nstun_rule_t& rul
 	flow = flow_ptr.get();
 	flow->host_fd = fd;
 	flow->is_ipv6 = rule.is_ipv6;
+	flow->epoll_generation = next_tcp_epoll_generation(ctx);
 
-	struct epoll_event ev = {.events = EPOLLIN | EPOLLERR | EPOLLHUP, .data = {.fd = fd}};
+	struct epoll_event ev = {
+	    .events = EPOLLIN | EPOLLERR | EPOLLHUP, .data = {.u64 = tcp_epoll_data(flow)}};
 	if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1) {
 		PLOG_E("epoll_ctl(EPOLL_CTL_ADD) for host accept");
 		return;
@@ -1338,8 +1588,11 @@ void handle_tcp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> paylo
 			PLOG_W("setsockopt(TCP_NODELAY)");
 		}
 
+		uint32_t generation = next_tcp_epoll_generation(ctx);
 		struct epoll_event ev = {
-		    .events = EPOLLIN | EPOLLOUT | EPOLLERR | EPOLLHUP, .data = {.fd = fd}};
+		    .events = EPOLLIN | EPOLLOUT | EPOLLERR | EPOLLHUP,
+		    .data = {.u64 = (static_cast<uint64_t>(generation) << 32) |
+					static_cast<uint32_t>(fd)}};
 		if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1) {
 			PLOG_E("epoll_ctl(EPOLL_CTL_ADD) for IPv6 TCP");
 			close(fd);
@@ -1351,6 +1604,7 @@ void handle_tcp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> paylo
 		flow->key6 = key6;
 		init_outbound_flow_common(
 		    flow, fd, /*is_ipv6=*/true, proxy_mode_from_action(rule.action), seq + 1);
+		flow->epoll_generation = generation;
 
 		ctx->ipv6_tcp_flows_by_key[key6] = std::move(flow_ptr);
 		ctx->flows_by_fd[fd] = flow;
