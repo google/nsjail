@@ -732,27 +732,37 @@ std::unique_ptr<std::string> buildMountTree(nsj_t* nsj, std::vector<mnt::mount_t
 		LOG_W("mount_setattr(root_mfd, 0) failed");
 	}
 
-	auto destdir = mnt::findWorkDir(nsj, "root");
+	int destdir_fd = -1;
+	auto destdir = mnt::findWorkDir(nsj, "root", &destdir_fd);
 	if (!destdir) {
 		close(root_mfd);
 		return nullptr;
 	}
+	defer {
+		close(destdir_fd);
+	};
 
 	/*
 	 * Attach the new root to the filesystem *before* populating it.
 	 * Attempting to populate a detached mount tree via move_mount() can fail with EINVAL
 	 * on some kernels (e.g. 6.12) if the target is not yet attached.
 	 */
-	if (util::syscall(__NR_move_mount, (uintptr_t)root_mfd, (uintptr_t)"", (uintptr_t)AT_FDCWD,
-		(uintptr_t)destdir->c_str(), (uintptr_t)MOVE_MOUNT_F_EMPTY_PATH) < 0) {
+	/*
+	 * The attach targets the fd returned by findWorkDir() instead of the path:
+	 * that fd is pinned to the verified inode, so an entry swapped into a shared
+	 * parent after the verification cannot redirect the jail root.
+	 */
+	if (util::syscall(__NR_move_mount, (uintptr_t)root_mfd, (uintptr_t)"",
+		(uintptr_t)destdir_fd, (uintptr_t)"",
+		(uintptr_t)(MOVE_MOUNT_F_EMPTY_PATH | MOVE_MOUNT_T_EMPTY_PATH)) < 0) {
 		PLOG_E("move_mount(root_mfd -> '%s')", destdir->c_str());
 		close(root_mfd);
 		return nullptr;
 	}
 	close(root_mfd);
 
-	int root_fd =
-	    openat(AT_FDCWD, destdir->c_str(), O_RDONLY | O_CLOEXEC | O_PATH | O_DIRECTORY);
+	int root_fd = openat(
+	    AT_FDCWD, destdir->c_str(), O_RDONLY | O_CLOEXEC | O_PATH | O_DIRECTORY | O_NOFOLLOW);
 	if (root_fd < 0) {
 		PLOG_E("openat('%s')", destdir->c_str());
 		return nullptr;
@@ -805,7 +815,7 @@ std::unique_ptr<std::string> buildMountTree(nsj_t* nsj, std::vector<mnt::mount_t
 		 */
 		if (!util::stripLeadingSlashes(mpt.dst.c_str())[0]) {
 			int nroot = openat(AT_FDCWD, destdir->c_str(),
-			    O_RDONLY | O_CLOEXEC | O_PATH | O_DIRECTORY);
+			    O_RDONLY | O_CLOEXEC | O_PATH | O_DIRECTORY | O_NOFOLLOW);
 			if (nroot < 0) {
 				PLOG_E("openat('%s') to refresh root fd", destdir->c_str());
 				return nullptr;

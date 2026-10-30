@@ -174,7 +174,17 @@ static std::string findWritableDirUnderRoot() {
 	return "";
 }
 
-std::unique_ptr<std::string> findWorkDir(nsj_t* nsj, const char* purpose) {
+/*
+ * Picks a directory the staging tmpfs trees are attached to. Every candidate is
+ * validated with util::openVerifiedDir(): a pre-existing entry is accepted only
+ * when it is a real directory owned by the current euid, and the returned fd
+ * refers to that verified inode. Callers attach their mounts through this fd
+ * (or /proc/self/fd/<fd>) instead of re-resolving the path, so an entry planted
+ * in a shared parent such as /tmp cannot redirect the jail root. On success
+ * *fd_out holds the directory fd, which stays open for the caller to close.
+ */
+std::unique_ptr<std::string> findWorkDir(nsj_t* nsj, const char* purpose, int* fd_out) {
+	*fd_out = -1;
 	const std::string uid = std::to_string(nsj->orig_uid);
 	const std::string suffix = "nsjail." + uid + "." + purpose;
 
@@ -195,21 +205,28 @@ std::unique_ptr<std::string> findWorkDir(nsj_t* nsj, const char* purpose) {
 		if (last_slash != std::string::npos && last_slash > 0) {
 			tryCreateDir(path.substr(0, last_slash), false);
 		}
-		if (tryCreateDir(path, true)) {
-			return std::make_unique<std::string>(path);
+		int fd = util::openVerifiedDir(path.c_str(), 0755);
+		if (fd == -1) {
+			continue;
 		}
+		*fd_out = fd;
+		return std::make_unique<std::string>(path);
 	}
 
 	std::string root_dir = findWritableDirUnderRoot();
 	if (!root_dir.empty()) {
 		std::string candidate = root_dir + "/" + suffix;
-		if (tryCreateDir(candidate, false)) {
+		int fd = util::openVerifiedDir(candidate.c_str(), 0755);
+		if (fd != -1) {
+			*fd_out = fd;
 			return std::make_unique<std::string>(candidate);
 		}
 	}
 
 	std::string fallback = "/tmp/" + suffix + "." + std::to_string(util::rnd64());
-	if (tryCreateDir(fallback, true)) {
+	int fd = util::openVerifiedDir(fallback.c_str(), 0755);
+	if (fd != -1) {
+		*fd_out = fd;
 		return std::make_unique<std::string>(fallback);
 	}
 

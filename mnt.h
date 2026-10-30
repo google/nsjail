@@ -71,7 +71,7 @@ struct mount_t {
 };
 
 bool initNs(nsj_t* nsj);
-std::unique_ptr<std::string> findWorkDir(nsj_t* nsj, const char* purpose);
+std::unique_ptr<std::string> findWorkDir(nsj_t* nsj, const char* purpose, int* fd_out);
 const std::string describeMountPt(const nsjail::MountPt& mpt);
 const std::string flagsToStr(unsigned long flags);
 
