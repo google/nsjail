@@ -27,6 +27,9 @@ def main():
     source = args.source.read_text()
     assert 'acked_bytes == 0 && data_len == 0 && !flow->fin_sent' in source
     assert 'data_len == 0 && !flow->fin_sent' in source
+    assert 'if (!flow->host_eof && (events & (EPOLLIN | EPOLLOUT)))' in source
+    assert source.count('tcp_host_events(flow,') >= 3
+    events_helper = extract(source, 'static uint32_t tcp_host_events(const TcpFlow* flow, bool want_out) {')
     periodic = extract(source, 'void TcpFlow::periodic_check(Context* ctx, time_t now) {')
     stale = extract(source, 'bool TcpFlow::is_stale(time_t now) const {')
     cpp = r'''#include <algorithm>
@@ -35,6 +38,9 @@ def main():
 #include <cstdio>
 #include <ctime>
 #include <iostream>
+#include <sys/epoll.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 static constexpr time_t TCP_TIMEOUT_ESTABLISHED = 3600;
 static constexpr time_t TCP_TIMEOUT_CONNECTING = 10;
@@ -50,6 +56,7 @@ struct Context {int sends=0;uint8_t flags=0;uint32_t sequence=0;int pushes=0;};
 struct TcpFlow {
     TcpState state=TcpState::ESTABLISHED;
     bool fin_sent=false,fin_acked=false;
+    bool host_eof=false,epoll_in_disabled=false;
     time_t last_active=0,last_retransmit=0;
     uint32_t seq_to_guest=1001,ack_from_guest=1000;
     int host_fd=10;
@@ -61,7 +68,7 @@ void tcp_send_packet(Context* c,TcpFlow* f,uint8_t flags) {
     c->sends++; c->flags=flags; c->sequence=f->seq_to_guest;
 }
 '''
-    cpp += periodic + '\n' + stale + '\n'
+    cpp += events_helper + '\n' + periodic + '\n' + stale + '\n'
     cpp += r'''
 } // namespace nstun
 using namespace nstun;
@@ -128,7 +135,40 @@ int main() {
     Context ackctx;
     already_ack.periodic_check(&ackctx,now);
     assert(ackctx.sends==0 && ackctx.pushes==0);
-    std::cout << "PASS: extracted production TCP timer regression checks\n";
+
+    // Test real Linux readiness semantics using the actual nstun event mask helper.
+    TcpFlow epflow;
+    assert(tcp_host_events(&epflow,false)==(EPOLLERR|EPOLLHUP|EPOLLIN));
+    epflow.epoll_in_disabled=true;
+    assert(tcp_host_events(&epflow,true)==(EPOLLERR|EPOLLHUP|EPOLLOUT));
+    epflow.host_eof=true;
+    assert(tcp_host_events(&epflow,false)==(EPOLLERR|EPOLLHUP|EPOLLET));
+
+    int sock[2];
+    assert(socketpair(AF_UNIX,SOCK_STREAM|SOCK_NONBLOCK,0,sock)==0);
+    int epollfd=epoll_create1(EPOLL_CLOEXEC);
+    assert(epollfd>=0);
+    epoll_event ev={};
+    ev.events=EPOLLIN|EPOLLERR|EPOLLHUP;
+    ev.data.fd=sock[0];
+    assert(epoll_ctl(epollfd,EPOLL_CTL_ADD,sock[0],&ev)==0);
+    close(sock[1]);
+    char scratch=0;
+    assert(recv(sock[0],&scratch,1,0)==0);
+    ev.events=tcp_host_events(&epflow,false);
+    assert(epoll_ctl(epollfd,EPOLL_CTL_MOD,sock[0],&ev)==0);
+    epoll_event ready={};
+    int count=epoll_wait(epollfd,&ready,1,100);
+    assert(count==1 && (ready.events & EPOLLHUP)!=0);
+    // EPOLLET prevents a permanently readable HUP from spinning the event loop.
+    for(int i=0;i<3;i++) {
+        count=epoll_wait(epollfd,&ready,1,15);
+        assert(count==0);
+    }
+    close(sock[0]);
+    close(epollfd);
+
+    std::cout << "PASS: extracted production TCP timers and Linux EOF/HUP regression checks\n";
 }
 '''
     with tempfile.TemporaryDirectory() as tmp:
