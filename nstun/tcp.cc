@@ -312,6 +312,20 @@ void push_to_guest(Context* ctx, TcpFlow* flow) {
 	}
 }
 
+/* After host-side EOF, retain writable events when necessary but switch to
+ * edge-triggered HUP reporting: level-triggered HUP can otherwise spin the
+ * epoll loop, repeatedly refreshing the flow's idle timestamp. */
+static uint32_t tcp_host_events(const TcpFlow* flow, bool want_out) {
+	uint32_t events = EPOLLERR | EPOLLHUP;
+	if (flow->host_eof) {
+		events |= EPOLLET;
+	} else if (!flow->epoll_in_disabled) {
+		events |= EPOLLIN;
+	}
+	if (want_out) events |= EPOLLOUT;
+	return events;
+}
+
 /* Returns true if the flow was destroyed (caller must not use flow afterward) */
 bool flush_to_host(Context* ctx, TcpFlow* flow) {
 	if (flow->rx_sent_offset >= flow->rx_buffer.size()) {
@@ -331,7 +345,7 @@ bool flush_to_host(Context* ctx, TcpFlow* flow) {
 		/* We made progress, remove EPOLLOUT if empty */
 		if (flow->rx_buffer.empty() && flow->epoll_out_registered) {
 			struct epoll_event ev = {
-			    .events = EPOLLIN | EPOLLERR | EPOLLHUP, .data = {.fd = flow->host_fd}};
+			    .events = tcp_host_events(flow, false), .data = {.fd = flow->host_fd}};
 			epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, flow->host_fd, &ev);
 			flow->epoll_out_registered = false;
 		}
@@ -342,7 +356,7 @@ bool flush_to_host(Context* ctx, TcpFlow* flow) {
 	} else if (written < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
 		/* Apply backpressure, register EPOLLOUT */
 		if (!flow->epoll_out_registered) {
-			struct epoll_event ev = {.events = EPOLLIN | EPOLLOUT | EPOLLERR | EPOLLHUP,
+			struct epoll_event ev = {.events = tcp_host_events(flow, true),
 			    .data = {.fd = flow->host_fd}};
 			epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, flow->host_fd, &ev);
 			flow->epoll_out_registered = true;
@@ -999,8 +1013,7 @@ void handle_host_tcp_data_eof(Context* ctx, TcpFlow* flow, int fd) {
 		flow->host_eof = true;
 		if (!flow->epoll_in_disabled) {
 			struct epoll_event ev = {
-			    .events = EPOLLERR | EPOLLHUP |
-				      (flow->epoll_out_registered ? (uint32_t)EPOLLOUT : 0),
+			    .events = tcp_host_events(flow, flow->epoll_out_registered),
 			    .data = {.fd = fd}};
 			if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, fd, &ev) == -1) {
 				PLOG_E("epoll_ctl(EPOLL_CTL_MOD) failed in eof");
@@ -1015,7 +1028,10 @@ void handle_host_tcp_data_eof(Context* ctx, TcpFlow* flow, int fd) {
 
 void handle_host_tcp(Context* ctx, TcpFlow* flow, uint32_t events) {
 	int fd = flow->host_fd;
-	flow->last_active = time(NULL);
+	/* A stale HUP is not peer activity and must not extend the idle timeout. */
+	if (!flow->host_eof && (events & (EPOLLIN | EPOLLOUT))) {
+		flow->last_active = time(NULL);
+	}
 
 	LOG_D("handle_host_tcp fd=%d, events=0x%x, state=%d", fd, events, (int)flow->state);
 
@@ -1061,9 +1077,15 @@ void handle_host_tcp(Context* ctx, TcpFlow* flow, uint32_t events) {
 			return;
 		}
 		if (!flow->host_eof) {
-			/* Treat HUP as EOF from host */
+			/* Treat HUP as EOF from host; suppress repeated level HUP wakeups. */
 			flow->host_eof = true;
 			flow->epoll_in_disabled = true;
+			struct epoll_event ev = {
+			    .events = tcp_host_events(flow, flow->epoll_out_registered),
+			    .data = {.fd = fd}};
+			if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, fd, &ev) == -1) {
+				PLOG_E("epoll_ctl(EPOLL_CTL_MOD) failed on HUP");
+			}
 			push_to_guest(ctx, flow);
 			if (ctx->flows_by_fd.find(fd) == ctx->flows_by_fd.end()) {
 				return;
