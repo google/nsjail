@@ -147,6 +147,19 @@ static bool tryCreateDir(const std::string& path, bool log_errors = true) {
 			return false;
 		}
 	}
+
+	/* Work directories are later used as mount/pivot roots. Do not trust a
+	 * predictable path pre-created by another local user, or a symlink whose
+	 * target can be changed independently of the staging path. */
+	struct stat st;
+	if (lstat(path.c_str(), &st) == -1 || !S_ISDIR(st.st_mode) || st.st_uid != geteuid() ||
+	    (st.st_mode & (S_IWGRP | S_IWOTH)) != 0) {
+		if (log_errors) {
+			LOG_W("Refusing untrusted work directory '%s'", path.c_str());
+		}
+		return false;
+	}
+
 	if (access(path.c_str(), R_OK) == -1) {
 		if (log_errors) {
 			PLOG_W("access('%s', R_OK)", path.c_str());

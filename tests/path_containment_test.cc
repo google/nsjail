@@ -52,6 +52,12 @@ bool isSafeContainmentPath(const std::string& path) {
 	return true;
 }
 
+bool isTrustedWorkDir(const char* path) {
+	struct stat st;
+	return lstat(path, &st) == 0 && S_ISDIR(st.st_mode) && st.st_uid == geteuid() &&
+	       (st.st_mode & (S_IWGRP | S_IWOTH)) == 0;
+}
+
 bool createDirRecursivelySafe(const char* dir) {
 	if (dir[0] != '/') {
 		return false;
@@ -107,6 +113,29 @@ static void expect_safe(const char* p, bool want) {
 }
 
 int main() {
+	char workdir_template[] = "/tmp/nsjail-workdir-test.XXXXXX";
+	char* workdir_parent = mkdtemp(workdir_template);
+	if (!workdir_parent) {
+		perror("mkdtemp");
+		return 1;
+	}
+	std::string owned = std::string(workdir_parent) + "/owned";
+	std::string link = std::string(workdir_parent) + "/link";
+	if (mkdir(owned.c_str(), 0755) == -1 || !isTrustedWorkDir(owned.c_str())) {
+		fprintf(stderr, "FAIL owned work directory rejected\n");
+		return 1;
+	}
+	if (symlink(owned.c_str(), link.c_str()) == -1 || isTrustedWorkDir(link.c_str())) {
+		fprintf(stderr, "FAIL symlink work directory accepted\n");
+		return 1;
+	}
+	if (chmod(owned.c_str(), 0777) == -1 || isTrustedWorkDir(owned.c_str())) {
+		fprintf(stderr, "FAIL writable work directory accepted\n");
+		return 1;
+	}
+	unlink(link.c_str());
+	rmdir(owned.c_str());
+	rmdir(workdir_parent);
 	expect_safe("", true);
 	expect_safe("/", true);
 	expect_safe("/usr/lib", true);
