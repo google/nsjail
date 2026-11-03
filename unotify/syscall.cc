@@ -10,7 +10,13 @@
 #include <sys/un.h>
 #include <unistd.h>
 
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <cstring>
+#include <span>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "logs.h"
@@ -24,6 +30,29 @@ constexpr size_t kMaxArgs = 128;
 constexpr size_t kMaxPathLen = 4096;
 
 /* Helper functions string/memory reading, path resolution, etc. */
+
+/*
+ * Copies up to dst.size() bytes from the tracee's memory at 'addr' and returns how many bytes
+ * were copied (0 on error). process_vm_readv() stops early at the first unreadable page, so
+ * only dst.first(<returned value>) holds data supplied by the tracee; callers must not decode
+ * anything past that.
+ */
+static size_t readTraceeMem(pid_t pid, uint64_t addr, std::span<std::byte> dst) {
+	if (addr == 0 || dst.empty()) {
+		return 0;
+	}
+	struct iovec local = {dst.data(), dst.size()};
+	struct iovec remote = {(void*)(uintptr_t)addr, dst.size()};
+	ssize_t ret = process_vm_readv(pid, &local, 1, &remote, 1, 0);
+	if (ret <= 0) {
+		return 0;
+	}
+	return std::min((size_t)ret, dst.size());
+}
+
+static std::string bytesToString(std::span<const std::byte> bytes) {
+	return std::string(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+}
 
 static std::string getSocketType(pid_t pid, int target_fd) {
 	int pidfd = syscall(__NR_pidfd_open, pid, 0);
@@ -88,50 +117,35 @@ static std::string getSocketType(pid_t pid, int target_fd) {
 
 static std::string readStringFromMem(pid_t pid, uint64_t addr) {
 	if (addr == 0) return "NULL";
-	char buf[kMaxPathLen];
-	struct iovec local = {buf, sizeof(buf) - 1};
-	struct iovec remote = {(void*)addr, sizeof(buf) - 1};
-
-	ssize_t ret = process_vm_readv(pid, &local, 1, &remote, 1, 0);
-	if (ret <= 0) {
+	std::array<char, kMaxPathLen> buf;
+	size_t len = readTraceeMem(pid, addr, std::as_writable_bytes(std::span(buf)));
+	if (len == 0) {
 		return "<invalid_ptr>";
 	}
-	buf[ret] = '\0';
-	return std::string(buf);
+	/* The string ends at the first NUL, or at the last byte that could be copied */
+	std::span<const char> str = std::span(buf).first(len);
+	return std::string(str.begin(), std::find(str.begin(), str.end(), '\0'));
+}
+
+/* Reads a NULL-terminated array of PtrT-sized string pointers (argv/envp) */
+template <typename PtrT>
+static std::vector<std::string> readStringArray(pid_t pid, uint64_t addr) {
+	std::vector<std::string> arr;
+	std::array<PtrT, kMaxArgs> ptrs;
+	size_t len = readTraceeMem(pid, addr, std::as_writable_bytes(std::span(ptrs)));
+	/* Use only the pointers which were copied in full */
+	for (PtrT ptr : std::span(ptrs).first(len / sizeof(PtrT))) {
+		if (ptr == 0) break;
+		arr.push_back(readStringFromMem(pid, ptr));
+	}
+	return arr;
 }
 
 static std::vector<std::string> readStringArrayFromMem(pid_t pid, uint64_t addr, bool is_32bit) {
-	std::vector<std::string> arr;
-	if (addr == 0) return arr;
-
 	if (is_32bit) {
-		uint32_t ptrs[kMaxArgs];
-		struct iovec local = {ptrs, sizeof(ptrs)};
-		struct iovec remote = {(void*)addr, sizeof(ptrs)};
-
-		ssize_t ret = process_vm_readv(pid, &local, 1, &remote, 1, 0);
-		if (ret <= 0) return arr;
-
-		int num_ptrs = ret / sizeof(uint32_t);
-		for (int i = 0; i < num_ptrs; i++) {
-			if (ptrs[i] == 0) break;
-			arr.push_back(readStringFromMem(pid, ptrs[i]));
-		}
-	} else {
-		uint64_t ptrs[kMaxArgs];
-		struct iovec local = {ptrs, sizeof(ptrs)};
-		struct iovec remote = {(void*)addr, sizeof(ptrs)};
-
-		ssize_t ret = process_vm_readv(pid, &local, 1, &remote, 1, 0);
-		if (ret <= 0) return arr;
-
-		int num_ptrs = ret / sizeof(uint64_t);
-		for (int i = 0; i < num_ptrs; i++) {
-			if (ptrs[i] == 0) break;
-			arr.push_back(readStringFromMem(pid, ptrs[i]));
-		}
+		return readStringArray<uint32_t>(pid, addr);
 	}
-	return arr;
+	return readStringArray<uint64_t>(pid, addr);
 }
 
 static std::string getAbsPath(pid_t pid, int dirfd, const std::string& raw_path) {
@@ -144,12 +158,12 @@ static std::string getAbsPath(pid_t pid, int dirfd, const std::string& raw_path)
 		link_path = "/proc/" + std::to_string(pid) + "/fd/" + std::to_string(dirfd);
 	}
 
-	char buf[PATH_MAX];
-	ssize_t len = readlink(link_path.c_str(), buf, sizeof(buf) - 1);
-	if (len <= 0) return raw_path;	// fallback
-	buf[len] = '\0';
+	std::array<char, PATH_MAX> buf;
+	ssize_t len = readlink(link_path.c_str(), buf.data(), buf.size());
+	/* readlink() truncates silently, a result filling the whole buffer might be partial */
+	if (len <= 0 || (size_t)len >= buf.size()) return raw_path;  // fallback
 
-	std::string abs_path = buf;
+	std::string abs_path(buf.data(), len);
 	if (abs_path.back() != '/') abs_path += '/';
 	abs_path += raw_path;
 	return abs_path;
@@ -233,82 +247,96 @@ static void populatePathInfo(pid_t pid, int dirfd, uint64_t addr, PathInfoRecord
 
 /* sockaddr decoder */
 
+/*
+ * Copies a T from the front of 'bytes' if at least 'min_len' bytes are available. Fields past
+ * the end of 'bytes' are left zeroed.
+ */
+template <typename T>
+static bool loadFromBytes(std::span<const std::byte> bytes, size_t min_len, T* out) {
+	static_assert(std::is_trivially_copyable_v<T>);
+	if (min_len > sizeof(T) || bytes.size() < min_len) {
+		return false;
+	}
+	*out = {};
+	memcpy(out, bytes.data(), std::min(bytes.size(), sizeof(T)));
+	return true;
+}
+
 static void parseSockaddr(struct seccomp_notif* req, SyscallRecord* rec, uint64_t addr,
     socklen_t addrlen, const std::string& socket_type_str) {
+	/* The kernel rejects such lengths with EINVAL */
 	if (addrlen > sizeof(struct sockaddr_storage) || addr == 0) return;
 
 	struct sockaddr_storage ss = {};
-	struct iovec local = {&ss, addrlen};
-	struct iovec remote = {(void*)addr, addrlen};
-	ssize_t read_bytes = process_vm_readv(req->pid, &local, 1, &remote, 1, 0);
-	if (read_bytes >= (ssize_t)sizeof(sa_family_t)) {
-		char host[INET6_ADDRSTRLEN] = "unknown";
-		int port = 0;
-		if (ss.ss_family == AF_INET) {
-			struct sockaddr_in* sin = (struct sockaddr_in*)&ss;
-			inet_ntop(AF_INET, &sin->sin_addr, host, sizeof(host));
-			port = ntohs(sin->sin_port);
-			rec->res.has_net = true;
-			rec->res.net_type = Stat_NetResource_Type_IPV4;
-			rec->res.net_endpoint = std::string(host);
-			if (socket_type_str.find("SOCK_STREAM") != std::string::npos ||
-			    socket_type_str.find("SOCK_DGRAM") != std::string::npos) {
-				rec->res.has_net_port = true;
-				rec->res.net_port = port;
-			}
-		} else if (ss.ss_family == AF_INET6) {
-			struct sockaddr_in6* sin6 = (struct sockaddr_in6*)&ss;
-			inet_ntop(AF_INET6, &sin6->sin6_addr, host, sizeof(host));
-			port = ntohs(sin6->sin6_port);
-			rec->res.has_net = true;
-			rec->res.net_type = Stat_NetResource_Type_IPV6;
-			rec->res.net_endpoint = std::string(host);
-			if (socket_type_str.find("SOCK_STREAM") != std::string::npos ||
-			    socket_type_str.find("SOCK_DGRAM") != std::string::npos) {
-				rec->res.has_net_port = true;
-				rec->res.net_port = port;
-			}
-		} else if (ss.ss_family == AF_UNIX) {
-			struct sockaddr_un* sun = (struct sockaddr_un*)&ss;
-			size_t path_len = 0;
-			if (addrlen > sizeof(sa_family_t)) {
-				path_len = addrlen - sizeof(sa_family_t);
-			}
-			if (path_len > sizeof(sun->sun_path)) {
-				path_len = sizeof(sun->sun_path);
-			}
+	std::span<std::byte> ss_bytes = std::as_writable_bytes(std::span(&ss, 1)).first(addrlen);
+	/*
+	 * The kernel copies all 'addrlen' bytes and fails the syscall with EFAULT if it can't.
+	 * Don't report an address assembled from a partial copy.
+	 */
+	if (readTraceeMem(req->pid, addr, ss_bytes) != ss_bytes.size()) return;
+	std::span<const std::byte> sa = ss_bytes;
 
-			/* Ensure NUL termination for non-abstract paths */
-			sun->sun_path[sizeof(sun->sun_path) - 1] = '\0';
-			std::string raw_path(sun->sun_path, strnlen(sun->sun_path, path_len));
+	sa_family_t family;
+	if (!loadFromBytes(sa, sizeof(family), &family)) return;
 
-			if (path_len == 0) {
-				rec->res.has_net = true;
-				rec->res.net_type = Stat_NetResource_Type_UNIX;
-				rec->res.net_endpoint = "anonymous unix socket";
-			} else if (sun->sun_path[0] != '\0') {
-				std::string abs_path = getAbsPath(req->pid, AT_FDCWD, raw_path);
-				rec->res.has_net = true;
-				rec->res.net_type = Stat_NetResource_Type_UNIX;
-				rec->res.net_endpoint = abs_path;
-
-				/* Also populate FS tracking for UNIX socket paths */
-				rec->res.has_net_path = true;
-				rec->res.net_path.path = abs_path;
-				rec->res.net_path.jail_type = getStatInfo(
-				    "/proc/" + std::to_string(req->pid) + "/root" + abs_path);
-				rec->res.net_path.main_type = getStatInfo(abs_path);
-			} else {
-				rec->res.has_net = true;
-				rec->res.net_type = Stat_NetResource_Type_UNIX;
-				rec->res.net_endpoint =
-				    "@" + std::string(sun->sun_path + 1, path_len - 1);
-			}
-		} else if (ss.ss_family == AF_NETLINK) {
-			rec->res.has_net = true;
-			rec->res.net_type = Stat_NetResource_Type_NETLINK;
-			rec->res.net_endpoint = "NETLINK";
+	const bool has_port = socket_type_str.find("SOCK_STREAM") != std::string::npos ||
+			      socket_type_str.find("SOCK_DGRAM") != std::string::npos;
+	char host[INET6_ADDRSTRLEN] = "unknown";
+	if (family == AF_INET) {
+		struct sockaddr_in sin;
+		if (!loadFromBytes(sa, sizeof(sin), &sin)) return;
+		inet_ntop(AF_INET, &sin.sin_addr, host, sizeof(host));
+		rec->res.has_net = true;
+		rec->res.net_type = Stat_NetResource_Type_IPV4;
+		rec->res.net_endpoint = std::string(host);
+		if (has_port) {
+			rec->res.has_net_port = true;
+			rec->res.net_port = ntohs(sin.sin_port);
 		}
+	} else if (family == AF_INET6) {
+		/* sin6_scope_id is optional (RFC 2133 layout), the address itself is not */
+		struct sockaddr_in6 sin6;
+		if (!loadFromBytes(sa, offsetof(struct sockaddr_in6, sin6_scope_id), &sin6)) return;
+		inet_ntop(AF_INET6, &sin6.sin6_addr, host, sizeof(host));
+		rec->res.has_net = true;
+		rec->res.net_type = Stat_NetResource_Type_IPV6;
+		rec->res.net_endpoint = std::string(host);
+		if (has_port) {
+			rec->res.has_net_port = true;
+			rec->res.net_port = ntohs(sin6.sin6_port);
+		}
+	} else if (family == AF_UNIX) {
+		/* sun_path doesn't have to be NUL-terminated, its length is derived from addrlen */
+		static_assert(offsetof(struct sockaddr_un, sun_path) == sizeof(sa_family_t));
+		std::span<const std::byte> path =
+		    sa.subspan(offsetof(struct sockaddr_un, sun_path));
+		path = path.first(std::min(path.size(), sizeof(sockaddr_un::sun_path)));
+
+		rec->res.has_net = true;
+		rec->res.net_type = Stat_NetResource_Type_UNIX;
+		if (path.empty()) {
+			rec->res.net_endpoint = "anonymous unix socket";
+		} else if (path[0] != std::byte{0}) {
+			/* Pathname socket, the name ends at the first NUL (if there's one) */
+			auto nul = std::find(path.begin(), path.end(), std::byte{0});
+			std::string raw_path = bytesToString(path.first(nul - path.begin()));
+			std::string abs_path = getAbsPath(req->pid, AT_FDCWD, raw_path);
+			rec->res.net_endpoint = abs_path;
+
+			/* Also populate FS tracking for UNIX socket paths */
+			rec->res.has_net_path = true;
+			rec->res.net_path.path = abs_path;
+			rec->res.net_path.jail_type =
+			    getStatInfo("/proc/" + std::to_string(req->pid) + "/root" + abs_path);
+			rec->res.net_path.main_type = getStatInfo(abs_path);
+		} else {
+			/* Abstract socket, all bytes after the leading NUL make up the name */
+			rec->res.net_endpoint = "@" + bytesToString(path.subspan(1));
+		}
+	} else if (family == AF_NETLINK) {
+		rec->res.has_net = true;
+		rec->res.net_type = Stat_NetResource_Type_NETLINK;
+		rec->res.net_endpoint = "NETLINK";
 	}
 }
 
@@ -411,7 +439,10 @@ static std::string getProtocolStr(int proto) {
 
 static void decodeSyscallArgs(
     struct seccomp_notif* req, SyscallRecord* rec, const SyscallDef& def) {
-	__u64* args = req->data.args;
+	static_assert(std::extent_v<decltype(seccomp_data::args)> ==
+		      std::extent_v<decltype(SyscallDef::args)>);
+	const std::span<const __u64> args = req->data.args;
+	const std::span<const ArgRole> roles = def.args;
 	int current_dirfd = AT_FDCWD;
 	PathInfoRecord* last_path = nullptr;
 	std::string last_socket_type;
@@ -424,9 +455,9 @@ static void decodeSyscallArgs(
 	if (req->data.arch == AUDIT_ARCH_ARM) is_32bit = true;
 #endif
 
-	for (int i = 0; i < 6; i++) {
+	for (size_t i = 0; i < roles.size(); i++) {
 		__u64 arg = args[i];
-		switch (def.args[i]) {
+		switch (roles[i]) {
 		case ArgRole::SKIP:
 			break;
 
@@ -506,7 +537,7 @@ static void decodeSyscallArgs(
 
 		case ArgRole::SADDR: {
 			if (arg == 0) break;
-			socklen_t addrlen = (i + 1 < 6) ? (socklen_t)args[i + 1] : 0;
+			socklen_t addrlen = (i + 1 < args.size()) ? (socklen_t)args[i + 1] : 0;
 			parseSockaddr(req, rec, arg, addrlen, last_socket_type);
 			break;
 		}
@@ -531,15 +562,18 @@ static void decodeSyscallArgs(
 			break;
 
 		case ArgRole::OHOW: {
+			/* struct open_how, OPEN_HOW_SIZE_VER0 */
 			struct {
 				__u64 flags;
 				__u64 mode;
 				__u64 resolve;
 			} how = {};
-			struct iovec local = {&how, sizeof(how)};
-			struct iovec remote = {(void*)arg, sizeof(how)};
-			if (process_vm_readv(req->pid, &local, 1, &remote, 1, 0) >=
-			    (ssize_t)sizeof(how.flags)) {
+			/*
+			 * openat2() needs at least the VER0 struct, and fails with EFAULT if it
+			 * can't copy it, so decode it only if it was copied in full.
+			 */
+			std::span<std::byte> how_bytes = std::as_writable_bytes(std::span(&how, 1));
+			if (readTraceeMem(req->pid, arg, how_bytes) == how_bytes.size()) {
 				if (last_path) {
 					getFileMode((int)how.flags, last_path);
 				}
@@ -560,10 +594,10 @@ void parseSyscall(struct seccomp_notif* req, SyscallRecord* rec) {
 	int nr = req->data.nr;
 
 	const SyscallDef* def = nullptr;
-	for (size_t i = 0; i < kTracedSyscallCount; i++) {
-		if (kTracedSyscalls[i].nr == nr) {
-			rec->name = kTracedSyscalls[i].display_name;
-			def = &kTracedSyscalls[i];
+	for (const SyscallDef& d : kTracedSyscalls) {
+		if (d.nr == nr) {
+			rec->name = d.display_name;
+			def = &d;
 			break;
 		}
 	}

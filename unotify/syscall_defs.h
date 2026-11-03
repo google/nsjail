@@ -298,8 +298,6 @@ static constexpr SyscallDef kTracedSyscalls[] = {
 #endif /* __NR_socket */
 };
 
-constexpr size_t kTracedSyscallCount = sizeof(kTracedSyscalls) / sizeof(kTracedSyscalls[0]);
-
 /*
  * Build the kafel policy string from the table.
  * Called by sandbox.cc - no manual syscall list maintenance needed.
@@ -313,10 +311,11 @@ constexpr size_t kTracedSyscallCount = sizeof(kTracedSyscalls) / sizeof(kTracedS
  */
 inline std::string buildKafelPolicy() {
 	std::string p = "POLICY unotify {\n  USER_NOTIF {\n";
-	for (size_t i = 0; i < kTracedSyscallCount; i++) {
-		if (i > 0) p += ", ";
-		p += "SYSCALL[" + std::to_string(kTracedSyscalls[i].nr) + "] /* " +
-		     kTracedSyscalls[i].kafel_name + " */";
+	bool first = true;
+	for (const SyscallDef& def : kTracedSyscalls) {
+		if (!first) p += ", ";
+		first = false;
+		p += "SYSCALL[" + std::to_string(def.nr) + "] /* " + def.kafel_name + " */";
 	}
 	p += "\n  }\n}\nUSE unotify DEFAULT ALLOW\n";
 	return p;
