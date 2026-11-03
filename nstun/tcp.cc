@@ -1,5 +1,6 @@
 #include "tcp.h"
 
+#include <algorithm>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -729,7 +730,7 @@ static void tcp_process_data(Context* ctx, TcpFlow* flow, const tcp_hdr* tcp,
 					}
 
 					push_to_guest(ctx, flow);
-				} else if (acked_bytes == 0 && data_len == 0 &&
+				} else if (acked_bytes == 0 && data_len == 0 && !flow->fin_sent &&
 					   !(tcp->flags & (NSTUN_TCP_FLAG_FIN | NSTUN_TCP_FLAG_SYN |
 							      NSTUN_TCP_FLAG_RST))) {
 					/* Duplicate ACK -> Fast Retransmit */
@@ -741,7 +742,7 @@ static void tcp_process_data(Context* ctx, TcpFlow* flow, const tcp_hdr* tcp,
 			if (flow->state == TcpState::FIN_WAIT_1 && ack == flow->seq_to_guest) {
 				flow->state = TcpState::FIN_WAIT_2;
 			}
-		} else if (data_len == 0 &&
+		} else if (data_len == 0 && !flow->fin_sent &&
 			   !(tcp->flags &
 			       (NSTUN_TCP_FLAG_FIN | NSTUN_TCP_FLAG_SYN | NSTUN_TCP_FLAG_RST))) {
 			flow->seq_to_guest = flow->ack_from_guest;
@@ -1398,11 +1399,24 @@ void TcpFlow::handle_host_event(Context* ctx, int fd, uint32_t events) {
 }
 
 void TcpFlow::periodic_check(Context* ctx, time_t now) {
-	if (this->seq_to_guest > this->ack_from_guest && (now - this->last_active >= 2)) {
+	/* Retransmissions must not reset last_active: that tracks peer activity and
+	 * drives the idle timeout. Keep the RTO clock separate. */
+	time_t last_send = std::max(this->last_active, this->last_retransmit);
+	if ((int32_t)(this->seq_to_guest - this->ack_from_guest) > 0 &&
+	    (now - last_send >= 2)) {
 		LOG_D("TCP RTO triggered for flow (fd=%d)", this->host_fd);
-		this->seq_to_guest = this->ack_from_guest;
-		push_to_guest(ctx, this);
-		this->last_active = now;
+		if (this->fin_sent && !this->fin_acked) {
+			/* FIN consumes one sequence number. Replay the same FIN sequence,
+			 * without moving SND.NXT back or consuming a second number. */
+			const uint32_t next_seq = this->seq_to_guest;
+			this->seq_to_guest = next_seq - 1;
+			tcp_send_packet(ctx, this, NSTUN_TCP_FLAG_FIN | NSTUN_TCP_FLAG_ACK);
+			this->seq_to_guest = next_seq;
+		} else {
+			this->seq_to_guest = this->ack_from_guest;
+			push_to_guest(ctx, this);
+		}
+		this->last_retransmit = now;
 	}
 }
 
@@ -1416,7 +1430,9 @@ bool TcpFlow::is_stale(time_t now) const {
 		timeout = TCP_TIMEOUT_CLOSING;
 	} else if (this->state == TcpState::CLOSE_WAIT) {
 		timeout = TCP_TIMEOUT_FIN;
-	} else if (this->state == TcpState::FIN_WAIT_1 || this->state == TcpState::FIN_WAIT_2) {
+	} else if (this->state == TcpState::FIN_WAIT_1 || this->state == TcpState::FIN_WAIT_2 ||
+	           this->fin_sent) {
+		/* FIN has been sent even if the legacy state remains ESTABLISHED. */
 		timeout = TCP_TIMEOUT_FIN;
 	}
 
