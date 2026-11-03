@@ -100,7 +100,7 @@ bool parse_socks5_connect_reply(std::span<const uint8_t> data, Socks5Reply* out)
 
 int send_http_connect(int fd, const uint8_t* addr, uint16_t port_nbo, bool is_ipv6) {
 	std::string addr_str =
-	    is_ipv6 ? ip6_to_string(addr) : ip4_to_string(*(const uint32_t*)addr);
+	    is_ipv6 ? ip6_to_string(addr) : ip4_to_string(ip4_from_bytes(addr));
 	uint16_t port = ntohs(port_nbo);
 
 	/* Max: "CONNECT [" + 39-char IPv6 + "]:65535 HTTP/1.1\r\nHost: [" + 39 + "]:65535\r\n\r\n"
