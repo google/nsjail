@@ -1,0 +1,6 @@
+FROM debian:bookworm-slim
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    autoconf bison flex gcc g++ git libprotobuf-dev libnl-route-3-dev \
+    libtool make pkg-config protobuf-compiler ca-certificates python3 \
+    iproute2 procps && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
