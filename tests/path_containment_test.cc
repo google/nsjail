@@ -10,8 +10,11 @@
 
 #include <cerrno>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <fcntl.h>
+#include <limits.h>
 #include <string>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -129,41 +132,66 @@ int main() {
 		return 1;
 	}
 
-	(void)system("rm -rf /tmp/nsj_path_test /tmp/nsj_path_escaped");
-	mkdir("/tmp/nsj_path_test", 0755);
-	const char* escape =
-	    "/tmp/nsj_path_test/root/../../nsj_path_escaped/evil_dir/leaf";
-	if (createDirRecursivelySafe(escape)) {
+	char temp_template[] = "/tmp/nsj_path_test.XXXXXX";
+	char* temp_path = mkdtemp(temp_template);
+	if (temp_path == nullptr) {
+		perror("mkdtemp");
+		return 1;
+	}
+	char resolved_path[PATH_MAX];
+	if (realpath(temp_path, resolved_path) == nullptr) {
+		perror("realpath");
+		return 1;
+	}
+	const std::string test_root = resolved_path;
+	struct TempDirGuard {
+		const std::string& path;
+		~TempDirGuard() {
+			std::error_code error;
+			std::filesystem::remove_all(path, error);
+		}
+	} temp_dir_guard{test_root};
+
+	const std::string path_stage = test_root + "/path_stage";
+	const std::string path_escape = test_root + "/path_escape";
+	if (mkdir(path_stage.c_str(), 0755) != 0) {
+		perror("mkdir path_stage");
+		return 1;
+	}
+	const std::string escape = path_stage + "/root/../../path_escape/evil_dir/leaf";
+	if (createDirRecursivelySafe(escape.c_str())) {
 		fprintf(stderr, "FAIL createDirRecursively accepted traversal path\n");
 		return 1;
 	}
-	if (access("/tmp/nsj_path_escaped", F_OK) == 0) {
+	if (access(path_escape.c_str(), F_OK) == 0) {
 		fprintf(stderr, "FAIL escape directory was created\n");
 		return 1;
 	}
 
-	const char* ok = "/tmp/nsj_path_test/root/home/user/docs/leaf";
-	if (!createDirRecursivelySafe(ok)) {
+	const std::string ok = path_stage + "/root/home/user/docs/leaf";
+	if (!createDirRecursivelySafe(ok.c_str())) {
 		fprintf(stderr, "FAIL createDirRecursively rejected safe path\n");
 		return 1;
 	}
-	if (access("/tmp/nsj_path_test/root/home/user/docs", F_OK) != 0) {
+	if (access((path_stage + "/root/home/user/docs").c_str(), F_OK) != 0) {
 		fprintf(stderr, "FAIL safe parents were not created\n");
 		return 1;
 	}
 
-
 	/* Symlink intermediate must fail closed under O_NOFOLLOW walk policy. */
-	(void)system("rm -rf /tmp/nsj_sym_stage /tmp/nsj_sym_escape");
-	mkdir("/tmp/nsj_sym_stage", 0755);
-	mkdir("/tmp/nsj_sym_escape", 0755);
-	if (symlink("/tmp/nsj_sym_escape", "/tmp/nsj_sym_stage/link") != 0) {
+	const std::string symlink_stage = test_root + "/symlink_stage";
+	const std::string symlink_escape = test_root + "/symlink_escape";
+	if (mkdir(symlink_stage.c_str(), 0755) != 0 || mkdir(symlink_escape.c_str(), 0755) != 0) {
+		perror("mkdir symlink test directories");
+		return 1;
+	}
+	if (symlink(symlink_escape.c_str(), (symlink_stage + "/link").c_str()) != 0) {
 		fprintf(stderr, "FAIL symlink setup\n");
 		return 1;
 	}
 	/* Mimic new-API component walk with O_NOFOLLOW */
 	{
-		int root = open("/tmp/nsj_sym_stage", O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+		int root = open(symlink_stage.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
 		if (root < 0) {
 			perror("open stage");
 			return 1;
@@ -179,7 +207,7 @@ int main() {
 			return 1;
 		}
 		close(root);
-		if (access("/tmp/nsj_sym_escape/pwned", F_OK) == 0) {
+		if (access((symlink_escape + "/pwned").c_str(), F_OK) == 0) {
 			fprintf(stderr, "FAIL escape created\n");
 			return 1;
 		}
@@ -188,4 +216,3 @@ int main() {
 	printf("OK path_containment_test passed\n");
 	return 0;
 }
-
