@@ -24,11 +24,15 @@
 
 #include <stdbool.h>
 
+#include <string>
+
+#include "logs.h"
 #include "nsjail.h"
 
 namespace config {
 
 bool parseFile(nsj_t* nsj, const char* file);
+bool parseLogLevel(const std::string& str, enum logs::llevel_t* ll);
 uint64_t adjustRLimit(
     int res, const nsjail::RLimit& rl, const uint64_t val, unsigned long mul = 1UL);
 

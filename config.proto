@@ -114,6 +114,9 @@ message NsJailConfig {
 	/* Minimum log level displayed.
 	   See 'msg LogLevel' description for more */
 	optional LogLevel log_level = 17;
+	/* Messages at or above this level are also written to stderr, independently of
+	   log_level. No effect when the log already goes to stderr, or in daemon mode */
+	optional LogLevel log_stderr_level = 102;
 
 	/* Should the current environment variables be kept
 	   when executing the binary */
