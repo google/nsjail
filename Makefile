@@ -45,7 +45,7 @@ endif
 
 BIN = nsjail
 LIBS = kafel/libkafel.a
-TEST_BINS = tests/nstun_buffer_budget_test tests/nstun_policy_test tests/nstun_ip_test tests/nstun_udp_peer_test
+TEST_BINS = tests/util_msg_test tests/nstun_buffer_budget_test tests/nstun_policy_test tests/nstun_ip_test tests/nstun_udp_peer_test
 
 # If PASTA_BIN_PATH is not provided in env, dynamically search for it if EMBED_PASTA is requested
 # or fallback to it naturally.
@@ -167,6 +167,7 @@ test-newapi-recursive-readonly: $(BIN)
 	  elif [ "$$ret" -ne 0 ]; then exit "$$ret"; fi
 
 test: $(BIN) $(TEST_BINS) test-cmdline test-newapi-recursive-readonly
+	$(call run_test, ./tests/util_msg_test, 0)
 	$(call run_test, ./tests/nstun_buffer_budget_test, 0)
 	$(call run_test, ./tests/nstun_policy_test, 0)
 	$(call run_test, ./tests/nstun_ip_test, 0)
@@ -282,6 +283,9 @@ endif
 	@echo "  ✅ All tests passed!"
 	@echo "========================================"
 	@echo ""
+
+tests/util_msg_test: tests/util_msg_test.cc util.cc util.h logs.cc $(SRCS_PB_CXX)
+	$(CXX) $(filter-out -c,$(CXXFLAGS)) tests/util_msg_test.cc util.cc logs.cc $(SRCS_PB_CXX) -o $@ $(LDFLAGS)
 
 tests/nstun_buffer_budget_test: tests/nstun_buffer_budget_test.cc nstun/buffer_budget.h
 	$(CXX) $(filter-out -c,$(CXXFLAGS)) $< -o $@
