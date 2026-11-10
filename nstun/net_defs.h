@@ -8,6 +8,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+#include <span>
 
 /* From <linux/in.h>, can't include directly due to conflicts with <netinet/in.h> */
 #ifndef IN_LOOPBACK
@@ -158,33 +159,36 @@ constexpr uint8_t NSTUN_TCP_FLAG_PSH = 0x08;
 constexpr uint8_t NSTUN_TCP_FLAG_ACK = 0x10;
 
 /* Computes standard internet checksum */
-inline uint32_t compute_checksum_part(const void* buf, size_t len, uint32_t sum = 0) {
-	const uint8_t* p = static_cast<const uint8_t*>(buf);
-	size_t i = 0;
-
-	/* Sum 32 bits at a time, split into 16-bit halves to avoid overflow */
-	while (len - i >= 4) {
+inline uint32_t compute_checksum_part(std::span<const uint8_t> buf, uint32_t sum = 0) {
+	/* Consume 4 bytes at a time via subspan to preserve bounds information */
+	while (buf.size() >= 4) {
 		uint32_t dword;
-		memcpy(&dword, &p[i], sizeof(dword));
+		memcpy(&dword, buf.first<4>().data(), sizeof(dword));
 		sum += static_cast<uint32_t>(dword & 0xFFFF);
 		sum += static_cast<uint32_t>(dword >> 16);
-		i += 4;
+		buf = buf.subspan(4);
 	}
 
-	/* Sum remaining 16 bits */
-	while (len - i >= 2) {
+	/* Consume 2 bytes */
+	if (buf.size() >= 2) {
 		uint16_t word;
-		memcpy(&word, &p[i], sizeof(word));
+		memcpy(&word, buf.first<2>().data(), sizeof(word));
 		sum += word;
-		i += 2;
+		buf = buf.subspan(2);
 	}
 
-	/* Add remaining 8 bits */
-	if (i < len) {
-		sum += static_cast<uint8_t>(p[len - 1]);
+	/* Consume remaining byte */
+	if (!buf.empty()) {
+		sum += buf[0];
 	}
 
 	return sum;
+}
+
+// Overload for raw pointer + size callers (gradual migration).
+inline uint32_t compute_checksum_part(const void* buf, size_t len, uint32_t sum = 0) {
+	return compute_checksum_part(
+	    std::span<const uint8_t>(static_cast<const uint8_t*>(buf), len), sum);
 }
 
 inline uint16_t finalize_checksum(uint32_t sum) {
