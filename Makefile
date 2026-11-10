@@ -23,7 +23,7 @@ endif
 NL3_EXISTS := $(shell pkg-config --exists libnl-route-3.0 && echo yes)
 
 COMMON_FLAGS += -O2 -c \
-	-D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 \
+	-D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -fstack-protector-strong -D_FORTIFY_SOURCE=2 \
 	-fPIE \
 	-Wformat -Wformat-security -Wno-format-nonliteral \
 	-Wall -Wextra -Werror \
@@ -32,7 +32,7 @@ COMMON_FLAGS += -O2 -c \
 CXXFLAGS += $(USER_DEFINES) $(COMMON_FLAGS) $(PROTOBUF_CFLAGS) -I. \
 	-std=c++20 -fno-exceptions -Wno-unused -Wno-unused-parameter -Wno-c99-designator
 
-LDFLAGS += -pie -Wl,-z,noexecstack -lpthread $(PROTOBUF_LIBS)
+LDFLAGS += -pie -Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now -lpthread $(PROTOBUF_LIBS)
 
 ifeq ($(NL3_EXISTS), yes)
 	CXXFLAGS += $(shell pkg-config --cflags libnl-route-3.0) -DHAVE_LIBNL3
