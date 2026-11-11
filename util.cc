@@ -130,24 +130,25 @@ bool recvMsg(int sock, uint32_t* msg_val, int* fd) {
 	    .iov_base = &local_msg,
 	    .iov_len = sizeof(local_msg),
 	};
-	char c_buffer[256] = {};
+	alignas(struct cmsghdr) char c_buffer[256] = {};
 
+	if (fd) {
+		*fd = -1;
+	}
 	msg.msg_iov = &io;
 	msg.msg_iovlen = 1;
 	msg.msg_control = c_buffer;
 	msg.msg_controllen = sizeof(c_buffer);
 
-	ssize_t ret = TEMP_FAILURE_RETRY(recvmsg(sock, &msg, 0));
-	if (ret < 0 || (size_t)ret != sizeof(local_msg)) {
+	ssize_t ret = TEMP_FAILURE_RETRY(recvmsg(sock, &msg, MSG_CMSG_CLOEXEC));
+	if (ret < 0) {
 		return false;
 	}
+	bool valid =
+	    (size_t)ret == sizeof(local_msg) && !(msg.msg_flags & (MSG_CTRUNC | MSG_TRUNC));
 
-	if (msg_val) {
-		*msg_val = local_msg;
-	}
-	if (fd) {
-		*fd = -1;
-	}
+	/* recvmsg() installs SCM_RIGHTS descriptors even when the message is
+	 * incomplete. Always account for them before rejecting the message. */
 
 	for (struct cmsghdr* cmsg = CMSG_FIRSTHDR(&msg); cmsg != nullptr;
 	    cmsg = CMSG_NXTHDR(&msg, cmsg)) {
@@ -155,7 +156,7 @@ bool recvMsg(int sock, uint32_t* msg_val, int* fd) {
 			size_t num_fds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
 			int* fds = (int*)CMSG_DATA(cmsg);
 			for (size_t i = 0; i < num_fds; ++i) {
-				if (fd && *fd == -1) {
+				if (valid && fd && *fd == -1) {
 					*fd = fds[i];
 				} else {
 					close(fds[i]);
@@ -163,7 +164,10 @@ bool recvMsg(int sock, uint32_t* msg_val, int* fd) {
 			}
 		}
 	}
-	return true;
+	if (valid && msg_val) {
+		*msg_val = local_msg;
+	}
+	return valid;
 }
 
 bool sendFd(int sock, int fd) {
