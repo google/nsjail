@@ -311,6 +311,45 @@ bool createDirRecursively(const char* dir) {
 	}
 }
 
+/*
+ * Creates (or reuses) the directory at 'path' and hands back an O_DIRECTORY fd for
+ * it. A pre-existing entry is only accepted when it is a real directory
+ * (O_NOFOLLOW) owned by the current euid, so that a symlink or a foreign-owned
+ * directory planted in a shared parent such as /tmp can never be selected as a
+ * staging or work directory. Returns -1 on refusal.
+ */
+int openVerifiedDir(const char* path, mode_t mode) {
+	if (mkdir(path, mode) == -1 && errno != EEXIST) {
+		if (errno != EROFS || !existsAsDir(path)) {
+			PLOG_D("mkdir('%s')", path);
+			return -1;
+		}
+	}
+
+	int fd = TEMP_FAILURE_RETRY(open(path, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW));
+	if (fd == -1) {
+		PLOG_W("open('%s', O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW)", path);
+		return -1;
+	}
+
+	struct stat st;
+	if (TEMP_FAILURE_RETRY(fstat(fd, &st)) == -1) {
+		PLOG_W("fstat('%s')", path);
+		close(fd);
+		return -1;
+	}
+
+	if (st.st_uid != geteuid()) {
+		LOG_W("Refusing pre-existing directory '%s' owned by uid=%ju (we are uid=%ju)",
+		    path, (uintmax_t)st.st_uid, (uintmax_t)geteuid());
+		close(fd);
+		return -1;
+	}
+
+	LOG_D("Verified directory '%s' (fd=%d)", path, fd);
+	return fd;
+}
+
 std::string* StrAppend(std::string* str, const char* format, ...) {
 	char* strp;
 

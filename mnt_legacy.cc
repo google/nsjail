@@ -392,28 +392,46 @@ std::unique_ptr<std::string> buildMountTree(nsj_t* nsj, std::vector<mnt::mount_t
 
 	const size_t tmpfsSize = 16 * 1024 * 1024;
 
-	auto destdir = mnt::findWorkDir(nsj, "root");
+	int destdir_fd = -1;
+	auto destdir = mnt::findWorkDir(nsj, "root", &destdir_fd);
 	if (!destdir) {
 		return nullptr;
 	}
+	defer {
+		close(destdir_fd);
+	};
 
 	if (mount("/", "/", nullptr, MS_REC | MS_PRIVATE, nullptr) == -1) {
 		PLOG_E("mount('/', MS_REC|MS_PRIVATE)");
 		return nullptr;
 	}
 
-	if (mount(nullptr, destdir->c_str(), "tmpfs", 0,
+	/*
+	 * Attach the staging tmpfs trees through /proc/self/fd handles instead of
+	 * re-resolving the paths: findWorkDir() verified that the destinations are
+	 * euid-owned real directories, and the procfs handle pins that inode even if
+	 * a shared parent is mutated afterwards.
+	 */
+	char destdir_procfd[64];
+	snprintf(destdir_procfd, sizeof(destdir_procfd), "/proc/self/fd/%d", destdir_fd);
+	if (mount(nullptr, destdir_procfd, "tmpfs", 0,
 		("size=" + std::to_string(tmpfsSize)).c_str()) == -1) {
 		PLOG_E("mount('%s', tmpfs)", destdir->c_str());
 		return nullptr;
 	}
 
-	auto tmpdir = mnt::findWorkDir(nsj, "tmp");
+	int tmpdir_fd = -1;
+	auto tmpdir = mnt::findWorkDir(nsj, "tmp", &tmpdir_fd);
 	if (!tmpdir) {
 		return nullptr;
 	}
+	defer {
+		close(tmpdir_fd);
+	};
 
-	if (mount(nullptr, tmpdir->c_str(), "tmpfs", 0,
+	char tmpdir_procfd[64];
+	snprintf(tmpdir_procfd, sizeof(tmpdir_procfd), "/proc/self/fd/%d", tmpdir_fd);
+	if (mount(nullptr, tmpdir_procfd, "tmpfs", 0,
 		("size=" + std::to_string(tmpfsSize)).c_str()) == -1) {
 		PLOG_E("mount('%s', tmpfs)", tmpdir->c_str());
 		return nullptr;
