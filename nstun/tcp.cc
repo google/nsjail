@@ -1,5 +1,6 @@
 #include "tcp.h"
 
+#include <algorithm>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -311,6 +312,20 @@ void push_to_guest(Context* ctx, TcpFlow* flow) {
 	}
 }
 
+/* After host-side EOF, retain writable events when necessary but switch to
+ * edge-triggered HUP reporting: level-triggered HUP can otherwise spin the
+ * epoll loop, repeatedly refreshing the flow's idle timestamp. */
+static uint32_t tcp_host_events(const TcpFlow* flow, bool want_out) {
+	uint32_t events = EPOLLERR | EPOLLHUP;
+	if (flow->host_eof) {
+		events |= EPOLLET;
+	} else if (!flow->epoll_in_disabled) {
+		events |= EPOLLIN;
+	}
+	if (want_out) events |= EPOLLOUT;
+	return events;
+}
+
 /* Returns true if the flow was destroyed (caller must not use flow afterward) */
 bool flush_to_host(Context* ctx, TcpFlow* flow) {
 	if (flow->rx_sent_offset >= flow->rx_buffer.size()) {
@@ -330,7 +345,7 @@ bool flush_to_host(Context* ctx, TcpFlow* flow) {
 		/* We made progress, remove EPOLLOUT if empty */
 		if (flow->rx_buffer.empty() && flow->epoll_out_registered) {
 			struct epoll_event ev = {
-			    .events = EPOLLIN | EPOLLERR | EPOLLHUP, .data = {.fd = flow->host_fd}};
+			    .events = tcp_host_events(flow, false), .data = {.fd = flow->host_fd}};
 			epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, flow->host_fd, &ev);
 			flow->epoll_out_registered = false;
 		}
@@ -341,7 +356,7 @@ bool flush_to_host(Context* ctx, TcpFlow* flow) {
 	} else if (written < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
 		/* Apply backpressure, register EPOLLOUT */
 		if (!flow->epoll_out_registered) {
-			struct epoll_event ev = {.events = EPOLLIN | EPOLLOUT | EPOLLERR | EPOLLHUP,
+			struct epoll_event ev = {.events = tcp_host_events(flow, true),
 			    .data = {.fd = flow->host_fd}};
 			epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, flow->host_fd, &ev);
 			flow->epoll_out_registered = true;
@@ -729,7 +744,7 @@ static void tcp_process_data(Context* ctx, TcpFlow* flow, const tcp_hdr* tcp,
 					}
 
 					push_to_guest(ctx, flow);
-				} else if (acked_bytes == 0 && data_len == 0 &&
+				} else if (acked_bytes == 0 && data_len == 0 && !flow->fin_sent &&
 					   !(tcp->flags & (NSTUN_TCP_FLAG_FIN | NSTUN_TCP_FLAG_SYN |
 							      NSTUN_TCP_FLAG_RST))) {
 					/* Duplicate ACK -> Fast Retransmit */
@@ -741,7 +756,7 @@ static void tcp_process_data(Context* ctx, TcpFlow* flow, const tcp_hdr* tcp,
 			if (flow->state == TcpState::FIN_WAIT_1 && ack == flow->seq_to_guest) {
 				flow->state = TcpState::FIN_WAIT_2;
 			}
-		} else if (data_len == 0 &&
+		} else if (data_len == 0 && !flow->fin_sent &&
 			   !(tcp->flags &
 			       (NSTUN_TCP_FLAG_FIN | NSTUN_TCP_FLAG_SYN | NSTUN_TCP_FLAG_RST))) {
 			flow->seq_to_guest = flow->ack_from_guest;
@@ -998,8 +1013,7 @@ void handle_host_tcp_data_eof(Context* ctx, TcpFlow* flow, int fd) {
 		flow->host_eof = true;
 		if (!flow->epoll_in_disabled) {
 			struct epoll_event ev = {
-			    .events = EPOLLERR | EPOLLHUP |
-				      (flow->epoll_out_registered ? (uint32_t)EPOLLOUT : 0),
+			    .events = tcp_host_events(flow, flow->epoll_out_registered),
 			    .data = {.fd = fd}};
 			if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, fd, &ev) == -1) {
 				PLOG_E("epoll_ctl(EPOLL_CTL_MOD) failed in eof");
@@ -1014,7 +1028,10 @@ void handle_host_tcp_data_eof(Context* ctx, TcpFlow* flow, int fd) {
 
 void handle_host_tcp(Context* ctx, TcpFlow* flow, uint32_t events) {
 	int fd = flow->host_fd;
-	flow->last_active = time(NULL);
+	/* A stale HUP is not peer activity and must not extend the idle timeout. */
+	if (!flow->host_eof && (events & (EPOLLIN | EPOLLOUT))) {
+		flow->last_active = time(NULL);
+	}
 
 	LOG_D("handle_host_tcp fd=%d, events=0x%x, state=%d", fd, events, (int)flow->state);
 
@@ -1060,9 +1077,15 @@ void handle_host_tcp(Context* ctx, TcpFlow* flow, uint32_t events) {
 			return;
 		}
 		if (!flow->host_eof) {
-			/* Treat HUP as EOF from host */
+			/* Treat HUP as EOF from host; suppress repeated level HUP wakeups. */
 			flow->host_eof = true;
 			flow->epoll_in_disabled = true;
+			struct epoll_event ev = {
+			    .events = tcp_host_events(flow, flow->epoll_out_registered),
+			    .data = {.fd = fd}};
+			if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, fd, &ev) == -1) {
+				PLOG_E("epoll_ctl(EPOLL_CTL_MOD) failed on HUP");
+			}
 			push_to_guest(ctx, flow);
 			if (ctx->flows_by_fd.find(fd) == ctx->flows_by_fd.end()) {
 				return;
@@ -1398,11 +1421,24 @@ void TcpFlow::handle_host_event(Context* ctx, int fd, uint32_t events) {
 }
 
 void TcpFlow::periodic_check(Context* ctx, time_t now) {
-	if (this->seq_to_guest > this->ack_from_guest && (now - this->last_active >= 2)) {
+	/* Retransmissions must not reset last_active: that tracks peer activity and
+	 * drives the idle timeout. Keep the RTO clock separate. */
+	time_t last_send = std::max(this->last_active, this->last_retransmit);
+	if ((int32_t)(this->seq_to_guest - this->ack_from_guest) > 0 &&
+	    (now - last_send >= 2)) {
 		LOG_D("TCP RTO triggered for flow (fd=%d)", this->host_fd);
-		this->seq_to_guest = this->ack_from_guest;
-		push_to_guest(ctx, this);
-		this->last_active = now;
+		if (this->fin_sent && !this->fin_acked) {
+			/* FIN consumes one sequence number. Replay the same FIN sequence,
+			 * without moving SND.NXT back or consuming a second number. */
+			const uint32_t next_seq = this->seq_to_guest;
+			this->seq_to_guest = next_seq - 1;
+			tcp_send_packet(ctx, this, NSTUN_TCP_FLAG_FIN | NSTUN_TCP_FLAG_ACK);
+			this->seq_to_guest = next_seq;
+		} else {
+			this->seq_to_guest = this->ack_from_guest;
+			push_to_guest(ctx, this);
+		}
+		this->last_retransmit = now;
 	}
 }
 
@@ -1416,7 +1452,9 @@ bool TcpFlow::is_stale(time_t now) const {
 		timeout = TCP_TIMEOUT_CLOSING;
 	} else if (this->state == TcpState::CLOSE_WAIT) {
 		timeout = TCP_TIMEOUT_FIN;
-	} else if (this->state == TcpState::FIN_WAIT_1 || this->state == TcpState::FIN_WAIT_2) {
+	} else if (this->state == TcpState::FIN_WAIT_1 || this->state == TcpState::FIN_WAIT_2 ||
+	           this->fin_sent) {
+		/* FIN has been sent even if the legacy state remains ESTABLISHED. */
 		timeout = TCP_TIMEOUT_FIN;
 	}
 
