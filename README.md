@@ -181,6 +181,7 @@ Override command:
 
 ### Example Configs
 
+- **[cli-no-new-userns-x86_64.policy](configs/cli-no-new-userns-x86_64.md)**: Opt-in native x86_64 CLI allowlist that blocks nested user namespaces; see its workload and ABI limits
 - **[bash-with-fake-geteuid.cfg](https://github.com/google/nsjail/blob/master/configs/bash-with-fake-geteuid.cfg)**: Bash with fake root UID
 - **[firefox-with-net-wayland.cfg](https://github.com/google/nsjail/blob/master/configs/firefox-with-net-wayland.cfg)**: Sandboxed Firefox with networking
 - **[home-documents-with-xorg-no-net.cfg](https://github.com/google/nsjail/blob/master/configs/home-documents-with-xorg-no-net.cfg)**: Document viewer with X11, no network
