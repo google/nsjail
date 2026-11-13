@@ -484,8 +484,42 @@ static bool doBindMountAt(mount_t* mpt, int parent_fd, const char* basename) {
 		flags |= AT_RECURSIVE;
 	}
 
-	LOG_D("open_tree('%s', flags=0x%x)", mpt->src.c_str(), flags);
-	int mnt_fd = syscall(__NR_open_tree, AT_FDCWD, mpt->src.c_str(), flags);
+	/*
+	 * Mount the inode that prepareMountPoint() opened and validated, not the
+	 * path again: re-resolving mpt->src here would let a rename/symlink swap
+	 * between validation and mount substitute an unrelated host directory.
+	 */
+	if (mpt->src_fd >= 0) {
+		LOG_D("open_tree(fd=%d, '%s', flags=0x%x)", mpt->src_fd, mpt->src.c_str(),
+		    flags | AT_EMPTY_PATH);
+	} else {
+		LOG_D("open_tree('%s', flags=0x%x)", mpt->src.c_str(), flags);
+	}
+	int mnt_fd;
+	if (mpt->src_fd >= 0) {
+		mnt_fd = syscall(__NR_open_tree, mpt->src_fd, "", flags | AT_EMPTY_PATH);
+		if (mnt_fd < 0 && (errno == EINVAL || errno == ENOSYS || errno == EOPNOTSUPP)) {
+			/*
+			 * Kernels older than the AT_EMPTY_PATH support in open_tree(2) can
+			 * still clone the same inode through the descriptor's magic link.
+			 */
+			std::string fdpath = "/proc/self/fd/" + std::to_string(mpt->src_fd);
+			mnt_fd = syscall(__NR_open_tree, AT_FDCWD, fdpath.c_str(), flags);
+			if (mnt_fd >= 0) {
+				LOG_D("open_tree('%s', flags=0x%x)", fdpath.c_str(), flags);
+			}
+		}
+		if (mnt_fd < 0) {
+			static bool warned = false;
+			if (!warned) {
+				warned = true;
+				LOG_W("open_tree(source fd) failed, falling back to the source path");
+			}
+			mnt_fd = syscall(__NR_open_tree, AT_FDCWD, mpt->src.c_str(), flags);
+		}
+	} else {
+		mnt_fd = syscall(__NR_open_tree, AT_FDCWD, mpt->src.c_str(), flags);
+	}
 	if (mnt_fd < 0) {
 		PLOG_W("open_tree('%s')", mpt->src.c_str());
 		return false;
@@ -536,6 +570,14 @@ static bool doBindMountAt(mount_t* mpt, int parent_fd, const char* basename) {
 
 static bool mountSinglePointAt(mount_t* mpt, int root_fd, int staging_fd) {
 	LOG_D("Mounting (new API): %s", mnt::describeMountPt(*mpt->mpt).c_str());
+
+	/* The bind source handle is only needed while the mount is being set up. */
+	defer {
+		if (mpt->src_fd >= 0) {
+			close(mpt->src_fd);
+			mpt->src_fd = -1;
+		}
+	};
 
 	const char* rel_dst = util::stripLeadingSlashes(mpt->dst.c_str());
 	/* Empty / only-slashes dst means the jail root (represented as "."). */
@@ -621,6 +663,7 @@ static mount_t prepareMountPoint(const nsjail::MountPt& proto) {
 	    .is_dir = true,
 	    .mounted = false,
 	    .fd = -1,
+	    .src_fd = -1,
 	};
 
 	if (!proto.prefix_src_env().empty()) {
@@ -669,6 +712,28 @@ static mount_t prepareMountPoint(const nsjail::MountPt& proto) {
 		}
 	}
 
+	/*
+	 * Anchor every bind source to a single O_PATH handle. doBindMountAt()
+	 * clones exactly this handle, so the object mounted is the object
+	 * inspected here even if the path is concurrently renamed or replaced.
+	 */
+	bool src_is_dir = false;
+	bool src_stat_ok = false;
+	if ((mpt.flags & MS_BIND) && !mpt.src.empty()) {
+		struct stat st;
+		mpt.src_fd = TEMP_FAILURE_RETRY(open(mpt.src.c_str(), O_PATH | O_CLOEXEC));
+		if (mpt.src_fd == -1) {
+			PLOG_W("open('%s', O_PATH | O_CLOEXEC) for bind source", QC(mpt.src));
+		} else if (fstat(mpt.src_fd, &st) == -1) {
+			PLOG_W("fstat('%s') for bind source", QC(mpt.src));
+			close(mpt.src_fd);
+			mpt.src_fd = -1;
+		} else {
+			src_stat_ok = true;
+			src_is_dir = S_ISDIR(st.st_mode);
+		}
+	}
+
 	if (proto.has_is_dir()) {
 		mpt.is_dir = proto.is_dir();
 	} else if (!proto.src_content().empty()) {
@@ -676,8 +741,8 @@ static mount_t prepareMountPoint(const nsjail::MountPt& proto) {
 	} else if (mpt.src.empty()) {
 		mpt.is_dir = true;
 	} else if (mpt.flags & MS_BIND) {
-		struct stat st;
-		mpt.is_dir = (stat(mpt.src.c_str(), &st) == 0 && S_ISDIR(st.st_mode));
+		/* An unreadable/absent source keeps is_dir=false so the mount fails. */
+		mpt.is_dir = src_stat_ok && src_is_dir;
 	} else {
 		mpt.is_dir = true;
 	}
