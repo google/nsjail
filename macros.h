@@ -36,6 +36,21 @@
 	}))
 #endif /* !defined(TEMP_FAILURE_RETRY) */
 
+#if !defined(RETRY_ON_EBUSY)
+constexpr int kEbusyRetries = 3;
+constexpr useconds_t kEbusyRetryDelayUs = 1000;
+#define RETRY_ON_EBUSY(expression)                                                                 \
+	(__extension__({                                                                           \
+		long int __result;                                                                 \
+		int __retries = 0;                                                                 \
+		while ((__result = (long int)(expression)) == -1L && errno == EBUSY &&             \
+		       __retries++ < kEbusyRetries) {                                              \
+			usleep(kEbusyRetryDelayUs);                                                \
+		}                                                                                  \
+		__result;                                                                          \
+	}))
+#endif /* !defined(RETRY_ON_EBUSY) */
+
 #if !defined(ARR_SZ)
 #define ARR_SZ(array) (sizeof(array) / sizeof(*array))
 #endif /* !defined(ARR_SZ) */
