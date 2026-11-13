@@ -244,6 +244,10 @@ static bool initCloneNs(nsj_t* nsj) {
 				close(p.fd);
 				p.fd = -1;
 			}
+			if (p.src_fd >= 0) {
+				close(p.src_fd);
+				p.src_fd = -1;
+			}
 		}
 	};
 

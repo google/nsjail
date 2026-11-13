@@ -68,6 +68,7 @@ struct mount_t {
 	bool is_dir;
 	bool mounted;
 	int fd; /* Used by new API for deferred remount */
+	int src_fd; /* O_PATH handle to a bind source, used to anchor the mount */
 };
 
 bool initNs(nsj_t* nsj);
