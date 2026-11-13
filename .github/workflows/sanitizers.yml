@@ -1,0 +1,40 @@
+name: Sanitizers and fuzzing
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+# Least privilege: read-only repo access is all this workflow needs.
+permissions:
+  contents: read
+
+jobs:
+  sanitizer-build-and-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          submodules: recursive
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler libprotobuf-dev libnl-route-3-dev libcap-dev clang
+      - name: Build hardened default
+        run: make -j"$(nproc)"
+      - name: Build ASan+UBSan
+        run: make asan -j"$(nproc)"
+      - name: Allow unprivileged userns (ubuntu-24.04 AppArmor)
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+      - name: ASan jail smoke
+        run: sudo ./nsjail-asan -Mo --chroot / --user 65534 --group 65534 -- /bin/true
+      - name: Assert Full RELRO landed
+        run: readelf -d nsjail | grep -q BIND_NOW
+      - name: Assert stack protector landed
+        run: nm nsjail | grep -q __stack_chk_fail
+      - name: Build fuzzers
+        run: make fuzz-nstun fuzz-kafel -j"$(nproc)"
+      - name: nstun fuzz smoke
+        run: ./fuzz/nstun_fuzz fuzz/nstun_corpus -max_total_time=120 -rss_limit_mb=4096
+      - name: kafel fuzz smoke
+        run: ./fuzz/kafel_fuzz fuzz/kafel_corpus -max_total_time=120 -rss_limit_mb=4096

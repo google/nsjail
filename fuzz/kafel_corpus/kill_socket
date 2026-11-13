@@ -1,0 +1,2 @@
+KILL_PROCESS { socket }
+DEFAULT ALLOW

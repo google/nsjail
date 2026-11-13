@@ -1,0 +1,5 @@
+POLICY a {
+ ALLOW { openat, read, close }
+ DEFAULT KILL_PROCESS
+}
+USE a DEFAULT ALLOW
