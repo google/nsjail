@@ -135,7 +135,13 @@ static std::vector<std::string> readStringArrayFromMem(pid_t pid, uint64_t addr,
 }
 
 static std::string getAbsPath(pid_t pid, int dirfd, const std::string& raw_path) {
-	if (raw_path.empty() || raw_path[0] == '/') return raw_path;
+	if (!raw_path.empty() && raw_path[0] == '/') return raw_path;
+	/*
+	 * An empty path names the object dirfd refers to (AT_EMPTY_PATH), e.g. the
+	 * execveat(fd, "", ...) used by --execute_fd. With AT_FDCWD it is left empty,
+	 * since only some syscalls/flags make it refer to the working directory.
+	 */
+	if (raw_path.empty() && (dirfd == AT_FDCWD || dirfd == -100)) return raw_path;
 
 	std::string link_path;
 	if (dirfd == AT_FDCWD || dirfd == -100) {
@@ -150,6 +156,7 @@ static std::string getAbsPath(pid_t pid, int dirfd, const std::string& raw_path)
 	buf[len] = '\0';
 
 	std::string abs_path = buf;
+	if (raw_path.empty()) return abs_path;
 	if (abs_path.back() != '/') abs_path += '/';
 	abs_path += raw_path;
 	return abs_path;
@@ -227,6 +234,12 @@ static Stat_Path_Type getStatInfo(const std::string& path) {
 static void populatePathInfo(pid_t pid, int dirfd, uint64_t addr, PathInfoRecord* out_rec) {
 	std::string raw_path = readStringFromMem(pid, addr);
 	out_rec->path = getAbsPath(pid, dirfd, raw_path);
+	if (out_rec->path.empty()) {
+		/* Not a file name: "/proc/<pid>/root" + "" is the magic link itself */
+		out_rec->jail_type = Stat_Path_Type_NONEXISTENT;
+		out_rec->main_type = Stat_Path_Type_NONEXISTENT;
+		return;
+	}
 	out_rec->jail_type = getStatInfo("/proc/" + std::to_string(pid) + "/root" + out_rec->path);
 	out_rec->main_type = getStatInfo(out_rec->path);
 }
