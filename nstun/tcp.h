@@ -58,6 +58,8 @@ struct TcpFlow : public Flow {
 
 	bool epoll_out_registered = false;
 	bool epoll_in_disabled = false;
+	bool epoll_detached = false; /* HUP with unread host bytes while reads are paused */
+	bool tx_budget_blocked = false;
 	bool inbound = false; /* true if flow is HOST_TO_GUEST */
 	~TcpFlow() override {
 		if (host_fd != -1) ::close(host_fd);
@@ -74,6 +76,9 @@ void tcp_send_packet4(
 void tcp_send_packet6(
     Context* ctx, TcpFlow* flow, uint8_t flags, const uint8_t* data = nullptr, size_t len = 0);
 void tcp_destroy_flow(Context* ctx, TcpFlow* flow);
+void tcp_resume_tx_budget_blocked_flows(Context* ctx);
+void tcp_finish_host_event_batch(Context* ctx);
+void tcp_retry_deferred_writes(Context* ctx);
 void push_to_guest(Context* ctx, TcpFlow* flow);
 
 void handle_tcp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> payload);

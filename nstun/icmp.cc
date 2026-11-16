@@ -233,7 +233,7 @@ void handle_icmp6(Context* ctx, const ip6_hdr* ip, std::span<const uint8_t> payl
 					}
 				};
 
-				struct epoll_event ev = {.events = EPOLLIN, .data = {.fd = fd}};
+				struct epoll_event ev = {.events = EPOLLIN, .data = {.u64 = static_cast<uint32_t>(fd)}};
 				if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1) {
 					PLOG_E("epoll_ctl(EPOLL_CTL_ADD) for ICMPv6 failed");
 					return;
@@ -360,7 +360,7 @@ void handle_icmp4(Context* ctx, const ip4_hdr* ip, std::span<const uint8_t> payl
 					}
 				};
 
-				struct epoll_event ev = {.events = EPOLLIN, .data = {.fd = fd}};
+				struct epoll_event ev = {.events = EPOLLIN, .data = {.u64 = static_cast<uint32_t>(fd)}};
 				if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1) {
 					PLOG_E("epoll_ctl(EPOLL_CTL_ADD) for ICMP failed");
 					return;
