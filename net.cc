@@ -229,6 +229,13 @@ static void pastaProcess(nsj_t* nsj, int pid, int err_pipe) {
 	argv.push_back("pasta");
 	argv.push_back("-f");
 	argv.push_back("-q");
+	/*
+	 * Don't let pasta watch /proc/<pid>/ns to quit when the namespace goes
+	 * away. Opening that directory requires read permission, which pasta
+	 * lacks when the jail runs as a different outside uid. nsjail kills
+	 * pasta itself in subproc::removeProc().
+	 */
+	argv.push_back("--no-netns-quit");
 
 	if (nsj->njc.user_net().pasta().nat()) {
 		if (!nsj->njc.user_net().pasta().enable_ip4_dhcp()) {
