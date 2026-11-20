@@ -313,6 +313,20 @@ bool initNsFromChild(nsj_t* nsj) {
 	}
 
 	/*
+	 * Changing to a different outside uid/gid (e.g. a subordinate id via
+	 * newuidmap) makes this process non-dumpable until execve(). Then the
+	 * files in /proc/<pid>/ns can only be opened with CAP_SYS_PTRACE in the
+	 * parent user namespace, so pasta, which joins our namespaces
+	 * asynchronously, fails with EACCES. Restore dumpability, as execve()
+	 * would anyway, so that the owner of our user namespace, who already
+	 * has full control of it, can access us before execve() too.
+	 */
+	if (prctl(PR_SET_DUMPABLE, 1UL, 0UL, 0UL, 0UL) == -1) {
+		PLOG_E("prctl(PR_SET_DUMPABLE, 1)");
+		return false;
+	}
+
+	/*
 	 * Disable securebits again to avoid spawned programs
 	 * unexpectedly retaining capabilities after a UID/GID
 	 * change.
