@@ -97,18 +97,20 @@ void handle_ip4(Context* ctx, std::span<const uint8_t> payload) {
 		return;
 	}
 
-	if (ip->saddr != ctx->guest_ip4 && ip->saddr != 0) {
+	if (ip->saddr != ctx->guest_ip4) {
 		LOG_W("Dropping packet with invalid source IP");
 		return;
 	}
 
-	/* SSRF gate: reject packets to loopback, link-local, broadcast, or INADDR_ANY.
-	 * This is the single authoritative check - L4 handlers rely on this
+	/* SSRF gate: reject packets to loopback, link-local, multicast, broadcast, or
+	 * INADDR_ANY. This is the single authoritative check - L4 handlers rely on this
 	 * and do NOT duplicate it. Redirect rules in policy may still target
 	 * loopback intentionally (admin-controlled). */
 	if (IN_LOOPBACK(ntohl(ip->daddr)) || ip4_is_link_local(ip->daddr) ||
-	    ip->daddr == htonl(INADDR_ANY) || ip->daddr == htonl(INADDR_BROADCAST)) {
-		LOG_W("Dropping packet destined to loopback, link-local, ANY, or broadcast: %s",
+	    ip4_is_multicast(ip->daddr) || ip->daddr == htonl(INADDR_ANY) ||
+	    ip->daddr == htonl(INADDR_BROADCAST)) {
+		LOG_W("Dropping packet destined to loopback, link-local, multicast, ANY, or "
+		      "broadcast: %s",
 		    ip4_to_string(ip->daddr).c_str());
 		return;
 	}

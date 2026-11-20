@@ -45,7 +45,7 @@ endif
 
 BIN = nsjail
 LIBS = kafel/libkafel.a
-TEST_BINS = tests/nstun_buffer_budget_test tests/nstun_policy_test tests/nstun_ip_test tests/nstun_udp_peer_test tests/socks5_control_reader_test
+TEST_BINS = tests/nstun_buffer_budget_test tests/nstun_policy_test tests/nstun_ip_test tests/nstun_udp_peer_test tests/mount_source_anchor_test tests/socks5_control_reader_test
 
 # If PASTA_BIN_PATH is not provided in env, dynamically search for it if EMBED_PASTA is requested
 # or fallback to it naturally.
@@ -166,11 +166,15 @@ test-newapi-recursive-readonly: $(BIN)
 	  if [ "$$ret" -eq 77 ]; then echo "SKIP: new mount API integration test"; \
 	  elif [ "$$ret" -ne 0 ]; then exit "$$ret"; fi
 
+tests/mount_source_anchor_test: tests/mount_source_anchor_test.c
+	$(CC) -O2 -Wall -o $@ $<
+
 test: $(BIN) $(TEST_BINS) test-cmdline test-newapi-recursive-readonly
 	$(call run_test, ./tests/nstun_buffer_budget_test, 0)
 	$(call run_test, ./tests/nstun_policy_test, 0)
 	$(call run_test, ./tests/nstun_ip_test, 0)
 	$(call run_test, ./tests/nstun_udp_peer_test, 0)
+	$(call run_test, ./tests/mount_source_anchor_test, 0)
 	$(call run_test, ./tests/socks5_control_reader_test, 0)
 	# --- Basic sanity tests ---
 	$(call run_test, ./nsjail -q -Mo --chroot / --user 99999 --group 99999 -- /bin/true, 0)
@@ -290,8 +294,8 @@ tests/nstun_buffer_budget_test: tests/nstun_buffer_budget_test.cc nstun/buffer_b
 tests/nstun_policy_test: tests/nstun_policy_test.cc nstun/policy.cc logs.cc util.cc $(SRCS_PB_CXX)
 	$(CXX) $(filter-out -c,$(CXXFLAGS)) tests/nstun_policy_test.cc nstun/policy.cc logs.cc util.cc $(SRCS_PB_CXX) -o $@ $(LDFLAGS)
 
-tests/nstun_ip_test: tests/nstun_ip_test.cc nstun/net_defs.h
-	$(CXX) $(filter-out -c,$(CXXFLAGS)) tests/nstun_ip_test.cc -o $@
+tests/nstun_ip_test: tests/nstun_ip_test.cc nstun/ip.cc nstun/net_defs.h logs.h
+	$(CXX) $(filter-out -c,$(CXXFLAGS)) tests/nstun_ip_test.cc nstun/ip.cc -o $@
 
 tests/nstun_udp_peer_test: tests/nstun_udp_peer_test.cc nstun/udp_peer.h nstun/core.h
 	$(CXX) $(filter-out -c,$(CXXFLAGS)) tests/nstun_udp_peer_test.cc -o $@

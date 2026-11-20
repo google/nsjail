@@ -62,6 +62,7 @@ static mount_t prepareMountPoint(const nsjail::MountPt& proto) {
 	    .is_dir = true,
 	    .mounted = false,
 	    .fd = -1,
+	    .src_fd = -1,
 	};
 
 	if (!proto.prefix_src_env().empty()) {
@@ -115,6 +116,27 @@ static mount_t prepareMountPoint(const nsjail::MountPt& proto) {
 		mpt.is_dir = isDirectory(mpt.src.c_str());
 	} else {
 		mpt.is_dir = true;
+	}
+
+	/*
+	 * Anchor bind sources to a single O_PATH handle (see mountSinglePoint):
+	 * the is_dir decision above and the object mounted below must refer to
+	 * the same inode, otherwise a concurrent rename of the source can make
+	 * nsjail mount a different host directory than the one it inspected.
+	 */
+	if ((mpt.flags & MS_BIND) && !mpt.src.empty() && !mpt.mpt->is_symlink() &&
+	    mpt.mpt->src_content().empty()) {
+		struct stat st;
+		mpt.src_fd = TEMP_FAILURE_RETRY(open(mpt.src.c_str(), O_PATH | O_CLOEXEC));
+		if (mpt.src_fd == -1) {
+			PLOG_W("open('%s', O_PATH | O_CLOEXEC) for bind source", QC(mpt.src));
+		} else if (fstat(mpt.src_fd, &st) == -1) {
+			PLOG_W("fstat('%s') for bind source", QC(mpt.src));
+			close(mpt.src_fd);
+			mpt.src_fd = -1;
+		} else if (!proto.has_is_dir()) {
+			mpt.is_dir = S_ISDIR(st.st_mode);
+		}
 	}
 
 	return mpt;
@@ -205,6 +227,14 @@ static bool mountWithDynamicContent(
 static bool mountSinglePoint(mount_t* mpt, const char* newroot, const char* tmpdir) {
 	LOG_D("Mounting (legacy): %s", mnt::describeMountPt(*mpt->mpt).c_str());
 
+	/* The anchored source handle is only needed while this mount is set up. */
+	defer {
+		if (mpt->src_fd >= 0) {
+			close(mpt->src_fd);
+			mpt->src_fd = -1;
+		}
+	};
+
 	if (!util::isSafeContainmentPath(mpt->dst)) {
 		LOG_E("Mount destination escapes containment via '.'/'..'/NUL: %s", QC(mpt->dst));
 		return false;
@@ -216,6 +246,29 @@ static bool mountSinglePoint(mount_t* mpt, const char* newroot, const char* tmpd
 		return false;
 	}
 	std::string srcpath = mpt->src.empty() ? "none" : mpt->src;
+
+	/*
+	 * Mount the inode opened by prepareMountPoint(), not the path again: a
+	 * rename/symlink swap between validation and mount would otherwise let
+	 * an unprivileged user substitute a host directory the operator never
+	 * granted to the sandbox. /proc/self/fd is only used as a stable name
+	 * for an already-open file descriptor, no path is re-resolved.
+	 */
+	if (mpt->src_fd >= 0 && !mpt->mpt->is_symlink()) {
+		static const bool have_proc_self_fd = (access("/proc/self/fd", X_OK) == 0);
+		if (have_proc_self_fd) {
+			srcpath = "/proc/self/fd/" + std::to_string(mpt->src_fd);
+			LOG_D("Bind source anchored to fd=%d %s", mpt->src_fd,
+			    QC(mpt->src));
+		} else {
+			static bool warned = false;
+			if (!warned) {
+				warned = true;
+				LOG_W("Bind source cannot be anchored without /proc/self/fd; "
+				      "falling back to the source path");
+			}
+		}
+	}
 
 	if (!util::createDirRecursively(dstpath.c_str())) {
 		LOG_W("Failed to create parent directories for '%s'", dstpath.c_str());
