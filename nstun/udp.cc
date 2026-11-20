@@ -16,6 +16,7 @@
 #include "logs.h"
 #include "macros.h"
 #include "policy.h"
+#include "socks5_control_reader.h"
 #include "tun.h"
 #include "udp_peer.h"
 
@@ -210,6 +211,7 @@ static void handle_udp_tcp_connecting(Context* ctx, UdpFlow* flow, uint32_t even
 
 	if (flow->use_socks5) {
 		flow->state = UdpSocks5State::SOCKS5_GREETING;
+		flow->last_active = time(NULL);
 		if (nstun::send_socks5_greeting(fd) < 0) {
 			udp_destroy_flow(ctx, flow);
 			return;
@@ -218,80 +220,70 @@ static void handle_udp_tcp_connecting(Context* ctx, UdpFlow* flow, uint32_t even
 }
 
 static void handle_udp_socks5_greeting(Context* ctx, UdpFlow* flow, uint32_t events) {
-	int fd = flow->tcp_fd;
-	socks5_auth_reply reply;
-	ssize_t n = recv(fd, &reply, sizeof(reply), MSG_PEEK | MSG_DONTWAIT);
-	if (n <= 0) {
-		if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return;
-		udp_destroy_flow(ctx, flow);
-		return;
-	}
-	if (n < (ssize_t)sizeof(reply)) return;
-	recv(fd, &reply, sizeof(reply), MSG_DONTWAIT);
-	if (!nstun::parse_socks5_auth_reply(std::span<const uint8_t>(
-		reinterpret_cast<const uint8_t*>(&reply), sizeof(reply)))) {
-		udp_destroy_flow(ctx, flow);
-		return;
-	}
-	flow->state = UdpSocks5State::SOCKS5_ASSOCIATE;
-	if (nstun::send_socks5_udp_associate(fd) < 0) {
-		udp_destroy_flow(ctx, flow);
-		return;
-	}
+    if (events & (EPOLLERR | EPOLLHUP)) {
+        udp_destroy_flow(ctx, flow);
+        return;
+    }
+    const auto status = read_socks5_control(flow->tcp_fd, &flow->socks5_control_rx,
+        sizeof(socks5_auth_reply), &flow->last_active);
+    if (status == Socks5ControlRead::PENDING) return;
+    if (status == Socks5ControlRead::CLOSED) {
+        udp_destroy_flow(ctx, flow);
+        return;
+    }
+
+    const auto& rx = flow->socks5_control_rx;
+    if (!parse_socks5_auth_reply(std::span<const uint8_t>(rx.data(), rx.size()))) {
+        udp_destroy_flow(ctx, flow);
+        return;
+    }
+    flow->socks5_control_rx.clear();
+    flow->state = UdpSocks5State::SOCKS5_ASSOCIATE;
+    if (send_socks5_udp_associate(flow->tcp_fd) < 0) {
+        udp_destroy_flow(ctx, flow);
+        return;
+    }
 }
 
 static void handle_udp_socks5_associate(Context* ctx, UdpFlow* flow, uint32_t events) {
-	int fd = flow->tcp_fd;
-	socks5_req req = {};
-	ssize_t n = recv(fd, &req, sizeof(req), MSG_PEEK | MSG_DONTWAIT);
-	if (n <= 0) {
-		if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return;
-		udp_destroy_flow(ctx, flow);
-		return;
-	}
-	if (n < 4) return;
-	if (req.ver != SOCKS5_VERSION || req.cmd != SOCKS5_REP_SUCCESS) {
-		udp_destroy_flow(ctx, flow);
-		return;
-	}
+    if (events & (EPOLLERR | EPOLLHUP)) {
+        udp_destroy_flow(ctx, flow);
+        return;
+    }
+    const int fd = flow->tcp_fd;
+    auto status = read_socks5_control(fd, &flow->socks5_control_rx, 4, &flow->last_active);
+    if (status == Socks5ControlRead::PENDING) return;
+    if (status == Socks5ControlRead::CLOSED) {
+        udp_destroy_flow(ctx, flow);
+        return;
+    }
 
-	size_t expected_len = 0;
-	if (req.atyp == SOCKS5_ATYP_IPV4) {
-		expected_len = sizeof(socks5_req); /* header+ip4+port */
-	} else if (req.atyp == SOCKS5_ATYP_IPV6) {
-		expected_len = sizeof(socks5_req6); /* header+ip6+port */
-	} else if (req.atyp == SOCKS5_ATYP_DOMAIN) {
-		socks5_max_buf buf;
-		n = recv(fd, &buf, sizeof(buf), MSG_PEEK | MSG_DONTWAIT);
-		if (n < 5) return;
-		socks5_req_domain* dreq = reinterpret_cast<socks5_req_domain*>(&buf);
-		expected_len = 5 + dreq->domain_len + 2;
-	} else {
-		udp_destroy_flow(ctx, flow);
-		return;
-	}
-
-	if ((size_t)n < expected_len) return;
-
-	socks5_max_buf buf;
-	recv(fd, &buf, expected_len, MSG_DONTWAIT);
-
-	nstun::Socks5Reply res;
-	if (!nstun::parse_socks5_connect_reply(
-		std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(&buf), expected_len),
-		&res)) {
-		udp_destroy_flow(ctx, flow);
-		return;
-	}
-
-	if (res.atyp == SOCKS5_ATYP_IPV4) {
-		memcpy(&flow->bnd_ip, &res.bind_ip4, sizeof(flow->bnd_ip));
-		memcpy(&flow->bnd_port, &res.bind_port, sizeof(flow->bnd_port));
-	} else {
-		LOG_E("SOCKS5 UDP proxy returned unsupported address type");
-		udp_destroy_flow(ctx, flow);
-		return;
-	}
+    const auto& rx = flow->socks5_control_rx;
+    /* This UDP path supports only IPv4 BND replies. In particular an IPv6
+     * BND response can never pass the original 10-byte MSG_PEEK limit,
+     * causing a perpetual EPOLLIN busy loop even when the full reply arrived. */
+    if (rx[0] != SOCKS5_VERSION || rx[1] != SOCKS5_REP_SUCCESS ||
+        rx[2] != 0 || rx[3] != SOCKS5_ATYP_IPV4) {
+        LOG_W("Unsupported or invalid SOCKS5 UDP ASSOCIATE reply");
+        udp_destroy_flow(ctx, flow);
+        return;
+    }
+    status = read_socks5_control(fd, &flow->socks5_control_rx, sizeof(socks5_req),
+        &flow->last_active);
+    if (status == Socks5ControlRead::PENDING) return;
+    if (status == Socks5ControlRead::CLOSED) {
+        udp_destroy_flow(ctx, flow);
+        return;
+    }
+    Socks5Reply res = {};
+    if (!parse_socks5_connect_reply(std::span<const uint8_t>(
+            rx.data(), rx.size()), &res)) {
+        udp_destroy_flow(ctx, flow);
+        return;
+    }
+    flow->socks5_control_rx.clear();
+    memcpy(&flow->bnd_ip, &res.bind_ip4, sizeof(flow->bnd_ip));
+    memcpy(&flow->bnd_port, &res.bind_port, sizeof(flow->bnd_port));
 
 	int udp_fd = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
 	if (udp_fd == -1) {
@@ -349,17 +341,18 @@ static void handle_udp_socks5_associate(Context* ctx, UdpFlow* flow, uint32_t ev
 }
 
 static void handle_udp_established(Context* ctx, UdpFlow* flow, uint32_t events) {
-	int fd = flow->tcp_fd;
-	/* Detect SOCKS5 TCP control channel death */
-	if (events & (EPOLLERR | EPOLLHUP | EPOLLIN)) {
-		uint8_t buf[1];
-		ssize_t n = recv(fd, buf, 1, MSG_PEEK | MSG_DONTWAIT);
-		if (n <= 0) {
-			if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) return;
-			LOG_D("SOCKS5 TCP control channel died, destroying UDP flow");
-			udp_destroy_flow(ctx, flow);
-		}
-	}
+    if (!(events & (EPOLLERR | EPOLLHUP | EPOLLIN))) return;
+    /* The SOCKS5 UDP ASSOCIATE TCP control channel carries no data after
+     * negotiation; any unexpected byte must be consumed or cause teardown.
+     * Peeking indefinitely at readable data otherwise spins on epoll. */
+    uint8_t byte;
+    const ssize_t n = recv(flow->tcp_fd, &byte, 1, MSG_DONTWAIT);
+    if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) &&
+        !(events & (EPOLLERR | EPOLLHUP))) {
+        return;
+    }
+    if (n > 0) LOG_W("Unexpected data on SOCKS5 UDP control connection");
+    udp_destroy_flow(ctx, flow);
 }
 
 static const UdpStateHandlers kUdpStateTable[] = {
@@ -370,7 +363,6 @@ static const UdpStateHandlers kUdpStateTable[] = {
 };
 
 static void handle_host_udp_control(Context* ctx, UdpFlow* flow, uint32_t events) {
-	flow->last_active = time(NULL);
 
 	size_t state_idx = static_cast<size_t>(flow->state);
 	if (state_idx >= sizeof(kUdpStateTable) / sizeof(kUdpStateTable[0])) {

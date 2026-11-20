@@ -114,6 +114,7 @@ struct UdpFlow : public Flow {
 
 	bool host_fd_is_listener = false;
 	std::deque<std::vector<uint8_t>> tx_queue;
+	std::vector<uint8_t> socks5_control_rx; /* Consumed partial TCP handshake bytes */
 
 	~UdpFlow() override {
 		if (host_fd != -1 && !host_fd_is_listener) ::close(host_fd);
