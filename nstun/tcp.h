@@ -59,6 +59,7 @@ struct TcpFlow : public Flow {
 	bool epoll_out_registered = false;
 	bool epoll_in_disabled = false;
 	bool inbound = false; /* true if flow is HOST_TO_GUEST */
+	time_t last_retransmit = 0; /* RTO clock; does not extend idle lifetime */
 	~TcpFlow() override {
 		if (host_fd != -1) ::close(host_fd);
 	}
