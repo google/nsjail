@@ -54,6 +54,10 @@ struct nstun_context_handle;
 bool nstun_init_child(int sock, struct nsj_t* nsj);
 bool nstun_init_parent(int sock, struct nsj_t* nsj, struct nstun_context_handle** out_handle);
 void nstun_destroy_parent(struct nstun_context_handle* handle);
+/* pid of the helper process running the network loop, or -1 if there is none */
+pid_t nstun_helper_pid(const struct nstun_context_handle* handle);
+/* Records that the caller reaped the helper, so nstun_destroy_parent() won't wait for it */
+void nstun_helper_reaped(struct nstun_context_handle* handle);
 
 #ifdef __cplusplus
 }

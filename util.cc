@@ -424,6 +424,12 @@ uint64_t rnd64(void) {
 	return rndX;
 }
 
+void rndReseed(void) {
+	/* Mark the lazy initialization as done, so it can't run again later */
+	pthread_once(&rndThreadOnce, rndInitThread);
+	rndInitThread();
+}
+
 const std::string sigName(int signo) {
 	std::string res;
 

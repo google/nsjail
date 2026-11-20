@@ -72,6 +72,8 @@ bool StrEq(const std::string_view& s1, const std::string_view& s2);
 bool parseInt64(const char* str, int64_t* value);
 bool parseUint64(const char* str, uint64_t* value);
 uint64_t rnd64(void);
+/* Draws a fresh seed for the calling thread, e.g. in a process created with fork() */
+void rndReseed(void);
 const std::string sigName(int signo);
 const std::string rLimName(int res);
 uint64_t timeUsec(void);

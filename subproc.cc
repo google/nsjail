@@ -371,10 +371,36 @@ static void seccompViolation(nsj_t* nsj, siginfo_t* si) {
 	}
 }
 
+/*
+ * Returns true if pid was a jail's nstun helper. A helper killed by a signal
+ * (a crash, or a seccomp policy violation) takes its jail down with it.
+ */
+static bool reapNstunHelper(nsj_t* nsj, pid_t pid, int status) {
+	for (auto& [jail_pid, p] : nsj->pids) {
+		if (p.nstun == nullptr || nstun_helper_pid(p.nstun) != pid) {
+			continue;
+		}
+		nstun_helper_reaped(p.nstun);
+		if (WIFSIGNALED(status)) {
+			LOG_W("nstun helper %d (jail pid %d) killed by signal %s. Killing the jail",
+			    pid, jail_pid, util::sigName(WTERMSIG(status)).c_str());
+			kill(jail_pid, SIGKILL);
+		} else {
+			LOG_D("nstun helper %d (jail pid %d) stopped with status %d", pid, jail_pid,
+			    WEXITSTATUS(status));
+		}
+		return true;
+	}
+	return false;
+}
+
 static int reapProc(nsj_t* nsj, pid_t pid, bool should_wait = false) {
 	int status;
 
 	if (wait4(pid, &status, should_wait ? 0 : WNOHANG, NULL) == pid) {
+		if (reapNstunHelper(nsj, pid, status)) {
+			return 0;
+		}
 		if (nsj->njc.use_cgroupv2()) {
 			cgroup2::finishFromParent(nsj, pid);
 		} else {

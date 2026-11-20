@@ -1,28 +1,38 @@
 #include "nstun.h"
 
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/capability.h>
+#include <linux/filter.h>
 #include <linux/if.h>
 #include <linux/if_tun.h>
+#include <linux/seccomp.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sched.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/epoll.h>
-#include <sys/eventfd.h>
 #include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <sys/prctl.h>
 #include <sys/socket.h>
+#include <sys/syscall.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 
-#include <thread>
+#include <set>
+#include <vector>
 
 #include "core.h"
 #include "icmp.h"
 #include "iface.h"
 #include "ip.h"
+#include "kafel.h"
 #include "logs.h"
 #include "macros.h"
 #include "policy.h"
@@ -31,9 +41,13 @@
 #include "udp.h"
 #include "util.h"
 
+/*
+ * The network loop parses frames written by the jailed process, so it runs in
+ * a separate helper process, not in the supervisor. The supervisor only keeps
+ * the helper's pid.
+ */
 struct nstun_context_handle {
-	nstun::Context* context = nullptr;
-	std::thread worker;
+	pid_t helper_pid = -1;
 };
 
 namespace nstun {
@@ -104,15 +118,7 @@ static void networkLoop(Context* ctx) {
 			close(ctx->epoll_fd);
 			ctx->epoll_fd = -1;
 		}
-		/* The owner closes stop_fd after joining. Keeping it open prevents
-		 * reuse if the loop exits naturally before child reap. */
 	};
-
-	struct epoll_event stop_ev = {.events = EPOLLIN, .data = {.fd = ctx->stop_fd}};
-	if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, ctx->stop_fd, &stop_ev) == -1) {
-		PLOG_E("epoll_ctl(EPOLL_CTL_ADD, stop_fd)");
-		return;
-	}
 
 	struct epoll_event ev = {.events = EPOLLIN, .data = {.fd = ctx->tap_fd}};
 	if (epoll_ctl(ctx->epoll_fd, EPOLL_CTL_ADD, ctx->tap_fd, &ev) == -1) {
@@ -143,11 +149,7 @@ static void networkLoop(Context* ctx) {
 		for (int i = 0; i < nfds; ++i) {
 			int fd = events[i].data.fd;
 
-			if (fd == ctx->stop_fd) {
-				uint64_t value;
-				(void)TEMP_FAILURE_RETRY(read(ctx->stop_fd, &value, sizeof(value)));
-				return;
-			} else if (fd == ctx->tap_fd) {
+			if (fd == ctx->tap_fd) {
 				ssize_t n = TEMP_FAILURE_RETRY(
 				    read(ctx->tap_fd, buf.get(), TUN_FRAME_BUF_SIZE));
 				if (n <= 0) {
@@ -163,6 +165,159 @@ static void networkLoop(Context* ctx) {
 			}
 		}
 	}
+}
+
+/*
+ * Syscalls the network loop needs: I/O on the TUN fd and on host sockets,
+ * epoll, memory management, clocks, and what logging uses. Everything else,
+ * including execve(), open() and ptrace(), kills the helper.
+ */
+static_assert(AF_INET == 2 && AF_INET6 == 10 && PROT_EXEC == 4, "policy constants");
+static const char kHelperPolicy[] =
+    "POLICY nstun_helper {\n"
+    "  ALLOW {\n"
+    "    read, write, writev, close,\n"
+#if defined(__NR_epoll_wait)
+    "    epoll_wait,\n"
+#endif
+    "    epoll_pwait, epoll_ctl,\n"
+    "    socket(domain, type, protocol) { domain == 2 || domain == 10 },\n"
+    "    connect, bind, accept4, shutdown,\n"
+    "    sendto, recvfrom, recvmmsg,\n"
+    "    setsockopt, getsockopt, getsockname,\n"
+#if defined(__NR_mmap)
+    "    mmap(addr, length, prot) { (prot & 4) == 0 },\n"
+#endif
+#if defined(__NR_mmap2)
+    "    mmap2(addr, length, prot) { (prot & 4) == 0 },\n"
+#endif
+    "    munmap, mremap, madvise, brk,\n"
+#if defined(__NR_time)
+    "    time,\n"
+#endif
+    "    clock_gettime, gettimeofday,\n"
+    "    getpid, gettid, getrandom,\n"
+    "    rt_sigreturn, exit, exit_group\n"
+    "  }\n"
+    "}\n"
+    "USE nstun_helper DEFAULT KILL_PROCESS\n";
+
+static bool compileHelperPolicy(struct sock_fprog* prog) {
+	kafel_ctxt_t kctxt = kafel_ctxt_create();
+	kafel_set_input_string(kctxt, kHelperPolicy);
+	if (kafel_compile(kctxt, prog) != 0) {
+		LOG_E("Could not compile the nstun helper seccomp policy: %s",
+		    kafel_error_msg(kctxt));
+		kafel_ctxt_destroy(&kctxt);
+		return false;
+	}
+	kafel_ctxt_destroy(&kctxt);
+	return true;
+}
+
+/*
+ * Closes every inherited descriptor the loop doesn't use: the supervisor's own
+ * sockets, other jails' descriptors and so on. stdin, stdout and stderr are
+ * pointed at /dev/null, unless one of them is a descriptor the loop needs.
+ */
+static bool helperCloseFds(const Context* ctx) {
+	std::set<int> keep = {ctx->tap_fd, ctx->epoll_fd, logs::logFd()};
+	for (const auto& [fd, _] : ctx->host_listener_fd_to_rule) {
+		keep.insert(fd);
+	}
+
+	int devnull = TEMP_FAILURE_RETRY(open("/dev/null", O_RDWR | O_CLOEXEC));
+	if (devnull == -1) {
+		PLOG_E("open('/dev/null')");
+		return false;
+	}
+	for (int fd : {STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO}) {
+		if (keep.count(fd) == 0 && fd != devnull &&
+		    TEMP_FAILURE_RETRY(dup2(devnull, fd)) == -1) {
+			PLOG_E("dup2(%d, %d)", devnull, fd);
+			return false;
+		}
+		keep.insert(fd);
+	}
+	if (devnull > STDERR_FILENO) {
+		close(devnull);
+	}
+
+	DIR* dir = opendir("/proc/self/fd");
+	if (dir == nullptr) {
+		PLOG_E("opendir('/proc/self/fd')");
+		return false;
+	}
+	std::vector<int> to_close;
+	for (struct dirent* entry; (entry = readdir(dir)) != nullptr;) {
+		char* end;
+		long fd = strtol(entry->d_name, &end, 10);
+		if (end == entry->d_name || *end != '\0' || fd == dirfd(dir)) {
+			continue;
+		}
+		if (keep.count((int)fd) == 0) {
+			to_close.push_back((int)fd);
+		}
+	}
+	closedir(dir);
+	for (int fd : to_close) {
+		close(fd);
+	}
+	return true;
+}
+
+static bool helperDropPrivs(void) {
+	/* Needs CAP_SETPCAP, so best effort. With execve() blocked it is a second barrier only. */
+	for (unsigned long cap = 0; prctl(PR_CAPBSET_READ, cap, 0UL, 0UL, 0UL) >= 0; cap++) {
+		(void)prctl(PR_CAPBSET_DROP, cap, 0UL, 0UL, 0UL);
+	}
+	(void)prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0UL, 0UL, 0UL);
+
+	struct __user_cap_header_struct hdr = {
+	    .version = _LINUX_CAPABILITY_VERSION_3,
+	    .pid = 0,
+	};
+	struct __user_cap_data_struct data[_LINUX_CAPABILITY_U32S_3] = {};
+	if (util::syscall(__NR_capset, (uintptr_t)&hdr, (uintptr_t)data) == -1) {
+		PLOG_E("capset()");
+		return false;
+	}
+	if (prctl(PR_SET_NO_NEW_PRIVS, 1UL, 0UL, 0UL, 0UL) == -1) {
+		PLOG_E("prctl(PR_SET_NO_NEW_PRIVS, 1)");
+		return false;
+	}
+	return true;
+}
+
+[[noreturn]] static void helperMain(Context* ctx, pid_t supervisor, struct sock_fprog* prog) {
+	if (prctl(PR_SET_PDEATHSIG, SIGKILL, 0UL, 0UL, 0UL) == -1) {
+		PLOG_E("prctl(PR_SET_PDEATHSIG, SIGKILL)");
+		_exit(EXIT_FAILURE);
+	}
+	/* The supervisor may have exited before PR_SET_PDEATHSIG took effect */
+	if (getppid() != supervisor) {
+		_exit(EXIT_FAILURE);
+	}
+
+	/*
+	 * Both are set up lazily and may need to open files. Do it now, before the
+	 * seccomp policy forbids that. The PRNG state is thread-local, so without a
+	 * reseed the helper could start from the supervisor's state.
+	 */
+	util::rndReseed();
+	tzset();
+
+	if (!helperCloseFds(ctx) || !helperDropPrivs()) {
+		_exit(EXIT_FAILURE);
+	}
+	if (util::syscall(__NR_seccomp, (uintptr_t)SECCOMP_SET_MODE_FILTER, 0, (uintptr_t)prog) ==
+	    -1) {
+		PLOG_E("seccomp(SECCOMP_SET_MODE_FILTER)");
+		_exit(EXIT_FAILURE);
+	}
+
+	networkLoop(ctx);
+	_exit(EXIT_SUCCESS);
 }
 
 } /* namespace nstun */
@@ -274,23 +429,11 @@ bool nstun_init_parent(int sock, nsj_t* nsj, struct nstun_context_handle** out_h
 		close(ctx->tap_fd);
 		return false;
 	}
-	ctx->stop_fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
-	if (ctx->stop_fd == -1) {
-		PLOG_E("eventfd(stop_fd)");
-		close(ctx->epoll_fd);
-		close(ctx->tap_fd);
-		return false;
-	}
-
 	auto cleanup_and_fail = [&ctx]() -> bool {
 		for (auto& [fd, _] : ctx->host_listener_fd_to_rule) {
 			close(fd);
 		}
 		ctx->host_listener_fd_to_rule.clear();
-		if (ctx->stop_fd != -1) {
-			close(ctx->stop_fd);
-			ctx->stop_fd = -1;
-		}
 		if (ctx->epoll_fd != -1) {
 			close(ctx->epoll_fd);
 			ctx->epoll_fd = -1;
@@ -531,10 +674,32 @@ bool nstun_init_parent(int sock, nsj_t* nsj, struct nstun_context_handle** out_h
 		}
 	}
 
-	/* Spawn network loop thread */
-	handle->context = ctx.get();
-	handle->worker = std::thread(nstun::networkLoop, handle->context);
-	ctx.release();
+	struct sock_fprog prog = {};
+	if (!nstun::compileHelperPolicy(&prog)) {
+		return cleanup_and_fail();
+	}
+	defer {
+		free(prog.filter);
+	};
+
+	/* Run the network loop in a separate, confined process */
+	pid_t supervisor = getpid();
+	pid_t helper = fork();
+	if (helper == -1) {
+		PLOG_E("fork()");
+		return cleanup_and_fail();
+	}
+	if (helper == 0) {
+		nstun::helperMain(ctx.get(), supervisor, &prog);
+	}
+	LOG_D("Started nstun helper process %d", (int)helper);
+
+	/* The helper owns the TUN fd, the epoll fd and the listeners now */
+	close(ctx->tap_fd);
+	close(ctx->epoll_fd);
+	/* ~Context() closes the supervisor's copies of the listeners */
+
+	handle->helper_pid = helper;
 	*out_handle = handle.release();
 
 	return true;
@@ -545,21 +710,19 @@ void nstun_destroy_parent(struct nstun_context_handle* handle) {
 		return;
 	}
 
-	if (handle->context != nullptr && handle->context->stop_fd != -1) {
-		const uint64_t one = 1;
-		if (TEMP_FAILURE_RETRY(write(handle->context->stop_fd, &one, sizeof(one))) == -1 &&
-		    errno != EPIPE) {
-			PLOG_W("write(stop_fd)");
-		}
+	if (handle->helper_pid > 0) {
+		kill(handle->helper_pid, SIGKILL);
+		while (waitpid(handle->helper_pid, nullptr, 0) == -1 && errno == EINTR);
 	}
-	if (handle->worker.joinable()) {
-		handle->worker.join();
-	}
-	if (handle->context != nullptr && handle->context->stop_fd != -1) {
-		close(handle->context->stop_fd);
-		handle->context->stop_fd = -1;
-	}
-	delete handle->context;
-	handle->context = nullptr;
 	delete handle;
+}
+
+pid_t nstun_helper_pid(const struct nstun_context_handle* handle) {
+	return handle == nullptr ? -1 : handle->helper_pid;
+}
+
+void nstun_helper_reaped(struct nstun_context_handle* handle) {
+	if (handle != nullptr) {
+		handle->helper_pid = -1;
+	}
 }
