@@ -97,7 +97,7 @@ void handle_ip4(Context* ctx, std::span<const uint8_t> payload) {
 		return;
 	}
 
-	if (ip->saddr != ctx->guest_ip4 && ip->saddr != 0) {
+	if (ip->saddr != ctx->guest_ip4) {
 		LOG_W("Dropping packet with invalid source IP");
 		return;
 	}
