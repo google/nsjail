@@ -327,12 +327,16 @@ bool flush_to_host(Context* ctx, TcpFlow* flow) {
 			release_tcp_rx_buffer(ctx, flow);
 		}
 
-		/* We made progress, remove EPOLLOUT if empty */
-		if (flow->rx_buffer.empty() && flow->epoll_out_registered) {
+		/* Keep EPOLLOUT armed while data is pending: after a partial write
+		 * nothing else flushes the tail once the guest stops sending. */
+		bool pending = !flow->rx_buffer.empty();
+		if (pending != flow->epoll_out_registered) {
 			struct epoll_event ev = {
-			    .events = EPOLLIN | EPOLLERR | EPOLLHUP, .data = {.fd = flow->host_fd}};
+			    .events = EPOLLIN | EPOLLERR | EPOLLHUP |
+				      (pending ? (uint32_t)EPOLLOUT : 0),
+			    .data = {.fd = flow->host_fd}};
 			epoll_ctl(ctx->epoll_fd, EPOLL_CTL_MOD, flow->host_fd, &ev);
-			flow->epoll_out_registered = false;
+			flow->epoll_out_registered = pending;
 		}
 
 		tcp_send_packet(ctx, flow, NSTUN_TCP_FLAG_ACK);
