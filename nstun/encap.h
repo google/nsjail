@@ -87,9 +87,10 @@ struct __attribute__((packed)) socks5_max_buf {
 
 /* Higher-level SOCKS5 helpers */
 struct Socks5Reply {
-	uint8_t atyp;
-	uint32_t bind_ip4;
-	uint16_t bind_port;
+	uint8_t atyp = 0;
+	uint32_t bind_ip4 = 0;
+	uint8_t bind_ip6[IPV6_ADDR_LEN] = {};
+	uint16_t bind_port = 0;
 };
 
 int send_socks5_greeting(int fd);
