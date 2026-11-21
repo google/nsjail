@@ -35,6 +35,7 @@
 #include <netlink/route/route.h>
 #include <netlink/route/rule.h>
 #endif
+#include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,7 +43,6 @@
 #include <strings.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
-#include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
@@ -55,6 +55,7 @@
 #include <string>
 #include <vector>
 
+#include "contain.h"
 #include "logs.h"
 #include "macros.h"
 #include "nstun/nstun.h"
@@ -219,10 +220,6 @@ static bool moveToNs(
 #endif
 
 static void pastaProcess(nsj_t* nsj, int pid, int err_pipe) {
-	if (prctl(PR_SET_PDEATHSIG, SIGKILL) == -1) {
-		PLOG_W("prctl(PR_SET_PDEATHSIG, SIGKILL) failed");
-	}
-
 	std::string pid_str = std::to_string(pid);
 	std::vector<const char*> argv;
 
@@ -387,6 +384,7 @@ static bool spawnPasta(nsj_t* nsj, int pid) {
 		return false;
 	}
 
+	const pid_t expected_parent = getpid();
 	pid_t ppid = fork();
 	if (ppid == -1) {
 		close(sv[0]);
@@ -397,20 +395,35 @@ static bool spawnPasta(nsj_t* nsj, int pid) {
 
 	if (ppid == 0) {
 		close(sv[0]);
+		if (!contain::setupParentDeathSignal(-1, expected_parent)) {
+			const int err = ECANCELED;
+			util::writeToFd(sv[1], &err, sizeof(err));
+			_exit(EXIT_FAILURE);
+		}
 		pastaProcess(nsj, pid, sv[1]);
 		_exit(EXIT_FAILURE);
 	}
 
 	close(sv[1]);
 	int err;
-	if (util::readFromFd(sv[0], &err, sizeof(err)) > 0) {
-		close(sv[0]);
-		LOG_E("Pasta execution failed, error: %s", strerror(err));
-		while (waitpid(ppid, nullptr, 0) == -1 && errno == EINTR);
+	const ssize_t bytes = util::readFromFd(sv[0], &err, sizeof(err));
+	if (bytes == -1) {
+		PLOG_E("Cannot read pasta startup status");
+	}
+	close(sv[0]);
+	if (bytes != 0) {
+		if (bytes == static_cast<ssize_t>(sizeof(err))) {
+			LOG_E("Pasta startup failed: %s", strerror(err));
+		} else {
+			if (bytes != -1) {
+				LOG_E("Incomplete pasta startup status");
+			}
+			kill(ppid, SIGKILL);
+		}
+		TEMP_FAILURE_RETRY(waitpid(ppid, nullptr, 0));
 		return false;
 	}
 
-	close(sv[0]);
 	nsj->pids[pid].pasta_pid = ppid;
 	LOG_I("Spawned pasta for pid=%d, pasta_pid=%d", pid, ppid);
 	return true;
