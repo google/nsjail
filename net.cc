@@ -563,18 +563,20 @@ int getRecvSocket(const nsj_t* nsj) {
 		return -1;
 	}
 
-	int sockfd = socket(AF_INET6, SOCK_STREAM, 0);
+	int sockfd = socket(AF_INET6, SOCK_STREAM | SOCK_CLOEXEC, 0);
 	if (sockfd == -1) {
 		PLOG_E("socket(AF_INET6)");
 		return -1;
 	}
 	if (fcntl(sockfd, F_SETFL, O_NONBLOCK)) {
 		PLOG_E("fcntl(%d, F_SETFL, O_NONBLOCK)", sockfd);
+		close(sockfd);
 		return -1;
 	}
 	int so = 1;
 	if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &so, sizeof(so)) == -1) {
 		PLOG_E("setsockopt(%d, SO_REUSEADDR)", sockfd);
+		close(sockfd);
 		return -1;
 	}
 	struct sockaddr_in6 addr = {
@@ -604,7 +606,7 @@ int getRecvSocket(const nsj_t* nsj) {
 int acceptConn(int listenfd) {
 	struct sockaddr_in6 cli_addr = {};
 	socklen_t socklen = sizeof(cli_addr);
-	int connfd = accept4(listenfd, (struct sockaddr*)&cli_addr, &socklen, SOCK_NONBLOCK);
+	int connfd = accept4(listenfd, (struct sockaddr*)&cli_addr, &socklen, SOCK_NONBLOCK | SOCK_CLOEXEC);
 	if (connfd == -1) {
 		if (errno != EINTR) {
 			PLOG_E("accept(%d)", listenfd);
