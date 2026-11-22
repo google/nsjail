@@ -285,6 +285,11 @@ static void handle_udp_socks5_associate(Context* ctx, UdpFlow* flow, uint32_t ev
 	}
 
 	if (res.atyp == SOCKS5_ATYP_IPV4) {
+		if (res.bind_ip4 == htonl(INADDR_ANY) || res.bind_port == 0) {
+			LOG_W("SOCKS5 UDP proxy returned an unspecified relay address or zero port");
+			udp_destroy_flow(ctx, flow);
+			return;
+		}
 		memcpy(&flow->bnd_ip, &res.bind_ip4, sizeof(flow->bnd_ip));
 		memcpy(&flow->bnd_port, &res.bind_port, sizeof(flow->bnd_port));
 	} else {
