@@ -61,6 +61,7 @@ int recvFd(int sock);
 bool writeBufToFile(
     const char* filename, const void* buf, size_t len, int open_flags, bool log_errors = true);
 bool createDirRecursively(const char* dir);
+int openVerifiedDir(const char* path, mode_t mode);
 /* Reject ".", ".." and embedded NUL in mount destinations so they cannot
  * escape the jail staging root via path traversal. */
 bool isSafeContainmentPath(const std::string& path);
