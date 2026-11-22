@@ -140,7 +140,7 @@ RuleResult evaluate_rules6(Context* ctx, nstun_direction_t dir, nstun_proto_t pr
 
 		RuleResult res = {r.action, 0, 0, false, {}};
 		if (r.action == NSTUN_ACTION_REDIRECT) {
-			res.has_redirect_ip6 = true;
+			res.has_redirect_ip6 = !ip6_is_zero(r.redirect_ip6);
 			memcpy(res.redirect_ip6, r.redirect_ip6, sizeof(res.redirect_ip6));
 			res.redirect_port = r.redirect_port;
 		} else if (r.action == NSTUN_ACTION_ENCAP_SOCKS5 ||
