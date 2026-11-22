@@ -93,6 +93,7 @@ static const struct custom_option custom_opts[] = {
     { { "max_conns_per_ip", required_argument, nullptr, 'i' }, "Maximum number of connections per one IP (only in [MODE_LISTEN_TCP]), (default: 0 (unlimited))" },
     { { "log", required_argument, nullptr, 'l' }, "Log file (default: use log_fd)" },
     { { "log_fd", required_argument, nullptr, 'L' }, "Log FD (default: 2)" },
+    { { "log_stderr_level", required_argument, nullptr, 0x0610 }, "Also write messages at or above this level to stderr: debug|info|warning|error|fatal. Can be lower or higher than the main log level. No effect when the log already goes to stderr, or in daemon mode (default: unset)" },
     { { "time_limit", required_argument, nullptr, 't' }, "Maximum time that a jail can exist, in seconds (default: 600)" },
     { { "max_cpus", required_argument, nullptr, 0x508 }, "Maximum number of CPUs a single jailed process can use (default: 0 'no limit')" },
     { { "daemon", no_argument, nullptr, 'd' }, "Daemonize after start" },
@@ -611,6 +612,16 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 				return nullptr;
 			}
 			logs::logFile("", value);
+		} break;
+		case 0x0610: {
+			logs::llevel_t ll;
+			if (!config::parseLogLevel(optarg, &ll)) {
+				LOG_E("Unknown --log_stderr_level value: %s", QC(optarg));
+				return nullptr;
+			}
+			if (!logs::setLogStderrLevel(ll)) {
+				return nullptr;
+			}
 		} break;
 		case 'd':
 			nsj->njc.set_daemon(true);

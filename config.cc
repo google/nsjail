@@ -21,6 +21,7 @@
 
 #include "config.h"
 
+#include <ctype.h>
 #include <fcntl.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/text_format.h>
@@ -67,6 +68,36 @@ uint64_t adjustRLimit(int res, const nsjail::RLimit& rl, const uint64_t val, uns
 	abort();
 }
 
+static bool logLevelFromProto(const nsjail::LogLevel level, enum logs::llevel_t* ll) {
+	switch (level) {
+	case nsjail::LogLevel::DEBUG:
+		*ll = logs::DEBUG;
+		return true;
+	case nsjail::LogLevel::INFO:
+		*ll = logs::INFO;
+		return true;
+	case nsjail::LogLevel::WARNING:
+		*ll = logs::WARNING;
+		return true;
+	case nsjail::LogLevel::ERROR:
+		*ll = logs::ERROR;
+		return true;
+	case nsjail::LogLevel::FATAL:
+		*ll = logs::FATAL;
+		return true;
+	}
+	return false;
+}
+
+bool parseLogLevel(const std::string& str, enum logs::llevel_t* ll) {
+	std::string name(str);
+	for (char& c : name) {
+		c = (char)toupper((unsigned char)c);
+	}
+	nsjail::LogLevel level;
+	return nsjail::LogLevel_Parse(name, &level) && logLevelFromProto(level, ll);
+}
+
 static bool parseInternal(nsj_t* nsj, const nsjail::NsJailConfig& njc) {
 	nsj->njc.CopyFrom(njc);
 	/*
@@ -81,24 +112,20 @@ static bool parseInternal(nsj_t* nsj, const nsjail::NsJailConfig& njc) {
 	}
 
 	if (njc.has_log_level()) {
-		switch (njc.log_level()) {
-		case nsjail::LogLevel::DEBUG:
-			logs::setLogLevel(logs::DEBUG);
-			break;
-		case nsjail::LogLevel::INFO:
-			logs::setLogLevel(logs::INFO);
-			break;
-		case nsjail::LogLevel::WARNING:
-			logs::setLogLevel(logs::WARNING);
-			break;
-		case nsjail::LogLevel::ERROR:
-			logs::setLogLevel(logs::ERROR);
-			break;
-		case nsjail::LogLevel::FATAL:
-			logs::setLogLevel(logs::FATAL);
-			break;
-		default:
+		enum logs::llevel_t ll;
+		if (!logLevelFromProto(njc.log_level(), &ll)) {
 			LOG_E("Unknown log_level: %d", njc.log_level());
+			return false;
+		}
+		logs::setLogLevel(ll);
+	}
+	if (njc.has_log_stderr_level()) {
+		enum logs::llevel_t ll;
+		if (!logLevelFromProto(njc.log_stderr_level(), &ll)) {
+			LOG_E("Unknown log_stderr_level: %d", njc.log_stderr_level());
+			return false;
+		}
+		if (!logs::setLogStderrLevel(ll)) {
 			return false;
 		}
 	}

@@ -44,6 +44,17 @@ static int _log_fd = STDERR_FILENO;
 static bool _log_fd_isatty = true;
 static enum llevel_t _log_level = INFO;
 static bool _log_set = false;
+static enum llevel_t _log_stderr_level = FATAL;
+static int _log_stderr_fd = -1;
+static bool _log_stderr_fd_isatty = false;
+static bool _log_stderr_fd_distinct = false;
+
+static bool fdIsatty(int fd) {
+	int saved_errno = errno;
+	bool ret = (isatty(fd) == 1) && !getenv("NO_COLOR");
+	errno = saved_errno;
+	return ret;
+}
 
 static void setDupLogFdOr(int fd, int orfd) {
 	int saved_errno = errno;
@@ -54,11 +65,24 @@ static void setDupLogFdOr(int fd, int orfd) {
 	if (_log_fd == -1) {
 		_log_fd = orfd;
 	}
-	_log_fd_isatty = (isatty(_log_fd) == 1);
-	if (getenv("NO_COLOR")) {
-		_log_fd_isatty = false;
-	}
+	_log_fd_isatty = fdIsatty(_log_fd);
 	errno = saved_errno;
+}
+
+static void updateStderrFdDistinct(void) {
+	if (_log_stderr_fd == -1) {
+		_log_stderr_fd_distinct = false;
+		return;
+	}
+	struct stat st_log, st_err;
+	if (fstat(_log_fd, &st_log) == -1 || fstat(_log_stderr_fd, &st_err) == -1) {
+		_log_stderr_fd_distinct = true;
+		PLOG_W("fstat(log_fd=%d, stderr_fd=%d) failed, treating them as separate",
+		    _log_fd, _log_stderr_fd);
+		return;
+	}
+	_log_stderr_fd_distinct =
+	    (st_log.st_dev != st_err.st_dev || st_log.st_ino != st_err.st_ino);
 }
 
 /*
@@ -82,7 +106,38 @@ void setLogLevel(enum llevel_t ll) {
 }
 
 enum llevel_t getLogLevel(void) {
+	if (_log_stderr_fd >= 0 && _log_stderr_fd_distinct && _log_stderr_level < _log_level) {
+		return _log_stderr_level;
+	}
 	return _log_level;
+}
+
+bool setLogStderrLevel(enum llevel_t ll) {
+	_log_stderr_level = ll;
+	if (_log_stderr_fd == -1) {
+		_log_stderr_fd = TEMP_FAILURE_RETRY(fcntl(STDERR_FILENO, F_DUPFD_CLOEXEC, 0));
+		if (_log_stderr_fd == -1) {
+			if (errno == EBADF) {
+				PLOG_W("stderr is closed, log_stderr_level disabled");
+				return true;
+			}
+			PLOG_E("Couldn't duplicate stderr");
+			return false;
+		}
+		_log_stderr_fd_isatty = fdIsatty(_log_stderr_fd);
+	}
+	updateStderrFdDistinct();
+	return true;
+}
+
+void closeLogStderr(void) {
+	if (_log_stderr_fd == -1) {
+		return;
+	}
+	LOG_W("Daemonized, log_stderr_level disabled");
+	close(_log_stderr_fd);
+	_log_stderr_fd = -1;
+	_log_stderr_fd_distinct = false;
 }
 
 void logFile(const std::string& log_file, int log_fd) {
@@ -104,10 +159,30 @@ void logFile(const std::string& log_file, int log_fd) {
 	if (newlogfd >= 0) {
 		close(newlogfd);
 	}
+	updateStderrFdDistinct();
+}
+
+static bool isHelp(enum llevel_t ll) {
+	return ll == HELP || ll == HELP_BOLD;
+}
+
+static void writeLogMsg(int fd, bool is_tty, const char* prefix, const std::string& msg) {
+	std::string out;
+	out.reserve(msg.size() + 16);
+	if (is_tty) {
+		out.append(prefix).append(msg).append("\033[0m");
+	} else {
+		out.append(msg);
+	}
+	out.append("\n");
+	TEMP_FAILURE_RETRY(write(fd, out.c_str(), out.size()));
 }
 
 void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt, ...) {
-	if (ll < _log_level) {
+	const bool to_main = ll >= _log_level;
+	const bool to_stderr = _log_stderr_fd >= 0 && _log_stderr_fd_distinct &&
+			       ll >= _log_stderr_level && !isHelp(ll);
+	if (!to_main && !to_stderr) {
 		return;
 	}
 
@@ -132,10 +207,7 @@ void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt
 
 	/* Start printing logs */
 	std::string msg;
-	if (_log_fd_isatty) {
-		msg.append(logLevels[ll].prefix);
-	}
-	if (ll != HELP && ll != HELP_BOLD) {
+	if (!isHelp(ll)) {
 		msg.append("[").append(logLevels[ll].descr).append("]");
 	}
 	if (logLevels[ll].print_time) {
@@ -168,13 +240,14 @@ void logMsg(enum llevel_t ll, const char* fn, int ln, bool perr, const char* fmt
 	if (perr) {
 		msg.append(": ").append(strerr);
 	}
-	if (_log_fd_isatty) {
-		msg.append("\033[0m");
-	}
-	msg.append("\n");
 	/* End printing logs */
 
-	TEMP_FAILURE_RETRY(write(_log_fd, msg.c_str(), msg.size()));
+	if (to_main) {
+		writeLogMsg(_log_fd, _log_fd_isatty, logLevels[ll].prefix, msg);
+	}
+	if (to_stderr) {
+		writeLogMsg(_log_stderr_fd, _log_stderr_fd_isatty, logLevels[ll].prefix, msg);
+	}
 
 	if (ll == FATAL) {
 		_exit(0xff);
