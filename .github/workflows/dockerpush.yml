@@ -6,9 +6,9 @@ on:
     branches:
       - master
 
-    # Publish `v1.2.3` tags as releases.
+    # Publish release tags such as `3.6`.
     tags:
-      - v*
+      - '*.*'
 
   # Run tests for any PRs.
   pull_request:
@@ -20,10 +20,12 @@ jobs:
   # Run tests.
   # See also https://docs.docker.com/docker-hub/builds/automated-testing/
   test:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Run tests
         run: docker build . --file Dockerfile
@@ -34,33 +36,98 @@ jobs:
     # Ensure test job passes before pushing image.
     needs: test
 
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Build image
         run: docker build . --file Dockerfile --tag image
 
       - name: Log into registry
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u ${GITHUB_ACTOR} --password-stdin
+        run: echo "${{ github.token }}" | docker login docker.pkg.github.com -u "${GITHUB_ACTOR}" --password-stdin
 
       - name: Push image
+        id: publish
+        shell: bash
         run: |
-          IMAGE_ID=docker.pkg.github.com/${{ github.repository }}/$IMAGE_NAME
+          set -euo pipefail
+          image_id="docker.pkg.github.com/${{ github.repository }}/$IMAGE_NAME"
 
-          # Strip git ref prefix from version
-          VERSION=$(echo "${GITHUB_REF}" | sed -e 's,.*/\(.*\),\1,')
+          # Strip git ref prefix from version.
+          version="${GITHUB_REF##*/}"
 
-          # Strip "v" prefix from tag name
-          [[ "${GITHUB_REF}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+          # Preserve compatibility if a v-prefixed release tag is used.
+          [[ "${GITHUB_REF}" == "refs/tags/v"* ]] && version="${version#v}"
 
-          # Use Docker `latest` tag convention
-          [ "$VERSION" == "master" ] && VERSION=latest
+          # Use Docker `latest` tag convention.
+          [ "$version" == "master" ] && version=latest
 
-          echo IMAGE_ID=$IMAGE_ID
-          echo VERSION=$VERSION
+          echo "IMAGE_ID=$image_id"
+          echo "VERSION=$version"
 
-          docker tag image $IMAGE_ID:$VERSION
-          docker push $IMAGE_ID:$VERSION
+          docker tag image "$image_id:$version"
+          docker push "$image_id:$version"
+
+          repo_digest="$(
+            docker inspect --format='{{range .RepoDigests}}{{println .}}{{end}}' "$image_id:$version" |
+              grep -F "$image_id@" |
+              head -n1
+          )"
+          digest="${repo_digest#*@}"
+          if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::Could not resolve published image digest"
+            exit 1
+          fi
+          echo "image=$image_id" >> "$GITHUB_OUTPUT"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Generate SBOM from published image
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          image: ${{ steps.publish.outputs.image }}@${{ steps.publish.outputs.digest }}
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ github.token }}
+          format: cyclonedx-json
+          output-file: nsjail.cdx.json
+          syft-version: v1.52.0
+          dependency-snapshot: false
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Validate SBOM identity
+        env:
+          DIGEST: ${{ steps.publish.outputs.digest }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -e --arg digest "$DIGEST" '
+            .bomFormat == "CycloneDX"
+            and .specVersion == "1.7"
+            and .metadata.component.type == "container"
+            and .metadata.component.version == $digest
+            and ((.components | length) > 0)
+          ' nsjail.cdx.json >/dev/null
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-name: ${{ steps.publish.outputs.image }}
+          subject-digest: ${{ steps.publish.outputs.digest }}
+
+      - name: Attest SBOM
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-name: ${{ steps.publish.outputs.image }}
+          subject-digest: ${{ steps.publish.outputs.digest }}
+          sbom-path: nsjail.cdx.json
