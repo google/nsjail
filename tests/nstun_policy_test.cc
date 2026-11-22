@@ -94,9 +94,89 @@ static void test_port_validation() {
 	assert(parse_common(rule, &parsed) == nstun::RuleParseStatus::ABORT);
 }
 
+static void test_rule_matches4() {
+	nstun_rule_t redirect = {};
+	redirect.direction = NSTUN_DIR_HOST_TO_GUEST;
+	redirect.action = NSTUN_ACTION_REDIRECT;
+	redirect.proto = NSTUN_PROTO_TCP;
+	assert(nstun::parse_ip4_cidr("192.0.2.0/24", &redirect.src_ip4, &redirect.src_mask4));
+	assert(nstun::parse_ip4_cidr("127.0.0.1", &redirect.dst_ip4, &redirect.dst_mask4));
+	redirect.sport_start = 40000;
+	redirect.sport_end = 40010;
+	redirect.dport_start = 8080;
+	redirect.dport_end = 8080;
+
+	assert(nstun::rule_matches4(redirect, NSTUN_DIR_HOST_TO_GUEST, NSTUN_PROTO_TCP,
+	    parse_ip4("192.0.2.42"), parse_ip4("127.0.0.1"), 40000, 8080));
+	assert(nstun::rule_matches4(redirect, NSTUN_DIR_HOST_TO_GUEST, NSTUN_PROTO_TCP,
+	    parse_ip4("192.0.2.254"), parse_ip4("127.0.0.1"), 40010, 8080));
+	assert(!nstun::rule_matches4(redirect, NSTUN_DIR_HOST_TO_GUEST, NSTUN_PROTO_TCP,
+	    parse_ip4("198.51.100.1"), parse_ip4("127.0.0.1"), 40000, 8080));
+	assert(!nstun::rule_matches4(redirect, NSTUN_DIR_HOST_TO_GUEST, NSTUN_PROTO_TCP,
+	    parse_ip4("192.0.2.42"), parse_ip4("127.0.0.2"), 40000, 8080));
+	assert(!nstun::rule_matches4(redirect, NSTUN_DIR_HOST_TO_GUEST, NSTUN_PROTO_UDP,
+	    parse_ip4("192.0.2.42"), parse_ip4("127.0.0.1"), 40000, 8080));
+	assert(!nstun::rule_matches4(redirect, NSTUN_DIR_GUEST_TO_HOST, NSTUN_PROTO_TCP,
+	    parse_ip4("192.0.2.42"), parse_ip4("127.0.0.1"), 40000, 8080));
+	assert(!nstun::rule_matches4(redirect, NSTUN_DIR_HOST_TO_GUEST, NSTUN_PROTO_TCP,
+	    parse_ip4("192.0.2.42"), parse_ip4("127.0.0.1"), 39999, 8080));
+
+	nstun_rule_t exact_zero = {};
+	exact_zero.direction = NSTUN_DIR_HOST_TO_GUEST;
+	exact_zero.proto = NSTUN_PROTO_TCP;
+	assert(nstun::parse_ip4_cidr("0.0.0.0/32", &exact_zero.dst_ip4, &exact_zero.dst_mask4));
+	assert(nstun::rule_matches4(exact_zero, NSTUN_DIR_HOST_TO_GUEST, NSTUN_PROTO_TCP,
+	    parse_ip4("192.0.2.1"), parse_ip4("0.0.0.0"), 1, 1));
+	assert(!nstun::rule_matches4(exact_zero, NSTUN_DIR_HOST_TO_GUEST, NSTUN_PROTO_TCP,
+	    parse_ip4("192.0.2.1"), parse_ip4("127.0.0.1"), 1, 1));
+}
+
+static void test_rule_matches6() {
+	nstun_rule_t redirect = {};
+	redirect.direction = NSTUN_DIR_HOST_TO_GUEST;
+	redirect.action = NSTUN_ACTION_REDIRECT;
+	redirect.proto = NSTUN_PROTO_UDP;
+	redirect.is_ipv6 = true;
+	assert(nstun::parse_ip6_cidr("2001:db8::/32", redirect.src_ip6, redirect.src_mask6));
+	assert(nstun::parse_ip6_cidr("::1", redirect.dst_ip6, redirect.dst_mask6));
+	redirect.dport_start = 5353;
+	redirect.dport_end = 5353;
+
+	std::array<uint8_t, 16> matching_src = {};
+	std::array<uint8_t, 16> other_src = {};
+	std::array<uint8_t, 16> loopback = {};
+	std::array<uint8_t, 16> other_dst = {};
+	assert(inet_pton(AF_INET6, "2001:db8::42", matching_src.data()) == 1);
+	assert(inet_pton(AF_INET6, "2001:db9::42", other_src.data()) == 1);
+	assert(inet_pton(AF_INET6, "::1", loopback.data()) == 1);
+	assert(inet_pton(AF_INET6, "::2", other_dst.data()) == 1);
+
+	assert(nstun::rule_matches6(redirect, NSTUN_DIR_HOST_TO_GUEST, NSTUN_PROTO_UDP,
+	    matching_src.data(), loopback.data(), 40000, 5353));
+	assert(!nstun::rule_matches6(redirect, NSTUN_DIR_HOST_TO_GUEST, NSTUN_PROTO_UDP,
+	    other_src.data(), loopback.data(), 40000, 5353));
+	assert(!nstun::rule_matches6(redirect, NSTUN_DIR_HOST_TO_GUEST, NSTUN_PROTO_UDP,
+	    matching_src.data(), other_dst.data(), 40000, 5353));
+	assert(!nstun::rule_matches6(redirect, NSTUN_DIR_HOST_TO_GUEST, NSTUN_PROTO_TCP,
+	    matching_src.data(), loopback.data(), 40000, 5353));
+
+	nstun_rule_t exact_zero = {};
+	exact_zero.direction = NSTUN_DIR_HOST_TO_GUEST;
+	exact_zero.proto = NSTUN_PROTO_UDP;
+	exact_zero.is_ipv6 = true;
+	assert(nstun::parse_ip6_cidr("::/128", exact_zero.dst_ip6, exact_zero.dst_mask6));
+	std::array<uint8_t, 16> zero = {};
+	assert(nstun::rule_matches6(exact_zero, NSTUN_DIR_HOST_TO_GUEST, NSTUN_PROTO_UDP,
+	    matching_src.data(), zero.data(), 1, 1));
+	assert(!nstun::rule_matches6(exact_zero, NSTUN_DIR_HOST_TO_GUEST, NSTUN_PROTO_UDP,
+	    matching_src.data(), loopback.data(), 1, 1));
+}
+
 int main() {
 	test_ip4_cidr();
 	test_ip6_cidr();
 	test_port_validation();
+	test_rule_matches4();
+	test_rule_matches6();
 	return 0;
 }

@@ -83,20 +83,25 @@ bool parse_ip6_cidr(const std::string& str, uint8_t* ip6, uint8_t* mask6) {
 	return true;
 }
 
+bool rule_matches4(const nstun_rule_t& r, nstun_direction_t dir, nstun_proto_t proto,
+    uint32_t src_ip4, uint32_t dst_ip4, uint16_t sport, uint16_t dport) {
+	if (r.is_ipv6) return false;
+	if (r.direction != dir) return false;
+	if (r.proto != NSTUN_PROTO_ANY && r.proto != proto) return false;
+
+	if (r.src_mask4 != 0 && (src_ip4 & r.src_mask4) != (r.src_ip4 & r.src_mask4)) return false;
+	if (r.dst_mask4 != 0 && (dst_ip4 & r.dst_mask4) != (r.dst_ip4 & r.dst_mask4)) return false;
+
+	if (r.sport_start != 0 && (sport < r.sport_start || sport > r.sport_end)) return false;
+	if (r.dport_start != 0 && (dport < r.dport_start || dport > r.dport_end)) return false;
+
+	return true;
+}
+
 RuleResult evaluate_rules4(Context* ctx, nstun_direction_t dir, nstun_proto_t proto,
     uint32_t src_ip4, uint32_t dst_ip4, uint16_t sport, uint16_t dport) {
 	for (const auto& r : ctx->rules) {
-		if (r.is_ipv6) continue;
-		if (r.direction != dir) continue;
-		if (r.proto != NSTUN_PROTO_ANY && r.proto != proto) continue;
-
-		if (r.src_mask4 != 0 && (src_ip4 & r.src_mask4) != (r.src_ip4 & r.src_mask4))
-			continue;
-		if (r.dst_mask4 != 0 && (dst_ip4 & r.dst_mask4) != (r.dst_ip4 & r.dst_mask4))
-			continue;
-
-		if (r.sport_start != 0 && (sport < r.sport_start || sport > r.sport_end)) continue;
-		if (r.dport_start != 0 && (dport < r.dport_start || dport > r.dport_end)) continue;
+		if (!rule_matches4(r, dir, proto, src_ip4, dst_ip4, sport, dport)) continue;
 
 		RuleResult res = {r.action, 0, 0, false, {}};
 		if (r.action == NSTUN_ACTION_REDIRECT || r.action == NSTUN_ACTION_ENCAP_SOCKS5 ||
@@ -123,20 +128,27 @@ static bool ip6_is_zero(const uint8_t* addr) {
 	return true;
 }
 
+bool rule_matches6(const nstun_rule_t& r, nstun_direction_t dir, nstun_proto_t proto,
+    const uint8_t* src_ip6, const uint8_t* dst_ip6, uint16_t sport, uint16_t dport) {
+	if (!r.is_ipv6) return false;
+	if (r.direction != dir) return false;
+	if (r.proto != NSTUN_PROTO_ANY && r.proto != proto) return false;
+
+	if (!ip6_is_zero(r.src_mask6) && !ip6_masked_eq(src_ip6, r.src_ip6, r.src_mask6))
+		return false;
+	if (!ip6_is_zero(r.dst_mask6) && !ip6_masked_eq(dst_ip6, r.dst_ip6, r.dst_mask6))
+		return false;
+
+	if (r.sport_start != 0 && (sport < r.sport_start || sport > r.sport_end)) return false;
+	if (r.dport_start != 0 && (dport < r.dport_start || dport > r.dport_end)) return false;
+
+	return true;
+}
+
 RuleResult evaluate_rules6(Context* ctx, nstun_direction_t dir, nstun_proto_t proto,
     const uint8_t* src_ip6, const uint8_t* dst_ip6, uint16_t sport, uint16_t dport) {
 	for (const auto& r : ctx->rules) {
-		if (!r.is_ipv6) continue;
-		if (r.direction != dir) continue;
-		if (r.proto != NSTUN_PROTO_ANY && r.proto != proto) continue;
-
-		if (!ip6_is_zero(r.src_mask6) && !ip6_masked_eq(src_ip6, r.src_ip6, r.src_mask6))
-			continue;
-		if (!ip6_is_zero(r.dst_mask6) && !ip6_masked_eq(dst_ip6, r.dst_ip6, r.dst_mask6))
-			continue;
-
-		if (r.sport_start != 0 && (sport < r.sport_start || sport > r.sport_end)) continue;
-		if (r.dport_start != 0 && (dport < r.dport_start || dport > r.dport_end)) continue;
+		if (!rule_matches6(r, dir, proto, src_ip6, dst_ip6, sport, dport)) continue;
 
 		RuleResult res = {r.action, 0, 0, false, {}};
 		if (r.action == NSTUN_ACTION_REDIRECT) {
