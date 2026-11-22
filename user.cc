@@ -302,6 +302,18 @@ bool initNsFromChild(nsj_t* nsj) {
 			return false;
 		}
 
+		const int remainingGroups = getgroups(0, nullptr);
+		if (remainingGroups == -1) {
+			PLOG_E("getgroups(0, nullptr) failed");
+			return false;
+		}
+		if (remainingGroups != 0) {
+			errno = setgroupsErrno;
+			PLOG_E("setgroups(%zu, %s) failed and %d supplementary group(s) remain",
+			    groups.size(), groupsString.c_str(), remainingGroups);
+			return false;
+		}
+
 		errno = setgroupsErrno;
 		PLOG_D("setgroups(%zu, %s) failed (expected in unprivileged user namespace)",
 		    groups.size(), groupsString.c_str());
