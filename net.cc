@@ -450,6 +450,11 @@ bool initParent(nsj_t* nsj, pid_t pid, int pipefd) {
 		init_success = true;
 		return true;
 	}
+	/* The link cache below is only needed to move or clone an interface into the jail */
+	if (nsj->njc.iface_own().empty() && nsj->njc.macvlan_iface().empty()) {
+		init_success = true;
+		return true;
+	}
 #ifdef HAVE_LIBNL3
 	struct nl_sock* sk = nl_socket_alloc();
 	if (!sk) {

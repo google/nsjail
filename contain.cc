@@ -260,8 +260,21 @@ static bool containSetLimits(nsj_t* nsj) {
 	rl.rlim_cur = rl.rlim_max = config::adjustRLimit(
 	    RLIMIT_MSGQUEUE, nsj->njc.rlimit_msgqueue_type(), nsj->njc.rlimit_msgqueue());
 	if (util::setrlimit(RLIMIT_MSGQUEUE, rl) == -1) {
-		PLOG_E("util::setrlimit(0, RLIMIT_MSGQUEUE , %" PRIu64 ")", rl.rlim_cur);
-		return false;
+		/*
+		 * Some kernels (e.g. gVisor) refuse RLIMIT_MSGQUEUE altogether. That is harmless when
+		 * the limit already has the requested value, which is the case for the default 'soft'.
+		 */
+		const int saved_errno = errno;
+		struct rlimit64 cur;
+		if (saved_errno != EPERM || util::getrlimit(RLIMIT_MSGQUEUE, &cur) == -1 ||
+		    cur.rlim_cur != rl.rlim_cur || cur.rlim_max != rl.rlim_max) {
+			errno = saved_errno;
+			PLOG_E("util::setrlimit(0, RLIMIT_MSGQUEUE , %" PRIu64 ")", rl.rlim_cur);
+			return false;
+		}
+		LOG_W("util::setrlimit(0, RLIMIT_MSGQUEUE , %" PRIu64
+		      ") failed with EPERM, but the limit already has that value",
+		    rl.rlim_cur);
 	}
 	return true;
 }
