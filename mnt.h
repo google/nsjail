@@ -64,6 +64,7 @@ struct mount_t {
 	const nsjail::MountPt* mpt;
 	std::string src;
 	std::string dst;
+	std::string fs_options;
 	uintptr_t flags;
 	bool is_dir;
 	bool mounted;

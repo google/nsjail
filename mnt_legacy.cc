@@ -40,6 +40,7 @@
 #include "logs.h"
 #include "macros.h"
 #include "mnt.h"
+#include "mnt_options.h"
 #include "util.h"
 
 namespace mnt {
@@ -58,6 +59,7 @@ static mount_t prepareMountPoint(const nsjail::MountPt& proto) {
 	    .mpt = &proto,
 	    .src = "",
 	    .dst = "",
+	    .fs_options = "",
 	    .flags = 0,
 	    .is_dir = true,
 	    .mounted = false,
@@ -105,6 +107,9 @@ static mount_t prepareMountPoint(const nsjail::MountPt& proto) {
 	if (proto.noexec()) {
 		mpt.flags |= MS_NOEXEC;
 	}
+	if (proto.has_options()) {
+		mpt.fs_options = mnt::extractGenericMountOptions(proto.options(), &mpt.flags);
+	}
 
 	if (proto.has_is_dir()) {
 		mpt.is_dir = proto.is_dir();
@@ -143,13 +148,13 @@ static mount_t prepareMountPoint(const nsjail::MountPt& proto) {
 }
 
 static int tryMountRW(mount_t* mpt, const char* src, const char* dst) {
-	int res = mount(src, dst, mpt->mpt->fstype().c_str(), mpt->flags & ~MS_RDONLY,
-	    mpt->mpt->options().c_str());
+	int res = mount(
+	    src, dst, mpt->mpt->fstype().c_str(), mpt->flags & ~MS_RDONLY, mpt->fs_options.c_str());
 
 	if (res == -1 && errno == EPERM && (mpt->flags & MS_RDONLY)) {
 		LOG_W("mount('%s' -> '%s'): RW failed, falling back to RO", src, dst);
 		res = mount(
-		    src, dst, mpt->mpt->fstype().c_str(), mpt->flags, mpt->mpt->options().c_str());
+		    src, dst, mpt->mpt->fstype().c_str(), mpt->flags, mpt->fs_options.c_str());
 	}
 	return res;
 }

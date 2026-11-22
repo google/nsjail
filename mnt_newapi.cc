@@ -80,6 +80,7 @@ std::unique_ptr<std::string> buildMountTree(nsj_t*, std::vector<mnt::mount_t>*) 
 
 #include "macros.h"
 #include "mnt.h"
+#include "mnt_options.h"
 
 namespace mnt {
 namespace newapi {
@@ -111,31 +112,6 @@ static bool applyMountFlags(
 		return false;
 	}
 	return true;
-}
-
-static bool isGenericMountOption(const std::string& opt) {
-	return opt == "ro" || opt == "rw" || opt == "nosuid" || opt == "suid" || opt == "nodev" ||
-	       opt == "dev" || opt == "noexec" || opt == "exec";
-}
-
-static void applyGenericMountOption(const std::string& opt, uintptr_t* flags) {
-	if (opt == "ro") {
-		*flags |= MS_RDONLY;
-	} else if (opt == "rw") {
-		*flags &= ~MS_RDONLY;
-	} else if (opt == "nosuid") {
-		*flags |= MS_NOSUID;
-	} else if (opt == "suid") {
-		*flags &= ~MS_NOSUID;
-	} else if (opt == "nodev") {
-		*flags |= MS_NODEV;
-	} else if (opt == "dev") {
-		*flags &= ~MS_NODEV;
-	} else if (opt == "noexec") {
-		*flags |= MS_NOEXEC;
-	} else if (opt == "exec") {
-		*flags &= ~MS_NOEXEC;
-	}
 }
 
 static unsigned long computeLegacyRemountFlags(const mount_t& mpt, const struct statvfs& vfs) {
@@ -370,9 +346,9 @@ static int createFilesystemMount(const mount_t& mpt) {
 		}
 	}
 
-	if (mpt.mpt->has_options()) {
-		for (const auto& opt : util::strSplit(mpt.mpt->options(), ',')) {
-			if (opt.empty() || isGenericMountOption(opt)) {
+	if (!mpt.fs_options.empty()) {
+		for (const auto& opt : util::strSplit(mpt.fs_options, ',')) {
+			if (opt.empty()) {
 				continue;
 			}
 			auto eq = opt.find('=');
@@ -541,7 +517,7 @@ static bool doBindMountAt(mount_t* mpt, int parent_fd, const char* basename) {
 	const uintptr_t early_flags = recursive_ro ? mpt->flags : (mpt->flags & ~MS_RDONLY);
 	if (!applyMountFlags(mnt_fd, early_flags, true, (mpt->flags & MS_REC) != 0)) {
 		LOG_W("Failed to apply mount flags to '%s'", basename);
-		if (recursive_ro) {
+		if (recursive_ro || (early_flags & (MS_NOSUID | MS_NODEV | MS_NOEXEC))) {
 			close(mnt_fd);
 			return false;
 		}
@@ -659,6 +635,7 @@ static mount_t prepareMountPoint(const nsjail::MountPt& proto) {
 	    .mpt = &proto,
 	    .src = "",
 	    .dst = "",
+	    .fs_options = "",
 	    .flags = 0,
 	    .is_dir = true,
 	    .mounted = false,
@@ -707,9 +684,7 @@ static mount_t prepareMountPoint(const nsjail::MountPt& proto) {
 		mpt.flags |= MS_NOEXEC;
 	}
 	if (proto.has_options()) {
-		for (const auto& opt : util::strSplit(proto.options(), ',')) {
-			applyGenericMountOption(opt, &mpt.flags);
-		}
+		mpt.fs_options = mnt::extractGenericMountOptions(proto.options(), &mpt.flags);
 	}
 
 	/*
