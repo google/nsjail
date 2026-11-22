@@ -137,7 +137,7 @@ static bool parseInternal(nsj_t* nsj, const nsjail::NsJailConfig& njc) {
 		for (ssize_t i = 0; i < njc.exec_bin().arg().size(); i++) {
 			nsj->argv.push_back(njc.exec_bin().arg(i));
 		}
-		if (njc.exec_bin().has_arg0()) {
+		if (njc.exec_bin().has_arg0() && !nsj->argv.empty()) {
 			nsj->argv[0] = njc.exec_bin().arg0();
 		}
 		nsj->exec_fd = njc.exec_bin().exec_fd();
@@ -204,6 +204,10 @@ bool parseFile(nsj_t* nsj, const char* file) {
 	}
 
 	if (json_status.ok() && !text_parsed) {
+		if (!json_nsc.IsInitialized()) {
+			LOG_E("Config file %s is missing required fields", QC(file));
+			return false;
+		}
 		if (!parseInternal(nsj, json_nsc)) {
 			LOG_W("Couldn't parse the ProtoJSON from %s", QC(file));
 			return false;
@@ -214,6 +218,10 @@ bool parseFile(nsj_t* nsj, const char* file) {
 	}
 
 	if (text_parsed && !json_status.ok()) {
+		if (!text_nsc.IsInitialized()) {
+			LOG_E("Config file %s is missing required fields", QC(file));
+			return false;
+		}
 		if (!parseInternal(nsj, text_nsc)) {
 			LOG_W("Couldn't parse the TextProto from %s", QC(file));
 			return false;
