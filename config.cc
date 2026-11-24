@@ -208,8 +208,7 @@ bool parseFile(nsj_t* nsj, const char* file) {
 			LOG_W("Couldn't parse the ProtoJSON from %s", QC(file));
 			return false;
 		}
-		LOG_D(
-		    "Parsed JSON config from %s:\n'%s'", QC(file), json_nsc.DebugString().c_str());
+		LOG_D("Parsed JSON config from %s", QC(file));
 		return true;
 	}
 
@@ -218,8 +217,7 @@ bool parseFile(nsj_t* nsj, const char* file) {
 			LOG_W("Couldn't parse the TextProto from %s", QC(file));
 			return false;
 		}
-		LOG_D("Parsed TextProto config from %s:\n'%s'", QC(file),
-		    text_nsc.DebugString().c_str());
+		LOG_D("Parsed TextProto config from %s", QC(file));
 		return true;
 	}
 	return false;
