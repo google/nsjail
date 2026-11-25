@@ -89,13 +89,9 @@ endif
 %.o: %.cc | $(SRCS_PB_H)
 	$(CXX) $(CXXFLAGS) $< -o $@
 
-# Protobuf Generation
-# We only define the recipe for the .cc file to prevent race conditions.
-$(SRCS_PB_CXX): $(SRCS_PROTO)
-	protoc --cpp_out=. $(SRCS_PROTO)
-
-# The .h file is a side-effect of the .cc rule
-$(SRCS_PB_H): $(SRCS_PB_CXX)
+# One protoc invocation generates both outputs for each schema.
+%.pb.cc %.pb.h: %.proto
+	protoc --cpp_out=. $<
 
 # Kafel Submodule Handling
 kafel_init:
@@ -290,7 +286,7 @@ endif
 tests/nstun_buffer_budget_test: tests/nstun_buffer_budget_test.cc nstun/buffer_budget.h
 	$(CXX) $(filter-out -c,$(CXXFLAGS)) $< -o $@
 
-tests/nstun_policy_test: tests/nstun_policy_test.cc nstun/policy.cc logs.cc util.cc $(SRCS_PB_CXX)
+tests/nstun_policy_test: tests/nstun_policy_test.cc nstun/policy.cc logs.cc util.cc $(SRCS_PB_CXX) $(SRCS_PB_H)
 	$(CXX) $(filter-out -c,$(CXXFLAGS)) tests/nstun_policy_test.cc nstun/policy.cc logs.cc util.cc $(SRCS_PB_CXX) -o $@ $(LDFLAGS)
 
 tests/nstun_ip_test: tests/nstun_ip_test.cc nstun/ip.cc nstun/net_defs.h logs.h
