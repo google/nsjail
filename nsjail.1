@@ -118,6 +118,9 @@ Don't close this FD before executing the child process (can be specified multipl
 \fB\-\-disable_no_new_privs\fR
 Don't set the prctl(NO_NEW_PRIVS, 1) (DANGEROUS)
 .TP
+\fB\-\-landlock\fR MODE
+Restrict filesystem access with a Landlock ruleset derived from the mount list (read\-only mounts get read rights, \-B mounts get read/write rights, noexec mounts lose execute). MODE is 'off' (default), 'best_effort' (warn and continue if the kernel lacks Landlock) or 'required' (fail if it cannot be enforced)
+.TP
 \fB\-\-rlimit_as\fR VALUE
 RLIMIT_AS in MB, 'max' or 'hard' for the current hard limit, 'def' or 'soft' for the current soft limit, 'inf' for RLIM_INFINITY (default: 4096)
 .TP
