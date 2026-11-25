@@ -99,6 +99,7 @@ docker run --privileged --rm -it nsjail nsjail --user 99999 --group 99999 --chro
 --cap CAP_NAME            Retain capability (can specify multiple)
 --keep_caps               Retain all capabilities
 --use_core_scheduling     Enable core scheduling (SMT-level isolation, requires kernel >= 5.14)
+--landlock MODE           Restrict filesystem access with Landlock rules derived from the mount list (off, best_effort, required)
 
 # Networking
 --iface_own IFACE         Move interface into jail

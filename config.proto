@@ -25,6 +25,14 @@ message IdMap {
 	/* Does this map use /usr/bin/new[u|g]idmap binary? */
 	optional bool use_newidmap = 4 [default = false];
 }
+enum LandlockMode {
+	/* Do not use Landlock (default) */
+	LANDLOCK_OFF = 0;
+	/* Use Landlock if the kernel supports it, warn and continue otherwise */
+	LANDLOCK_BEST_EFFORT = 1;
+	/* Fail to start the jail if Landlock cannot be enforced */
+	LANDLOCK_REQUIRED = 2;
+}
 message MountPt {
 	/* Can be skipped for filesystems like 'proc' */
 	optional string src = 1 [default = ""];
@@ -226,6 +234,8 @@ message NsJailConfig {
 	optional string seccomp_unotify_report = 100;
 	/* Use Linux core scheduling (PR_SCHED_CORE, requires kernel >= 5.14) */
 	optional bool use_core_scheduling = 101 [default = false];
+	/* Restrict filesystem access with a Landlock ruleset derived from the mount list */
+	optional LandlockMode landlock = 102 [default = LANDLOCK_OFF];
 
 	/* If > 0, maximum cumulative size of RAM used inside any jail */
 	optional uint64 cgroup_mem_max = 71 [default = 0]; /* In bytes */

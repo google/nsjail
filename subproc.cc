@@ -47,6 +47,7 @@
 #include "cgroup.h"
 #include "cgroup2.h"
 #include "contain.h"
+#include "landlock.h"
 #include "logs.h"
 #include "macros.h"
 #include "net.h"
@@ -231,6 +232,11 @@ static void newProc(
 	argv.push_back(nullptr);
 
 	LOG_D("Exec: %s, Args: [%s]", QC(nsj->njc.exec_bin().path()), concatArgs(argv).c_str());
+
+	/* Landlock paths are resolved inside the jail, so this must follow containProc() */
+	if (!landlock::apply(nsj)) {
+		return;
+	}
 
 	/* Should be the last one in the sequence */
 	if (!sandbox::applyPolicy(nsj, pipefd)) {

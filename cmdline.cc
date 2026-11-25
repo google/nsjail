@@ -177,6 +177,7 @@ static const struct custom_option custom_opts[] = {
     { { "disable_tsc", no_argument, nullptr, 0x707 }, "Disable rdtsc and rdtscp instructions. WARNING: To make it effective, you also need to forbid `prctl(PR_SET_TSC, PR_TSC_ENABLE, ...)` in seccomp rules! (x86 and x86_64 only). Dynamic binaries produced by GCC seem to rely on RDTSC, but static ones should work." },
     { { "forward_signals", no_argument, nullptr, 0x708 }, "Forward fatal signals to the child process instead of always using SIGKILL." },
     { { "use_core_scheduling", no_argument, nullptr, 0x709 }, "Enable Linux core scheduling (PR_SCHED_CORE, requires kernel >= 5.14)" },
+    { { "landlock", required_argument, nullptr, 0x70b }, "Restrict filesystem access with a Landlock ruleset derived from the mount list: 'off' (default), 'best_effort' (warn and continue if unsupported) or 'required' (fail if it cannot be enforced)" },
     { { "user_net", no_argument, nullptr, 0x70A }, "Enable user-mode networking (nstun backend)" },
     { { "oom_score_adj", required_argument, nullptr, 0x800 }, "OOM score adjustment for the sandbox (-1000 to 1000) (default: not set)" },
 };
@@ -524,6 +525,22 @@ std::string parseMACVlanMode(const char* optarg) {
 		    optarg);
 	}
 	return std::string(optarg);
+}
+
+nsjail::LandlockMode parseLandlockMode(const char* optarg) {
+	if (strcasecmp(optarg, "off") == 0) {
+		return nsjail::LANDLOCK_OFF;
+	}
+	if (strcasecmp(optarg, "best_effort") == 0) {
+		return nsjail::LANDLOCK_BEST_EFFORT;
+	}
+	if (strcasecmp(optarg, "required") == 0) {
+		return nsjail::LANDLOCK_REQUIRED;
+	}
+	LOG_F("landlock mode can only be one of the values: 'off'/'best_effort'/'required' "
+	      "('%s' provided).",
+	    optarg);
+	return nsjail::LANDLOCK_OFF;
 }
 
 std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
@@ -1006,6 +1023,9 @@ std::unique_ptr<nsj_t> parseArgs(int argc, char* argv[]) {
 			break;
 		case 0x709:
 			nsj->njc.set_use_core_scheduling(true);
+			break;
+		case 0x70b:
+			nsj->njc.set_landlock(parseLandlockMode(optarg));
 			break;
 		case 0x801: {
 			uint64_t value = 0;
