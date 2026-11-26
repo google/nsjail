@@ -10,7 +10,7 @@ Linux process isolation tool using namespaces, resource limits, and seccomp-bpf 
 - **Resource limits**: CPU time, memory, file descriptors, process count
 - **Syscall filtering**: [Kafel](https://github.com/google/kafel/) seccomp-bpf policies
 - **Network isolation**: Cloned/isolated Ethernet interfaces, MACVLAN support, userland networking (pasta)
-- **Cgroup integration**: Memory, PID, CPU, net_cls control (v1 and v2)
+- **Cgroup integration**: Memory, PID, CPU control (v1 and v2), net_cls (v1 only)
 - **Configuration**: Protobuf-based config files or command-line arguments
 
 ## Installation
