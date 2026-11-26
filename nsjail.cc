@@ -376,6 +376,10 @@ int main(int argc, char* argv[]) {
 	}
 
 	if (nsj->njc.use_cgroupv2()) {
+		if (nsj->njc.cgroup_net_cls_classid() != 0U) {
+			LOG_E("cgroup_net_cls_classid is not supported with cgroup v2");
+			return -1;
+		}
 		if (!cgroup2::setup(nsj.get())) {
 			LOG_E("Couldn't setup parent cgroup (cgroupv2)");
 			return -1;
