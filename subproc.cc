@@ -458,8 +458,21 @@ int reapProc(nsj_t* nsj) {
 }
 
 void killAndReapAll(nsj_t* nsj, int signal) {
+	/*
+	 * A forwarded (catchable) signal can be handled or ignored by the jailed process. Give it
+	 * a bounded grace period, then fall back to SIGKILL, so the supervisor always terminates.
+	 * The blocking wait4() in reapProc() is interrupted (EINTR) by the 1s interval timer.
+	 */
+	static const time_t kKillGraceSec = 5;
+	const time_t deadline = time(NULL) + kKillGraceSec;
+
 	while (!nsj->pids.empty()) {
 		pid_t pid = nsj->pids.begin()->first;
+		if (signal != SIGKILL && time(NULL) >= deadline) {
+			LOG_W("pid=%d still alive %lds after %s, sending SIGKILL", pid,
+			    (long)kKillGraceSec, util::sigName(signal).c_str());
+			signal = SIGKILL;
+		}
 		if (nsj->pids.begin()->second.pasta_pid > 0) {
 			kill(nsj->pids.begin()->second.pasta_pid, SIGKILL);
 		}
