@@ -68,7 +68,11 @@ uint64_t adjustRLimit(int res, const nsjail::RLimit& rl, const uint64_t val, uns
 }
 
 static bool parseInternal(nsj_t* nsj, const nsjail::NsJailConfig& njc) {
-	nsj->njc.CopyFrom(njc);
+	/*
+	 * Merge instead of replacing: options already set on the command line (or by an
+	 * earlier config file) stay in force unless this file sets the same field explicitly.
+	 */
+	nsj->njc.MergeFrom(njc);
 	/*
 	 * We need to copy the values from the protobuf message to the internal
 	 * struct, because we need to perform some transformations on them.
