@@ -606,7 +606,7 @@ static void handle_host_udp(Context* ctx, UdpFlow* flow) {
 	}
 
 	for (int i = 0; i < retval; ++i) {
-		uint8_t* data_ptr = bufs[i];
+		const uint8_t* data_ptr = bufs[i];
 		size_t data_len = msgs[i].msg_len;
 		struct sockaddr_storage* src_addr_storage = &src_addrs[i];
 
@@ -616,29 +616,15 @@ static void handle_host_udp(Context* ctx, UdpFlow* flow) {
 		}
 
 		if (flow->use_socks5) {
-			if (data_len < sizeof(socks5_udp_hdr))
-				continue; /* Too short for any SOCKS5 UDP */
-			socks5_udp_hdr* hdr = reinterpret_cast<socks5_udp_hdr*>(data_ptr);
-			if (hdr->rsv != 0 || hdr->frag != 0) continue;
-
-			size_t header_len = 0;
-			if (hdr->atyp == SOCKS5_ATYP_IPV4) {
-				header_len = sizeof(socks5_udp_hdr); /* rsv+frag+atyp+ip4+port */
-			} else if (hdr->atyp == SOCKS5_ATYP_IPV6) {
-				header_len = sizeof(socks5_udp_hdr6); /* rsv+frag+atyp+ip6+port */
-			} else if (hdr->atyp == SOCKS5_ATYP_DOMAIN) {
-				if (data_len < 5) continue;
-				socks5_udp_hdr_domain* dhdr =
-				    reinterpret_cast<socks5_udp_hdr_domain*>(data_ptr);
-				header_len = 5 + dhdr->domain_len + 2;
-			} else {
+			std::span<const uint8_t> unwrapped;
+			if (!socks5_udp_unwrap_for_flow(
+				*flow, std::span<const uint8_t>(data_ptr, data_len), &unwrapped)) {
+				LOG_W("Dropping SOCKS5 UDP datagram with invalid or unexpected "
+				      "peer header");
 				continue;
 			}
-
-			if (data_len < header_len) continue;
-
-			data_ptr += header_len;
-			data_len -= header_len;
+			data_ptr = unwrapped.data();
+			data_len = unwrapped.size();
 		}
 
 		udp_push_to_guest(ctx, flow, data_ptr, data_len, src_addr_storage);
