@@ -258,7 +258,14 @@ bool initNsFromParent(nsj_t* nsj, pid_t pid) {
 }
 
 bool initNsFromChild(nsj_t* nsj) {
-	if (!nsj->njc.clone_newuser() && nsj->orig_euid != 0) {
+	/*
+	 * Without a user namespace a non-root launcher keeps its own credentials, but only if they
+	 * already match the requested ones. Otherwise try to change them below and fail if that is
+	 * not permitted, instead of silently running as the launcher.
+	 */
+	if (!nsj->njc.clone_newuser() && nsj->orig_euid != 0 &&
+	    nsj->uids[0].inside_id == getuid() && nsj->gids[0].inside_id == getgid() &&
+	    nsj->gids.size() == 1) {
 		return true;
 	}
 
