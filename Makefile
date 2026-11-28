@@ -362,3 +362,20 @@ nstun/tcp.o: nstun/nstun.h nstun/encap.h logs.h macros.h nstun/policy.h
 nstun/tcp.o: nstun/tun.h util.h nsjail.h config.pb.h
 config.pb.o: config.pb.h
 unotify/unotify.pb.o: unotify/unotify.pb.h
+
+FUZZ_CXX ?= clang++
+LIB_FUZZING_ENGINE ?= -fsanitize=fuzzer
+FUZZ_CXXFLAGS ?= -O1 -g -fsanitize=address,undefined -fno-sanitize=vptr -fno-omit-frame-pointer -std=c++20 -fno-exceptions -Wall -Wextra -Werror -Wno-unused -Wno-unused-parameter -I.
+FUZZ_BINS = fuzz/nstun_ip_fuzzer fuzz/nstun_encap_fuzzer fuzz/nstun_policy_fuzzer
+
+.PHONY: fuzz-build
+fuzz-build: $(FUZZ_BINS)
+
+fuzz/nstun_ip_fuzzer: fuzz/nstun_ip_fuzzer.cc nstun/ip.cc nstun/ip.h nstun/net_defs.h
+	$(FUZZ_CXX) $(FUZZ_CXXFLAGS) $(LIB_FUZZING_ENGINE) fuzz/nstun_ip_fuzzer.cc nstun/ip.cc -o $@
+
+fuzz/nstun_encap_fuzzer: fuzz/nstun_encap_fuzzer.cc nstun/encap.cc nstun/encap.h nstun/net_defs.h
+	$(FUZZ_CXX) $(FUZZ_CXXFLAGS) $(LIB_FUZZING_ENGINE) fuzz/nstun_encap_fuzzer.cc nstun/encap.cc -o $@
+
+fuzz/nstun_policy_fuzzer: fuzz/nstun_policy_fuzzer.cc nstun/policy.cc nstun/policy.h $(SRCS_PB_CXX)
+	$(FUZZ_CXX) $(FUZZ_CXXFLAGS) $(LIB_FUZZING_ENGINE) fuzz/nstun_policy_fuzzer.cc nstun/policy.cc util.cc $(SRCS_PB_CXX) -o $@ $(LDFLAGS)
