@@ -166,6 +166,20 @@ struct Context {
 	uint8_t guest_ip6[IPV6_ADDR_LEN];
 	uint8_t host_ip6[IPV6_ADDR_LEN];
 
+	/*
+	 * Explicitly track whether each family was configured (user_net.ip4 /
+	 * user_net.ip6 was non-empty). Context is value-initialized, so an
+	 * unconfigured family's guest_ip4/guest_ip6 default to the unspecified
+	 * address (0.0.0.0 / ::). Without these flags, a guest that sends
+	 * packets FROM the unspecified address for an unconfigured family would
+	 * match guest_ip4/guest_ip6 by coincidence and be treated as trusted.
+	 * The L4 dispatch in ip.cc must reject traffic for any family where the
+	 * corresponding flag is false, regardless of what the packet's source
+	 * address happens to be.
+	 */
+	bool ip4_configured = false;
+	bool ip6_configured = false;
+
 	std::vector<nstun_rule_t> rules;
 	std::map<FlowKey4, std::unique_ptr<UdpFlow>> ipv4_udp_flows_by_key;
 	std::map<FlowKey4, std::unique_ptr<TcpFlow>> ipv4_tcp_flows_by_key;

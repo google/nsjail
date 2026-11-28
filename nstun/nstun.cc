@@ -243,6 +243,7 @@ bool nstun_init_parent(int sock, nsj_t* nsj, struct nstun_context_handle** out_h
 			close(tap_fd);
 			return false;
 		}
+		ctx->ip4_configured = true;
 	}
 	if (!nsj->njc.user_net().gw4().empty()) {
 		if (!assign_ip(nsj->njc.user_net().gw4(), &ctx->host_ip4)) {
@@ -258,6 +259,7 @@ bool nstun_init_parent(int sock, nsj_t* nsj, struct nstun_context_handle** out_h
 			close(tap_fd);
 			return false;
 		}
+		ctx->ip6_configured = true;
 	}
 	if (!nsj->njc.user_net().gw6().empty()) {
 		if (inet_pton(AF_INET6, nsj->njc.user_net().gw6().c_str(), ctx->host_ip6) != 1) {

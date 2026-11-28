@@ -97,6 +97,30 @@ void handle_ip4(Context* ctx, std::span<const uint8_t> payload) {
 		return;
 	}
 
+	/*
+	 * Fail closed on unconfigured families: Context is value-initialized, so
+	 * if IPv4 was left unconfigured (user_net.ip4 empty), guest_ip4 defaults
+	 * to the unspecified address (0.0.0.0). Without an explicit configured
+	 * flag, a guest sending packets FROM 0.0.0.0 would spuriously match
+	 * guest_ip4 and be forwarded through the parent namespace despite the
+	 * operator never having enabled IPv4. Reject unconditionally.
+	 */
+	if (!ctx->ip4_configured) {
+		LOG_W("Dropping IPv4 packet: IPv4 is not configured for this guest");
+		return;
+	}
+
+	/*
+	 * Independently reject the unspecified source address as invalid rather
+	 * than ever treating it as a trusted fallback identity, even if
+	 * guest_ip4 were somehow still 0.0.0.0 despite ip4_configured being true
+	 * (e.g. a future caller constructing Context by hand).
+	 */
+	if (ip->saddr == htonl(INADDR_ANY)) {
+		LOG_W("Dropping IPv4 packet with unspecified (0.0.0.0) source address");
+		return;
+	}
+
 	if (ip->saddr != ctx->guest_ip4) {
 		LOG_W("Dropping packet with invalid source IP");
 		return;
@@ -161,6 +185,30 @@ void handle_ip6(Context* ctx, std::span<const uint8_t> payload) {
 
 	if (payload_len + sizeof(ip6_hdr) > payload.size()) {
 		LOG_D("Invalid IPv6 payload_len");
+		return;
+	}
+
+	/*
+	 * Fail closed on unconfigured families: Context is value-initialized, so
+	 * if IPv6 was left unconfigured (user_net.ip6 empty), guest_ip6 defaults
+	 * to the unspecified address (::). Without an explicit configured flag,
+	 * a guest sending packets FROM :: would make the memcmp() below compare
+	 * equal and skip the ENTIRE source-filtering block (including the
+	 * link-local/site-local rejection), letting the packet through despite
+	 * the operator never having enabled IPv6. Reject unconditionally.
+	 */
+	if (!ctx->ip6_configured) {
+		LOG_W("Dropping IPv6 packet: IPv6 is not configured for this guest");
+		return;
+	}
+
+	/*
+	 * Independently reject the unspecified source address as invalid rather
+	 * than ever treating it as a trusted fallback identity, even if
+	 * guest_ip6 were somehow still :: despite ip6_configured being true.
+	 */
+	if (IN6_IS_ADDR_UNSPECIFIED((const struct in6_addr*)ip6->saddr)) {
+		LOG_W("Dropping IPv6 packet with unspecified (::) source address");
 		return;
 	}
 
