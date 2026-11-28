@@ -74,33 +74,51 @@ int send_socks5_udp_associate(int fd) {
 }
 
 bool parse_socks5_connect_reply(std::span<const uint8_t> data, Socks5Reply* out) {
-	if (data.size() < 4) return false;
+	if (out == nullptr || data.size() < 4) return false;
 
 	/* data[0]=ver, data[1]=rep, data[2]=rsv, data[3]=atyp */
 	if (data[0] != SOCKS5_VERSION) return false;
 	if (data[1] != SOCKS5_REP_SUCCESS) return false;
+	if (data[2] != 0x00) return false;
 
-	out->atyp = data[3];
+	Socks5Reply parsed = {};
+	parsed.atyp = data[3];
 
-	if (out->atyp == SOCKS5_ATYP_IPV4) {
+	if (parsed.atyp == SOCKS5_ATYP_IPV4) {
 		/* Full reply: 4-byte header + 4-byte IPv4 + 2-byte port */
 		if (data.size() < sizeof(socks5_req)) return false;
 		const auto* reply = reinterpret_cast<const socks5_req*>(data.data());
-		memcpy(&out->bind_ip4, &reply->dst_ip4, sizeof(reply->dst_ip4));
-		memcpy(&out->bind_port, &reply->dst_port, sizeof(reply->dst_port));
-	} else if (out->atyp == SOCKS5_ATYP_IPV6) {
+		memcpy(&parsed.bind_ip4, &reply->dst_ip4, sizeof(reply->dst_ip4));
+		memcpy(&parsed.bind_port, &reply->dst_port, sizeof(reply->dst_port));
+	} else if (parsed.atyp == SOCKS5_ATYP_IPV6) {
 		/* Full reply: 4-byte header + 16-byte IPv6 + 2-byte port */
 		if (data.size() < sizeof(socks5_req6)) return false;
 		const auto* reply = reinterpret_cast<const socks5_req6*>(data.data());
-		memcpy(&out->bind_port, &reply->dst_port, sizeof(reply->dst_port));
+		memcpy(&parsed.bind_port, &reply->dst_port, sizeof(reply->dst_port));
+	} else if (parsed.atyp == SOCKS5_ATYP_DOMAIN) {
+		/* Full reply: 4-byte header + 1-byte domain_len + domain + 2-byte port */
+		if (data.size() < sizeof(socks5_req_domain)) return false;
+		uint8_t domain_len = data[4];
+		size_t needed =
+		    sizeof(socks5_req_domain) + static_cast<size_t>(domain_len) + sizeof(uint16_t);
+		if (data.size() < needed) return false;
+		memcpy(&parsed.bind_port, data.data() + sizeof(socks5_req_domain) + domain_len,
+		    sizeof(parsed.bind_port));
+	} else {
+		return false;
 	}
 
+	*out = parsed;
 	return true;
 }
 
 int send_http_connect(int fd, const uint8_t* addr, uint16_t port_nbo, bool is_ipv6) {
-	std::string addr_str =
-	    is_ipv6 ? ip6_to_string(addr) : ip4_to_string(*(const uint32_t*)addr);
+	if (addr == nullptr) return -1;
+	uint32_t ip4 = 0;
+	if (!is_ipv6) {
+		memcpy(&ip4, addr, sizeof(ip4));
+	}
+	std::string addr_str = is_ipv6 ? ip6_to_string(addr) : ip4_to_string(ip4);
 	uint16_t port = ntohs(port_nbo);
 
 	/* Max: "CONNECT [" + 39-char IPv6 + "]:65535 HTTP/1.1\r\nHost: [" + 39 + "]:65535\r\n\r\n"
@@ -132,19 +150,31 @@ size_t find_end_of_headers(const std::vector<uint8_t>& buf) {
 
 bool parse_http_connect_reply(const std::vector<uint8_t>& buf) {
 	/* Minimum valid response: "HTTP/1.x 2xx" = 12 chars.
-	 * We only check the version prefix and status class (2xx). */
+	 * Validate HTTP/1.0 or HTTP/1.1 version, single space, 3-digit 2xx status
+	 * code, and a valid delimiter if trailing bytes follow. */
 	static constexpr std::string_view HTTP_VERSION_PREFIX = "HTTP/1.";
-	/* Offset of the first status digit in "HTTP/1.x NNN": H(0)T(1)T(2)P(3)/(4)1(5).(6)x(7)
-	 * (8)N(9) */
+	/* Offsets in "HTTP/1.x NNN": H(0)T(1)T(2)P(3)/(4)1(5).(6)x(7) (8)N(9)N(10)N(11) */
+	static constexpr size_t HTTP_MINOR_OFFSET = 7;
+	static constexpr size_t HTTP_SPACE_OFFSET = 8;
 	static constexpr size_t HTTP_STATUS_DIGIT_OFFSET = 9;
 	static constexpr size_t HTTP_RESPONSE_MIN_LEN =
-	    HTTP_STATUS_DIGIT_OFFSET + 3; /* digit + two more chars of status */
+	    HTTP_STATUS_DIGIT_OFFSET + 3; /* three status-code digits */
 
 	if (buf.size() < HTTP_RESPONSE_MIN_LEN) return false;
 	if (memcmp(buf.data(), HTTP_VERSION_PREFIX.data(), HTTP_VERSION_PREFIX.size()) != 0)
 		return false;
-	/* Accept any 2xx status code */
+	if (buf[HTTP_MINOR_OFFSET] != '0' && buf[HTTP_MINOR_OFFSET] != '1') return false;
+	if (buf[HTTP_SPACE_OFFSET] != ' ') return false;
+	/* Accept any 3-digit 2xx status code */
 	if (buf[HTTP_STATUS_DIGIT_OFFSET] != '2') return false;
+	if (buf[HTTP_STATUS_DIGIT_OFFSET + 1] < '0' || buf[HTTP_STATUS_DIGIT_OFFSET + 1] > '9')
+		return false;
+	if (buf[HTTP_STATUS_DIGIT_OFFSET + 2] < '0' || buf[HTTP_STATUS_DIGIT_OFFSET + 2] > '9')
+		return false;
+	if (buf.size() > HTTP_RESPONSE_MIN_LEN) {
+		uint8_t delim = buf[HTTP_RESPONSE_MIN_LEN];
+		if (delim != ' ' && delim != '\r' && delim != '\n') return false;
+	}
 	return true;
 }
 

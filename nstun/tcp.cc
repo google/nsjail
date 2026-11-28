@@ -444,9 +444,11 @@ static void handle_socks5_connecting_host(Context* ctx, TcpFlow* flow, int fd) {
 	}
 
 	/* Validate SOCKS5 response */
-	const auto* reply = reinterpret_cast<const socks5_req*>(flow->proxy_rx_buffer.data());
-	if (reply->ver != SOCKS5_VERSION || reply->cmd != SOCKS5_REP_SUCCESS) {
-		LOG_W("SOCKS5 connection failed: ver=%u rep=%u", reply->ver, reply->cmd);
+	nstun::Socks5Reply reply = {};
+	if (!nstun::parse_socks5_connect_reply(flow->proxy_rx_buffer, &reply)) {
+		uint8_t ver = flow->proxy_rx_buffer.size() > 0 ? flow->proxy_rx_buffer[0] : 0;
+		uint8_t rep = flow->proxy_rx_buffer.size() > 1 ? flow->proxy_rx_buffer[1] : 0;
+		LOG_W("SOCKS5 connection failed: ver=%u rep=%u", ver, rep);
 		tcp_rst_and_destroy(ctx, flow);
 		return;
 	}
